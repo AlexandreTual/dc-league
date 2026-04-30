@@ -114,6 +114,8 @@ export function createLeague(name: string): Result<DbLeague> {
 export function closeLeague(id: string): Result<DbLeague> {
   try {
     const db = getDb()
+    const existing = db.prepare('SELECT id FROM leagues WHERE id = ? AND is_active = 1').get(id)
+    if (!existing) return err('Ligue introuvable ou déjà archivée.')
     db.prepare(
       `UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = ?`
     ).run(id)

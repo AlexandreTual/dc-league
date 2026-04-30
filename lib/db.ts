@@ -433,10 +433,10 @@ export function updatePlayoffScore(
         const s1 = normalizePlayoff(semi1)
         const s2 = normalizePlayoff(semi2)
         if (s1.is_completed && s2.is_completed) {
-          const p1WonSemi1 = (s1.score_p1 ?? 0) >= (s1.score_p2 ?? 0)
+          const p1WonSemi1 = (s1.score_p1 ?? 0) > (s1.score_p2 ?? 0)
           const winner1 = p1WonSemi1 ? s1.player1_id : s1.player2_id
           const loser1  = p1WonSemi1 ? s1.player2_id : s1.player1_id
-          const p1WonSemi2 = (s2.score_p1 ?? 0) >= (s2.score_p2 ?? 0)
+          const p1WonSemi2 = (s2.score_p1 ?? 0) > (s2.score_p2 ?? 0)
           const winner2 = p1WonSemi2 ? s2.player1_id : s2.player2_id
           const loser2  = p1WonSemi2 ? s2.player2_id : s2.player1_id
 

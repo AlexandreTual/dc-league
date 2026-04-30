@@ -41,6 +41,7 @@ export async function DELETE() {
 
   const { error } = deleteAllMatches(league.id)
   if (error) return NextResponse.json({ error }, { status: 500 })
-  deleteAllPlayoffs(league.id)
+  const { error: pErr } = deleteAllPlayoffs(league.id)
+  if (pErr) return NextResponse.json({ error: pErr }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
