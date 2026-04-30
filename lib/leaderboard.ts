@@ -1,9 +1,10 @@
 export type Player = {
   id: string
   name: string
-  moxfield_url: string | null
   avatar_url: string | null
   created_at: string
+  moxfield_url?: string | null
+  commander_image_url?: string | null
 }
 
 export type Match = {
