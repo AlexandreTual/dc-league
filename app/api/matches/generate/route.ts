@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server'
 import { isAdminAuthenticated } from '@/lib/auth'
 import { generateRoundRobinMatches } from '@/lib/leaderboard'
-import {
-  countMatches,
-  listPlayers,
-  insertMatches,
-  deleteAllMatches,
-  deleteAllPlayoffs,
-} from '@/lib/db'
+import { countMatches, listPlayers, insertMatches, deleteAllMatches, deleteAllPlayoffs } from '@/lib/db'
+import { getActiveLeague } from '@/lib/db-leagues'
 
 export async function POST() {
   if (!isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
+  const { data: league } = getActiveLeague()
+  if (!league) return NextResponse.json({ error: 'Aucune ligue active.' }, { status: 400 })
 
-  const { data: existing, error: countErr } = countMatches()
+  const { data: existing, error: countErr } = countMatches(league.id)
   if (countErr) return NextResponse.json({ error: countErr }, { status: 500 })
   if (existing && existing > 0) {
     return NextResponse.json({ error: 'Les matchs ont déjà été générés.' }, { status: 400 })
@@ -29,10 +26,9 @@ export async function POST() {
     )
   }
 
-  const matchDefs = generateRoundRobinMatches((players ?? []).map((p) => p.id))
-  const { data, error } = insertMatches(matchDefs)
+  const matchDefs = generateRoundRobinMatches(players.map((p) => p.id))
+  const { data, error } = insertMatches(matchDefs, league.id)
   if (error) return NextResponse.json({ error }, { status: 500 })
-
   return NextResponse.json({ ok: true, count: data?.length ?? 0 }, { status: 201 })
 }
 
@@ -40,12 +36,11 @@ export async function DELETE() {
   if (!isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
+  const { data: league } = getActiveLeague()
+  if (!league) return NextResponse.json({ error: 'Aucune ligue active.' }, { status: 400 })
 
-  const { error } = deleteAllMatches()
+  const { error } = deleteAllMatches(league.id)
   if (error) return NextResponse.json({ error }, { status: 500 })
-
-  // Reset playoffs en même temps
-  deleteAllPlayoffs()
-
+  deleteAllPlayoffs(league.id)
   return NextResponse.json({ ok: true })
 }
