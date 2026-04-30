@@ -194,15 +194,12 @@ export function countPlayers(): Result<number> {
   }
 }
 
-export function insertPlayer(data: {
-  name: string
-  moxfield_url?: string | null
-}): Result<DbPlayer> {
+export function insertPlayer(data: { name: string }): Result<DbPlayer> {
   try {
     const id = uuid()
     getDb()
-      .prepare('INSERT INTO players (id, name, moxfield_url) VALUES (?, ?, ?)')
-      .run(id, data.name, data.moxfield_url ?? null)
+      .prepare('INSERT INTO players (id, name) VALUES (?, ?)')
+      .run(id, data.name)
     const row = getDb()
       .prepare('SELECT * FROM players WHERE id = ?')
       .get(id) as Record<string, unknown>
