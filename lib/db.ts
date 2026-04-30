@@ -46,7 +46,7 @@ type Result<T> = Ok<T> | Err
 // Persist across Next.js HMR reloads in dev
 const g = global as unknown as { __sqlite?: Database.Database }
 
-function getDb(): Database.Database {
+export function getDb(): Database.Database {
   if (g.__sqlite) return g.__sqlite
 
   const dbDir = path.join(process.cwd(), 'data')
@@ -62,6 +62,22 @@ function getDb(): Database.Database {
       moxfield_url TEXT,
       avatar_url   TEXT,
       created_at   TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS leagues (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      started_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      ended_at    TEXT,
+      is_active   INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS league_players (
+      league_id           TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+      player_id           TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      moxfield_url        TEXT,
+      commander_image_url TEXT,
+      PRIMARY KEY (league_id, player_id)
     );
 
     CREATE TABLE IF NOT EXISTS matches (
@@ -86,6 +102,33 @@ function getDb(): Database.Database {
       created_at   TEXT DEFAULT (datetime('now'))
     );
   `)
+
+  // Add league_id to existing tables — idempotent
+  try { db.prepare('ALTER TABLE matches ADD COLUMN league_id TEXT REFERENCES leagues(id)').run() } catch {}
+  try { db.prepare('ALTER TABLE playoffs ADD COLUMN league_id TEXT REFERENCES leagues(id)').run() } catch {}
+
+  // Migrate orphaned rows to a default "Saison 1"
+  const orphaned = db
+    .prepare('SELECT COUNT(*) as n FROM matches WHERE league_id IS NULL')
+    .get() as { n: number }
+
+  if (orphaned.n > 0) {
+    const legacyId = uuid()
+    db.transaction(() => {
+      db.prepare(
+        `INSERT INTO leagues (id, name, started_at, is_active) VALUES (?, 'Saison 1', datetime('now'), 1)`
+      ).run(legacyId)
+      db.prepare('UPDATE matches SET league_id = ? WHERE league_id IS NULL').run(legacyId)
+      db.prepare('UPDATE playoffs SET league_id = ? WHERE league_id IS NULL').run(legacyId)
+      const oldPlayers = db
+        .prepare('SELECT id, moxfield_url FROM players WHERE moxfield_url IS NOT NULL')
+        .all() as Array<{ id: string; moxfield_url: string }>
+      const ins = db.prepare(
+        'INSERT OR IGNORE INTO league_players (league_id, player_id, moxfield_url) VALUES (?, ?, ?)'
+      )
+      for (const p of oldPlayers) ins.run(legacyId, p.id, p.moxfield_url)
+    })()
+  }
 
   g.__sqlite = db
   return db
@@ -180,45 +223,45 @@ export function deletePlayer(id: string): Result<true> {
 
 // ── Matches ───────────────────────────────────────────────────────────────────
 
-export function listMatches(orderByRound = true): Result<DbMatch[]> {
+export function listMatches(leagueId: string, orderByRound = true): Result<DbMatch[]> {
   try {
     const sql = orderByRound
-      ? 'SELECT * FROM matches ORDER BY round_number ASC, created_at ASC'
-      : 'SELECT * FROM matches ORDER BY created_at ASC'
-    const rows = getDb().prepare(sql).all() as Record<string, unknown>[]
+      ? 'SELECT * FROM matches WHERE league_id = ? ORDER BY round_number ASC, created_at ASC'
+      : 'SELECT * FROM matches WHERE league_id = ? ORDER BY created_at ASC'
+    const rows = getDb().prepare(sql).all(leagueId) as Record<string, unknown>[]
     return ok(rows.map(normalizeMatch))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function listCompletedMatches(): Result<DbMatch[]> {
+export function listCompletedMatches(leagueId: string): Result<DbMatch[]> {
   try {
     const rows = getDb()
-      .prepare('SELECT * FROM matches WHERE is_completed = 1')
-      .all() as Record<string, unknown>[]
+      .prepare('SELECT * FROM matches WHERE league_id = ? AND is_completed = 1')
+      .all(leagueId) as Record<string, unknown>[]
     return ok(rows.map(normalizeMatch))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function countMatches(): Result<number> {
+export function countMatches(leagueId: string): Result<number> {
   try {
     const row = getDb()
-      .prepare('SELECT COUNT(*) as n FROM matches')
-      .get() as { n: number }
+      .prepare('SELECT COUNT(*) as n FROM matches WHERE league_id = ?')
+      .get(leagueId) as { n: number }
     return ok(row.n)
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function countCompletedMatches(): Result<number> {
+export function countCompletedMatches(leagueId: string): Result<number> {
   try {
     const row = getDb()
-      .prepare('SELECT COUNT(*) as n FROM matches WHERE is_completed = 1')
-      .get() as { n: number }
+      .prepare('SELECT COUNT(*) as n FROM matches WHERE league_id = ? AND is_completed = 1')
+      .get(leagueId) as { n: number }
     return ok(row.n)
   } catch (e) {
     return err((e as Error).message)
@@ -226,28 +269,22 @@ export function countCompletedMatches(): Result<number> {
 }
 
 export function insertMatches(
-  matches: Array<{
-    player1_id: string
-    player2_id: string
-    round_number: number
-  }>
+  matches: Array<{ player1_id: string; player2_id: string; round_number: number }>,
+  leagueId: string
 ): Result<DbMatch[]> {
   try {
     const db = getDb()
     const insert = db.prepare(
-      'INSERT INTO matches (id, player1_id, player2_id, round_number) VALUES (?, ?, ?, ?)'
+      'INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) VALUES (?, ?, ?, ?, ?)'
     )
     const ids: string[] = []
-
-    const insertMany = db.transaction(() => {
+    db.transaction(() => {
       for (const m of matches) {
         const id = uuid()
         ids.push(id)
-        insert.run(id, m.player1_id, m.player2_id, m.round_number)
+        insert.run(id, m.player1_id, m.player2_id, m.round_number, leagueId)
       }
-    })
-    insertMany()
-
+    })()
     const rows = db
       .prepare(`SELECT * FROM matches WHERE id IN (${ids.map(() => '?').join(',')})`)
       .all(...ids) as Record<string, unknown>[]
@@ -257,9 +294,9 @@ export function insertMatches(
   }
 }
 
-export function deleteAllMatches(): Result<true> {
+export function deleteAllMatches(leagueId: string): Result<true> {
   try {
-    getDb().prepare('DELETE FROM matches').run()
+    getDb().prepare('DELETE FROM matches WHERE league_id = ?').run(leagueId)
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
@@ -319,11 +356,11 @@ function normalizePlayoff(row: Record<string, unknown>): DbPlayoff {
 
 const STAGE_ORDER: PlayoffStage[] = ['semi1', 'semi2', 'final', 'third_place']
 
-export function listPlayoffs(): Result<DbPlayoff[]> {
+export function listPlayoffs(leagueId: string): Result<DbPlayoff[]> {
   try {
     const rows = getDb()
-      .prepare('SELECT * FROM playoffs ORDER BY created_at ASC')
-      .all() as Record<string, unknown>[]
+      .prepare('SELECT * FROM playoffs WHERE league_id = ? ORDER BY created_at ASC')
+      .all(leagueId) as Record<string, unknown>[]
     const sorted = rows
       .map(normalizePlayoff)
       .sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage))
@@ -333,11 +370,11 @@ export function listPlayoffs(): Result<DbPlayoff[]> {
   }
 }
 
-export function hasPlayoffs(): Result<boolean> {
+export function hasPlayoffs(leagueId: string): Result<boolean> {
   try {
     const row = getDb()
-      .prepare('SELECT COUNT(*) as n FROM playoffs')
-      .get() as { n: number }
+      .prepare('SELECT COUNT(*) as n FROM playoffs WHERE league_id = ?')
+      .get(leagueId) as { n: number }
     return ok(row.n > 0)
   } catch (e) {
     return err((e as Error).message)
@@ -345,26 +382,21 @@ export function hasPlayoffs(): Result<boolean> {
 }
 
 export function generateSemifinals(
-  rank1Id: string,
-  rank2Id: string,
-  rank3Id: string,
-  rank4Id: string
+  leagueId: string,
+  rank1Id: string, rank2Id: string, rank3Id: string, rank4Id: string
 ): Result<DbPlayoff[]> {
   try {
     const db = getDb()
     const insert = db.prepare(
-      'INSERT INTO playoffs (id, stage, player1_id, player2_id) VALUES (?, ?, ?, ?)'
+      'INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) VALUES (?, ?, ?, ?, ?)'
     )
     const ids: string[] = []
-
     db.transaction(() => {
       const id1 = uuid(); ids.push(id1)
-      insert.run(id1, 'semi1', rank1Id, rank4Id) // 1er vs 4ème
-
+      insert.run(id1, 'semi1', rank1Id, rank4Id, leagueId)
       const id2 = uuid(); ids.push(id2)
-      insert.run(id2, 'semi2', rank2Id, rank3Id) // 2ème vs 3ème
+      insert.run(id2, 'semi2', rank2Id, rank3Id, leagueId)
     })()
-
     const rows = db
       .prepare(`SELECT * FROM playoffs WHERE id IN (${ids.map(() => '?').join(',')})`)
       .all(...ids) as Record<string, unknown>[]
@@ -381,30 +413,29 @@ export function updatePlayoffScore(
 ): Result<{ match: DbPlayoff; generated: DbPlayoff[] }> {
   try {
     const db = getDb()
-
     db.prepare(
       'UPDATE playoffs SET score_p1 = ?, score_p2 = ?, is_completed = 1 WHERE id = ?'
     ).run(score_p1, score_p2, id)
 
-    const updatedRow = db
-      .prepare('SELECT * FROM playoffs WHERE id = ?')
+    const updatedRow = db.prepare('SELECT * FROM playoffs WHERE id = ?')
       .get(id) as Record<string, unknown>
     const updated = normalizePlayoff(updatedRow)
+    const leagueId = updatedRow.league_id as string
 
-    // Auto-generate final + third_place when both semis are done
     let generated: DbPlayoff[] = []
     if (updated.stage === 'semi1' || updated.stage === 'semi2') {
-      const semi1 = db.prepare("SELECT * FROM playoffs WHERE stage = 'semi1'").get() as Record<string, unknown> | undefined
-      const semi2 = db.prepare("SELECT * FROM playoffs WHERE stage = 'semi2'").get() as Record<string, unknown> | undefined
-      const finalExists = db.prepare("SELECT id FROM playoffs WHERE stage = 'final'").get()
+      const semi1 = db.prepare("SELECT * FROM playoffs WHERE stage = 'semi1' AND league_id = ?")
+        .get(leagueId) as Record<string, unknown> | undefined
+      const semi2 = db.prepare("SELECT * FROM playoffs WHERE stage = 'semi2' AND league_id = ?")
+        .get(leagueId) as Record<string, unknown> | undefined
+      const finalExists = db
+        .prepare("SELECT id FROM playoffs WHERE stage = 'final' AND league_id = ?")
+        .get(leagueId)
 
       if (semi1 && semi2 && !finalExists) {
         const s1 = normalizePlayoff(semi1)
         const s2 = normalizePlayoff(semi2)
-
         if (s1.is_completed && s2.is_completed) {
-          // Determine winners and losers
-          // En cas d'égalité (ne devrait pas arriver en playoff), player1 = tête de série la plus haute
           const p1WonSemi1 = (s1.score_p1 ?? 0) >= (s1.score_p2 ?? 0)
           const winner1 = p1WonSemi1 ? s1.player1_id : s1.player2_id
           const loser1  = p1WonSemi1 ? s1.player2_id : s1.player1_id
@@ -412,19 +443,16 @@ export function updatePlayoffScore(
           const winner2 = p1WonSemi2 ? s2.player1_id : s2.player2_id
           const loser2  = p1WonSemi2 ? s2.player2_id : s2.player1_id
 
-          const insert = db.prepare(
-            'INSERT INTO playoffs (id, stage, player1_id, player2_id) VALUES (?, ?, ?, ?)'
+          const ins = db.prepare(
+            'INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) VALUES (?, ?, ?, ?, ?)'
           )
           const genIds: string[] = []
-
           db.transaction(() => {
             const fId = uuid(); genIds.push(fId)
-            insert.run(fId, 'final', winner1, winner2)
-
+            ins.run(fId, 'final', winner1, winner2, leagueId)
             const tId = uuid(); genIds.push(tId)
-            insert.run(tId, 'third_place', loser1, loser2)
+            ins.run(tId, 'third_place', loser1, loser2, leagueId)
           })()
-
           const genRows = db
             .prepare(`SELECT * FROM playoffs WHERE id IN (${genIds.map(() => '?').join(',')})`)
             .all(...genIds) as Record<string, unknown>[]
@@ -432,7 +460,6 @@ export function updatePlayoffScore(
         }
       }
     }
-
     return ok({ match: updated, generated })
   } catch (e) {
     return err((e as Error).message)
@@ -453,9 +480,9 @@ export function resetPlayoffScore(id: string): Result<DbPlayoff> {
   }
 }
 
-export function deleteAllPlayoffs(): Result<true> {
+export function deleteAllPlayoffs(leagueId: string): Result<true> {
   try {
-    getDb().prepare('DELETE FROM playoffs').run()
+    getDb().prepare('DELETE FROM playoffs WHERE league_id = ?').run(leagueId)
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
