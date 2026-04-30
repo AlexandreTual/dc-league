@@ -1,8 +1,9 @@
 import { PlayerStats } from '@/lib/leaderboard'
 import { ExternalLink, Trophy } from 'lucide-react'
+import PlayerName from './PlayerName'
 
 interface Props {
-  players: PlayerStats[]
+  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null })[]
   totalPlayers: number
 }
 
@@ -67,7 +68,11 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
               {/* Name + Moxfield */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-fantasy font-semibold text-dc-text truncate">{player.name}</span>
+                  <PlayerName
+                    name={player.name}
+                    commanderImageUrl={player.commander_image_url}
+                    className="font-fantasy font-semibold text-dc-text truncate"
+                  />
                   {player.moxfield_url && (
                     <a
                       href={player.moxfield_url}

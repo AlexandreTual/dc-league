@@ -1,5 +1,6 @@
 import { Match, Player } from '@/lib/leaderboard'
 import { CheckCircle, Clock } from 'lucide-react'
+import PlayerName from './PlayerName'
 
 interface Props {
   match: Match & { player1: Player; player2: Player }
@@ -37,9 +38,11 @@ export default function MatchCard({ match, onEdit, isAdmin }: Props) {
       <div className="flex items-center gap-3">
         {/* Player 1 */}
         <div className={`flex-1 text-right min-w-0 ${p1Won ? 'opacity-100' : p2Won ? 'opacity-50' : ''}`}>
-          <div className={`font-fantasy font-semibold truncate text-sm md:text-base ${p1Won ? 'text-dc-gold' : 'text-dc-text'}`}>
-            {match.player1.name}
-          </div>
+          <PlayerName
+            name={match.player1.name}
+            commanderImageUrl={match.player1.commander_image_url ?? null}
+            className={`font-fantasy font-semibold text-sm md:text-base ${p1Won ? 'text-dc-gold' : 'text-dc-text'}`}
+          />
           {p1Won && (
             <div className="text-dc-green-light text-xs mt-0.5">Victoire</div>
           )}
@@ -62,9 +65,11 @@ export default function MatchCard({ match, onEdit, isAdmin }: Props) {
 
         {/* Player 2 */}
         <div className={`flex-1 min-w-0 ${p2Won ? 'opacity-100' : p1Won ? 'opacity-50' : ''}`}>
-          <div className={`font-fantasy font-semibold truncate text-sm md:text-base ${p2Won ? 'text-dc-gold' : 'text-dc-text'}`}>
-            {match.player2.name}
-          </div>
+          <PlayerName
+            name={match.player2.name}
+            commanderImageUrl={match.player2.commander_image_url ?? null}
+            className={`font-fantasy font-semibold text-sm md:text-base ${p2Won ? 'text-dc-gold' : 'text-dc-text'}`}
+          />
           {p2Won && (
             <div className="text-dc-green-light text-xs mt-0.5">Victoire</div>
           )}
