@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --border: #1e1e2e;
+  --gold: #c9a84c;
+  --text: #e2e0d4;
+  --muted: #6b6b7b;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  min-height: 100vh;
+  background-color: #0a0a0f;
+  color: #e2e0d4;
+  font-family: Georgia, Palatino, serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #12121a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e1e2e;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c9a84c;
+}
+
+/* Gold divider utility */
+.gold-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+  opacity: 0.6;
+}
+
+/* Card hover effect */
+.match-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.match-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(201, 168, 76, 0.15);
+}
+
+/* Rank badge */
+.rank-1 { color: #f0d080; text-shadow: 0 0 12px rgba(240, 208, 128, 0.5); }
+.rank-2 { color: #c0c0c0; }
+.rank-3 { color: #cd7f32; }
