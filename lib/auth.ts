@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 const COOKIE_NAME = 'dc_admin_session'
 
 function getExpectedToken(): string {
-  const pwd = process.env.ADMIN_PASSWORD ?? ''
+  const pwd = process.env.ADMIN_PASSWORD
+  if (!pwd) throw new Error('ADMIN_PASSWORD is not set')
   return Buffer.from(`dc-admin:${pwd}`).toString('base64')
 }
 

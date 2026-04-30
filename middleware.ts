@@ -8,7 +8,10 @@ export function middleware(request: NextRequest) {
 
   // Protect /admin/* but allow /admin/login
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-    const adminPassword = process.env.ADMIN_PASSWORD ?? ''
+    const adminPassword = process.env.ADMIN_PASSWORD
+    if (!adminPassword) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
     const expectedToken = Buffer.from(`dc-admin:${adminPassword}`).toString('base64')
     const sessionCookie = request.cookies.get(COOKIE_NAME)?.value
 

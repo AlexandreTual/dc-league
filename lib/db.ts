@@ -1,9 +1,6 @@
-/**
- * Local SQLite database — remplace Supabase pour le développement local.
- * Fichier créé automatiquement : local.db à la racine du projet.
- */
 import Database from 'better-sqlite3'
 import path from 'path'
+import fs from 'fs'
 import crypto from 'crypto'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,7 +49,9 @@ const g = global as unknown as { __sqlite?: Database.Database }
 function getDb(): Database.Database {
   if (g.__sqlite) return g.__sqlite
 
-  const db = new Database(path.join(process.cwd(), 'local.db'))
+  const dbDir = path.join(process.cwd(), 'data')
+  fs.mkdirSync(dbDir, { recursive: true })
+  const db = new Database(path.join(dbDir, 'local.db'))
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
 
