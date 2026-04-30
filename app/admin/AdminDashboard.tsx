@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Match, Player } from '@/lib/leaderboard'
 import { DbPlayoff, DbPlayer } from '@/lib/db'
+import type { DbLeague, DbLeaguePlayerWithName } from '@/lib/db-leagues'
 import MatchCard from '@/components/MatchCard'
 import ScoreModal from '@/components/ScoreModal'
 import {
@@ -17,6 +18,7 @@ import {
   RefreshCcw,
   Trophy,
   Award,
+  Archive,
 } from 'lucide-react'
 
 interface Props {
@@ -24,9 +26,14 @@ interface Props {
   initialMatches: Match[]
   initialPlayoffs: DbPlayoff[]
   allRRCompleted: boolean
+  activeLeague: DbLeague | null
+  leaguePlayers: DbLeaguePlayerWithName[]
 }
 
-export default function AdminDashboard({ initialPlayers, initialMatches, initialPlayoffs, allRRCompleted }: Props) {
+export default function AdminDashboard({
+  initialPlayers, initialMatches, initialPlayoffs, allRRCompleted,
+  activeLeague, leaguePlayers: initialLeaguePlayers,
+}: Props) {
   const router = useRouter()
 
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
@@ -45,6 +52,13 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [selectedPlayoff, setSelectedPlayoff] = useState<DbPlayoff | null>(null)
   const [toast, setToast] = useState('')
+
+  const [newCommanderImage, setNewCommanderImage] = useState('')
+  const [league, setLeague] = useState<DbLeague | null>(activeLeague)
+  const [leaguePlayers, setLeaguePlayers] = useState(initialLeaguePlayers)
+  const [newLeagueName, setNewLeagueName] = useState('')
+  const [createLeagueLoading, setCreateLeagueLoading] = useState(false)
+  const [closeLoading, setCloseLoading] = useState(false)
 
   const leagueStarted = matches.length > 0
 
@@ -68,7 +82,11 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
       const res = await fetch('/api/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), moxfield_url: newMoxfield.trim() }),
+        body: JSON.stringify({
+          name: newName.trim(),
+          moxfield_url: newMoxfield.trim() || null,
+          commander_image_url: newCommanderImage.trim() || null,
+        }),
       })
       const data = await res.json()
 
@@ -78,6 +96,7 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
         setPlayers((prev) => [...prev, data])
         setNewName('')
         setNewMoxfield('')
+        setNewCommanderImage('')
         showToast(`${data.name} ajouté !`)
       }
     } finally {
@@ -256,6 +275,52 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
     router.refresh()
   }
 
+  async function handleCreateLeague(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newLeagueName.trim()) return
+    setCreateLeagueLoading(true)
+    try {
+      const res = await fetch('/api/leagues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newLeagueName.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(`Erreur : ${data.error}`)
+      } else {
+        setLeague(data)
+        setNewLeagueName('')
+        showToast(`Saison "${data.name}" créée !`)
+        router.refresh()
+      }
+    } finally {
+      setCreateLeagueLoading(false)
+    }
+  }
+
+  async function handleCloseLeague() {
+    if (!league) return
+    if (!confirm(`Clôturer la saison "${league.name}" ? Elle passera en archive.`)) return
+    setCloseLoading(true)
+    try {
+      const res = await fetch(`/api/leagues/${league.id}/close`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(`Erreur : ${data.error}`)
+      } else {
+        setLeague(null)
+        setMatches([])
+        setPlayoffs([])
+        setPlayers([])
+        showToast(`Saison "${data.name}" archivée !`)
+        router.refresh()
+      }
+    } finally {
+      setCloseLoading(false)
+    }
+  }
+
   // Group matches by round
   const rounds: Record<number, Match[]> = {}
   for (const m of matches) {
@@ -282,7 +347,9 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
           </div>
           <div>
             <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Admin</h1>
-            <p className="text-dc-muted text-xs">{players.length} joueurs · {completedCount}/{matches.length} matchs joués</p>
+            <p className="text-dc-muted text-xs">
+              {league ? `${league.name} · ` : ''}{players.length} joueurs · {completedCount}/{matches.length} matchs joués
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -295,6 +362,16 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
               <span className="hidden sm:block">Réinitialiser la ligue</span>
             </button>
           )}
+          {league && allRRCompleted && playoffs.length > 0 && playoffs.every((p) => p.is_completed) && (
+            <button
+              onClick={handleCloseLeague}
+              disabled={closeLoading}
+              className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-gold/30 disabled:opacity-40"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span className="hidden sm:block">Clôturer la saison</span>
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-dc-muted hover:text-dc-text text-sm px-3 py-2 rounded-lg hover:bg-dc-border/30 transition-all"
@@ -305,8 +382,35 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
         </div>
       </div>
 
+      {/* No active league — create one */}
+      {!league && (
+        <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-4">
+          <h2 className="font-fantasy font-bold text-dc-gold flex items-center gap-2">
+            <Zap className="w-5 h-5" />
+            Nouvelle saison
+          </h2>
+          <p className="text-dc-muted text-sm">Aucune saison active. Créez-en une pour commencer.</p>
+          <form onSubmit={handleCreateLeague} className="flex gap-3">
+            <input
+              type="text"
+              value={newLeagueName}
+              onChange={(e) => setNewLeagueName(e.target.value)}
+              placeholder="ex: Saison 1"
+              className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!newLeagueName.trim() || createLeagueLoading}
+              className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+            >
+              {createLeagueLoading ? 'Création…' : 'Créer'}
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* Section 1: Add player */}
-      {!leagueStarted && (
+      {league && !leagueStarted && (
         <div className="bg-dc-surface border border-dc-border rounded-2xl p-5 space-y-4">
           <h2 className="font-fantasy font-bold text-dc-text flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-dc-gold" />
@@ -314,7 +418,7 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
           </h2>
 
           <form onSubmit={handleAddPlayer} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <label className="block text-dc-muted text-xs mb-1">Nom du joueur *</label>
                 <input
@@ -332,6 +436,16 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
                   value={newMoxfield}
                   onChange={(e) => setNewMoxfield(e.target.value)}
                   placeholder="https://moxfield.com/decks/..."
+                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-dc-muted text-xs mb-1">Image du commandant</label>
+                <input
+                  type="url"
+                  value={newCommanderImage}
+                  onChange={(e) => setNewCommanderImage(e.target.value)}
+                  placeholder="https://assets.moxfield.net/cards/..."
                   className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
                 />
               </div>
@@ -396,7 +510,7 @@ export default function AdminDashboard({ initialPlayers, initialMatches, initial
       )}
 
       {/* Section 2: Generate league */}
-      {!leagueStarted && players.length >= 2 && (
+      {league && !leagueStarted && players.length >= 2 && (
         <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
           <h2 className="font-fantasy font-bold text-dc-gold flex items-center gap-2">
             <Zap className="w-5 h-5" />

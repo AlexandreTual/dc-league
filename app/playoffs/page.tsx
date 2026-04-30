@@ -1,11 +1,13 @@
 import { listPlayoffs, listPlayers, DbPlayoff, DbPlayer } from '@/lib/db'
+import { getActiveLeague } from '@/lib/db-leagues'
 import { Trophy } from 'lucide-react'
 import PlayoffBracket from './PlayoffBracket'
 
 export const revalidate = 0
 
 export default async function PlayoffsPage() {
-  const { data: playoffs } = listPlayoffs()
+  const { data: activeLeague } = getActiveLeague()
+  const { data: playoffs } = activeLeague ? listPlayoffs(activeLeague.id) : { data: [] }
   const { data: players } = listPlayers()
 
   const playerMap: Record<string, DbPlayer> = {}

@@ -1,5 +1,6 @@
 import { listPlayers, listMatches } from '@/lib/db'
 import { DbMatch, DbPlayer } from '@/lib/db'
+import { getActiveLeague } from '@/lib/db-leagues'
 import { Match, Player } from '@/lib/leaderboard'
 import MatchCard from '@/components/MatchCard'
 import { Calendar, CheckCircle, Clock } from 'lucide-react'
@@ -8,7 +9,8 @@ export const revalidate = 0
 
 export default async function CalendarPage() {
   const { data: players } = listPlayers()
-  const { data: matches } = listMatches(true)
+  const { data: activeLeague } = getActiveLeague()
+  const { data: matches } = activeLeague ? listMatches(activeLeague.id, true) : { data: [] }
 
   if (!matches || matches.length === 0) {
     return (
