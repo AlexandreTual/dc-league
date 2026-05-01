@@ -33,19 +33,24 @@ export default async function HistoryDetailPage({ params }: { params: { id: stri
   const participants = (allPlayers ?? []).filter((p) => participantIds.has(p.id))
 
   const deckMap = new Map(leaguePlayers.map((lp) => [lp.player_id, lp]))
+
   const leaderboard = computeLeaderboard(participants as Player[], matches as Match[])
-  const leaderboardWithDecks = leaderboard.map((p) => ({
-    ...p,
-    moxfield_url: deckMap.get(p.id)?.moxfield_url ?? null,
-    commander_image_url: deckMap.get(p.id)?.commander_image_url ?? null,
-  }))
+  const leaderboardWithDecks = leaderboard.map((p) => {
+    const lp = deckMap.get(p.id)
+    return {
+      ...p,
+      moxfield_url: lp?.deck_moxfield_url ?? lp?.moxfield_url ?? null,
+      commander_image_url: lp?.deck_commander_image_url ?? lp?.commander_image_url ?? null,
+    }
+  })
 
   const playerMap: Record<string, Player> = {}
   for (const p of participants) {
+    const lp = deckMap.get(p.id)
     playerMap[p.id] = {
       ...(p as Player),
-      moxfield_url: deckMap.get(p.id)?.moxfield_url ?? null,
-      commander_image_url: deckMap.get(p.id)?.commander_image_url ?? null,
+      moxfield_url: lp?.deck_moxfield_url ?? lp?.moxfield_url ?? null,
+      commander_image_url: lp?.deck_commander_image_url ?? lp?.commander_image_url ?? null,
     }
   }
 
