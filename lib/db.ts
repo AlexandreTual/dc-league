@@ -115,7 +115,7 @@ export function getDb(): Database.Database {
   // Idempotent column migrations
   try { db.prepare('ALTER TABLE matches ADD COLUMN league_id TEXT REFERENCES leagues(id)').run() } catch {}
   try { db.prepare('ALTER TABLE playoffs ADD COLUMN league_id TEXT REFERENCES leagues(id)').run() } catch {}
-  try { db.prepare('ALTER TABLE league_players ADD COLUMN deck_id TEXT REFERENCES decks(id)').run() } catch {}
+  try { db.prepare('ALTER TABLE league_players ADD COLUMN deck_id TEXT REFERENCES decks(id) ON DELETE RESTRICT').run() } catch {}
 
   // Migrate orphaned rows to a default "Saison 1"
   const orphaned = db
