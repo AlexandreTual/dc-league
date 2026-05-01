@@ -72,6 +72,15 @@ export function getDb(): Database.Database {
       is_active   INTEGER DEFAULT 1
     );
 
+    CREATE TABLE IF NOT EXISTS decks (
+      id                  TEXT PRIMARY KEY,
+      player_id           TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      name                TEXT NOT NULL,
+      commander_image_url TEXT,
+      moxfield_url        TEXT,
+      created_at          TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS league_players (
       league_id           TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
       player_id           TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -103,9 +112,10 @@ export function getDb(): Database.Database {
     );
   `)
 
-  // Add league_id to existing tables — idempotent
+  // Idempotent column migrations
   try { db.prepare('ALTER TABLE matches ADD COLUMN league_id TEXT REFERENCES leagues(id)').run() } catch {}
   try { db.prepare('ALTER TABLE playoffs ADD COLUMN league_id TEXT REFERENCES leagues(id)').run() } catch {}
+  try { db.prepare('ALTER TABLE league_players ADD COLUMN deck_id TEXT REFERENCES decks(id)').run() } catch {}
 
   // Migrate orphaned rows to a default "Saison 1"
   const orphaned = db
