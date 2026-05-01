@@ -32,11 +32,12 @@ interface Props {
   activeLeague: DbLeague | null
   leaguePlayers: DbLeaguePlayerWithName[]
   initialDecks: Record<string, DbDeck[]>
+  playerIdsWithHistory: string[]
 }
 
 export default function AdminDashboard({
   initialPlayers, initialMatches, initialPlayoffs, allRRCompleted,
-  activeLeague, leaguePlayers: initialLeaguePlayers, initialDecks,
+  activeLeague, leaguePlayers: initialLeaguePlayers, initialDecks, playerIdsWithHistory,
 }: Props) {
   const router = useRouter()
 
@@ -53,6 +54,10 @@ export default function AdminDashboard({
   const [newPlayerName, setNewPlayerName] = useState('')
   const [addPlayerLoading, setAddPlayerLoading] = useState(false)
   const [addPlayerError, setAddPlayerError] = useState('')
+  const [showNewPlayerDeck, setShowNewPlayerDeck] = useState(false)
+  const [newPlayerDeckName, setNewPlayerDeckName] = useState('')
+  const [newPlayerDeckImage, setNewPlayerDeckImage] = useState('')
+  const [newPlayerDeckMoxfield, setNewPlayerDeckMoxfield] = useState('')
 
   const [generateLoading, setGenerateLoading] = useState(false)
   const [generateError, setGenerateError] = useState('')
@@ -72,6 +77,7 @@ export default function AdminDashboard({
 
   const enrolledIds = new Set(leaguePlayers.map((lp) => lp.player_id))
   const enrolledCount = leaguePlayers.length
+  const historySet = new Set(playerIdsWithHistory)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -177,14 +183,55 @@ export default function AdminDashboard({
       const data = await res.json()
       if (!res.ok) {
         setAddPlayerError(data.error)
-      } else {
-        setPlayers((prev) => [...prev, data])
-        if (league) {
-          setLeaguePlayers((prev) => [...prev, { league_id: league.id, player_id: data.id, deck_id: null, moxfield_url: null, commander_image_url: null, name: data.name, avatar_url: null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null }])
-        }
-        setNewPlayerName('')
-        showToast(`${data.name} ajouté et inscrit !`)
+        return
       }
+
+      setPlayers((prev) => [...prev, data])
+
+      let newLp = {
+        league_id: league?.id ?? '',
+        player_id: data.id,
+        deck_id: null as string | null,
+        moxfield_url: null as string | null,
+        commander_image_url: null as string | null,
+        name: data.name,
+        avatar_url: null as string | null,
+        deck_name: null as string | null,
+        deck_moxfield_url: null as string | null,
+        deck_commander_image_url: null as string | null,
+      }
+
+      if (league && showNewPlayerDeck && newPlayerDeckName.trim()) {
+        const deckRes = await fetch(`/api/players/${data.id}/decks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newPlayerDeckName.trim(),
+            commander_image_url: newPlayerDeckImage.trim() || null,
+            moxfield_url: newPlayerDeckMoxfield.trim() || null,
+          }),
+        })
+        if (deckRes.ok) {
+          const deck = await deckRes.json()
+          setPlayerDecks((prev) => ({ ...prev, [data.id]: [deck] }))
+          await fetch(`/api/leagues/${league.id}/players/${data.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deck_id: deck.id }),
+          })
+          newLp = { ...newLp, deck_id: deck.id, deck_name: deck.name, deck_moxfield_url: deck.moxfield_url, deck_commander_image_url: deck.commander_image_url }
+        }
+      }
+
+      if (league) {
+        setLeaguePlayers((prev) => [...prev, newLp])
+      }
+      setNewPlayerName('')
+      setNewPlayerDeckName('')
+      setNewPlayerDeckImage('')
+      setNewPlayerDeckMoxfield('')
+      setShowNewPlayerDeck(false)
+      showToast(`${data.name} ajouté et inscrit !`)
     } finally {
       setAddPlayerLoading(false)
     }
@@ -219,10 +266,8 @@ export default function AdminDashboard({
       if (!res.ok) {
         setGenerateError(data.error)
       } else {
+        setMatches(data.matches ?? [])
         showToast(`✓ ${data.count} matchs générés !`)
-        router.refresh()
-        // Reload matches from API
-        const matchRes = await fetch('/api/players') // trigger refresh via router
         router.refresh()
       }
     } finally {
@@ -555,8 +600,14 @@ export default function AdminDashboard({
                       )}
                       <button
                         onClick={() => handleDeletePlayer(player.id, player.name)}
-                        disabled={isEnrolled}
-                        title={isEnrolled ? 'Désinscris le joueur avant de le supprimer' : 'Supprimer'}
+                        disabled={historySet.has(player.id)}
+                        title={
+                          isEnrolled
+                            ? 'Désinscris le joueur avant de le supprimer'
+                            : historySet.has(player.id)
+                              ? 'Ce joueur a participé à une league et ne peut pas être supprimé'
+                              : 'Supprimer'
+                        }
                         className="text-dc-muted hover:text-dc-red-light transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -632,22 +683,81 @@ export default function AdminDashboard({
 
           <div className="space-y-3">
             <p className="text-dc-muted text-xs uppercase tracking-wide">Nouveau joueur</p>
-            <form onSubmit={handleAddNewPlayer} className="flex gap-3">
-              <input
-                type="text"
-                value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)}
-                placeholder="ex: Alexandre"
-                className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-              />
-              <button
-                type="submit"
-                disabled={!newPlayerName.trim() || addPlayerLoading}
-                className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <UserPlus className="w-4 h-4" />
-                {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
-              </button>
+            <form onSubmit={handleAddNewPlayer} className="space-y-3">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  placeholder="ex: Alexandre"
+                  className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!newPlayerName.trim() || addPlayerLoading}
+                  className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
+                </button>
+              </div>
+
+              {!showNewPlayerDeck && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewPlayerDeck(true)}
+                  className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Ajouter un deck (optionnel)
+                </button>
+              )}
+
+              {showNewPlayerDeck && (
+                <div className="bg-dc-bg/70 border border-dc-gold/20 rounded-xl px-4 py-3 space-y-2">
+                  <p className="text-dc-gold text-xs font-semibold">Deck du nouveau joueur (optionnel)</p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div>
+                      <label className="block text-dc-muted text-xs mb-1">Nom du deck</label>
+                      <input
+                        type="text"
+                        value={newPlayerDeckName}
+                        onChange={(e) => setNewPlayerDeckName(e.target.value)}
+                        placeholder="ex: Ur-Dragon"
+                        className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-dc-muted text-xs mb-1">Image commandant</label>
+                      <input
+                        type="url"
+                        value={newPlayerDeckImage}
+                        onChange={(e) => setNewPlayerDeckImage(e.target.value)}
+                        placeholder="https://assets.moxfield.net/..."
+                        className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
+                      <input
+                        type="url"
+                        value={newPlayerDeckMoxfield}
+                        onChange={(e) => setNewPlayerDeckMoxfield(e.target.value)}
+                        placeholder="https://moxfield.com/decks/..."
+                        className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewPlayerDeck(false); setNewPlayerDeckName(''); setNewPlayerDeckImage(''); setNewPlayerDeckMoxfield('') }}
+                    className="flex items-center gap-1.5 text-dc-muted hover:text-dc-text text-xs transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Annuler le deck
+                  </button>
+                </div>
+              )}
             </form>
             {addPlayerError && (
               <p className="text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">

@@ -29,7 +29,7 @@ export async function POST() {
   const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
   const { data, error } = insertMatches(matchDefs, league.id)
   if (error) return NextResponse.json({ error }, { status: 500 })
-  return NextResponse.json({ ok: true, count: data?.length ?? 0 }, { status: 201 })
+  return NextResponse.json({ ok: true, count: data?.length ?? 0, matches: data }, { status: 201 })
 }
 
 export async function DELETE() {

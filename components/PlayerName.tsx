@@ -26,14 +26,14 @@ export default function PlayerName({ name, commanderImageUrl, className = '' }: 
     >
       <span className="border-b border-dashed border-dc-gold/60">{name}</span>
       {visible && (
-        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none block">
+        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none block w-[220px]">
           <Image
             src={commanderImageUrl}
             alt={`Commandant de ${name}`}
-            width={180}
-            height={251}
-            className="rounded-xl shadow-xl border border-dc-gold/20"
-            unoptimized={commanderImageUrl.includes('?')}
+            width={220}
+            height={308}
+            className="rounded-xl shadow-xl border border-dc-gold/20 w-[220px] h-auto"
+            unoptimized
           />
         </span>
       )}

@@ -3,7 +3,7 @@ import { ExternalLink, Trophy } from 'lucide-react'
 import PlayerName from './PlayerName'
 
 interface Props {
-  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null })[]
+  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null; deck_name?: string | null })[]
   totalPlayers: number
 }
 
@@ -65,14 +65,19 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                 )}
               </div>
 
-              {/* Name + Moxfield */}
+              {/* Name + Deck + Moxfield */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <PlayerName
                     name={player.name}
                     commanderImageUrl={player.commander_image_url}
-                    className="font-fantasy font-semibold text-dc-text truncate"
+                    className="font-fantasy font-semibold text-dc-text"
                   />
+                  {player.deck_name && (
+                    <span className="text-dc-muted text-xs italic truncate max-w-[140px]">
+                      {player.deck_name}
+                    </span>
+                  )}
                   {player.moxfield_url && (
                     <a
                       href={player.moxfield_url}

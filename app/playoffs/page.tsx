@@ -1,5 +1,5 @@
 import { listPlayoffs, listPlayers, DbPlayoff, DbPlayer } from '@/lib/db'
-import { getActiveLeague } from '@/lib/db-leagues'
+import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import { Trophy } from 'lucide-react'
 import PlayoffBracket from './PlayoffBracket'
 
@@ -9,9 +9,19 @@ export default async function PlayoffsPage() {
   const { data: activeLeague } = getActiveLeague()
   const { data: playoffs } = activeLeague ? listPlayoffs(activeLeague.id) : { data: [] }
   const { data: players } = listPlayers()
+  const { data: leaguePlayers } = activeLeague ? listLeaguePlayers(activeLeague.id) : { data: [] }
 
   const playerMap: Record<string, DbPlayer> = {}
   for (const p of players ?? []) playerMap[p.id] = p
+
+  const deckMap: Record<string, { deck_name: string | null; commander_image_url: string | null; moxfield_url: string | null }> = {}
+  for (const lp of leaguePlayers ?? []) {
+    deckMap[lp.player_id] = {
+      deck_name: lp.deck_name ?? null,
+      commander_image_url: lp.deck_commander_image_url ?? lp.commander_image_url ?? null,
+      moxfield_url: lp.deck_moxfield_url ?? lp.moxfield_url ?? null,
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -28,7 +38,7 @@ export default async function PlayoffsPage() {
         <p className="text-dc-muted text-sm">Phase finale · Commander League</p>
       </div>
 
-      <PlayoffBracket playoffs={playoffs ?? []} playerMap={playerMap} />
+      <PlayoffBracket playoffs={playoffs ?? []} playerMap={playerMap} deckMap={deckMap} />
     </div>
   )
 }

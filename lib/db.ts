@@ -219,6 +219,17 @@ export function insertPlayer(data: { name: string }): Result<DbPlayer> {
   }
 }
 
+export function getPlayerIdsWithHistory(): Result<string[]> {
+  try {
+    const rows = getDb()
+      .prepare('SELECT DISTINCT player_id FROM league_players')
+      .all() as Array<{ player_id: string }>
+    return ok(rows.map((r) => r.player_id))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export function deletePlayer(id: string): Result<true> {
   try {
     const db = getDb()
