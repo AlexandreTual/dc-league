@@ -61,7 +61,11 @@ export default function AdminDashboard({
 
   const [generateLoading, setGenerateLoading] = useState(false)
   const [generateError, setGenerateError] = useState('')
+  const [confirmGenerate, setConfirmGenerate] = useState(false)
   const [playoffLoading, setPlayoffLoading] = useState(false)
+  const [playoffError, setPlayoffError] = useState('')
+  const [confirmResetLeague, setConfirmResetLeague] = useState(false)
+  const [confirmResetPlayoffs, setConfirmResetPlayoffs] = useState(false)
 
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [selectedPlayoff, setSelectedPlayoff] = useState<DbPlayoff | null>(null)
@@ -72,6 +76,9 @@ export default function AdminDashboard({
   const [newLeagueName, setNewLeagueName] = useState('')
   const [createLeagueLoading, setCreateLeagueLoading] = useState(false)
   const [closeLoading, setCloseLoading] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const leagueStarted = matches.length > 0
 
@@ -238,7 +245,6 @@ export default function AdminDashboard({
   }
 
   async function handleDeletePlayer(id: string, name: string) {
-    if (!confirm(`Supprimer ${name} ?`)) return
     const res = await fetch('/api/players', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -254,8 +260,7 @@ export default function AdminDashboard({
   }
 
   async function handleGenerateLeague() {
-    if (!confirm(`Générer la ligue pour ${enrolledCount} joueurs ? Cette action est irréversible (sauf si aucun match n'a été joué).`)) return
-
+    setConfirmGenerate(false)
     setGenerateLoading(true)
     setGenerateError('')
 
@@ -276,12 +281,7 @@ export default function AdminDashboard({
   }
 
   async function handleResetLeague() {
-    const completed = matches.filter((m) => m.is_completed).length
-    const msg = completed > 0
-      ? `⚠️ ${completed} match(s) ont déjà été joués. Supprimer quand même TOUS les matchs ? Les scores seront perdus.`
-      : 'Supprimer tous les matchs générés ?'
-    if (!confirm(msg)) return
-
+    setConfirmResetLeague(false)
     const res = await fetch('/api/matches/generate', { method: 'DELETE' })
     if (res.ok) {
       setMatches([])
@@ -319,7 +319,6 @@ export default function AdminDashboard({
   )
 
   async function handleResetScore(matchId: string) {
-    if (!confirm('Réinitialiser ce score ?')) return
     const res = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' })
     if (res.ok) {
       const updated = await res.json()
@@ -332,13 +331,13 @@ export default function AdminDashboard({
   }
 
   async function handleGeneratePlayoffs() {
-    if (!confirm('Générer les demi-finales du Top 4 ?')) return
     setPlayoffLoading(true)
+    setPlayoffError('')
     try {
       const res = await fetch('/api/playoffs', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        showToast(`Erreur : ${data.error}`)
+        setPlayoffError(data.error)
       } else {
         setPlayoffs(data)
         showToast('Demi-finales générées !')
@@ -350,7 +349,7 @@ export default function AdminDashboard({
   }
 
   async function handleResetPlayoffs() {
-    if (!confirm('Supprimer tous les matchs de playoffs ?')) return
+    setConfirmResetPlayoffs(false)
     const res = await fetch('/api/playoffs', { method: 'DELETE' })
     if (res.ok) {
       setPlayoffs([])
@@ -418,7 +417,13 @@ export default function AdminDashboard({
       if (!res.ok) {
         showToast(`Erreur : ${data.error}`)
       } else {
+        const playersRes = await fetch('/api/players')
+        if (playersRes.ok) {
+          const playersList = await playersRes.json()
+          setPlayers(playersList)
+        }
         setLeague(data)
+        setLeaguePlayers([])
         setNewLeagueName('')
         showToast(`Saison "${data.name}" créée !`)
         router.refresh()
@@ -428,10 +433,34 @@ export default function AdminDashboard({
     }
   }
 
+  async function handleDeleteLeague() {
+    if (!league) return
+    setDeleteLoading(true)
+    setConfirmDelete(false)
+    try {
+      const res = await fetch(`/api/leagues/${league.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(`Erreur : ${data.error}`)
+      } else {
+        const playersRes = await fetch('/api/players')
+        if (playersRes.ok) setPlayers(await playersRes.json())
+        setLeague(null)
+        setLeaguePlayers([])
+        setMatches([])
+        setPlayoffs([])
+        showToast('Saison supprimée')
+        router.refresh()
+      }
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   async function handleCloseLeague() {
     if (!league) return
-    if (!confirm(`Clôturer la saison "${league.name}" ? Elle passera en archive.`)) return
     setCloseLoading(true)
+    setConfirmClose(false)
     try {
       const res = await fetch(`/api/leagues/${league.id}/close`, { method: 'POST' })
       const data = await res.json()
@@ -476,30 +505,82 @@ export default function AdminDashboard({
           </div>
           <div>
             <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Admin</h1>
+            {league && (
+              <p className="text-dc-gold/70 text-sm font-semibold">{league.name}</p>
+            )}
             <p className="text-dc-muted text-xs">
-              {league ? `${league.name} · ` : ''}{enrolledCount} inscrits · {completedCount}/{matches.length} matchs joués
+              {enrolledCount} inscrits · {completedCount}/{matches.length} matchs joués
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {matches.length > 0 && (
-            <button
-              onClick={handleResetLeague}
-              className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:block">Réinitialiser la ligue</span>
-            </button>
+            confirmResetLeague ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-dc-red-light text-xs hidden sm:block">
+                  {matches.filter((m) => m.is_completed).length > 0 ? 'Scores perdus !' : 'Supprimer les matchs ?'}
+                </span>
+                <button onClick={handleResetLeague} className="text-xs px-3 py-2 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
+                <button onClick={() => setConfirmResetLeague(false)} className="text-xs px-3 py-2 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">Non</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmResetLeague(true)}
+                className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
+              >
+                <RefreshCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:block">Réinitialiser la ligue</span>
+              </button>
+            )
           )}
-          {league && allRRCompleted && playoffs.length > 0 && playoffs.every((p) => p.is_completed) && (
-            <button
-              onClick={handleCloseLeague}
-              disabled={closeLoading}
-              className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-gold/30 disabled:opacity-40"
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span className="hidden sm:block">Clôturer la saison</span>
-            </button>
+          {league && allRRCompleted && (
+            (enrolledCount < 4 && playoffs.length === 0) ||
+            (playoffs.length > 0 && playoffs.every((p) => p.is_completed))
+          ) && (
+            confirmClose ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-dc-gold text-xs hidden sm:block">Confirmer ?</span>
+                <button
+                  onClick={handleCloseLeague}
+                  disabled={closeLoading}
+                  className="text-xs px-3 py-2 bg-dc-gold/20 border border-dc-gold/40 text-dc-gold rounded-lg hover:bg-dc-gold/30 transition-all disabled:opacity-40"
+                >
+                  {closeLoading ? 'Clôture…' : 'Oui'}
+                </button>
+                <button
+                  onClick={() => setConfirmClose(false)}
+                  className="text-xs px-3 py-2 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all"
+                >
+                  Non
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmClose(true)}
+                className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-gold/30"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span className="hidden sm:block">Clôturer la saison</span>
+              </button>
+            )
+          )}
+          {league && (
+            confirmDelete ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-dc-red-light text-xs hidden sm:block">Supprimer la saison ?</span>
+                <button onClick={handleDeleteLeague} disabled={deleteLoading} className="text-xs px-3 py-2 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all disabled:opacity-40">
+                  {deleteLoading ? '…' : 'Oui'}
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs px-3 py-2 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">
+                  Non
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:block">Supprimer la saison</span>
+              </button>
+            )
           )}
           <button
             onClick={handleLogout}
@@ -787,14 +868,32 @@ export default function AdminDashboard({
             </div>
           )}
 
-          <button
-            onClick={handleGenerateLeague}
-            disabled={generateLoading}
-            className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
-          >
-            <Zap className="w-5 h-5" />
-            {generateLoading ? 'Génération…' : `Générer la ligue (${enrolledCount} joueurs)`}
-          </button>
+          {confirmGenerate ? (
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerateLeague}
+                disabled={generateLoading}
+                className="flex-1 flex items-center justify-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40"
+              >
+                <Zap className="w-5 h-5" />
+                {generateLoading ? 'Génération…' : 'Confirmer la génération'}
+              </button>
+              <button
+                onClick={() => setConfirmGenerate(false)}
+                className="px-4 py-3 border border-dc-border/50 text-dc-muted rounded-xl hover:text-dc-text transition-all text-sm"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmGenerate(true)}
+              className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all w-full justify-center"
+            >
+              <Zap className="w-5 h-5" />
+              {`Générer la ligue (${enrolledCount} joueurs)`}
+            </button>
+          )}
         </div>
       )}
 
@@ -806,6 +905,22 @@ export default function AdminDashboard({
               <Zap className="w-5 h-5 text-dc-gold" />
               Matchs — {completedCount}/{matches.length} joués
             </h2>
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-dc-red-light text-xs">Supprimer la saison ?</span>
+                <button onClick={handleDeleteLeague} disabled={deleteLoading} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all disabled:opacity-40">
+                  {deleteLoading ? '…' : 'Oui'}
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">
+                  Non
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-1.5 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
+                <Trash2 className="w-3.5 h-3.5" />
+                Supprimer la saison
+              </button>
+            )}
           </div>
 
           {Object.entries(rounds)
@@ -870,30 +985,51 @@ export default function AdminDashboard({
               Playoffs — Top 4
             </h2>
             {playoffs.length > 0 && (
+              confirmResetPlayoffs ? (
+                <div className="flex items-center gap-1.5">
+                  <button onClick={handleResetPlayoffs} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
+                  <button onClick={() => setConfirmResetPlayoffs(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">Non</button>
+                </div>
+              ) : (
               <button
-                onClick={handleResetPlayoffs}
+                onClick={() => setConfirmResetPlayoffs(true)}
                 className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-1.5 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
               >
                 <RefreshCcw className="w-3.5 h-3.5" />
                 Reset playoffs
               </button>
+              )
             )}
           </div>
 
           {/* Bouton génération */}
           {playoffs.length === 0 && allRRCompleted && (
             <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
-              <p className="text-dc-muted text-sm">
-                Tous les matchs de ligue sont joués. Génère les demi-finales pour commencer le Top 4.
-              </p>
-              <button
-                onClick={handleGeneratePlayoffs}
-                disabled={playoffLoading}
-                className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
-              >
-                <Trophy className="w-5 h-5" />
-                {playoffLoading ? 'Génération…' : 'Générer le Top 4'}
-              </button>
+              {enrolledCount < 4 ? (
+                <p className="text-dc-muted text-sm">
+                  Il faut au moins 4 joueurs inscrits pour générer le Top 4 ({enrolledCount} inscrits). La saison peut être clôturée directement.
+                </p>
+              ) : (
+                <>
+                  <p className="text-dc-muted text-sm">
+                    Tous les matchs de ligue sont joués. Génère les demi-finales pour commencer le Top 4.
+                  </p>
+                  {playoffError && (
+                    <div className="flex items-start gap-2 text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      {playoffError}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleGeneratePlayoffs}
+                    disabled={playoffLoading}
+                    className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
+                  >
+                    <Trophy className="w-5 h-5" />
+                    {playoffLoading ? 'Génération…' : 'Générer le Top 4'}
+                  </button>
+                </>
+              )}
             </div>
           )}
 

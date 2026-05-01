@@ -46,25 +46,6 @@ function PlayerSlot({
           : 'border-dc-border bg-dc-bg/50'
       }`}
     >
-      {/* Commander portrait */}
-      {deck?.commander_image_url ? (
-        <div className={`shrink-0 w-10 rounded overflow-hidden border ${isWinner ? 'border-dc-gold/50' : 'border-dc-border/40'}`} style={{ aspectRatio: '63/88' }}>
-          <Image
-            src={deck.commander_image_url}
-            alt=""
-            width={80}
-            height={112}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
-        </div>
-      ) : player ? (
-        <div className={`shrink-0 w-10 rounded border flex items-center justify-center bg-dc-border/30 ${isWinner ? 'border-dc-gold/30' : 'border-dc-border/40'}`} style={{ aspectRatio: '63/88' }}>
-          <span className="text-dc-gold font-fantasy font-bold text-xs">
-            {player.name.slice(0, 2).toUpperCase()}
-          </span>
-        </div>
-      ) : null}
 
       {/* Name + deck */}
       <div className="flex-1 min-w-0">

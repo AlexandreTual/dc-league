@@ -119,6 +119,23 @@ export function createLeague(name: string): Result<DbLeague> {
   }
 }
 
+export function deleteLeague(id: string): Result<true> {
+  try {
+    const db = getDb()
+    const existing = db.prepare('SELECT id FROM leagues WHERE id = ?').get(id)
+    if (!existing) return err('Ligue introuvable.')
+    db.transaction(() => {
+      db.prepare('DELETE FROM playoffs WHERE league_id = ?').run(id)
+      db.prepare('DELETE FROM matches WHERE league_id = ?').run(id)
+      db.prepare('DELETE FROM league_players WHERE league_id = ?').run(id)
+      db.prepare('DELETE FROM leagues WHERE id = ?').run(id)
+    })()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export function closeLeague(id: string): Result<DbLeague> {
   try {
     const db = getDb()
