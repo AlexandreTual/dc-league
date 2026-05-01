@@ -221,7 +221,14 @@ export function insertPlayer(data: { name: string }): Result<DbPlayer> {
 
 export function deletePlayer(id: string): Result<true> {
   try {
-    getDb().prepare('DELETE FROM players WHERE id = ?').run(id)
+    const db = getDb()
+    const inLeague = db
+      .prepare('SELECT COUNT(*) as n FROM league_players WHERE player_id = ?')
+      .get(id) as { n: number }
+    if (inLeague.n > 0) {
+      return err('Ce joueur a participé à une league et ne peut pas être supprimé.')
+    }
+    db.prepare('DELETE FROM players WHERE id = ?').run(id)
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
