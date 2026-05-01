@@ -15,6 +15,7 @@ export type DbLeague = {
 export type DbLeaguePlayer = {
   league_id: string
   player_id: string
+  deck_id: string | null
   moxfield_url: string | null
   commander_image_url: string | null
 }
@@ -22,6 +23,9 @@ export type DbLeaguePlayer = {
 export type DbLeaguePlayerWithName = DbLeaguePlayer & {
   name: string
   avatar_url: string | null
+  deck_name: string | null
+  deck_moxfield_url: string | null
+  deck_commander_image_url: string | null
 }
 
 type Ok<T> = { data: T; error: null }
@@ -47,6 +51,7 @@ function normalizeLeaguePlayer(row: Record<string, unknown>): DbLeaguePlayer {
   return {
     league_id: row.league_id as string,
     player_id: row.player_id as string,
+    deck_id: (row.deck_id as string) ?? null,
     moxfield_url: (row.moxfield_url as string) ?? null,
     commander_image_url: (row.commander_image_url as string) ?? null,
   }
@@ -57,6 +62,9 @@ function normalizeLeaguePlayerWithName(row: Record<string, unknown>): DbLeaguePl
     ...normalizeLeaguePlayer(row),
     name: row.name as string,
     avatar_url: (row.avatar_url as string) ?? null,
+    deck_name: (row.deck_name as string) ?? null,
+    deck_moxfield_url: (row.deck_moxfield_url as string) ?? null,
+    deck_commander_image_url: (row.deck_commander_image_url as string) ?? null,
   }
 }
 
@@ -132,9 +140,13 @@ export function listLeaguePlayers(leagueId: string): Result<DbLeaguePlayerWithNa
   try {
     const rows = getDb()
       .prepare(`
-        SELECT lp.*, p.name, p.avatar_url
+        SELECT lp.*, p.name, p.avatar_url,
+               d.name AS deck_name,
+               d.moxfield_url AS deck_moxfield_url,
+               d.commander_image_url AS deck_commander_image_url
         FROM league_players lp
         JOIN players p ON p.id = lp.player_id
+        LEFT JOIN decks d ON d.id = lp.deck_id
         WHERE lp.league_id = ?
         ORDER BY p.name ASC
       `)
@@ -148,18 +160,32 @@ export function listLeaguePlayers(leagueId: string): Result<DbLeaguePlayerWithNa
 export function upsertLeaguePlayer(
   leagueId: string,
   playerId: string,
-  data: { moxfield_url?: string | null; commander_image_url?: string | null }
+  data: { deck_id?: string | null }
 ): Result<DbLeaguePlayer> {
   try {
     const db = getDb()
     db.prepare(`
-      INSERT INTO league_players (league_id, player_id, moxfield_url, commander_image_url)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO league_players (league_id, player_id, deck_id)
+      VALUES (?, ?, ?)
       ON CONFLICT(league_id, player_id) DO UPDATE SET
-        moxfield_url = excluded.moxfield_url,
-        commander_image_url = excluded.commander_image_url
-    `).run(leagueId, playerId, data.moxfield_url ?? null, data.commander_image_url ?? null)
+        deck_id = excluded.deck_id
+    `).run(leagueId, playerId, data.deck_id ?? null)
 
+    const row = db
+      .prepare('SELECT * FROM league_players WHERE league_id = ? AND player_id = ?')
+      .get(leagueId, playerId) as Record<string, unknown>
+    return ok(normalizeLeaguePlayer(row))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export function enrollLeaguePlayer(leagueId: string, playerId: string): Result<DbLeaguePlayer> {
+  try {
+    const db = getDb()
+    db.prepare(
+      'INSERT OR IGNORE INTO league_players (league_id, player_id) VALUES (?, ?)'
+    ).run(leagueId, playerId)
     const row = db
       .prepare('SELECT * FROM league_players WHERE league_id = ? AND player_id = ?')
       .get(leagueId, playerId) as Record<string, unknown>
