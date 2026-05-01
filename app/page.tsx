@@ -13,13 +13,19 @@ export default async function HomePage() {
   const { data: totalMatchCount } = league ? countMatches(league.id) : { data: 0 }
   const { data: leaguePlayers } = league ? listLeaguePlayers(league.id) : { data: [] }
 
-  const leaderboard = computeLeaderboard(players ?? [], completedMatches ?? [])
+  const enrolledIds = new Set((leaguePlayers ?? []).map((lp) => lp.player_id))
+  const enrolledPlayers = (players ?? []).filter((p) => enrolledIds.has(p.id))
+  const leaderboard = computeLeaderboard(enrolledPlayers, completedMatches ?? [])
   const deckMap = new Map((leaguePlayers ?? []).map((lp) => [lp.player_id, lp]))
-  const leaderboardWithDecks = leaderboard.map((p) => ({
-    ...p,
-    moxfield_url: deckMap.get(p.id)?.moxfield_url ?? null,
-    commander_image_url: deckMap.get(p.id)?.commander_image_url ?? null,
-  }))
+  const leaderboardWithDecks = leaderboard.map((p) => {
+    const lp = deckMap.get(p.id)
+    return {
+      ...p,
+      deck_name: lp?.deck_name ?? null,
+      moxfield_url: lp?.deck_moxfield_url ?? lp?.moxfield_url ?? null,
+      commander_image_url: lp?.deck_commander_image_url ?? lp?.commander_image_url ?? null,
+    }
+  })
 
   return (
     <div className="space-y-8">
@@ -55,7 +61,7 @@ export default async function HomePage() {
       ) : (
         <LeaderboardTable
           players={leaderboardWithDecks}
-          totalPlayers={players?.length ?? 0}
+          totalPlayers={enrolledPlayers.length}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
-import { listPlayers, listMatches, listPlayoffs, countMatches, countCompletedMatches } from '@/lib/db'
+import { listPlayers, listMatches, listPlayoffs, countMatches, countCompletedMatches, getPlayerIdsWithHistory } from '@/lib/db'
 import { Player, Match } from '@/lib/leaderboard'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
+import { listAllDecksGrouped } from '@/lib/db-decks'
 import AdminDashboard from './AdminDashboard'
 
 export const revalidate = 0
@@ -13,6 +14,8 @@ export default async function AdminPage() {
   const { data: total } = activeLeague ? countMatches(activeLeague.id) : { data: 0 }
   const { data: completed } = activeLeague ? countCompletedMatches(activeLeague.id) : { data: 0 }
   const { data: leaguePlayers } = activeLeague ? listLeaguePlayers(activeLeague.id) : { data: [] }
+  const { data: decks } = listAllDecksGrouped()
+  const { data: playerIdsWithHistory } = getPlayerIdsWithHistory()
   const allRRCompleted = (total ?? 0) > 0 && total === completed
 
   return (
@@ -23,6 +26,8 @@ export default async function AdminPage() {
       allRRCompleted={allRRCompleted}
       activeLeague={activeLeague ?? null}
       leaguePlayers={leaguePlayers ?? []}
+      initialDecks={decks ?? {}}
+      playerIdsWithHistory={playerIdsWithHistory ?? []}
     />
   )
 }

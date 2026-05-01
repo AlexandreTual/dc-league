@@ -5,7 +5,7 @@ import {
   countMatches, countCompletedMatches, listPlayers, listCompletedMatches,
 } from '@/lib/db'
 import { computeLeaderboard, Player, Match } from '@/lib/leaderboard'
-import { getActiveLeague } from '@/lib/db-leagues'
+import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 
 export async function GET() {
   const { data: league } = getActiveLeague()
@@ -38,15 +38,17 @@ export async function POST() {
     return NextResponse.json({ error: 'Les playoffs ont déjà été générés.' }, { status: 400 })
   }
 
-  const { data: players } = listPlayers()
+  const { data: leaguePlayers } = listLeaguePlayers(league.id)
+  const { data: allPlayers } = listPlayers()
+  const enrolledIds = new Set((leaguePlayers ?? []).map((lp) => lp.player_id))
+  const enrolledPlayers = (allPlayers ?? []).filter((p) => enrolledIds.has(p.id))
+
   const { data: matches } = listCompletedMatches(league.id)
-  const leaderboard = computeLeaderboard(
-    (players ?? []) as Player[],
-    (matches ?? []) as Match[]
-  )
+  const leaderboard = computeLeaderboard(enrolledPlayers as Player[], (matches ?? []) as Match[])
+
   if (leaderboard.length < 4) {
     return NextResponse.json(
-      { error: 'Il faut au moins 4 joueurs pour générer les playoffs.' },
+      { error: `Il faut au moins 4 joueurs inscrits pour générer les playoffs (${leaderboard.length} inscrits).` },
       { status: 400 }
     )
   }

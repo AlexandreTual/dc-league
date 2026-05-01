@@ -5,15 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Match, Player } from '@/lib/leaderboard'
 import { DbPlayoff, DbPlayer } from '@/lib/db'
 import type { DbLeague, DbLeaguePlayerWithName } from '@/lib/db-leagues'
+import type { DbDeck } from '@/lib/db-decks'
 import MatchCard from '@/components/MatchCard'
 import ScoreModal from '@/components/ScoreModal'
 import {
   Shield,
   UserPlus,
+  Users,
+  Plus,
+  X,
   Zap,
   LogOut,
   Trash2,
-  ExternalLink,
   AlertTriangle,
   RefreshCcw,
   Trophy,
@@ -28,11 +31,13 @@ interface Props {
   allRRCompleted: boolean
   activeLeague: DbLeague | null
   leaguePlayers: DbLeaguePlayerWithName[]
+  initialDecks: Record<string, DbDeck[]>
+  playerIdsWithHistory: string[]
 }
 
 export default function AdminDashboard({
   initialPlayers, initialMatches, initialPlayoffs, allRRCompleted,
-  activeLeague, leaguePlayers: initialLeaguePlayers,
+  activeLeague, leaguePlayers: initialLeaguePlayers, initialDecks, playerIdsWithHistory,
 }: Props) {
   const router = useRouter()
 
@@ -40,27 +45,46 @@ export default function AdminDashboard({
   const [matches, setMatches] = useState<Match[]>(initialMatches)
   const [playoffs, setPlayoffs] = useState<DbPlayoff[]>(initialPlayoffs)
 
-  const [newName, setNewName] = useState('')
-  const [newMoxfield, setNewMoxfield] = useState('')
-  const [addLoading, setAddLoading] = useState(false)
-  const [addError, setAddError] = useState('')
+  const [playerDecks, setPlayerDecks] = useState<Record<string, DbDeck[]>>(initialDecks)
+  const [creatingDeckForPlayerId, setCreatingDeckForPlayerId] = useState<string | null>(null)
+  const [newDeckName, setNewDeckName] = useState('')
+  const [newDeckImage, setNewDeckImage] = useState('')
+  const [newDeckMoxfield, setNewDeckMoxfield] = useState('')
+  const [deckLoading, setDeckLoading] = useState(false)
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [addPlayerLoading, setAddPlayerLoading] = useState(false)
+  const [addPlayerError, setAddPlayerError] = useState('')
+  const [showNewPlayerDeck, setShowNewPlayerDeck] = useState(false)
+  const [newPlayerDeckName, setNewPlayerDeckName] = useState('')
+  const [newPlayerDeckImage, setNewPlayerDeckImage] = useState('')
+  const [newPlayerDeckMoxfield, setNewPlayerDeckMoxfield] = useState('')
 
   const [generateLoading, setGenerateLoading] = useState(false)
   const [generateError, setGenerateError] = useState('')
+  const [confirmGenerate, setConfirmGenerate] = useState(false)
   const [playoffLoading, setPlayoffLoading] = useState(false)
+  const [playoffError, setPlayoffError] = useState('')
+  const [confirmResetLeague, setConfirmResetLeague] = useState(false)
+  const [confirmResetPlayoffs, setConfirmResetPlayoffs] = useState(false)
 
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [selectedPlayoff, setSelectedPlayoff] = useState<DbPlayoff | null>(null)
   const [toast, setToast] = useState('')
 
-  const [newCommanderImage, setNewCommanderImage] = useState('')
   const [league, setLeague] = useState<DbLeague | null>(activeLeague)
   const [leaguePlayers, setLeaguePlayers] = useState(initialLeaguePlayers)
   const [newLeagueName, setNewLeagueName] = useState('')
   const [createLeagueLoading, setCreateLeagueLoading] = useState(false)
   const [closeLoading, setCloseLoading] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const leagueStarted = matches.length > 0
+
+  const enrolledIds = new Set(leaguePlayers.map((lp) => lp.player_id))
+  const enrolledCount = leaguePlayers.length
+  const historySet = new Set(playerIdsWithHistory)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -71,48 +95,161 @@ export default function AdminDashboard({
   const playerMap: Record<string, Player> = {}
   for (const p of players) playerMap[p.id] = p
 
-  async function handleAddPlayer(e: React.FormEvent) {
+  async function handleToggleEnroll(player: Player, isEnrolled: boolean) {
+    if (!league) return
+    if (isEnrolled) {
+      const res = await fetch(`/api/leagues/${league.id}/players/${player.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setLeaguePlayers((prev) => prev.filter((lp) => lp.player_id !== player.id))
+        showToast(`${player.name} désinscrit`)
+      } else {
+        const data = await res.json()
+        showToast(`Erreur : ${data.error}`)
+      }
+    } else {
+      const res = await fetch(`/api/leagues/${league.id}/players`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: player.id }),
+      })
+      if (res.ok) {
+        const lp = await res.json()
+        setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null }])
+        showToast(`${player.name} inscrit`)
+      } else {
+        const data = await res.json()
+        showToast(`Erreur : ${data.error}`)
+      }
+    }
+  }
+
+  async function handleAssignDeck(playerId: string, deckId: string) {
+    if (!league) return
+    const res = await fetch(`/api/leagues/${league.id}/players/${playerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deck_id: deckId || null }),
+    })
+    if (res.ok) {
+      const deck = playerDecks[playerId]?.find((d) => d.id === deckId)
+      setLeaguePlayers((prev) =>
+        prev.map((lp) =>
+          lp.player_id === playerId
+            ? { ...lp, deck_id: deckId || null, deck_name: deck?.name ?? null, deck_moxfield_url: deck?.moxfield_url ?? null, deck_commander_image_url: deck?.commander_image_url ?? null }
+            : lp
+        )
+      )
+    } else {
+      const data = await res.json()
+      showToast(`Erreur : ${data.error}`)
+    }
+  }
+
+  async function handleCreateDeck(e: React.FormEvent, playerId: string) {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newDeckName.trim() || !league) return
+    setDeckLoading(true)
+    try {
+      const res = await fetch(`/api/players/${playerId}/decks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newDeckName.trim(),
+          commander_image_url: newDeckImage.trim() || null,
+          moxfield_url: newDeckMoxfield.trim() || null,
+        }),
+      })
+      const deck = await res.json()
+      if (!res.ok) {
+        showToast(`Erreur : ${deck.error}`)
+        return
+      }
+      setPlayerDecks((prev) => ({ ...prev, [playerId]: [...(prev[playerId] ?? []), deck] }))
+      await handleAssignDeck(playerId, deck.id)
+      setNewDeckName('')
+      setNewDeckImage('')
+      setNewDeckMoxfield('')
+      setCreatingDeckForPlayerId(null)
+      showToast(`Deck "${deck.name}" créé !`)
+    } finally {
+      setDeckLoading(false)
+    }
+  }
 
-    setAddLoading(true)
-    setAddError('')
-
+  async function handleAddNewPlayer(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newPlayerName.trim()) return
+    setAddPlayerLoading(true)
+    setAddPlayerError('')
     try {
       const res = await fetch('/api/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName.trim(),
-          moxfield_url: newMoxfield.trim() || null,
-          commander_image_url: newCommanderImage.trim() || null,
-        }),
+        body: JSON.stringify({ name: newPlayerName.trim() }),
       })
       const data = await res.json()
-
       if (!res.ok) {
-        setAddError(data.error)
-      } else {
-        setPlayers((prev) => [...prev, data])
-        setNewName('')
-        setNewMoxfield('')
-        setNewCommanderImage('')
-        showToast(`${data.name} ajouté !`)
+        setAddPlayerError(data.error)
+        return
       }
+
+      setPlayers((prev) => [...prev, data])
+
+      let newLp = {
+        league_id: league?.id ?? '',
+        player_id: data.id,
+        deck_id: null as string | null,
+        moxfield_url: null as string | null,
+        commander_image_url: null as string | null,
+        name: data.name,
+        avatar_url: null as string | null,
+        deck_name: null as string | null,
+        deck_moxfield_url: null as string | null,
+        deck_commander_image_url: null as string | null,
+      }
+
+      if (league && showNewPlayerDeck && newPlayerDeckName.trim()) {
+        const deckRes = await fetch(`/api/players/${data.id}/decks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newPlayerDeckName.trim(),
+            commander_image_url: newPlayerDeckImage.trim() || null,
+            moxfield_url: newPlayerDeckMoxfield.trim() || null,
+          }),
+        })
+        if (deckRes.ok) {
+          const deck = await deckRes.json()
+          setPlayerDecks((prev) => ({ ...prev, [data.id]: [deck] }))
+          await fetch(`/api/leagues/${league.id}/players/${data.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deck_id: deck.id }),
+          })
+          newLp = { ...newLp, deck_id: deck.id, deck_name: deck.name, deck_moxfield_url: deck.moxfield_url, deck_commander_image_url: deck.commander_image_url }
+        }
+      }
+
+      if (league) {
+        setLeaguePlayers((prev) => [...prev, newLp])
+      }
+      setNewPlayerName('')
+      setNewPlayerDeckName('')
+      setNewPlayerDeckImage('')
+      setNewPlayerDeckMoxfield('')
+      setShowNewPlayerDeck(false)
+      showToast(`${data.name} ajouté et inscrit !`)
     } finally {
-      setAddLoading(false)
+      setAddPlayerLoading(false)
     }
   }
 
   async function handleDeletePlayer(id: string, name: string) {
-    if (!confirm(`Supprimer ${name} ?`)) return
-
     const res = await fetch('/api/players', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
-
     if (res.ok) {
       setPlayers((prev) => prev.filter((p) => p.id !== id))
       showToast(`${name} supprimé`)
@@ -123,8 +260,7 @@ export default function AdminDashboard({
   }
 
   async function handleGenerateLeague() {
-    if (!confirm(`Générer la ligue pour ${players.length} joueurs ? Cette action est irréversible (sauf si aucun match n'a été joué).`)) return
-
+    setConfirmGenerate(false)
     setGenerateLoading(true)
     setGenerateError('')
 
@@ -135,10 +271,8 @@ export default function AdminDashboard({
       if (!res.ok) {
         setGenerateError(data.error)
       } else {
+        setMatches(data.matches ?? [])
         showToast(`✓ ${data.count} matchs générés !`)
-        router.refresh()
-        // Reload matches from API
-        const matchRes = await fetch('/api/players') // trigger refresh via router
         router.refresh()
       }
     } finally {
@@ -147,12 +281,7 @@ export default function AdminDashboard({
   }
 
   async function handleResetLeague() {
-    const completed = matches.filter((m) => m.is_completed).length
-    const msg = completed > 0
-      ? `⚠️ ${completed} match(s) ont déjà été joués. Supprimer quand même TOUS les matchs ? Les scores seront perdus.`
-      : 'Supprimer tous les matchs générés ?'
-    if (!confirm(msg)) return
-
+    setConfirmResetLeague(false)
     const res = await fetch('/api/matches/generate', { method: 'DELETE' })
     if (res.ok) {
       setMatches([])
@@ -190,7 +319,6 @@ export default function AdminDashboard({
   )
 
   async function handleResetScore(matchId: string) {
-    if (!confirm('Réinitialiser ce score ?')) return
     const res = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' })
     if (res.ok) {
       const updated = await res.json()
@@ -203,13 +331,13 @@ export default function AdminDashboard({
   }
 
   async function handleGeneratePlayoffs() {
-    if (!confirm('Générer les demi-finales du Top 4 ?')) return
     setPlayoffLoading(true)
+    setPlayoffError('')
     try {
       const res = await fetch('/api/playoffs', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        showToast(`Erreur : ${data.error}`)
+        setPlayoffError(data.error)
       } else {
         setPlayoffs(data)
         showToast('Demi-finales générées !')
@@ -221,7 +349,7 @@ export default function AdminDashboard({
   }
 
   async function handleResetPlayoffs() {
-    if (!confirm('Supprimer tous les matchs de playoffs ?')) return
+    setConfirmResetPlayoffs(false)
     const res = await fetch('/api/playoffs', { method: 'DELETE' })
     if (res.ok) {
       setPlayoffs([])
@@ -289,7 +417,13 @@ export default function AdminDashboard({
       if (!res.ok) {
         showToast(`Erreur : ${data.error}`)
       } else {
+        const playersRes = await fetch('/api/players')
+        if (playersRes.ok) {
+          const playersList = await playersRes.json()
+          setPlayers(playersList)
+        }
         setLeague(data)
+        setLeaguePlayers([])
         setNewLeagueName('')
         showToast(`Saison "${data.name}" créée !`)
         router.refresh()
@@ -299,10 +433,34 @@ export default function AdminDashboard({
     }
   }
 
+  async function handleDeleteLeague() {
+    if (!league) return
+    setDeleteLoading(true)
+    setConfirmDelete(false)
+    try {
+      const res = await fetch(`/api/leagues/${league.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(`Erreur : ${data.error}`)
+      } else {
+        const playersRes = await fetch('/api/players')
+        if (playersRes.ok) setPlayers(await playersRes.json())
+        setLeague(null)
+        setLeaguePlayers([])
+        setMatches([])
+        setPlayoffs([])
+        showToast('Saison supprimée')
+        router.refresh()
+      }
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   async function handleCloseLeague() {
     if (!league) return
-    if (!confirm(`Clôturer la saison "${league.name}" ? Elle passera en archive.`)) return
     setCloseLoading(true)
+    setConfirmClose(false)
     try {
       const res = await fetch(`/api/leagues/${league.id}/close`, { method: 'POST' })
       const data = await res.json()
@@ -347,30 +505,82 @@ export default function AdminDashboard({
           </div>
           <div>
             <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Admin</h1>
+            {league && (
+              <p className="text-dc-gold/70 text-sm font-semibold">{league.name}</p>
+            )}
             <p className="text-dc-muted text-xs">
-              {league ? `${league.name} · ` : ''}{players.length} joueurs · {completedCount}/{matches.length} matchs joués
+              {enrolledCount} inscrits · {completedCount}/{matches.length} matchs joués
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {matches.length > 0 && (
-            <button
-              onClick={handleResetLeague}
-              className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:block">Réinitialiser la ligue</span>
-            </button>
+            confirmResetLeague ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-dc-red-light text-xs hidden sm:block">
+                  {matches.filter((m) => m.is_completed).length > 0 ? 'Scores perdus !' : 'Supprimer les matchs ?'}
+                </span>
+                <button onClick={handleResetLeague} className="text-xs px-3 py-2 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
+                <button onClick={() => setConfirmResetLeague(false)} className="text-xs px-3 py-2 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">Non</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmResetLeague(true)}
+                className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
+              >
+                <RefreshCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:block">Réinitialiser la ligue</span>
+              </button>
+            )
           )}
-          {league && allRRCompleted && playoffs.length > 0 && playoffs.every((p) => p.is_completed) && (
-            <button
-              onClick={handleCloseLeague}
-              disabled={closeLoading}
-              className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-gold/30 disabled:opacity-40"
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span className="hidden sm:block">Clôturer la saison</span>
-            </button>
+          {league && allRRCompleted && (
+            (enrolledCount < 4 && playoffs.length === 0) ||
+            (playoffs.length > 0 && playoffs.every((p) => p.is_completed))
+          ) && (
+            confirmClose ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-dc-gold text-xs hidden sm:block">Confirmer ?</span>
+                <button
+                  onClick={handleCloseLeague}
+                  disabled={closeLoading}
+                  className="text-xs px-3 py-2 bg-dc-gold/20 border border-dc-gold/40 text-dc-gold rounded-lg hover:bg-dc-gold/30 transition-all disabled:opacity-40"
+                >
+                  {closeLoading ? 'Clôture…' : 'Oui'}
+                </button>
+                <button
+                  onClick={() => setConfirmClose(false)}
+                  className="text-xs px-3 py-2 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all"
+                >
+                  Non
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmClose(true)}
+                className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-gold/30"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span className="hidden sm:block">Clôturer la saison</span>
+              </button>
+            )
+          )}
+          {league && (
+            confirmDelete ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-dc-red-light text-xs hidden sm:block">Supprimer la saison ?</span>
+                <button onClick={handleDeleteLeague} disabled={deleteLoading} className="text-xs px-3 py-2 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all disabled:opacity-40">
+                  {deleteLoading ? '…' : 'Oui'}
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs px-3 py-2 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">
+                  Non
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:block">Supprimer la saison</span>
+              </button>
+            )
           )}
           <button
             onClick={handleLogout}
@@ -409,116 +619,246 @@ export default function AdminDashboard({
         </div>
       )}
 
-      {/* Section 1: Add player */}
+      {/* Section: Participants */}
       {league && !leagueStarted && (
-        <div className="bg-dc-surface border border-dc-border rounded-2xl p-5 space-y-4">
+        <div className="bg-dc-surface border border-dc-border rounded-2xl p-5 space-y-5">
           <h2 className="font-fantasy font-bold text-dc-text flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-dc-gold" />
-            Ajouter un joueur
+            <Users className="w-5 h-5 text-dc-gold" />
+            Participants ({enrolledCount})
           </h2>
 
-          <form onSubmit={handleAddPlayer} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <label className="block text-dc-muted text-xs mb-1">Nom du joueur *</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="ex: Alexandre"
-                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
-                <input
-                  type="url"
-                  value={newMoxfield}
-                  onChange={(e) => setNewMoxfield(e.target.value)}
-                  placeholder="https://moxfield.com/decks/..."
-                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-dc-muted text-xs mb-1">Image du commandant</label>
-                <input
-                  type="url"
-                  value={newCommanderImage}
-                  onChange={(e) => setNewCommanderImage(e.target.value)}
-                  placeholder="https://assets.moxfield.net/cards/..."
-                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-                />
-              </div>
-            </div>
-
-            {addError && (
-              <p className="text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
-                {addError}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={!newName.trim() || addLoading}
-              className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <UserPlus className="w-4 h-4" />
-              {addLoading ? 'Ajout…' : 'Ajouter'}
-            </button>
-          </form>
-
-          {/* Players list */}
+          {/* Zone A: existing players */}
           {players.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-dc-border/50">
-              <p className="text-dc-muted text-xs">
-                {players.length} joueur{players.length > 1 ? 's' : ''} inscrit{players.length > 1 ? 's' : ''} — il en faut entre 4 et 8 pour une bonne ligue.
-              </p>
-              {players.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-dc-border/60 flex items-center justify-center shrink-0">
-                      <span className="text-dc-gold font-bold text-xs">
-                        {player.name.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <span className="text-dc-text text-sm font-semibold truncate">{player.name}</span>
-                    {player.moxfield_url && (
-                      <a
-                        href={player.moxfield_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
+            <div className="space-y-2">
+              <p className="text-dc-muted text-xs uppercase tracking-wide">Joueurs existants</p>
+              {players.map((player) => {
+                const isEnrolled = enrolledIds.has(player.id)
+                const decksForPlayer = playerDecks[player.id] ?? []
+                const enrollment = leaguePlayers.find((lp) => lp.player_id === player.id)
+                const assignedDeckId = enrollment?.deck_id ?? ''
+                const isCreatingDeck = creatingDeckForPlayerId === player.id
+
+                return (
+                  <div key={player.id} className="space-y-2">
+                    <div className="flex items-center gap-3 bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isEnrolled}
+                        onChange={() => handleToggleEnroll(player, isEnrolled)}
+                        className="w-4 h-4 accent-dc-gold cursor-pointer"
+                      />
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-dc-border/60 flex items-center justify-center shrink-0">
+                          <span className="text-dc-gold font-bold text-xs">
+                            {player.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="text-dc-text text-sm font-semibold truncate">{player.name}</span>
+                      </div>
+                      {isEnrolled && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <select
+                            value={assignedDeckId}
+                            onChange={(e) => {
+                              if (e.target.value === '__new__') {
+                                setCreatingDeckForPlayerId(player.id)
+                                setNewDeckName('')
+                                setNewDeckImage('')
+                                setNewDeckMoxfield('')
+                              } else {
+                                handleAssignDeck(player.id, e.target.value)
+                              }
+                            }}
+                            className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors max-w-[160px]"
+                          >
+                            <option value="">Sans deck</option>
+                            {decksForPlayer.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                            <option value="__new__">+ Nouveau deck</option>
+                          </select>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleDeletePlayer(player.id, player.name)}
+                        disabled={historySet.has(player.id)}
+                        title={
+                          isEnrolled
+                            ? 'Désinscris le joueur avant de le supprimer'
+                            : historySet.has(player.id)
+                              ? 'Ce joueur a participé à une league et ne peut pas être supprimé'
+                              : 'Supprimer'
+                        }
+                        className="text-dc-muted hover:text-dc-red-light transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {isCreatingDeck && (
+                      <form
+                        onSubmit={(e) => handleCreateDeck(e, player.id)}
+                        className="ml-8 bg-dc-bg/70 border border-dc-gold/20 rounded-xl px-4 py-3 space-y-2"
+                      >
+                        <p className="text-dc-gold text-xs font-semibold">Nouveau deck pour {player.name}</p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <div>
+                            <label className="block text-dc-muted text-xs mb-1">Nom du deck *</label>
+                            <input
+                              type="text"
+                              value={newDeckName}
+                              onChange={(e) => setNewDeckName(e.target.value)}
+                              placeholder="ex: Ur-Dragon"
+                              autoFocus
+                              className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-dc-muted text-xs mb-1">Image commandant</label>
+                            <input
+                              type="url"
+                              value={newDeckImage}
+                              onChange={(e) => setNewDeckImage(e.target.value)}
+                              placeholder="https://assets.moxfield.net/..."
+                              className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
+                            <input
+                              type="url"
+                              value={newDeckMoxfield}
+                              onChange={(e) => setNewDeckMoxfield(e.target.value)}
+                              placeholder="https://moxfield.com/decks/..."
+                              className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={!newDeckName.trim() || deckLoading}
+                            className="flex items-center gap-1.5 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            {deckLoading ? 'Création…' : 'Créer et assigner'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCreatingDeckForPlayerId(null)}
+                            className="flex items-center gap-1.5 text-dc-muted hover:text-dc-text px-3 py-1.5 rounded-lg text-xs transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Annuler
+                          </button>
+                        </div>
+                      </form>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleDeletePlayer(player.id, player.name)}
-                    className="text-dc-muted hover:text-dc-red-light transition-colors p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
+
+          <div className="border-t border-dc-border/50" />
+
+          <div className="space-y-3">
+            <p className="text-dc-muted text-xs uppercase tracking-wide">Nouveau joueur</p>
+            <form onSubmit={handleAddNewPlayer} className="space-y-3">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  placeholder="ex: Alexandre"
+                  className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!newPlayerName.trim() || addPlayerLoading}
+                  className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
+                </button>
+              </div>
+
+              {!showNewPlayerDeck && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewPlayerDeck(true)}
+                  className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Ajouter un deck (optionnel)
+                </button>
+              )}
+
+              {showNewPlayerDeck && (
+                <div className="bg-dc-bg/70 border border-dc-gold/20 rounded-xl px-4 py-3 space-y-2">
+                  <p className="text-dc-gold text-xs font-semibold">Deck du nouveau joueur (optionnel)</p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div>
+                      <label className="block text-dc-muted text-xs mb-1">Nom du deck</label>
+                      <input
+                        type="text"
+                        value={newPlayerDeckName}
+                        onChange={(e) => setNewPlayerDeckName(e.target.value)}
+                        placeholder="ex: Ur-Dragon"
+                        className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-dc-muted text-xs mb-1">Image commandant</label>
+                      <input
+                        type="url"
+                        value={newPlayerDeckImage}
+                        onChange={(e) => setNewPlayerDeckImage(e.target.value)}
+                        placeholder="https://assets.moxfield.net/..."
+                        className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
+                      <input
+                        type="url"
+                        value={newPlayerDeckMoxfield}
+                        onChange={(e) => setNewPlayerDeckMoxfield(e.target.value)}
+                        placeholder="https://moxfield.com/decks/..."
+                        className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewPlayerDeck(false); setNewPlayerDeckName(''); setNewPlayerDeckImage(''); setNewPlayerDeckMoxfield('') }}
+                    className="flex items-center gap-1.5 text-dc-muted hover:text-dc-text text-xs transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Annuler le deck
+                  </button>
+                </div>
+              )}
+            </form>
+            {addPlayerError && (
+              <p className="text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
+                {addPlayerError}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {/* Section 2: Generate league */}
-      {league && !leagueStarted && players.length >= 2 && (
+      {league && !leagueStarted && enrolledCount >= 2 && (
         <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
           <h2 className="font-fantasy font-bold text-dc-gold flex items-center gap-2">
             <Zap className="w-5 h-5" />
             Générer la ligue
           </h2>
           <p className="text-dc-muted text-sm">
-            {players.length} joueurs → {(players.length * (players.length - 1)) / 2} matchs Round Robin.
-            {players.length % 2 !== 0 && ' (Nombre impair : 1 bye par round, ignoré au classement)'}
+            {enrolledCount} joueurs → {(enrolledCount * (enrolledCount - 1)) / 2} matchs Round Robin.
+            {enrolledCount % 2 !== 0 && ' (Nombre impair : 1 bye par round, ignoré au classement)'}
           </p>
 
           {generateError && (
@@ -528,14 +868,32 @@ export default function AdminDashboard({
             </div>
           )}
 
-          <button
-            onClick={handleGenerateLeague}
-            disabled={generateLoading}
-            className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
-          >
-            <Zap className="w-5 h-5" />
-            {generateLoading ? 'Génération…' : `Générer la ligue (${players.length} joueurs)`}
-          </button>
+          {confirmGenerate ? (
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerateLeague}
+                disabled={generateLoading}
+                className="flex-1 flex items-center justify-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40"
+              >
+                <Zap className="w-5 h-5" />
+                {generateLoading ? 'Génération…' : 'Confirmer la génération'}
+              </button>
+              <button
+                onClick={() => setConfirmGenerate(false)}
+                className="px-4 py-3 border border-dc-border/50 text-dc-muted rounded-xl hover:text-dc-text transition-all text-sm"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmGenerate(true)}
+              className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all w-full justify-center"
+            >
+              <Zap className="w-5 h-5" />
+              {`Générer la ligue (${enrolledCount} joueurs)`}
+            </button>
+          )}
         </div>
       )}
 
@@ -547,6 +905,22 @@ export default function AdminDashboard({
               <Zap className="w-5 h-5 text-dc-gold" />
               Matchs — {completedCount}/{matches.length} joués
             </h2>
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-dc-red-light text-xs">Supprimer la saison ?</span>
+                <button onClick={handleDeleteLeague} disabled={deleteLoading} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all disabled:opacity-40">
+                  {deleteLoading ? '…' : 'Oui'}
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">
+                  Non
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-1.5 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
+                <Trash2 className="w-3.5 h-3.5" />
+                Supprimer la saison
+              </button>
+            )}
           </div>
 
           {Object.entries(rounds)
@@ -611,30 +985,51 @@ export default function AdminDashboard({
               Playoffs — Top 4
             </h2>
             {playoffs.length > 0 && (
+              confirmResetPlayoffs ? (
+                <div className="flex items-center gap-1.5">
+                  <button onClick={handleResetPlayoffs} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
+                  <button onClick={() => setConfirmResetPlayoffs(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">Non</button>
+                </div>
+              ) : (
               <button
-                onClick={handleResetPlayoffs}
+                onClick={() => setConfirmResetPlayoffs(true)}
                 className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-1.5 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
               >
                 <RefreshCcw className="w-3.5 h-3.5" />
                 Reset playoffs
               </button>
+              )
             )}
           </div>
 
           {/* Bouton génération */}
           {playoffs.length === 0 && allRRCompleted && (
             <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
-              <p className="text-dc-muted text-sm">
-                Tous les matchs de ligue sont joués. Génère les demi-finales pour commencer le Top 4.
-              </p>
-              <button
-                onClick={handleGeneratePlayoffs}
-                disabled={playoffLoading}
-                className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
-              >
-                <Trophy className="w-5 h-5" />
-                {playoffLoading ? 'Génération…' : 'Générer le Top 4'}
-              </button>
+              {enrolledCount < 4 ? (
+                <p className="text-dc-muted text-sm">
+                  Il faut au moins 4 joueurs inscrits pour générer le Top 4 ({enrolledCount} inscrits). La saison peut être clôturée directement.
+                </p>
+              ) : (
+                <>
+                  <p className="text-dc-muted text-sm">
+                    Tous les matchs de ligue sont joués. Génère les demi-finales pour commencer le Top 4.
+                  </p>
+                  {playoffError && (
+                    <div className="flex items-start gap-2 text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      {playoffError}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleGeneratePlayoffs}
+                    disabled={playoffLoading}
+                    className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
+                  >
+                    <Trophy className="w-5 h-5" />
+                    {playoffLoading ? 'Génération…' : 'Générer le Top 4'}
+                  </button>
+                </>
+              )}
             </div>
           )}
 

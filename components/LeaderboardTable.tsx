@@ -3,7 +3,7 @@ import { ExternalLink, Trophy } from 'lucide-react'
 import PlayerName from './PlayerName'
 
 interface Props {
-  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null })[]
+  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null; deck_name?: string | null })[]
   totalPlayers: number
 }
 
@@ -53,25 +53,14 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                 )}
               </div>
 
-              {/* Avatar / Initials */}
-              <div className="w-10 h-10 rounded-full bg-dc-border/60 border border-dc-border flex items-center justify-center shrink-0 overflow-hidden">
-                {player.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={player.avatar_url} alt={player.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-dc-gold font-fantasy font-bold text-sm">
-                    {player.name.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
-              </div>
-
-              {/* Name + Moxfield */}
+              {/* Name + Deck + Moxfield */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <PlayerName
                     name={player.name}
                     commanderImageUrl={player.commander_image_url}
-                    className="font-fantasy font-semibold text-dc-text truncate"
+                    className="font-fantasy font-bold text-base text-white"
+                    variant="inline"
                   />
                   {player.moxfield_url && (
                     <a
@@ -85,6 +74,11 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                     </a>
                   )}
                 </div>
+                {player.deck_name && (
+                  <p className="text-dc-text/70 text-sm italic mt-0.5 truncate">
+                    {player.deck_name}
+                  </p>
+                )}
                 <div className="text-dc-muted text-xs mt-0.5">
                   {player.played}/{totalPlayers - 1} matchs joués
                 </div>
