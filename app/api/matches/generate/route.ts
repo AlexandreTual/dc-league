@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { isAdminAuthenticated } from '@/lib/auth'
 import { generateRoundRobinMatches } from '@/lib/leaderboard'
-import { countMatches, listPlayers, insertMatches, deleteAllMatches, deleteAllPlayoffs } from '@/lib/db'
-import { getActiveLeague } from '@/lib/db-leagues'
+import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs } from '@/lib/db'
+import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 
 export async function POST() {
   if (!isAdminAuthenticated()) {
@@ -17,16 +17,16 @@ export async function POST() {
     return NextResponse.json({ error: 'Les matchs ont déjà été générés.' }, { status: 400 })
   }
 
-  const { data: players, error: playersErr } = listPlayers()
-  if (playersErr) return NextResponse.json({ error: playersErr }, { status: 500 })
-  if (!players || players.length < 2) {
+  const { data: enrolled, error: enrolledErr } = listLeaguePlayers(league.id)
+  if (enrolledErr) return NextResponse.json({ error: enrolledErr }, { status: 500 })
+  if (!enrolled || enrolled.length < 2) {
     return NextResponse.json(
-      { error: 'Il faut au moins 2 joueurs pour générer la ligue.' },
+      { error: 'Il faut au moins 2 joueurs inscrits pour générer la ligue.' },
       { status: 400 }
     )
   }
 
-  const matchDefs = generateRoundRobinMatches(players.map((p) => p.id))
+  const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
   const { data, error } = insertMatches(matchDefs, league.id)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json({ ok: true, count: data?.length ?? 0 }, { status: 201 })
