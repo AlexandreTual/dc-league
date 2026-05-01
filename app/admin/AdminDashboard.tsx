@@ -5,15 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Match, Player } from '@/lib/leaderboard'
 import { DbPlayoff, DbPlayer } from '@/lib/db'
 import type { DbLeague, DbLeaguePlayerWithName } from '@/lib/db-leagues'
+import type { DbDeck } from '@/lib/db-decks'
 import MatchCard from '@/components/MatchCard'
 import ScoreModal from '@/components/ScoreModal'
 import {
   Shield,
   UserPlus,
+  Users,
+  Plus,
+  X,
   Zap,
   LogOut,
   Trash2,
-  ExternalLink,
   AlertTriangle,
   RefreshCcw,
   Trophy,
@@ -28,11 +31,12 @@ interface Props {
   allRRCompleted: boolean
   activeLeague: DbLeague | null
   leaguePlayers: DbLeaguePlayerWithName[]
+  initialDecks: Record<string, DbDeck[]>
 }
 
 export default function AdminDashboard({
   initialPlayers, initialMatches, initialPlayoffs, allRRCompleted,
-  activeLeague, leaguePlayers: initialLeaguePlayers,
+  activeLeague, leaguePlayers: initialLeaguePlayers, initialDecks,
 }: Props) {
   const router = useRouter()
 
@@ -40,10 +44,15 @@ export default function AdminDashboard({
   const [matches, setMatches] = useState<Match[]>(initialMatches)
   const [playoffs, setPlayoffs] = useState<DbPlayoff[]>(initialPlayoffs)
 
-  const [newName, setNewName] = useState('')
-  const [newMoxfield, setNewMoxfield] = useState('')
-  const [addLoading, setAddLoading] = useState(false)
-  const [addError, setAddError] = useState('')
+  const [playerDecks, setPlayerDecks] = useState<Record<string, DbDeck[]>>(initialDecks)
+  const [creatingDeckForPlayerId, setCreatingDeckForPlayerId] = useState<string | null>(null)
+  const [newDeckName, setNewDeckName] = useState('')
+  const [newDeckImage, setNewDeckImage] = useState('')
+  const [newDeckMoxfield, setNewDeckMoxfield] = useState('')
+  const [deckLoading, setDeckLoading] = useState(false)
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [addPlayerLoading, setAddPlayerLoading] = useState(false)
+  const [addPlayerError, setAddPlayerError] = useState('')
 
   const [generateLoading, setGenerateLoading] = useState(false)
   const [generateError, setGenerateError] = useState('')
@@ -53,7 +62,6 @@ export default function AdminDashboard({
   const [selectedPlayoff, setSelectedPlayoff] = useState<DbPlayoff | null>(null)
   const [toast, setToast] = useState('')
 
-  const [newCommanderImage, setNewCommanderImage] = useState('')
   const [league, setLeague] = useState<DbLeague | null>(activeLeague)
   const [leaguePlayers, setLeaguePlayers] = useState(initialLeaguePlayers)
   const [newLeagueName, setNewLeagueName] = useState('')
@@ -61,6 +69,9 @@ export default function AdminDashboard({
   const [closeLoading, setCloseLoading] = useState(false)
 
   const leagueStarted = matches.length > 0
+
+  const enrolledIds = new Set(leaguePlayers.map((lp) => lp.player_id))
+  const enrolledCount = leaguePlayers.length
 
   function showToast(msg: string) {
     setToast(msg)
@@ -71,48 +82,121 @@ export default function AdminDashboard({
   const playerMap: Record<string, Player> = {}
   for (const p of players) playerMap[p.id] = p
 
-  async function handleAddPlayer(e: React.FormEvent) {
+  async function handleToggleEnroll(player: Player, isEnrolled: boolean) {
+    if (!league) return
+    if (isEnrolled) {
+      const res = await fetch(`/api/leagues/${league.id}/players/${player.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setLeaguePlayers((prev) => prev.filter((lp) => lp.player_id !== player.id))
+        showToast(`${player.name} désinscrit`)
+      } else {
+        const data = await res.json()
+        showToast(`Erreur : ${data.error}`)
+      }
+    } else {
+      const res = await fetch(`/api/leagues/${league.id}/players`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: player.id }),
+      })
+      if (res.ok) {
+        const lp = await res.json()
+        setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null }])
+        showToast(`${player.name} inscrit`)
+      } else {
+        const data = await res.json()
+        showToast(`Erreur : ${data.error}`)
+      }
+    }
+  }
+
+  async function handleAssignDeck(playerId: string, deckId: string) {
+    if (!league) return
+    const res = await fetch(`/api/leagues/${league.id}/players/${playerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deck_id: deckId || null }),
+    })
+    if (res.ok) {
+      const deck = playerDecks[playerId]?.find((d) => d.id === deckId)
+      setLeaguePlayers((prev) =>
+        prev.map((lp) =>
+          lp.player_id === playerId
+            ? { ...lp, deck_id: deckId || null, deck_name: deck?.name ?? null, deck_moxfield_url: deck?.moxfield_url ?? null, deck_commander_image_url: deck?.commander_image_url ?? null }
+            : lp
+        )
+      )
+    } else {
+      const data = await res.json()
+      showToast(`Erreur : ${data.error}`)
+    }
+  }
+
+  async function handleCreateDeck(e: React.FormEvent, playerId: string) {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newDeckName.trim() || !league) return
+    setDeckLoading(true)
+    try {
+      const res = await fetch(`/api/players/${playerId}/decks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newDeckName.trim(),
+          commander_image_url: newDeckImage.trim() || null,
+          moxfield_url: newDeckMoxfield.trim() || null,
+        }),
+      })
+      const deck = await res.json()
+      if (!res.ok) {
+        showToast(`Erreur : ${deck.error}`)
+        return
+      }
+      setPlayerDecks((prev) => ({ ...prev, [playerId]: [...(prev[playerId] ?? []), deck] }))
+      await handleAssignDeck(playerId, deck.id)
+      setNewDeckName('')
+      setNewDeckImage('')
+      setNewDeckMoxfield('')
+      setCreatingDeckForPlayerId(null)
+      showToast(`Deck "${deck.name}" créé !`)
+    } finally {
+      setDeckLoading(false)
+    }
+  }
 
-    setAddLoading(true)
-    setAddError('')
-
+  async function handleAddNewPlayer(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newPlayerName.trim()) return
+    setAddPlayerLoading(true)
+    setAddPlayerError('')
     try {
       const res = await fetch('/api/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName.trim(),
-          moxfield_url: newMoxfield.trim() || null,
-          commander_image_url: newCommanderImage.trim() || null,
-        }),
+        body: JSON.stringify({ name: newPlayerName.trim() }),
       })
       const data = await res.json()
-
       if (!res.ok) {
-        setAddError(data.error)
+        setAddPlayerError(data.error)
       } else {
         setPlayers((prev) => [...prev, data])
-        setNewName('')
-        setNewMoxfield('')
-        setNewCommanderImage('')
-        showToast(`${data.name} ajouté !`)
+        if (league) {
+          setLeaguePlayers((prev) => [...prev, { league_id: league.id, player_id: data.id, deck_id: null, moxfield_url: null, commander_image_url: null, name: data.name, avatar_url: null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null }])
+        }
+        setNewPlayerName('')
+        showToast(`${data.name} ajouté et inscrit !`)
       }
     } finally {
-      setAddLoading(false)
+      setAddPlayerLoading(false)
     }
   }
 
   async function handleDeletePlayer(id: string, name: string) {
     if (!confirm(`Supprimer ${name} ?`)) return
-
     const res = await fetch('/api/players', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
-
     if (res.ok) {
       setPlayers((prev) => prev.filter((p) => p.id !== id))
       showToast(`${name} supprimé`)
@@ -123,7 +207,7 @@ export default function AdminDashboard({
   }
 
   async function handleGenerateLeague() {
-    if (!confirm(`Générer la ligue pour ${players.length} joueurs ? Cette action est irréversible (sauf si aucun match n'a été joué).`)) return
+    if (!confirm(`Générer la ligue pour ${enrolledCount} joueurs ? Cette action est irréversible (sauf si aucun match n'a été joué).`)) return
 
     setGenerateLoading(true)
     setGenerateError('')
@@ -348,7 +432,7 @@ export default function AdminDashboard({
           <div>
             <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Admin</h1>
             <p className="text-dc-muted text-xs">
-              {league ? `${league.name} · ` : ''}{players.length} joueurs · {completedCount}/{matches.length} matchs joués
+              {league ? `${league.name} · ` : ''}{enrolledCount} inscrits · {completedCount}/{matches.length} matchs joués
             </p>
           </div>
         </div>
@@ -409,116 +493,181 @@ export default function AdminDashboard({
         </div>
       )}
 
-      {/* Section 1: Add player */}
+      {/* Section: Participants */}
       {league && !leagueStarted && (
-        <div className="bg-dc-surface border border-dc-border rounded-2xl p-5 space-y-4">
+        <div className="bg-dc-surface border border-dc-border rounded-2xl p-5 space-y-5">
           <h2 className="font-fantasy font-bold text-dc-text flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-dc-gold" />
-            Ajouter un joueur
+            <Users className="w-5 h-5 text-dc-gold" />
+            Participants ({enrolledCount})
           </h2>
 
-          <form onSubmit={handleAddPlayer} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <label className="block text-dc-muted text-xs mb-1">Nom du joueur *</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="ex: Alexandre"
-                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
-                <input
-                  type="url"
-                  value={newMoxfield}
-                  onChange={(e) => setNewMoxfield(e.target.value)}
-                  placeholder="https://moxfield.com/decks/..."
-                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-dc-muted text-xs mb-1">Image du commandant</label>
-                <input
-                  type="url"
-                  value={newCommanderImage}
-                  onChange={(e) => setNewCommanderImage(e.target.value)}
-                  placeholder="https://assets.moxfield.net/cards/..."
-                  className="w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
-                />
-              </div>
-            </div>
-
-            {addError && (
-              <p className="text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
-                {addError}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={!newName.trim() || addLoading}
-              className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <UserPlus className="w-4 h-4" />
-              {addLoading ? 'Ajout…' : 'Ajouter'}
-            </button>
-          </form>
-
-          {/* Players list */}
+          {/* Zone A: existing players */}
           {players.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-dc-border/50">
-              <p className="text-dc-muted text-xs">
-                {players.length} joueur{players.length > 1 ? 's' : ''} inscrit{players.length > 1 ? 's' : ''} — il en faut entre 4 et 8 pour une bonne ligue.
-              </p>
-              {players.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-dc-border/60 flex items-center justify-center shrink-0">
-                      <span className="text-dc-gold font-bold text-xs">
-                        {player.name.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <span className="text-dc-text text-sm font-semibold truncate">{player.name}</span>
-                    {player.moxfield_url && (
-                      <a
-                        href={player.moxfield_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
+            <div className="space-y-2">
+              <p className="text-dc-muted text-xs uppercase tracking-wide">Joueurs existants</p>
+              {players.map((player) => {
+                const isEnrolled = enrolledIds.has(player.id)
+                const decksForPlayer = playerDecks[player.id] ?? []
+                const enrollment = leaguePlayers.find((lp) => lp.player_id === player.id)
+                const assignedDeckId = enrollment?.deck_id ?? ''
+                const isCreatingDeck = creatingDeckForPlayerId === player.id
+
+                return (
+                  <div key={player.id} className="space-y-2">
+                    <div className="flex items-center gap-3 bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isEnrolled}
+                        onChange={() => handleToggleEnroll(player, isEnrolled)}
+                        className="w-4 h-4 accent-dc-gold cursor-pointer"
+                      />
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-dc-border/60 flex items-center justify-center shrink-0">
+                          <span className="text-dc-gold font-bold text-xs">
+                            {player.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="text-dc-text text-sm font-semibold truncate">{player.name}</span>
+                      </div>
+                      {isEnrolled && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <select
+                            value={assignedDeckId}
+                            onChange={(e) => {
+                              if (e.target.value === '__new__') {
+                                setCreatingDeckForPlayerId(player.id)
+                                setNewDeckName('')
+                                setNewDeckImage('')
+                                setNewDeckMoxfield('')
+                              } else {
+                                handleAssignDeck(player.id, e.target.value)
+                              }
+                            }}
+                            className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors max-w-[160px]"
+                          >
+                            <option value="">Sans deck</option>
+                            {decksForPlayer.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                            <option value="__new__">+ Nouveau deck</option>
+                          </select>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleDeletePlayer(player.id, player.name)}
+                        disabled={isEnrolled}
+                        title={isEnrolled ? 'Désinscris le joueur avant de le supprimer' : 'Supprimer'}
+                        className="text-dc-muted hover:text-dc-red-light transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {isCreatingDeck && (
+                      <form
+                        onSubmit={(e) => handleCreateDeck(e, player.id)}
+                        className="ml-8 bg-dc-bg/70 border border-dc-gold/20 rounded-xl px-4 py-3 space-y-2"
+                      >
+                        <p className="text-dc-gold text-xs font-semibold">Nouveau deck pour {player.name}</p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <div>
+                            <label className="block text-dc-muted text-xs mb-1">Nom du deck *</label>
+                            <input
+                              type="text"
+                              value={newDeckName}
+                              onChange={(e) => setNewDeckName(e.target.value)}
+                              placeholder="ex: Ur-Dragon"
+                              autoFocus
+                              className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-dc-muted text-xs mb-1">Image commandant</label>
+                            <input
+                              type="url"
+                              value={newDeckImage}
+                              onChange={(e) => setNewDeckImage(e.target.value)}
+                              placeholder="https://assets.moxfield.net/..."
+                              className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
+                            <input
+                              type="url"
+                              value={newDeckMoxfield}
+                              onChange={(e) => setNewDeckMoxfield(e.target.value)}
+                              placeholder="https://moxfield.com/decks/..."
+                              className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={!newDeckName.trim() || deckLoading}
+                            className="flex items-center gap-1.5 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            {deckLoading ? 'Création…' : 'Créer et assigner'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCreatingDeckForPlayerId(null)}
+                            className="flex items-center gap-1.5 text-dc-muted hover:text-dc-text px-3 py-1.5 rounded-lg text-xs transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Annuler
+                          </button>
+                        </div>
+                      </form>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleDeletePlayer(player.id, player.name)}
-                    className="text-dc-muted hover:text-dc-red-light transition-colors p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
+
+          <div className="border-t border-dc-border/50" />
+
+          <div className="space-y-3">
+            <p className="text-dc-muted text-xs uppercase tracking-wide">Nouveau joueur</p>
+            <form onSubmit={handleAddNewPlayer} className="flex gap-3">
+              <input
+                type="text"
+                value={newPlayerName}
+                onChange={(e) => setNewPlayerName(e.target.value)}
+                placeholder="ex: Alexandre"
+                className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+              />
+              <button
+                type="submit"
+                disabled={!newPlayerName.trim() || addPlayerLoading}
+                className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <UserPlus className="w-4 h-4" />
+                {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
+              </button>
+            </form>
+            {addPlayerError && (
+              <p className="text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
+                {addPlayerError}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {/* Section 2: Generate league */}
-      {league && !leagueStarted && players.length >= 2 && (
+      {league && !leagueStarted && enrolledCount >= 2 && (
         <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
           <h2 className="font-fantasy font-bold text-dc-gold flex items-center gap-2">
             <Zap className="w-5 h-5" />
             Générer la ligue
           </h2>
           <p className="text-dc-muted text-sm">
-            {players.length} joueurs → {(players.length * (players.length - 1)) / 2} matchs Round Robin.
-            {players.length % 2 !== 0 && ' (Nombre impair : 1 bye par round, ignoré au classement)'}
+            {enrolledCount} joueurs → {(enrolledCount * (enrolledCount - 1)) / 2} matchs Round Robin.
+            {enrolledCount % 2 !== 0 && ' (Nombre impair : 1 bye par round, ignoré au classement)'}
           </p>
 
           {generateError && (
@@ -534,7 +683,7 @@ export default function AdminDashboard({
             className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
           >
             <Zap className="w-5 h-5" />
-            {generateLoading ? 'Génération…' : `Générer la ligue (${players.length} joueurs)`}
+            {generateLoading ? 'Génération…' : `Générer la ligue (${enrolledCount} joueurs)`}
           </button>
         </div>
       )}
