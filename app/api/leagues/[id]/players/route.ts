@@ -8,7 +8,7 @@ export const runtime = 'edge'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -16,8 +16,9 @@ export async function POST(
 
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
+  const { id } = await params
 
-  const { data: matchCount, error: countErr } = await countMatches(db, params.id)
+  const { data: matchCount, error: countErr } = await countMatches(db, id)
   if (countErr) return NextResponse.json({ error: countErr }, { status: 500 })
   if (matchCount && matchCount > 0) {
     return NextResponse.json(
@@ -29,7 +30,7 @@ export async function POST(
   const { player_id } = await req.json() as { player_id?: string }
   if (!player_id) return NextResponse.json({ error: 'player_id requis' }, { status: 400 })
 
-  const { data, error } = await enrollLeaguePlayer(db, params.id, player_id)
+  const { data, error } = await enrollLeaguePlayer(db, id, player_id)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }
