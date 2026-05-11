@@ -1,4 +1,3 @@
-import crypto from 'crypto'
 
 export type DbDeck = {
   id: string
