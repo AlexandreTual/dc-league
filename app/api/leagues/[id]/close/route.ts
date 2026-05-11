@@ -8,7 +8,7 @@ export const runtime = 'edge'
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -16,7 +16,7 @@ export async function POST(
 
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
-  const { id } = params
+  const { id } = await params
 
   const { data: total } = await countMatches(db, id)
   const { data: completed } = await countCompletedMatches(db, id)

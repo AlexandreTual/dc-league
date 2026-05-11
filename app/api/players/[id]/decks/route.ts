@@ -7,17 +7,18 @@ export const runtime = 'edge'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data, error } = await listPlayerDecks(env.DB, params.id)
+  const { id } = await params
+  const { data, error } = await listPlayerDecks(env.DB, id)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json(data)
 }
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -29,7 +30,8 @@ export async function POST(
   }
 
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data, error } = await insertDeck(env.DB, params.id, {
+  const { id } = await params
+  const { data, error } = await insertDeck(env.DB, id, {
     name: name.trim(),
     commander_image_url: commander_image_url?.trim() || null,
     moxfield_url: moxfield_url?.trim() || null,

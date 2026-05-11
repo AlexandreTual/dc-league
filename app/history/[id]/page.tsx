@@ -24,12 +24,13 @@ const stageLabels: Record<string, string> = {
   third_place: 'Petite Finale · 3ème place',
 }
 
-export default async function HistoryDetailPage({ params }: { params: { id: string } }) {
+export default async function HistoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
   const [{ data: detail }, { data: allPlayers }] = await Promise.all([
-    getLeagueDetail(db, params.id),
+    getLeagueDetail(db, id),
     listPlayers(db),
   ])
 

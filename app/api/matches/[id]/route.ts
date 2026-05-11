@@ -11,7 +11,7 @@ const VALID_SCORES = [
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
@@ -27,21 +27,23 @@ export async function PATCH(
   }
 
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data, error } = await updateMatchScore(env.DB, params.id, score_p1, score_p2)
+  const { id } = await params
+  const { data, error } = await updateMatchScore(env.DB, id, score_p1, score_p2)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json(data)
 }
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data, error } = await resetMatchScore(env.DB, params.id)
+  const { id } = await params
+  const { data, error } = await resetMatchScore(env.DB, id)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json(data)
 }
