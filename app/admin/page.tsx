@@ -1,21 +1,43 @@
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayers, listMatches, listPlayoffs, countMatches, countCompletedMatches, getPlayerIdsWithHistory } from '@/lib/db'
 import { Player, Match } from '@/lib/leaderboard'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import { listAllDecksGrouped } from '@/lib/db-decks'
 import AdminDashboard from './AdminDashboard'
 
+export const runtime = 'edge'
 export const revalidate = 0
 
 export default async function AdminPage() {
-  const { data: activeLeague } = getActiveLeague()
-  const { data: players } = listPlayers()
-  const { data: matches } = activeLeague ? listMatches(activeLeague.id, true) : { data: [] }
-  const { data: playoffs } = activeLeague ? listPlayoffs(activeLeague.id) : { data: [] }
-  const { data: total } = activeLeague ? countMatches(activeLeague.id) : { data: 0 }
-  const { data: completed } = activeLeague ? countCompletedMatches(activeLeague.id) : { data: 0 }
-  const { data: leaguePlayers } = activeLeague ? listLeaguePlayers(activeLeague.id) : { data: [] }
-  const { data: decks } = listAllDecksGrouped()
-  const { data: playerIdsWithHistory } = getPlayerIdsWithHistory()
+  const { env } = getRequestContext<CloudflareEnv>()
+  const db = env.DB
+
+  const [
+    { data: activeLeague },
+    { data: players },
+    { data: decks },
+    { data: playerIdsWithHistory },
+  ] = await Promise.all([
+    getActiveLeague(db),
+    listPlayers(db),
+    listAllDecksGrouped(db),
+    getPlayerIdsWithHistory(db),
+  ])
+
+  const [
+    { data: matches },
+    { data: playoffs },
+    { data: total },
+    { data: completed },
+    { data: leaguePlayers },
+  ] = await Promise.all([
+    activeLeague ? listMatches(db, activeLeague.id, true) : Promise.resolve({ data: [] }),
+    activeLeague ? listPlayoffs(db, activeLeague.id) : Promise.resolve({ data: [] }),
+    activeLeague ? countMatches(db, activeLeague.id) : Promise.resolve({ data: 0 }),
+    activeLeague ? countCompletedMatches(db, activeLeague.id) : Promise.resolve({ data: 0 }),
+    activeLeague ? listLeaguePlayers(db, activeLeague.id) : Promise.resolve({ data: [] }),
+  ])
+
   const allRRCompleted = (total ?? 0) > 0 && total === completed
 
   return (

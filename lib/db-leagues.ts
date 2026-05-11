@@ -1,4 +1,3 @@
-import { getDb } from './db'
 import type { DbMatch, DbPlayoff } from './db'
 import crypto from 'crypto'
 
@@ -70,82 +69,84 @@ function normalizeLeaguePlayerWithName(row: Record<string, unknown>): DbLeaguePl
 
 // ── Leagues ───────────────────────────────────────────────────────────────────
 
-export function listLeagues(): Result<DbLeague[]> {
+export async function listLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
   try {
-    const rows = getDb()
+    const { results } = await db
       .prepare('SELECT * FROM leagues ORDER BY started_at DESC')
-      .all() as Record<string, unknown>[]
-    return ok(rows.map(normalizeLeague))
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizeLeague))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function listArchivedLeagues(): Result<DbLeague[]> {
+export async function listArchivedLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
   try {
-    const rows = getDb()
+    const { results } = await db
       .prepare('SELECT * FROM leagues WHERE is_active = 0 ORDER BY ended_at DESC')
-      .all() as Record<string, unknown>[]
-    return ok(rows.map(normalizeLeague))
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizeLeague))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function getActiveLeague(): Result<DbLeague | null> {
+export async function getActiveLeague(db: D1Database): Promise<Result<DbLeague | null>> {
   try {
-    const row = getDb()
+    const row = await db
       .prepare('SELECT * FROM leagues WHERE is_active = 1 LIMIT 1')
-      .get() as Record<string, unknown> | undefined
+      .first<Record<string, unknown>>()
     return ok(row ? normalizeLeague(row) : null)
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function createLeague(name: string): Result<DbLeague> {
+export async function createLeague(db: D1Database, name: string): Promise<Result<DbLeague>> {
   try {
-    const db = getDb()
-    const existing = db.prepare('SELECT id FROM leagues WHERE is_active = 1').get()
+    const existing = await db.prepare('SELECT id FROM leagues WHERE is_active = 1').first()
     if (existing) return err('Une ligue est déjà active.')
     const id = uuid()
-    db.prepare(
-      `INSERT INTO leagues (id, name, started_at, is_active) VALUES (?, ?, datetime('now'), 1)`
-    ).run(id, name)
-    const row = db.prepare('SELECT * FROM leagues WHERE id = ?').get(id) as Record<string, unknown>
-    return ok(normalizeLeague(row))
+    await db
+      .prepare(`INSERT INTO leagues (id, name, started_at, is_active) VALUES (?, ?, datetime('now'), 1)`)
+      .bind(id, name)
+      .run()
+    const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(normalizeLeague(row!))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function deleteLeague(id: string): Result<true> {
+export async function deleteLeague(db: D1Database, id: string): Promise<Result<true>> {
   try {
-    const db = getDb()
-    const existing = db.prepare('SELECT id FROM leagues WHERE id = ?').get(id)
+    const existing = await db.prepare('SELECT id FROM leagues WHERE id = ?').bind(id).first()
     if (!existing) return err('Ligue introuvable.')
-    db.transaction(() => {
-      db.prepare('DELETE FROM playoffs WHERE league_id = ?').run(id)
-      db.prepare('DELETE FROM matches WHERE league_id = ?').run(id)
-      db.prepare('DELETE FROM league_players WHERE league_id = ?').run(id)
-      db.prepare('DELETE FROM leagues WHERE id = ?').run(id)
-    })()
+    await db.batch([
+      db.prepare('DELETE FROM playoffs WHERE league_id = ?').bind(id),
+      db.prepare('DELETE FROM matches WHERE league_id = ?').bind(id),
+      db.prepare('DELETE FROM league_players WHERE league_id = ?').bind(id),
+      db.prepare('DELETE FROM leagues WHERE id = ?').bind(id),
+    ])
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function closeLeague(id: string): Result<DbLeague> {
+export async function closeLeague(db: D1Database, id: string): Promise<Result<DbLeague>> {
   try {
-    const db = getDb()
-    const existing = db.prepare('SELECT id FROM leagues WHERE id = ? AND is_active = 1').get(id)
+    const existing = await db
+      .prepare('SELECT id FROM leagues WHERE id = ? AND is_active = 1')
+      .bind(id)
+      .first()
     if (!existing) return err('Ligue introuvable ou déjà archivée.')
-    db.prepare(
-      `UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = ?`
-    ).run(id)
-    const row = db.prepare('SELECT * FROM leagues WHERE id = ?').get(id) as Record<string, unknown>
-    return ok(normalizeLeague(row))
+    await db
+      .prepare(`UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = ?`)
+      .bind(id)
+      .run()
+    const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(normalizeLeague(row!))
   } catch (e) {
     return err((e as Error).message)
   }
@@ -153,9 +154,12 @@ export function closeLeague(id: string): Result<DbLeague> {
 
 // ── League Players ─────────────────────────────────────────────────────────────
 
-export function listLeaguePlayers(leagueId: string): Result<DbLeaguePlayerWithName[]> {
+export async function listLeaguePlayers(
+  db: D1Database,
+  leagueId: string
+): Promise<Result<DbLeaguePlayerWithName[]>> {
   try {
-    const rows = getDb()
+    const { results } = await db
       .prepare(`
         SELECT lp.*, p.name, p.avatar_url,
                d.name AS deck_name,
@@ -167,56 +171,70 @@ export function listLeaguePlayers(leagueId: string): Result<DbLeaguePlayerWithNa
         WHERE lp.league_id = ?
         ORDER BY p.name ASC
       `)
-      .all(leagueId) as Record<string, unknown>[]
-    return ok(rows.map(normalizeLeaguePlayerWithName))
+      .bind(leagueId)
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizeLeaguePlayerWithName))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function upsertLeaguePlayer(
+export async function upsertLeaguePlayer(
+  db: D1Database,
   leagueId: string,
   playerId: string,
   data: { deck_id?: string | null }
-): Result<DbLeaguePlayer> {
+): Promise<Result<DbLeaguePlayer>> {
   try {
-    const db = getDb()
-    db.prepare(`
-      INSERT INTO league_players (league_id, player_id, deck_id)
-      VALUES (?, ?, ?)
-      ON CONFLICT(league_id, player_id) DO UPDATE SET
-        deck_id = excluded.deck_id
-    `).run(leagueId, playerId, data.deck_id ?? null)
-
-    const row = db
+    await db
+      .prepare(`
+        INSERT INTO league_players (league_id, player_id, deck_id)
+        VALUES (?, ?, ?)
+        ON CONFLICT(league_id, player_id) DO UPDATE SET
+          deck_id = excluded.deck_id
+      `)
+      .bind(leagueId, playerId, data.deck_id ?? null)
+      .run()
+    const row = await db
       .prepare('SELECT * FROM league_players WHERE league_id = ? AND player_id = ?')
-      .get(leagueId, playerId) as Record<string, unknown>
-    return ok(normalizeLeaguePlayer(row))
+      .bind(leagueId, playerId)
+      .first<Record<string, unknown>>()
+    return ok(normalizeLeaguePlayer(row!))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function enrollLeaguePlayer(leagueId: string, playerId: string): Result<DbLeaguePlayer> {
+export async function enrollLeaguePlayer(
+  db: D1Database,
+  leagueId: string,
+  playerId: string
+): Promise<Result<DbLeaguePlayer>> {
   try {
-    const db = getDb()
-    db.prepare(
-      'INSERT OR IGNORE INTO league_players (league_id, player_id) VALUES (?, ?)'
-    ).run(leagueId, playerId)
-    const row = db
+    await db
+      .prepare('INSERT OR IGNORE INTO league_players (league_id, player_id) VALUES (?, ?)')
+      .bind(leagueId, playerId)
+      .run()
+    const row = await db
       .prepare('SELECT * FROM league_players WHERE league_id = ? AND player_id = ?')
-      .get(leagueId, playerId) as Record<string, unknown>
-    return ok(normalizeLeaguePlayer(row))
+      .bind(leagueId, playerId)
+      .first<Record<string, unknown>>()
+    return ok(normalizeLeaguePlayer(row!))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function removeLeaguePlayer(leagueId: string, playerId: string): Result<true> {
+export async function removeLeaguePlayer(
+  db: D1Database,
+  leagueId: string,
+  playerId: string
+): Promise<Result<true>> {
   try {
-    getDb()
+    await db
       .prepare('DELETE FROM league_players WHERE league_id = ? AND player_id = ?')
-      .run(leagueId, playerId)
+      .bind(leagueId, playerId)
+      .run()
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
@@ -225,31 +243,45 @@ export function removeLeaguePlayer(leagueId: string, playerId: string): Result<t
 
 // ── History Detail ─────────────────────────────────────────────────────────────
 
-export function getLeagueDetail(id: string): Result<{
+export async function getLeagueDetail(
+  db: D1Database,
+  id: string
+): Promise<Result<{
   league: DbLeague
   leaguePlayers: DbLeaguePlayerWithName[]
   matches: DbMatch[]
   playoffs: DbPlayoff[]
-} | null> {
+} | null>> {
   try {
-    const db = getDb()
-    const leagueRow = db
+    const leagueRow = await db
       .prepare('SELECT * FROM leagues WHERE id = ?')
-      .get(id) as Record<string, unknown> | undefined
+      .bind(id)
+      .first<Record<string, unknown>>()
     if (!leagueRow) return ok(null)
 
-    const { data: leaguePlayers } = listLeaguePlayers(id)
-
-    const matchRows = db
-      .prepare('SELECT * FROM matches WHERE league_id = ? ORDER BY round_number ASC, created_at ASC')
-      .all(id) as Record<string, unknown>[]
-
     const STAGE_ORDER = ['semi1', 'semi2', 'final', 'third_place']
-    const playoffRows = db
-      .prepare('SELECT * FROM playoffs WHERE league_id = ? ORDER BY created_at ASC')
-      .all(id) as Record<string, unknown>[]
 
-    const matches: DbMatch[] = matchRows.map((row) => ({
+    const [
+      leaguePlayersResult,
+      matchesResult,
+      playoffsResult,
+    ] = await db.batch<Record<string, unknown>>([
+      db.prepare(`
+        SELECT lp.*, p.name, p.avatar_url,
+               d.name AS deck_name,
+               d.moxfield_url AS deck_moxfield_url,
+               d.commander_image_url AS deck_commander_image_url
+        FROM league_players lp
+        JOIN players p ON p.id = lp.player_id
+        LEFT JOIN decks d ON d.id = lp.deck_id
+        WHERE lp.league_id = ?
+        ORDER BY p.name ASC
+      `).bind(id),
+      db.prepare('SELECT * FROM matches WHERE league_id = ? ORDER BY round_number ASC, created_at ASC').bind(id),
+      db.prepare('SELECT * FROM playoffs WHERE league_id = ? ORDER BY created_at ASC').bind(id),
+    ])
+
+    const matches: DbMatch[] = matchesResult.results.map((row) => ({
       id: row.id as string,
       player1_id: row.player1_id as string,
       player2_id: row.player2_id as string,
@@ -260,7 +292,7 @@ export function getLeagueDetail(id: string): Result<{
       created_at: row.created_at as string,
     }))
 
-    const playoffs: DbPlayoff[] = playoffRows
+    const playoffs: DbPlayoff[] = playoffsResult.results
       .map((row) => ({
         id: row.id as string,
         stage: row.stage as DbPlayoff['stage'],
@@ -275,7 +307,7 @@ export function getLeagueDetail(id: string): Result<{
 
     return ok({
       league: normalizeLeague(leagueRow),
-      leaguePlayers: leaguePlayers ?? [],
+      leaguePlayers: leaguePlayersResult.results.map(normalizeLeaguePlayerWithName),
       matches,
       playoffs,
     })

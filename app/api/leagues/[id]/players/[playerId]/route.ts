@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { isAdminAuthenticated } from '@/lib/auth'
 import { upsertLeaguePlayer, removeLeaguePlayer } from '@/lib/db-leagues'
 import { countMatches } from '@/lib/db'
+
+export const runtime = 'edge'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; playerId: string } }
 ) {
-  if (!isAdminAuthenticated()) {
+  if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
-  const { deck_id } = await req.json()
-  const { data, error } = upsertLeaguePlayer(params.id, params.playerId, { deck_id: deck_id ?? null })
+  const { env } = getRequestContext<CloudflareEnv>()
+  const { deck_id } = await req.json() as { deck_id?: string | null }
+  const { data, error } = await upsertLeaguePlayer(env.DB, params.id, params.playerId, { deck_id: deck_id ?? null })
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json(data)
 }
@@ -21,11 +25,14 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string; playerId: string } }
 ) {
-  if (!isAdminAuthenticated()) {
+  if (!await isAdminAuthenticated()) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
-  const { data: matchCount, error: countErr } = countMatches(params.id)
+  const { env } = getRequestContext<CloudflareEnv>()
+  const db = env.DB
+
+  const { data: matchCount, error: countErr } = await countMatches(db, params.id)
   if (countErr) return NextResponse.json({ error: countErr }, { status: 500 })
   if (matchCount && matchCount > 0) {
     return NextResponse.json(
@@ -34,7 +41,7 @@ export async function DELETE(
     )
   }
 
-  const { error } = removeLeaguePlayer(params.id, params.playerId)
+  const { error } = await removeLeaguePlayer(db, params.id, params.playerId)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

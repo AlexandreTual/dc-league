@@ -1,3 +1,4 @@
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { notFound } from 'next/navigation'
 import { getLeagueDetail } from '@/lib/db-leagues'
 import { listPlayers } from '@/lib/db'
@@ -7,6 +8,7 @@ import MatchCard from '@/components/MatchCard'
 import { Clock, Trophy, Award } from 'lucide-react'
 import type { Player, Match } from '@/lib/leaderboard'
 
+export const runtime = 'edge'
 export const revalidate = 0
 
 function formatDate(dt: string) {
@@ -23,11 +25,17 @@ const stageLabels: Record<string, string> = {
 }
 
 export default async function HistoryDetailPage({ params }: { params: { id: string } }) {
-  const { data: detail } = getLeagueDetail(params.id)
+  const { env } = getRequestContext<CloudflareEnv>()
+  const db = env.DB
+
+  const [{ data: detail }, { data: allPlayers }] = await Promise.all([
+    getLeagueDetail(db, params.id),
+    listPlayers(db),
+  ])
+
   if (!detail) notFound()
 
   const { league, leaguePlayers, matches, playoffs } = detail
-  const { data: allPlayers } = listPlayers()
 
   const participantIds = new Set(leaguePlayers.map((lp) => lp.player_id))
   const participants = (allPlayers ?? []).filter((p) => participantIds.has(p.id))

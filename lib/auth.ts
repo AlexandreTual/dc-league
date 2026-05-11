@@ -8,8 +8,8 @@ function getExpectedToken(): string {
   return Buffer.from(`dc-admin:${pwd}`).toString('base64')
 }
 
-export function isAdminAuthenticated(): boolean {
-  const cookieStore = cookies()
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
   return token === getExpectedToken()
 }
@@ -21,7 +21,7 @@ export function getAdminCookieOptions() {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
     path: '/',
   }
 }

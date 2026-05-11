@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
         router.push('/admin')
         router.refresh()
       } else {
-        const data = await res.json()
+        const data = await res.json() as { error?: string }
         setError(data.error ?? 'Erreur de connexion')
       }
     } catch {

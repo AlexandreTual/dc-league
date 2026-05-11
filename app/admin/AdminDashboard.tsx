@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useCallback } from 'react'
@@ -103,7 +104,7 @@ export default function AdminDashboard({
         setLeaguePlayers((prev) => prev.filter((lp) => lp.player_id !== player.id))
         showToast(`${player.name} désinscrit`)
       } else {
-        const data = await res.json()
+        const data = await res.json() as any
         showToast(`Erreur : ${data.error}`)
       }
     } else {
@@ -113,11 +114,11 @@ export default function AdminDashboard({
         body: JSON.stringify({ player_id: player.id }),
       })
       if (res.ok) {
-        const lp = await res.json()
+        const lp = await res.json() as any
         setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null }])
         showToast(`${player.name} inscrit`)
       } else {
-        const data = await res.json()
+        const data = await res.json() as any
         showToast(`Erreur : ${data.error}`)
       }
     }
@@ -140,7 +141,7 @@ export default function AdminDashboard({
         )
       )
     } else {
-      const data = await res.json()
+      const data = await res.json() as any
       showToast(`Erreur : ${data.error}`)
     }
   }
@@ -159,7 +160,7 @@ export default function AdminDashboard({
           moxfield_url: newDeckMoxfield.trim() || null,
         }),
       })
-      const deck = await res.json()
+      const deck = await res.json() as any
       if (!res.ok) {
         showToast(`Erreur : ${deck.error}`)
         return
@@ -187,7 +188,7 @@ export default function AdminDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newPlayerName.trim() }),
       })
-      const data = await res.json()
+      const data = await res.json() as any
       if (!res.ok) {
         setAddPlayerError(data.error)
         return
@@ -219,7 +220,7 @@ export default function AdminDashboard({
           }),
         })
         if (deckRes.ok) {
-          const deck = await deckRes.json()
+          const deck = await deckRes.json() as any
           setPlayerDecks((prev) => ({ ...prev, [data.id]: [deck] }))
           await fetch(`/api/leagues/${league.id}/players/${data.id}`, {
             method: 'PATCH',
@@ -254,7 +255,7 @@ export default function AdminDashboard({
       setPlayers((prev) => prev.filter((p) => p.id !== id))
       showToast(`${name} supprimé`)
     } else {
-      const data = await res.json()
+      const data = await res.json() as any
       showToast(`Erreur : ${data.error}`)
     }
   }
@@ -266,7 +267,7 @@ export default function AdminDashboard({
 
     try {
       const res = await fetch('/api/matches/generate', { method: 'POST' })
-      const data = await res.json()
+      const data = await res.json() as any
 
       if (!res.ok) {
         setGenerateError(data.error)
@@ -289,7 +290,7 @@ export default function AdminDashboard({
       showToast('Matchs et playoffs réinitialisés')
       router.refresh()
     } else {
-      const data = await res.json()
+      const data = await res.json() as any
       showToast(`Erreur : ${data.error}`)
     }
   }
@@ -303,7 +304,7 @@ export default function AdminDashboard({
       })
 
       if (res.ok) {
-        const updated = await res.json()
+        const updated = await res.json() as any
         setMatches((prev) =>
           prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m))
         )
@@ -311,7 +312,7 @@ export default function AdminDashboard({
         setSelectedMatch(null)
         router.refresh()
       } else {
-        const data = await res.json()
+        const data = await res.json() as any
         showToast(`Erreur : ${data.error}`)
       }
     },
@@ -321,7 +322,7 @@ export default function AdminDashboard({
   async function handleResetScore(matchId: string) {
     const res = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' })
     if (res.ok) {
-      const updated = await res.json()
+      const updated = await res.json() as any
       setMatches((prev) =>
         prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m))
       )
@@ -335,7 +336,7 @@ export default function AdminDashboard({
     setPlayoffError('')
     try {
       const res = await fetch('/api/playoffs', { method: 'POST' })
-      const data = await res.json()
+      const data = await res.json() as any
       if (!res.ok) {
         setPlayoffError(data.error)
       } else {
@@ -366,7 +367,7 @@ export default function AdminDashboard({
         body: JSON.stringify({ score_p1, score_p2 }),
       })
       if (res.ok) {
-        const { match, generated } = await res.json()
+        const { match, generated } = await res.json() as any
         setPlayoffs((prev) => {
           const updated = prev.map((p) => (p.id === matchId ? match : p))
           // Ajouter les matchs auto-générés (finale + petite finale)
@@ -380,7 +381,7 @@ export default function AdminDashboard({
         showToast(generated?.length > 0 ? '✓ Score enregistré · Finale et petite finale générées !' : 'Score enregistré !')
         router.refresh()
       } else {
-        const data = await res.json()
+        const data = await res.json() as any
         showToast(`Erreur : ${data.error}`)
       }
     },
@@ -391,7 +392,7 @@ export default function AdminDashboard({
     if (!confirm('Réinitialiser ce score ?')) return
     const res = await fetch(`/api/playoffs/${id}`, { method: 'DELETE' })
     if (res.ok) {
-      const updated = await res.json()
+      const updated = await res.json() as any
       setPlayoffs((prev) => prev.map((p) => (p.id === id ? updated : p)))
       showToast('Score réinitialisé')
     }
@@ -413,13 +414,13 @@ export default function AdminDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newLeagueName.trim() }),
       })
-      const data = await res.json()
+      const data = await res.json() as any
       if (!res.ok) {
         showToast(`Erreur : ${data.error}`)
       } else {
         const playersRes = await fetch('/api/players')
         if (playersRes.ok) {
-          const playersList = await playersRes.json()
+          const playersList = await playersRes.json() as any
           setPlayers(playersList)
         }
         setLeague(data)
@@ -439,12 +440,12 @@ export default function AdminDashboard({
     setConfirmDelete(false)
     try {
       const res = await fetch(`/api/leagues/${league.id}`, { method: 'DELETE' })
-      const data = await res.json()
+      const data = await res.json() as any
       if (!res.ok) {
         showToast(`Erreur : ${data.error}`)
       } else {
         const playersRes = await fetch('/api/players')
-        if (playersRes.ok) setPlayers(await playersRes.json())
+        if (playersRes.ok) setPlayers(await playersRes.json() as any)
         setLeague(null)
         setLeaguePlayers([])
         setMatches([])
@@ -463,7 +464,7 @@ export default function AdminDashboard({
     setConfirmClose(false)
     try {
       const res = await fetch(`/api/leagues/${league.id}/close`, { method: 'POST' })
-      const data = await res.json()
+      const data = await res.json() as any
       if (!res.ok) {
         showToast(`Erreur : ${data.error}`)
       } else {

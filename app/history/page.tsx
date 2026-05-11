@@ -1,7 +1,9 @@
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import Link from 'next/link'
 import { listArchivedLeagues } from '@/lib/db-leagues'
 import { Clock, Trophy } from 'lucide-react'
 
+export const runtime = 'edge'
 export const revalidate = 0
 
 function formatDate(dt: string) {
@@ -11,7 +13,8 @@ function formatDate(dt: string) {
 }
 
 export default async function HistoryPage() {
-  const { data: leagues } = listArchivedLeagues()
+  const { env } = getRequestContext<CloudflareEnv>()
+  const { data: leagues } = await listArchivedLeagues(env.DB)
 
   return (
     <div className="space-y-8">

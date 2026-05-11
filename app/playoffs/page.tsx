@@ -1,15 +1,27 @@
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayoffs, listPlayers, DbPlayoff, DbPlayer } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import { Trophy } from 'lucide-react'
 import PlayoffBracket from './PlayoffBracket'
 
+export const runtime = 'edge'
 export const revalidate = 0
 
 export default async function PlayoffsPage() {
-  const { data: activeLeague } = getActiveLeague()
-  const { data: playoffs } = activeLeague ? listPlayoffs(activeLeague.id) : { data: [] }
-  const { data: players } = listPlayers()
-  const { data: leaguePlayers } = activeLeague ? listLeaguePlayers(activeLeague.id) : { data: [] }
+  const { env } = getRequestContext<CloudflareEnv>()
+  const db = env.DB
+
+  const { data: activeLeague } = await getActiveLeague(db)
+
+  const [
+    { data: playoffs },
+    { data: players },
+    { data: leaguePlayers },
+  ] = await Promise.all([
+    activeLeague ? listPlayoffs(db, activeLeague.id) : Promise.resolve({ data: [] }),
+    listPlayers(db),
+    activeLeague ? listLeaguePlayers(db, activeLeague.id) : Promise.resolve({ data: [] }),
+  ])
 
   const playerMap: Record<string, DbPlayer> = {}
   for (const p of players ?? []) playerMap[p.id] = p
@@ -25,7 +37,6 @@ export default async function PlayoffsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="text-center space-y-3">
         <div className="flex items-center justify-center gap-3">
           <div className="gold-divider w-16" />
@@ -38,7 +49,7 @@ export default async function PlayoffsPage() {
         <p className="text-dc-muted text-sm">Phase finale · Commander League</p>
       </div>
 
-      <PlayoffBracket playoffs={playoffs ?? []} playerMap={playerMap} deckMap={deckMap} />
+      <PlayoffBracket playoffs={playoffs ?? [] as DbPlayoff[]} playerMap={playerMap} deckMap={deckMap} />
     </div>
   )
 }

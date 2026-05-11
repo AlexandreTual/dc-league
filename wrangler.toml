@@ -1,0 +1,9 @@
+name = "dc-league"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dc-league"
+database_id = "423d63e2-938a-4a68-a8be-c12eafa0eb13"

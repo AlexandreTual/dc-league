@@ -1,4 +1,3 @@
-import { getDb } from './db'
 import crypto from 'crypto'
 
 export type DbDeck = {
@@ -28,24 +27,25 @@ function normalizeDeck(row: Record<string, unknown>): DbDeck {
   }
 }
 
-export function listPlayerDecks(playerId: string): Result<DbDeck[]> {
+export async function listPlayerDecks(db: D1Database, playerId: string): Promise<Result<DbDeck[]>> {
   try {
-    const rows = getDb()
+    const { results } = await db
       .prepare('SELECT * FROM decks WHERE player_id = ? ORDER BY created_at ASC')
-      .all(playerId) as Record<string, unknown>[]
-    return ok(rows.map(normalizeDeck))
+      .bind(playerId)
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizeDeck))
   } catch (e) {
     return err((e as Error).message)
   }
 }
 
-export function listAllDecksGrouped(): Result<Record<string, DbDeck[]>> {
+export async function listAllDecksGrouped(db: D1Database): Promise<Result<Record<string, DbDeck[]>>> {
   try {
-    const rows = getDb()
+    const { results } = await db
       .prepare('SELECT * FROM decks ORDER BY player_id, created_at ASC')
-      .all() as Record<string, unknown>[]
+      .all<Record<string, unknown>>()
     const grouped: Record<string, DbDeck[]> = {}
-    for (const row of rows) {
+    for (const row of results) {
       const deck = normalizeDeck(row)
       if (!grouped[deck.player_id]) grouped[deck.player_id] = []
       grouped[deck.player_id].push(deck)
@@ -56,19 +56,19 @@ export function listAllDecksGrouped(): Result<Record<string, DbDeck[]>> {
   }
 }
 
-export function insertDeck(
+export async function insertDeck(
+  db: D1Database,
   playerId: string,
   data: { name: string; commander_image_url?: string | null; moxfield_url?: string | null }
-): Result<DbDeck> {
+): Promise<Result<DbDeck>> {
   try {
     const id = uuid()
-    getDb()
+    await db
       .prepare('INSERT INTO decks (id, player_id, name, commander_image_url, moxfield_url) VALUES (?, ?, ?, ?, ?)')
-      .run(id, playerId, data.name.trim(), data.commander_image_url ?? null, data.moxfield_url ?? null)
-    const row = getDb()
-      .prepare('SELECT * FROM decks WHERE id = ?')
-      .get(id) as Record<string, unknown>
-    return ok(normalizeDeck(row))
+      .bind(id, playerId, data.name.trim(), data.commander_image_url ?? null, data.moxfield_url ?? null)
+      .run()
+    const row = await db.prepare('SELECT * FROM decks WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(normalizeDeck(row!))
   } catch (e) {
     return err((e as Error).message)
   }

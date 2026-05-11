@@ -1,3 +1,4 @@
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayers, listMatches } from '@/lib/db'
 import { DbMatch, DbPlayer } from '@/lib/db'
 import { getActiveLeague } from '@/lib/db-leagues'
@@ -5,12 +6,21 @@ import { Match, Player } from '@/lib/leaderboard'
 import MatchCard from '@/components/MatchCard'
 import { Calendar, CheckCircle, Clock } from 'lucide-react'
 
+export const runtime = 'edge'
 export const revalidate = 0
 
 export default async function CalendarPage() {
-  const { data: players } = listPlayers()
-  const { data: activeLeague } = getActiveLeague()
-  const { data: matches } = activeLeague ? listMatches(activeLeague.id, true) : { data: [] }
+  const { env } = getRequestContext<CloudflareEnv>()
+  const db = env.DB
+
+  const [{ data: players }, { data: activeLeague }] = await Promise.all([
+    listPlayers(db),
+    getActiveLeague(db),
+  ])
+
+  const { data: matches } = activeLeague
+    ? await listMatches(db, activeLeague.id, true)
+    : { data: [] }
 
   if (!matches || matches.length === 0) {
     return (
@@ -24,13 +34,11 @@ export default async function CalendarPage() {
     )
   }
 
-  // Build player lookup
   const playerMap: Record<string, DbPlayer> = {}
   for (const p of players ?? []) {
     playerMap[p.id] = p
   }
 
-  // Group by round
   const rounds: Record<number, DbMatch[]> = {}
   for (const match of matches) {
     const r = match.round_number
@@ -43,7 +51,6 @@ export default async function CalendarPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="text-center space-y-3">
         <div className="flex items-center justify-center gap-3">
           <div className="gold-divider w-16" />
@@ -64,7 +71,6 @@ export default async function CalendarPage() {
           </span>
         </div>
 
-        {/* Progress bar */}
         <div className="max-w-xs mx-auto h-1.5 bg-dc-border rounded-full overflow-hidden">
           <div
             className="h-full bg-dc-gold rounded-full transition-all"
@@ -73,7 +79,6 @@ export default async function CalendarPage() {
         </div>
       </div>
 
-      {/* Rounds */}
       <div className="space-y-6">
         {Object.entries(rounds)
           .sort(([a], [b]) => Number(a) - Number(b))

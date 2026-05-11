@@ -1,17 +1,34 @@
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { computeLeaderboard } from '@/lib/leaderboard'
 import { listPlayers, listCompletedMatches, countMatches } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import LeaderboardTable from '@/components/LeaderboardTable'
 import { Sword, Trophy } from 'lucide-react'
 
+export const runtime = 'edge'
 export const revalidate = 0
 
 export default async function HomePage() {
-  const { data: league } = getActiveLeague()
-  const { data: players } = listPlayers()
-  const { data: completedMatches } = league ? listCompletedMatches(league.id) : { data: [] }
-  const { data: totalMatchCount } = league ? countMatches(league.id) : { data: 0 }
-  const { data: leaguePlayers } = league ? listLeaguePlayers(league.id) : { data: [] }
+  const { env } = getRequestContext<CloudflareEnv>()
+  const db = env.DB
+
+  const [
+    { data: league },
+    { data: players },
+  ] = await Promise.all([
+    getActiveLeague(db),
+    listPlayers(db),
+  ])
+
+  const [
+    { data: completedMatches },
+    { data: totalMatchCount },
+    { data: leaguePlayers },
+  ] = await Promise.all([
+    league ? listCompletedMatches(db, league.id) : Promise.resolve({ data: [] }),
+    league ? countMatches(db, league.id) : Promise.resolve({ data: 0 }),
+    league ? listLeaguePlayers(db, league.id) : Promise.resolve({ data: [] }),
+  ])
 
   const enrolledIds = new Set((leaguePlayers ?? []).map((lp) => lp.player_id))
   const enrolledPlayers = (players ?? []).filter((p) => enrolledIds.has(p.id))
