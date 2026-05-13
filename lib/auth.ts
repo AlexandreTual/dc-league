@@ -1,25 +1,25 @@
 import { cookies } from 'next/headers'
+import { getRequestContext } from '@cloudflare/next-on-pages'
 
 const COOKIE_NAME = 'dc_admin_session'
 
-function getExpectedToken(): string {
-  const pwd = process.env.ADMIN_PASSWORD
-  if (!pwd) throw new Error('ADMIN_PASSWORD is not set')
+function makeToken(pwd: string): string {
   return Buffer.from(`dc-admin:${pwd}`).toString('base64')
 }
 
 export async function isAdminAuthenticated(): Promise<boolean> {
+  const { env } = getRequestContext<CloudflareEnv>()
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
-  return token === getExpectedToken()
+  return token === makeToken(env.ADMIN_PASSWORD)
 }
 
-export function getAdminCookieOptions() {
+export function getAdminCookieOptions(pwd: string) {
   return {
     name: COOKIE_NAME,
-    value: getExpectedToken(),
+    value: makeToken(pwd),
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     sameSite: 'lax' as const,
     maxAge: 60 * 60 * 24 * 7,
     path: '/',
