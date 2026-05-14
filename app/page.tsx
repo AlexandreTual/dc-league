@@ -75,6 +75,11 @@ export default async function HomePage() {
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
           <p>Aucune saison active pour le moment.</p>
         </div>
+      ) : (totalMatchCount ?? 0) === 0 ? (
+        <div className="text-center py-16 text-dc-muted">
+          <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
+          <p>La ligue n&apos;a pas encore démarré.</p>
+        </div>
       ) : (
         <LeaderboardTable
           players={leaderboardWithDecks}
