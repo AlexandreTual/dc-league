@@ -49,3 +49,6 @@ local.db
 # Git worktrees
 .worktrees/
 
+# Wrangler
+.wrangler/
+
