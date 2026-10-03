@@ -99,6 +99,36 @@ docker compose up -d
 
 ---
 
+## Comptes joueurs
+
+Chaque joueur a un compte personnel (pseudo + mot de passe), créé **uniquement sur invitation**. L'admin est un rôle porté par un compte.
+
+### Mise en place (une seule fois)
+
+1. Appliquer la migration : `npm run db:migrate:remote`
+2. Déployer.
+3. Aller sur `/connexion`, ouvrir « Première configuration » et entrer `ADMIN_PASSWORD`.
+4. Dans l'admin, section **Comptes joueurs** : cocher « admin » sur ton joueur, cliquer **Inviter**, ouvrir le lien et créer ton compte.
+   Dès qu'un compte admin existe, `ADMIN_PASSWORD` ne fonctionne plus (la variable peut être retirée de Cloudflare).
+5. Inviter les autres joueurs de la même façon et leur envoyer le lien (valable 7 jours, usage unique).
+
+### Au quotidien
+
+- **Mot de passe oublié** : bouton « Lien de réinitialisation » sur le joueur, dans l'admin.
+- **Mon profil** (`/profil`) : nom affiché, avatar, mot de passe.
+- **Mes decks** (`/profil/decks`) : chaque joueur gère ses propres decks ; un deck déjà utilisé dans une ligue peut être renommé mais pas supprimé.
+
+### Développement local
+
+```bash
+npm run db:migrate:local
+echo 'ADMIN_PASSWORD=secret-local' > .dev.vars
+npx @cloudflare/next-on-pages && npx wrangler pages dev
+npm test   # tests unitaires (Vitest)
+```
+
+---
+
 ## Guide d'utilisation
 
 ### Démarrer une ligue
