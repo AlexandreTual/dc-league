@@ -7,6 +7,8 @@ import { Match, Player } from '@/lib/leaderboard'
 import { DbPlayoff, DbPlayer } from '@/lib/db'
 import type { DbLeague, DbLeaguePlayerWithName } from '@/lib/db-leagues'
 import type { DbDeck } from '@/lib/db-decks'
+import type { AccountStatus } from '@/lib/db-auth'
+import AccountsPanel from '@/components/admin/AccountsPanel'
 import MatchCard from '@/components/MatchCard'
 import ScoreModal from '@/components/ScoreModal'
 import {
@@ -34,11 +36,15 @@ interface Props {
   leaguePlayers: DbLeaguePlayerWithName[]
   initialDecks: Record<string, DbDeck[]>
   playerIdsWithHistory: string[]
+  accountStatuses: Record<string, AccountStatus>
+  currentUserId: string | null
+  isBootstrap: boolean
 }
 
 export default function AdminDashboard({
   initialPlayers, initialMatches, initialPlayoffs, allRRCompleted,
   activeLeague, leaguePlayers: initialLeaguePlayers, initialDecks, playerIdsWithHistory,
+  accountStatuses, currentUserId, isBootstrap,
 }: Props) {
   const router = useRouter()
 
@@ -399,7 +405,7 @@ export default function AdminDashboard({
   }
 
   async function handleLogout() {
-    await fetch('/api/admin/logout', { method: 'POST' })
+    await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
     router.refresh()
   }
@@ -619,6 +625,15 @@ export default function AdminDashboard({
           </form>
         </div>
       )}
+
+      {/* Section: Comptes joueurs */}
+      <AccountsPanel
+        players={players}
+        statuses={accountStatuses}
+        currentUserId={currentUserId}
+        isBootstrap={isBootstrap}
+        onToast={showToast}
+      />
 
       {/* Section: Participants */}
       {league && !leagueStarted && (

@@ -3,12 +3,18 @@ import { listPlayers, listMatches, listPlayoffs, countMatches, countCompletedMat
 import { Player, Match } from '@/lib/leaderboard'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import { listAllDecksGrouped } from '@/lib/db-decks'
+import { listAccountStatuses } from '@/lib/db-auth'
+import { getCurrentUser, isAdminAuthenticated } from '@/lib/auth/session'
+import { redirect } from 'next/navigation'
 import AdminDashboard from './AdminDashboard'
 
 export const runtime = 'edge'
 export const revalidate = 0
 
 export default async function AdminPage() {
+  if (!(await isAdminAuthenticated())) redirect('/connexion?from=/admin')
+  const currentUser = await getCurrentUser()
+
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
@@ -17,11 +23,13 @@ export default async function AdminPage() {
     { data: players },
     { data: decks },
     { data: playerIdsWithHistory },
+    { data: accountStatuses },
   ] = await Promise.all([
     getActiveLeague(db),
     listPlayers(db),
     listAllDecksGrouped(db),
     getPlayerIdsWithHistory(db),
+    listAccountStatuses(db, new Date()),
   ])
 
   const [
@@ -50,6 +58,9 @@ export default async function AdminPage() {
       leaguePlayers={leaguePlayers ?? []}
       initialDecks={decks ?? {}}
       playerIdsWithHistory={playerIdsWithHistory ?? []}
+      accountStatuses={accountStatuses ?? {}}
+      currentUserId={currentUser?.id ?? null}
+      isBootstrap={currentUser?.isBootstrap ?? false}
     />
   )
 }
