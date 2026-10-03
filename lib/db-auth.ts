@@ -76,6 +76,15 @@ export async function getUserByUsername(db: D1Database, username: string): Promi
   }
 }
 
+export async function getUserById(db: D1Database, id: string): Promise<Result<DbUser | null>> {
+  try {
+    const row = await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(row ? normalizeUser(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function getUserByPlayerId(db: D1Database, playerId: string): Promise<Result<DbUser | null>> {
   try {
     const row = await db.prepare('SELECT * FROM users WHERE player_id = ?').bind(playerId).first<Record<string, unknown>>()
@@ -392,6 +401,17 @@ export async function clearFailures(db: D1Database, username: string): Promise<R
   try {
     await db.prepare('DELETE FROM login_attempts WHERE username = ? COLLATE NOCASE').bind(username).run()
     return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Joueurs ───────────────────────────────────────────────────────────────────
+
+export async function playerExists(db: D1Database, playerId: string): Promise<Result<boolean>> {
+  try {
+    const row = await db.prepare('SELECT 1 AS found FROM players WHERE id = ?').bind(playerId).first()
+    return ok(row !== null)
   } catch (e) {
     return err((e as Error).message)
   }
