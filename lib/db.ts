@@ -118,6 +118,34 @@ export async function insertPlayer(db: D1Database, data: { name: string }): Prom
   }
 }
 
+export async function updatePlayerProfile(
+  db: D1Database,
+  id: string,
+  data: { name?: string; avatar_url?: string | null }
+): Promise<Result<DbPlayer>> {
+  try {
+    const sets: string[] = []
+    const values: (string | null)[] = []
+    if (data.name !== undefined) {
+      const name = data.name.trim()
+      if (!name) return err('Le nom est requis')
+      sets.push('name = ?')
+      values.push(name)
+    }
+    if (data.avatar_url !== undefined) {
+      sets.push('avatar_url = ?')
+      values.push(data.avatar_url)
+    }
+    if (sets.length > 0) {
+      await db.prepare(`UPDATE players SET ${sets.join(', ')} WHERE id = ?`).bind(...values, id).run()
+    }
+    const row = await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return row ? ok(normalizePlayer(row)) : err('Joueur introuvable')
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function getPlayerIdsWithHistory(db: D1Database): Promise<Result<string[]>> {
   try {
     const { results } = await db
