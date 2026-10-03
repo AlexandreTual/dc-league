@@ -12,8 +12,9 @@ export const runtime = 'edge'
 export const revalidate = 0
 
 export default async function AdminPage() {
-  if (!(await isAdminAuthenticated())) redirect('/connexion?from=/admin')
   const currentUser = await getCurrentUser()
+  if (!currentUser) redirect('/connexion?from=/admin')
+  if (!(await isAdminAuthenticated())) redirect('/')
 
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
