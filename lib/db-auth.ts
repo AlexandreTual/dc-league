@@ -260,3 +260,139 @@ export async function resetPasswordFromInvitation(
     return err((e as Error).message)
   }
 }
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+
+export type SessionRow = {
+  id: string
+  user_id: string
+  expires_at: string
+  user: (DbUser & { player_name: string; avatar_url: string | null }) | null
+}
+
+export async function insertSession(
+  db: D1Database,
+  input: { idHash: string; userId: string; expiresAt: string },
+): Promise<Result<true>> {
+  try {
+    await db
+      .prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)')
+      .bind(input.idHash, input.userId, input.expiresAt)
+      .run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function getSessionWithUser(db: D1Database, idHash: string): Promise<Result<SessionRow | null>> {
+  try {
+    const row = await db
+      .prepare(
+        `SELECT s.id AS session_id, s.user_id, s.expires_at,
+                u.id, u.player_id, u.username, u.password_hash, u.is_admin, u.created_at,
+                p.name AS player_name, p.avatar_url
+         FROM sessions s
+         LEFT JOIN users u ON u.id = s.user_id
+         LEFT JOIN players p ON p.id = u.player_id
+         WHERE s.id = ?`,
+      )
+      .bind(idHash)
+      .first<Record<string, unknown>>()
+    if (!row) return ok(null)
+    return ok({
+      id: row.session_id as string,
+      user_id: row.user_id as string,
+      expires_at: row.expires_at as string,
+      user: row.id
+        ? {
+            ...normalizeUser(row),
+            player_name: row.player_name as string,
+            avatar_url: (row.avatar_url as string) ?? null,
+          }
+        : null,
+    })
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function extendSession(db: D1Database, idHash: string, expiresAt: string): Promise<Result<true>> {
+  try {
+    await db.prepare('UPDATE sessions SET expires_at = ? WHERE id = ?').bind(expiresAt, idHash).run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function deleteSession(db: D1Database, idHash: string): Promise<Result<true>> {
+  try {
+    await db.prepare('DELETE FROM sessions WHERE id = ?').bind(idHash).run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function deleteUserSessions(db: D1Database, userId: string, exceptIdHash?: string): Promise<Result<true>> {
+  try {
+    await db
+      .prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?')
+      .bind(userId, exceptIdHash ?? '')
+      .run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function deleteExpiredSessions(db: D1Database, now: Date): Promise<Result<true>> {
+  try {
+    await db.prepare('DELETE FROM sessions WHERE expires_at <= ?').bind(now.toISOString()).run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Anti-force brute ──────────────────────────────────────────────────────────
+
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000
+
+function windowStart(now: Date): string {
+  return new Date(now.getTime() - LOGIN_WINDOW_MS).toISOString()
+}
+
+export async function countRecentFailures(db: D1Database, username: string, now: Date): Promise<Result<number>> {
+  try {
+    const row = await db
+      .prepare('SELECT COUNT(*) AS n FROM login_attempts WHERE username = ? COLLATE NOCASE AND attempted_at > ?')
+      .bind(username, windowStart(now))
+      .first<{ n: number }>()
+    return ok(Number(row?.n ?? 0))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function recordFailure(db: D1Database, username: string, now: Date): Promise<Result<true>> {
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM login_attempts WHERE attempted_at <= ?').bind(windowStart(now)),
+      db.prepare('INSERT INTO login_attempts (username, attempted_at) VALUES (?, ?)').bind(username, now.toISOString()),
+    ])
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function clearFailures(db: D1Database, username: string): Promise<Result<true>> {
+  try {
+    await db.prepare('DELETE FROM login_attempts WHERE username = ? COLLATE NOCASE').bind(username).run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
