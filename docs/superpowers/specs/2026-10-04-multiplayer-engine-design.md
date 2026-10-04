@@ -1,7 +1,7 @@
 # Design — Moteur multijoueur
 
 **Date :** 2026-10-04  
-**Statut :** En relecture  
+**Statut :** Validé, implémenté  
 **Projet :** multijoueur en ligne, sous-projet 1/4 (1. moteur → 2. serveur temps réel et salon → 3. interface de table → 4. matchs de ligue en ligne)
 
 ---
