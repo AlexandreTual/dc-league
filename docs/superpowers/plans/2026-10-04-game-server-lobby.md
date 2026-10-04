@@ -208,7 +208,7 @@ Routes : `requirePlayer` partout, `assertSameOrigin` sur les POST ; corps JSON `
 
 ### Tâche 8 : Vue de jeu minimale et connexion
 
-**Fichiers :** Créer `components/online/useGameSocket.ts`, `components/online/MinimalGame.tsx`, `components/online/cards-cache.ts`, `components/online/cards-cache.test.ts` ; Modifier `app/tables/[id]/page.tsx`.
+**Fichiers :** Créer `components/online/useGameSocket.ts`, `components/online/MinimalGame.tsx` ; Modifier `components/online/TableView.tsx`. (`mergeCards` vit dans `lib/game/room.ts`, déjà testé en Tâche 3 : pas de `cards-cache.ts` séparé.)
 
 **Interfaces — Produit :**
 ```ts
