@@ -41,7 +41,7 @@ type GameSetup = {
 | Constante | `commander` | `duel` |
 |---|---|---|
 | Points de vie de départ | 40 | 20 |
-| Blessures de commandant mortelles (alerte) | 21 | 21 (à confirmer avec l'utilisateur) |
+| Blessures de commandant | suivies, alerte à 21 | **non utilisées** (action refusée, compteur absent de l'interface) |
 | Poison mortel (alerte) | 10 | 10 |
 | Pioche du premier joueur à son premier tour | oui | non |
 
@@ -165,7 +165,8 @@ Renvoie `null` si l'action est permise, sinon un message en français. Règles g
 | `giveControl` | l'auteur contrôle la carte ; la carte est sur un champ de bataille ; `to` est un joueur de la partie |
 | `tap`, `counter` | carte sur un champ de bataille (n'importe qui) |
 | `flip`, `faceDown` | l'auteur contrôle la carte |
-| `life`, `poison`, `playerCounter`, `commanderDamage`, `setMonarch`, `setInitiative` | n'importe qui, cible = joueur de la partie ; `commander` = une carte commandant d'un autre joueur |
+| `life`, `poison`, `playerCounter`, `setMonarch`, `setInitiative` | n'importe qui, cible = joueur de la partie |
+| `commanderDamage` | format `commander` uniquement (en `duel` : « Pas de blessures de commandant en Duel Commander ») ; n'importe qui ; `commander` = une carte commandant d'un autre joueur que la cible |
 | `commanderTax` | propriétaire du commandant |
 | `eliminate` | n'importe qui (la confirmation est gérée par l'interface) |
 | `reveal` | l'auteur est le propriétaire des cartes, qui sont dans sa main (ou `'hand'`) |
@@ -249,7 +250,7 @@ type PlayerView = {
 ## Tests
 
 - Reprise des tests solo existants, adaptés (partie à un joueur).
-- **Multijoueur** (`rules.test.ts`, `apply.multi.test.ts`) : réanimer depuis le cimetière d'un adversaire ; voler une créature puis la voir retourner au cimetière de son propriétaire ; refus de prendre dans la main ou la bibliothèque d'un autre ; `giveControl` ; ordre du tour avec élimination ; pas de pioche au premier tour en duel ; `commanderDamage` (par commandant, vie retirée) ; monarque et initiative ; `endTurn` refusé hors joueur actif ; `canUndo` faux si un autre joueur a joué depuis.
+- **Multijoueur** (`rules.test.ts`, `apply.multi.test.ts`) : réanimer depuis le cimetière d'un adversaire ; voler une créature puis la voir retourner au cimetière de son propriétaire ; refus de prendre dans la main ou la bibliothèque d'un autre ; `giveControl` ; ordre du tour avec élimination ; pas de pioche au premier tour en duel ; `commanderDamage` (par commandant, vie retirée) ; monarque et initiative ; `endTurn` refusé hors joueur actif ; `commanderDamage` refusé en duel ; `canUndo` faux si un autre joueur a joué depuis.
 - **Visibilité** (`view.test.ts`) : main propre visible et mains adverses cachées ; carte cachée sans identifiant ni référence ; `reveal` à un joueur puis changement de zone → de nouveau cachée ; `look` puis `endLook` ; `search` puis prise d'une carte ; exil face cachée visible par l'exilant seulement ; `topRevealed` ; joueur éliminé avec et sans l'option ; journal filtré (le détail de `look` n'apparaît que pour l'auteur).
 - **Anti-fuite** : 200 actions aléatoires valides (graine fixe) sur une partie à 4 joueurs ; pour chaque joueur, aucun identifiant de carte cachée pour lui n'apparaît dans `JSON.stringify(viewFor(...))`.
 - **Mode test** : `scripts/playtest-check.mjs` au vert après migration.
