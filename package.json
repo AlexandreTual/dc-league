@@ -8,13 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "postinstall": "node scripts/patch-next-on-pages.mjs",
     "pages:dev": "wrangler pages dev",
+    "game:dev": "cd workers/game && wrangler dev --port 8787 --persist-to ../../.wrangler/state",
     "pages:deploy": "wrangler pages deploy",
     "db:migrate:local": "wrangler d1 migrations apply dc-league --local",
     "db:migrate:remote": "wrangler d1 migrations apply dc-league --remote"
   },
   "dependencies": {
-    "@cloudflare/next-on-pages": "^1.13.7",
+    "@cloudflare/next-on-pages": "1.13.16",
     "@dnd-kit/core": "^6.3.1",
     "lucide-react": "^0.454.0",
     "next": "^15.1.0",

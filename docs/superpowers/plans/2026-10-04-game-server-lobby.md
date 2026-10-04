@@ -48,6 +48,7 @@ Les fonctions de `room.ts` renvoient des **effets** plutôt que des messages pr�
 - [ ] **Étape 4 : vérifier.** `npm run game:dev` (`cd workers/game && wrangler dev --port 8787 --persist-to ../../.wrangler/state`) et `wrangler pages dev --port 8788` après build ; `node scripts/ws-spike.mjs http://localhost:8788 <cookie>` ouvre `ws://localhost:8788/api/games/t1/ws` (WebSocket natif de Node) et attend l'écho.
   Attendu : `écho reçu : {"echo":"ping","player":"<id>"}`.
 - [ ] **Étape 5 : décision.** Écho reçu → approche A, on continue. Sinon (après diagnostic `systematic-debugging`) → repli B : noter la décision ici, ajouter au Worker une route publique `/ws/<id>?t=<jeton>`, passer `workers_dev = true`, et créer en Tâche 6 `GET /api/games/[id]/ticket` (HMAC-SHA256 de `tableId.playerId.exp` avec `GAME_TICKET_SECRET`, validité 60 s) avec ses tests. Prévenir l'utilisateur.
+> **Résultat (fait) :** approche A retenue. Le Durable Object répondait bien `101`, mais next-on-pages 1.13.16 recopie chaque réponse (`new Response(body, { ...resp })`) et perd la WebSocket. Correctif d'une ligne appliqué par `scripts/patch-next-on-pages.mjs` (lancé en `postinstall`, échoue si le code visé change) ; version de next-on-pages figée à 1.13.16. Vérifié dans Chromium : `écho reçu : {"echo":"ping","player":"p2"}`.
 - [ ] **Étape 6 : commit** `feat(online): squelette du Worker de jeu et liaison WebSocket`
 
 ### Tâche 2 : Tables du salon en D1
