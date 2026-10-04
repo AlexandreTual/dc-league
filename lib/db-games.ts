@@ -19,6 +19,8 @@ export type GameTable = {
   players: GameTablePlayer[]
 }
 
+export const INTERNAL_ERROR = 'Erreur interne, réessaie plus tard'
+
 const ERR = {
   notFound: 'Table introuvable',
   full: 'Table complète',
@@ -41,7 +43,8 @@ async function guard<T>(run: () => Promise<Result<T>>): Promise<Result<T>> {
   try {
     return await run()
   } catch (e) {
-    return fail(e instanceof Error ? e.message : String(e))
+    console.error('Salon : erreur de base de données', e)
+    return fail(INTERNAL_ERROR)
   }
 }
 
