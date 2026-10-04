@@ -36,3 +36,38 @@ export async function seedCache(
   await upsertCards(db, cards, now)
   await saveLookups(db, entries.map((e) => ({ key: e.key, en_card_id: e.en?.id ?? null, fr_card_id: e.fr?.id ?? null })), now)
 }
+
+export function deckCardView(
+  position: number,
+  en: CardRow | null,
+  opts: { quantity?: number; section?: 'main' | 'commander'; fr?: CardRow | null; name?: string } = {},
+): import('@/lib/cards/types').DeckCardView {
+  return {
+    position,
+    quantity: opts.quantity ?? 1,
+    section: opts.section ?? 'main',
+    requested_name: opts.name ?? en?.name ?? 'Inconnue',
+    en,
+    fr: opts.fr ?? null,
+  }
+}
+
+const face = (name: string, type: string, image: string) => ({
+  name, printed_name: null, mana_cost: null, type_line: type, printed_type_line: null,
+  oracle_text: null, printed_text: null, image_normal: image, image_small: image,
+})
+
+/** Deck de test : Kenrith (commandant), Sol Ring (avec version FR), 30 Forêts, Delver (double face) = 33 exemplaires. */
+export function testDeckCards() {
+  return [
+    deckCardView(1, cardRow({ id: 'ken', name: 'Kenrith, the Returned King', type_line: 'Legendary Creature — Human Noble' }), { section: 'commander' }),
+    deckCardView(2, cardRow({ id: 'sol' }), { fr: cardRow({ id: 'sol-fr', lang: 'fr', printed_name: 'Anneau solaire' }) }),
+    deckCardView(3, cardRow({ id: 'forest', name: 'Forest', type_line: 'Basic Land — Forest', cmc: 0 }), { quantity: 30 }),
+    deckCardView(4, cardRow({
+      id: 'delver', name: 'Delver of Secrets // Insectile Aberration',
+      type_line: 'Creature — Human Wizard // Creature — Human Insect',
+      image_normal: 'front.jpg',
+      faces: [face('Delver of Secrets', 'Creature — Human Wizard', 'front.jpg'), face('Insectile Aberration', 'Creature — Human Insect', 'back.jpg')],
+    })),
+  ]
+}
