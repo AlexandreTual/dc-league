@@ -24,7 +24,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 | # | Sous-projet | Spec | Plan | État |
 |---|---|---|---|---|
 | 1 | Moteur multijoueur (propriétaire/contrôleur, compteurs, informations cachées, `viewFor`) | `specs/2026-10-04-multiplayer-engine-design.md` | `plans/2026-10-04-multiplayer-engine.md` | **terminé** (branche `ccr-c25fefc0-vailvt`, mode test migré) |
-| 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | à écrire | **spec en relecture** |
+| 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **plan en relecture** |
 | 3 | Interface de table multijoueur | — | — | à faire |
 | 4 | Matchs de ligue en ligne (score proposé, confirmé) | — | — | à faire |
 

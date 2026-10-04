@@ -1,7 +1,7 @@
 # Design — Serveur temps réel et salon
 
 **Date :** 2026-10-04
-**Statut :** En relecture
+**Statut :** Validé
 **Projet :** multijoueur en ligne, sous-projet 2/4 (1. moteur → **2. serveur temps réel et salon** → 3. interface de table → 4. matchs de ligue en ligne)
 
 ---
