@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
-import { updatePlayerProfile } from './db'
+import { getPlayer, updatePlayerProfile } from './db'
 
 let db: D1Database
 
@@ -26,5 +26,12 @@ describe('updatePlayerProfile', () => {
 
   it('supprime les espaces autour du nom', async () => {
     expect((await updatePlayerProfile(db, 'p1', { name: '  Bob  ' })).data?.name).toBe('Bob')
+  })
+})
+
+describe('getPlayer', () => {
+  it('renvoie le joueur ou null', async () => {
+    expect((await getPlayer(db, 'p1')).data?.name).toBe('Alex')
+    expect((await getPlayer(db, 'inconnu')).data).toBeNull()
   })
 })

@@ -98,6 +98,15 @@ export async function listPlayers(db: D1Database): Promise<Result<DbPlayer[]>> {
   }
 }
 
+export async function getPlayer(db: D1Database, id: string): Promise<Result<DbPlayer | null>> {
+  try {
+    const row = await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(row ? normalizePlayer(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function countPlayers(db: D1Database): Promise<Result<number>> {
   try {
     const row = await db.prepare('SELECT COUNT(*) as n FROM players').first<{ n: number }>()
