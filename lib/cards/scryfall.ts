@@ -8,8 +8,8 @@ const COLLECTION_MAX = 75
 const SEARCH_GROUP = 10
 
 export class ScryfallUnavailableError extends Error {
-  constructor(status: number) {
-    super(`Scryfall indisponible (HTTP ${status})`)
+  constructor(reason: string) {
+    super(`Scryfall indisponible (${reason})`)
     this.name = 'ScryfallUnavailableError'
   }
 }
@@ -70,9 +70,19 @@ export function createScryfallClient(deps: ScryfallDeps) {
       if (wait > 0) await deps.sleep(wait)
     }
     lastCall = Date.now()
-    const res = await deps.fetch(url, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) } })
-    if (res.status === 429 || res.status >= 500) throw new ScryfallUnavailableError(res.status)
-    return { status: res.status, body: (await res.json()) as ListResponse }
+    let res: Response
+    try {
+      res = await deps.fetch(url, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) } })
+    } catch (e) {
+      throw new ScryfallUnavailableError((e as Error).message)
+    }
+    // 404 = recherche sans résultat ; tout autre code d'erreur est traité comme une indisponibilité.
+    if (!res.ok && res.status !== 404) throw new ScryfallUnavailableError(`HTTP ${res.status}`)
+    try {
+      return { status: res.status, body: (await res.json()) as ListResponse }
+    } catch {
+      throw new ScryfallUnavailableError('réponse illisible')
+    }
   }
 
   async function fetchCollection(identifiers: Identifier[]): Promise<{ cards: ScryfallCard[]; notFound: Identifier[] }> {

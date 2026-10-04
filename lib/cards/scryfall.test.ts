@@ -102,6 +102,23 @@ describe('erreurs et rythme', () => {
     await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
   })
 
+  it('403 → ScryfallUnavailableError', async () => {
+    const { c } = client([{ status: 403, body: 'Host not in allowlist' }])
+    await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
+  })
+
+  it('réponse illisible → ScryfallUnavailableError', async () => {
+    const f = (async () => new Response('Host not in allowlist', { status: 200 })) as typeof fetch
+    const c = createScryfallClient({ fetch: f, sleep: async () => {} })
+    await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
+  })
+
+  it('erreur réseau → ScryfallUnavailableError', async () => {
+    const f = (async () => { throw new TypeError('fetch failed') }) as typeof fetch
+    const c = createScryfallClient({ fetch: f, sleep: async () => {} })
+    await expect(c.searchFrenchPrints(['o1'])).rejects.toBeInstanceOf(ScryfallUnavailableError)
+  })
+
   it('attend entre deux appels', async () => {
     const { c, sleeps } = client([])
     await c.fetchCollection([{ name: 'A' }])
