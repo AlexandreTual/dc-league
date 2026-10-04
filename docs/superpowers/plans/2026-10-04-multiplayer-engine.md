@@ -42,7 +42,7 @@
 | idem | `lib/game/mp/apply.ts` → `lib/game/apply.ts` | `applyAction`, journal, `cardName`, `cardData` |
 | idem | `lib/game/mp/view.ts` → `lib/game/view.ts` | `viewFor` |
 | idem | `lib/game/mp/replay.ts` → `lib/game/replay.ts` | `replay`, `GameHistory` |
-| Modifier (T6) | `lib/game/storage.ts` | Version 2 |
+| Modifier (T7) | `lib/game/storage.ts` | Version 2 |
 | Supprimer (T7) | ancien `lib/game/{types,setup,apply,replay}.ts` et leurs tests | Remplacés |
 | Inchangés | `lib/game/{random,tokens,keyboard,catalog}.ts` | — |
 | Modifier (T7) | `components/playtest/*`, `app/decks/[id]/test/page.tsx` | Affichage via `viewFor`, actions avec `actor: 'solo'` |
@@ -153,7 +153,7 @@
   - `viewFor` : ma main visible, les mains adverses sont des listes de `{ hidden: true }` de la bonne longueur ; une carte cachée n'a **aucune autre clé** (`Object.keys(card)` vaut `['hidden']`) ; `library` = `{ count, visible }` ; exil face cachée visible par l'exilant seulement ; joueur éliminé avec l'option → tout visible, sans l'option → règle normale ; journal filtré (la ligne privée de `look` n'apparaît que chez l'auteur).
   - **Anti-fuite** : partie à 4 joueurs, 200 actions aléatoires **valides** (générées avec `createRng(42)`, parmi `draw`, `move` vers des zones permises, `look`/`endLook`, `reveal`, `faceDown`, `endTurn`, `createToken` ; les actions que `canApply` refuse sont ignorées). Après chaque action, pour chaque joueur, aucun identifiant de carte **invisible pour lui** (`isVisibleTo` faux) n'apparaît dans `JSON.stringify(viewFor(state, joueur))`.
   - `GameHistory` : `push` d'une action refusée renvoie l'erreur et ne l'ajoute pas ; état égal à `replay` aux longueurs 19, 20, 21 et 41 ; `canUndo('p1')` vrai juste après une action de p1, **faux** si p2 a agi depuis (point de vigilance 2) ; `undo` refuse `start`.
-  - `storage` : sauvegarde au format `{ version: 2, ... }` ; une sauvegarde `version: 1` → `null`.
+  - `storage` : **déplacé en Tâche 7** (passer en version 2 avant la migration enregistrerait des actions de l'ancien moteur sous la version 2).
 - [ ] **Étape 2 : lancer** → FAIL. **Étape 3 : implémenter.** **Étape 4 : lancer** → PASS.
 - [ ] **Étape 5 : commit et push** `feat(game): vue par joueur, rejeu et annulation`
 

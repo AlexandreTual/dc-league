@@ -19,9 +19,13 @@ export function controllerOf(state: GameState, id: string): string | null {
 }
 
 export function isVisibleTo(state: GameState, id: string, playerId: string): boolean {
-  const card = state.cards[id]
   const where = zoneOf(state, id)
-  if (!card || !where) return false
+  return !!state.cards[id] && !!where && isVisibleAt(state, id, where, playerId)
+}
+
+/** Même règle que isVisibleTo, quand la zone de la carte est déjà connue. */
+export function isVisibleAt(state: GameState, id: string, where: ZoneRef, playerId: string): boolean {
+  const card = state.cards[id]
   const viewer = state.players[playerId]
   if (viewer?.eliminated && state.options.eliminatedSeeAll) return true
   if (card.knownBy.includes(playerId)) return true

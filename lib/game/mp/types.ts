@@ -150,4 +150,6 @@ export type PlayerView = {
   commanderCasts: Record<string, number>
   lookingAt: string[]
   log: Omit<LogEntry, 'visibleTo'>[]
+  /** Renseigné par GameHistory / le serveur. */
+  canUndo: boolean
 }
