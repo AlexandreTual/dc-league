@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestContext } from '@cloudflare/next-on-pages'
-import { isAdminAuthenticated } from '@/lib/auth'
+import { assertSameOrigin, requireUser } from '@/lib/auth/session'
+import { canCreateDeckFor } from '@/lib/auth/permissions'
 import { listPlayerDecks, insertDeck } from '@/lib/db-decks'
 
 export const runtime = 'edge'
@@ -20,8 +21,13 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const refused = assertSameOrigin(req)
+  if (refused) return refused
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
+  const { id } = await params
+  if (!canCreateDeckFor(user, id)) {
+    return NextResponse.json({ error: 'Tu ne peux gérer que tes propres decks' }, { status: 403 })
   }
 
   const { name, commander_image_url, moxfield_url } = await req.json() as { name?: string; commander_image_url?: string; moxfield_url?: string }
@@ -30,7 +36,6 @@ export async function POST(
   }
 
   const { env } = getRequestContext<CloudflareEnv>()
-  const { id } = await params
   const { data, error } = await insertDeck(env.DB, id, {
     name: name.trim(),
     commander_image_url: commander_image_url?.trim() || null,

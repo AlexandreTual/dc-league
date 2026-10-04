@@ -24,6 +24,7 @@ export type DbLeaguePlayerWithName = DbLeaguePlayer & {
   deck_name: string | null
   deck_moxfield_url: string | null
   deck_commander_image_url: string | null
+  deck_has_cards: boolean
 }
 
 type Ok<T> = { data: T; error: null }
@@ -63,6 +64,7 @@ function normalizeLeaguePlayerWithName(row: Record<string, unknown>): DbLeaguePl
     deck_name: (row.deck_name as string) ?? null,
     deck_moxfield_url: (row.deck_moxfield_url as string) ?? null,
     deck_commander_image_url: (row.deck_commander_image_url as string) ?? null,
+    deck_has_cards: Number(row.deck_has_cards) === 1,
   }
 }
 
@@ -153,23 +155,26 @@ export async function closeLeague(db: D1Database, id: string): Promise<Result<Db
 
 // ── League Players ─────────────────────────────────────────────────────────────
 
+const LEAGUE_PLAYERS_SQL = `
+  SELECT lp.*, p.name, p.avatar_url,
+         d.name AS deck_name,
+         d.moxfield_url AS deck_moxfield_url,
+         d.commander_image_url AS deck_commander_image_url,
+         EXISTS (SELECT 1 FROM deck_cards dc WHERE dc.deck_id = lp.deck_id) AS deck_has_cards
+  FROM league_players lp
+  JOIN players p ON p.id = lp.player_id
+  LEFT JOIN decks d ON d.id = lp.deck_id
+  WHERE lp.league_id = ?
+  ORDER BY p.name ASC
+`
+
 export async function listLeaguePlayers(
   db: D1Database,
   leagueId: string
 ): Promise<Result<DbLeaguePlayerWithName[]>> {
   try {
     const { results } = await db
-      .prepare(`
-        SELECT lp.*, p.name, p.avatar_url,
-               d.name AS deck_name,
-               d.moxfield_url AS deck_moxfield_url,
-               d.commander_image_url AS deck_commander_image_url
-        FROM league_players lp
-        JOIN players p ON p.id = lp.player_id
-        LEFT JOIN decks d ON d.id = lp.deck_id
-        WHERE lp.league_id = ?
-        ORDER BY p.name ASC
-      `)
+      .prepare(LEAGUE_PLAYERS_SQL)
       .bind(leagueId)
       .all<Record<string, unknown>>()
     return ok(results.map(normalizeLeaguePlayerWithName))
@@ -265,17 +270,7 @@ export async function getLeagueDetail(
       matchesResult,
       playoffsResult,
     ] = await db.batch<Record<string, unknown>>([
-      db.prepare(`
-        SELECT lp.*, p.name, p.avatar_url,
-               d.name AS deck_name,
-               d.moxfield_url AS deck_moxfield_url,
-               d.commander_image_url AS deck_commander_image_url
-        FROM league_players lp
-        JOIN players p ON p.id = lp.player_id
-        LEFT JOIN decks d ON d.id = lp.deck_id
-        WHERE lp.league_id = ?
-        ORDER BY p.name ASC
-      `).bind(id),
+      db.prepare(LEAGUE_PLAYERS_SQL).bind(id),
       db.prepare('SELECT * FROM matches WHERE league_id = ? ORDER BY round_number ASC, created_at ASC').bind(id),
       db.prepare('SELECT * FROM playoffs WHERE league_id = ? ORDER BY created_at ASC').bind(id),
     ])

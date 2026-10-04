@@ -1,30 +1,32 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const COOKIE_NAME = 'dc_admin_session'
+// Doit rester aligné avec lib/auth/session.ts (le middleware n'importe pas ce module serveur).
+const SESSION_COOKIE = 'dc_session'
+const SESSION_MAX_AGE = 30 * 24 * 3600
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // Protect /admin/* but allow /admin/login
-  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-    const adminPassword = process.env.ADMIN_PASSWORD
-    if (!adminPassword) {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-    const expectedToken = Buffer.from(`dc-admin:${adminPassword}`).toString('base64')
-    const sessionCookie = request.cookies.get(COOKIE_NAME)?.value
-
-    if (sessionCookie !== expectedToken) {
-      const loginUrl = new URL('/admin/login', request.url)
-      loginUrl.searchParams.set('from', pathname)
-      return NextResponse.redirect(loginUrl)
-    }
+  const token = request.cookies.get(SESSION_COOKIE)?.value
+  if (!token) {
+    const loginUrl = new URL('/connexion', request.url)
+    loginUrl.searchParams.set('from', request.nextUrl.pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  return NextResponse.next()
+  // La session est prolongée en base : on prolonge aussi le cookie. La vraie vérification se fait côté serveur.
+  const response = NextResponse.next()
+  response.cookies.set({
+    name: SESSION_COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_MAX_AGE,
+  })
+  return response
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/profil/:path*'],
 }

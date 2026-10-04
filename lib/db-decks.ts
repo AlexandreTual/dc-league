@@ -72,3 +72,53 @@ export async function insertDeck(
     return err((e as Error).message)
   }
 }
+
+export async function getDeck(db: D1Database, id: string): Promise<Result<DbDeck | null>> {
+  try {
+    const row = await db.prepare('SELECT * FROM decks WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(row ? normalizeDeck(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function updateDeck(
+  db: D1Database,
+  id: string,
+  data: { name?: string; moxfield_url?: string | null; commander_image_url?: string | null }
+): Promise<Result<DbDeck>> {
+  try {
+    const fields = (['name', 'moxfield_url', 'commander_image_url'] as const).filter((k) => data[k] !== undefined)
+    if (fields.length > 0) {
+      await db
+        .prepare(`UPDATE decks SET ${fields.map((f) => `${f} = ?`).join(', ')} WHERE id = ?`)
+        .bind(...fields.map((f) => data[f] ?? null), id)
+        .run()
+    }
+    const row = await db.prepare('SELECT * FROM decks WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return row ? ok(normalizeDeck(row)) : err('NOT_FOUND')
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function isDeckUsedInLeague(db: D1Database, id: string): Promise<Result<boolean>> {
+  try {
+    const row = await db.prepare('SELECT 1 AS used FROM league_players WHERE deck_id = ? LIMIT 1').bind(id).first()
+    return ok(row !== null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function deleteDeck(db: D1Database, id: string): Promise<Result<true>> {
+  try {
+    const used = await isDeckUsedInLeague(db, id)
+    if (used.error) return err(used.error)
+    if (used.data) return err('DECK_IN_USE')
+    await db.prepare('DELETE FROM decks WHERE id = ?').bind(id).run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}

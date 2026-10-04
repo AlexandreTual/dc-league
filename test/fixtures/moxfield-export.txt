@@ -1,0 +1,47 @@
+Commander
+1 Kenrith, the Returned King (ELD) 303
+
+Deck
+1 Sol Ring (C21) 263
+1 Arcane Signet (C21) 236
+1 Command Tower (C21) 284
+1 Exotic Orchard (C21) 288
+1 Cultivate (C21) 196
+1 Kodama's Reach (C21) 212
+1 Swords to Plowshares (C21) 105
+1 Path to Exile (C21) 100
+1 Counterspell (CMR) 395
+1 Beast Within (C21) 190
+1 Rhystic Study (PCY) 45
+1 Smothering Tithe (RNA) 22
+1 Lightning Greaves (C21) 245
+1 Swiftfoot Boots (C21) 251
+1 Heroic Intervention (AER) 109
+1 Teferi's Protection (C17) 8
+1 Cyclonic Rift (RTR) 35
+1 Wrath of God (10E) 49
+1 Eternal Witness (UMA) 154
+1 Birds of Paradise (M12) 165
+1 Llanowar Elves (M19) 314
+1 Delver of Secrets // Insectile Aberration (ISD) 51
+1 Brainstorm (C21) 112
+1 Ponder (M12) 73
+1 Fact or Fiction (C21) 116
+1 Mystic Remora (ICE) 87
+1 Harmonize (C21) 202
+1 Rampant Growth (C21) 210
+1 Farseek (C21) 199
+1 Nature's Lore (C21) 207
+1 Three Visits (C21) 222
+1 Skyshroud Claim (C21) 217
+1 Esper Sentinel (MH2) 12
+1 Dryad Arbor (FUT) 174
+1 Solemn Simulacrum (C21) 255
+16 Forest (ELD) 266
+16 Plains (ELD) 250
+16 Island (ELD) 254
+16 Swamp (ELD) 258
+
+Sideboard
+1 Duress (M19) 94
+1 Negate (M19) 64

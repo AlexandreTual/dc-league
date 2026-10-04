@@ -99,6 +99,64 @@ docker compose up -d
 
 ---
 
+## Comptes joueurs
+
+Chaque joueur a un compte personnel (pseudo + mot de passe), créé **uniquement sur invitation**. L'admin est un rôle porté par un compte.
+
+### Mise en place (une seule fois)
+
+1. Appliquer la migration : `npm run db:migrate:remote`
+2. Déployer.
+3. Aller sur `/connexion`, ouvrir « Première configuration » et entrer `ADMIN_PASSWORD`.
+4. Dans l'admin, section **Comptes joueurs** : cocher « admin » sur ton joueur, cliquer **Inviter**, ouvrir le lien et créer ton compte.
+   Dès qu'un compte admin existe, `ADMIN_PASSWORD` ne fonctionne plus (la variable peut être retirée de Cloudflare).
+5. Inviter les autres joueurs de la même façon et leur envoyer le lien (valable 7 jours, usage unique).
+
+### Au quotidien
+
+- **Mot de passe oublié** : bouton « Lien de réinitialisation » sur le joueur, dans l'admin.
+- **Mon profil** (`/profil`) : nom affiché, avatar, mot de passe.
+- **Mes decks** (`/profil/decks`) : chaque joueur gère ses propres decks ; un deck déjà utilisé dans une ligue peut être renommé mais pas supprimé.
+
+### Développement local
+
+```bash
+npm run db:migrate:local
+echo 'ADMIN_PASSWORD=secret-local' > .dev.vars
+npx @cloudflare/next-on-pages && npx wrangler pages dev
+npm test   # tests unitaires (Vitest)
+```
+
+---
+
+## Import de decks
+
+Chaque joueur importe la liste de ses decks depuis **Mes decks** (`/profil/decks`) → « Importer la liste ».
+
+- **Format accepté** : export texte de Moxfield (Arena / MTGO), une carte par ligne : `1 Sol Ring`, `1x Sol Ring` ou `1 Sol Ring (C21) 263`. Sections reconnues : `Commander`, `Deck` ; `Sideboard`, `Maybeboard`, `Considering` et `Tokens` sont ignorées.
+- Les cartes sont complétées via **Scryfall**, en **français** quand une impression française existe (même édition en priorité), sinon en anglais. Un cache en base rend les imports suivants quasi instantanés.
+- Page publique **Voir le deck** (`/decks/<id>`) : cartes par type, image au survol ou au toucher, bascule FR/EN, choix du commandant.
+
+Mise en place : `npm run db:migrate:remote` (applique `migrations/0003_deck_cards.sql`), puis déployer.
+
+---
+
+## Mode test
+
+Sur la page d'un deck importé (`/decks/<id>`), le bouton **Tester le deck** ouvre un plateau de test solo (`/decks/<id>/test`), pensé pour l'ordinateur.
+
+- **Glisser-déposer** entre main, champ de bataille, bibliothèque (Maj = dessous), cimetière, exil et zone de commandement.
+- **Double-clic** : engager une carte du champ de bataille, piocher depuis la bibliothèque, poser une carte de la main.
+- **Clic droit** sur une carte : engager, retourner, face cachée, marqueurs, taxe du commandant, envoyer vers une zone. Sur la bibliothèque : piocher, mélanger, regarder les X du dessus, chercher, révéler. Clic sur le cimetière ou l'exil : voir la pile.
+- **Jetons** : recherche Scryfall ou jeton personnalisé. **Journal** et statistiques de la partie.
+- **Raccourcis** : `D` piocher, `U` tout dégager, `N` tour suivant, `S` mélanger, `M` mulligan, `Ctrl+Z` annuler, `Échap` fermer.
+- Mulligan à la londonienne, **premier mulligan gratuit**. Taxe de commandant comptée automatiquement.
+- La partie est **sauvegardée dans le navigateur** et peut être reprise ; elle est ignorée si le deck a été réimporté.
+
+Vérification dans un navigateur : `node scripts/playtest-check.mjs <url> <deckId> <dossier-captures>` (Chromium requis).
+
+---
+
 ## Guide d'utilisation
 
 ### Démarrer une ligue

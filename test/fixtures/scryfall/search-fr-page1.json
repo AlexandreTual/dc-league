@@ -1,0 +1,56 @@
+{
+  "object": "list",
+  "total_cards": 3,
+  "has_more": true,
+  "next_page": "https://api.scryfall.com/cards/search?page=2&q=test",
+  "data": [
+    {
+      "object": "card",
+      "id": "sol-c21-fr",
+      "oracle_id": "oracle-sol",
+      "lang": "fr",
+      "name": "Sol Ring",
+      "set": "c21",
+      "collector_number": "263",
+      "released_at": "2021-04-23",
+      "layout": "normal",
+      "mana_cost": "{1}",
+      "cmc": 1.0,
+      "type_line": "Artifact",
+      "oracle_text": "{T}: Add {C}{C}.",
+      "colors": [],
+      "color_identity": [],
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/sol-c21-fr.jpg",
+        "normal": "https://cards.scryfall.io/normal/front/sol-c21-fr.jpg"
+      },
+      "printed_name": "Anneau solaire",
+      "printed_type_line": "Artefact",
+      "printed_text": "{T} : Ajoutez {C}{C}."
+    },
+    {
+      "object": "card",
+      "id": "sol-cmr-fr",
+      "oracle_id": "oracle-sol",
+      "lang": "fr",
+      "name": "Sol Ring",
+      "set": "cmr",
+      "collector_number": "472",
+      "released_at": "2020-11-20",
+      "layout": "normal",
+      "mana_cost": "{1}",
+      "cmc": 1.0,
+      "type_line": "Artifact",
+      "oracle_text": "{T}: Add {C}{C}.",
+      "colors": [],
+      "color_identity": [],
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/sol-cmr-fr.jpg",
+        "normal": "https://cards.scryfall.io/normal/front/sol-cmr-fr.jpg"
+      },
+      "printed_name": "Anneau solaire",
+      "printed_type_line": "Artefact",
+      "printed_text": "{T} : Ajoutez {C}{C}."
+    }
+  ]
+}

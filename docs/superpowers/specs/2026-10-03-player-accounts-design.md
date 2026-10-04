@@ -232,7 +232,7 @@ Les fonctions d'accès aux decks nécessaires (`getDeck`, `updateDeck`, `deleteD
 
 - **Vitest** est ajouté (`npm test`).
 - **Fonctions pures** : `crypto.ts`, `validation.ts`, `permissions.ts`.
-- **`lib/db-auth.ts` et les nouvelles fonctions de `lib/db-decks.ts`** : testées contre une vraie base SQLite en mémoire (`better-sqlite3`, en dépendance de développement), via un petit adaptateur qui imite l'interface D1 utilisée (`prepare`, `bind`, `first`, `all`, `run`, `batch`) et applique `migrations/0001_schema.sql` et `0002_accounts.sql`.
+- **`lib/db-auth.ts` et les nouvelles fonctions de `lib/db-decks.ts`** : testées contre une vraie base SQLite en mémoire (module intégré `node:sqlite` de Node 22, aucune dépendance native), via un petit adaptateur qui imite l'interface D1 utilisée (`prepare`, `bind`, `first`, `all`, `run`, `batch`) et applique `migrations/0001_schema.sql` et `0002_accounts.sql`.
 - **Cas couverts** :
   - pseudo unique sans distinction de majuscules ;
   - invitation à usage unique, expirée, ou annulée par une invitation plus récente ;

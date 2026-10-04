@@ -49,3 +49,7 @@ local.db
 # Git worktrees
 .worktrees/
 
+
+# Cloudflare local
+.dev.vars
+.wrangler/
