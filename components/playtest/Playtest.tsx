@@ -8,10 +8,12 @@ import {
 import { bottomCount, cardData, taxOf } from '@/lib/game/apply'
 import { GameHistory } from '@/lib/game/replay'
 import { clearGame, loadGame, saveGame } from '@/lib/game/storage'
-import type { Catalog, GameAction, GameState, ZoneId } from '@/lib/game/types'
+import type { Catalog, GameAction, GameState, Position, ZoneId } from '@/lib/game/types'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import TopBar from './TopBar'
 import CardMenu, { type MenuItem } from './CardMenu'
+import PileModal from './PileModal'
+import TokenModal from './TokenModal'
 import { Battlefield, Hand, ZonePile, type CardHandlers } from './zones'
 
 const LANG_KEY = 'dc-card-lang'
@@ -27,6 +29,34 @@ const DESTINATIONS: { label: string; to: ZoneId; position?: 'top' | 'bottom' }[]
   { label: 'Dessus de la bibliothèque', to: 'library', position: 'top' },
   { label: 'Dessous de la bibliothèque', to: 'library', position: 'bottom' },
 ]
+
+type PileView = { title: string; zone: ZoneId; ids: string[]; searchable: boolean; shuffleDefault: boolean | null }
+
+function askCount(question: string, fallback: number): number | null {
+  const answer = prompt(question, String(fallback))
+  if (answer === null) return null
+  const n = Number.parseInt(answer, 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function libraryMenuItems(state: GameState, dispatch: (a: GameAction) => void, openPile: (view: PileView) => void): MenuItem[] {
+  const library = state.zones.library
+  return [
+    { kind: 'title', label: `Bibliothèque (${library.length})` },
+    { kind: 'action', label: 'Piocher 1', onSelect: () => dispatch({ type: 'draw', count: 1 }) },
+    { kind: 'action', label: 'Piocher N…', onSelect: () => {
+      const n = askCount('Combien de cartes piocher ?', 2)
+      if (n) dispatch({ type: 'draw', count: n })
+    } },
+    { kind: 'action', label: 'Mélanger', onSelect: () => dispatch({ type: 'shuffle', seed: randomSeed() }) },
+    { kind: 'action', label: 'Regarder les X du dessus…', onSelect: () => {
+      const n = askCount('Combien de cartes regarder ?', 3)
+      if (n) openPile({ title: `Les ${n} cartes du dessus`, zone: 'library', ids: library.slice(0, n), searchable: false, shuffleDefault: false })
+    } },
+    { kind: 'action', label: 'Chercher une carte…', onSelect: () => openPile({ title: 'Chercher dans la bibliothèque', zone: 'library', ids: [...library], searchable: true, shuffleDefault: true }) },
+    { kind: 'action', label: 'Révéler la carte du dessus', onSelect: () => dispatch({ type: 'reveal' }) },
+  ]
+}
 
 function cardMenuItems(state: GameState, catalog: Catalog, lang: Lang, id: string, zone: ZoneId, dispatch: (a: GameAction) => void): MenuItem[] {
   const card = state.cards[id]
@@ -77,6 +107,8 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
   const [showExcluded, setShowExcluded] = useState(excluded.length > 0)
   const [dragging, setDragging] = useState<{ id: string; from: ZoneId } | null>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
+  const [pile, setPile] = useState<PileView | null>(null)
+  const [tokenOpen, setTokenOpen] = useState(false)
   const shiftDown = useRef(false)
 
   const rerender = () => setVersion((v) => v + 1)
@@ -207,6 +239,7 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
           try { localStorage.setItem(LANG_KEY, next) } catch { /* préférence non mémorisée */ }
         }}
         onUndo={undo}
+        onToken={() => setTokenOpen(true)}
         onNewGame={() => confirm('Commencer une nouvelle partie ?') && startGame(null)}
       />
 
@@ -234,9 +267,9 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
             <Battlefield {...zoneProps} />
             <div className="w-36 shrink-0 grid grid-rows-4 gap-2 min-h-0">
               <ZonePile zone="command" {...zoneProps} />
-              <ZonePile zone="library" {...zoneProps} />
-              <ZonePile zone="graveyard" {...zoneProps} />
-              <ZonePile zone="exile" {...zoneProps} />
+              <ZonePile zone="library" {...zoneProps} onPileContextMenu={(e) => setMenu({ kind: 'library', x: e.clientX, y: e.clientY })} />
+              <ZonePile zone="graveyard" {...zoneProps} onPileClick={() => setPile({ title: 'Cimetière', zone: 'graveyard', ids: [...state.zones.graveyard].reverse(), searchable: true, shuffleDefault: null })} />
+              <ZonePile zone="exile" {...zoneProps} onPileClick={() => setPile({ title: 'Exil', zone: 'exile', ids: [...state.zones.exile].reverse(), searchable: true, shuffleDefault: null })} />
             </div>
           </div>
           <Hand {...zoneProps} />
@@ -252,6 +285,25 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
 
       {menu?.kind === 'card' && state.cards[menu.id] && (
         <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={cardMenuItems(state, catalog, lang, menu.id, menu.zone, dispatch)} />
+      )}
+      {menu?.kind === 'library' && (
+        <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={libraryMenuItems(state, dispatch, setPile)} />
+      )}
+      {pile && (
+        <PileModal
+          {...pile}
+          state={state}
+          catalog={catalog}
+          lang={lang}
+          onMove={(id: string, to: ZoneId, position?: Position) => dispatch({ type: 'move', id, to, position })}
+          onClose={(shuffle) => {
+            if (shuffle) dispatch({ type: 'shuffle', seed: randomSeed() })
+            setPile(null)
+          }}
+        />
+      )}
+      {tokenOpen && (
+        <TokenModal onCreate={(token) => dispatch({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
       )}
     </div>
   )
