@@ -225,7 +225,7 @@ Reconnexion : délais 1, 2, 4, 8, puis 15 s maximum ; remise à 1 s après une c
 
 ### Tâche 9 : Vérification de bout en bout
 
-**Fichiers :** Créer `scripts/online-check.mjs`, `scripts/seed-online.sql` (4 comptes, un deck importé chacun, en réutilisant le jeu de cartes SVG du deck de test).
+**Fichiers :** Créer `scripts/online-check.mjs`, `scripts/seed-online.mjs` (génère le SQL : 4 comptes avec session à jeton connu, un deck importé chacun, cartes en SVG).
 
 - [ ] **Étape 1 :** base locale (migrations 0001–0004), `seed-online.sql`, build, Worker (`npm run game:dev`) et site (`wrangler pages dev`).
 - [ ] **Étape 2 :** `node scripts/online-check.mjs http://localhost:8788 <dossier-captures>` déroule le scénario de la spec (Alex crée une table Commander à 3, Bob rejoint par le salon, Chloé par le lien, decks, démarrage, pioche de Bob vue par Alex, aucune entrée de carte de la main de Bob dans les messages WebSocket d'Alex — interceptés via `page.on('websocket')`, rechargement de Chloé, Dan spectateur, Alex passe le tour de Chloé, Bob abandonne, Alex élimine Chloé → « Victoire de Alex », `winner_player_id` en D1).
