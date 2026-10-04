@@ -118,7 +118,7 @@ Constantes : `STARTING_LIFE = 40`, `OPENING_HAND = 7`, `SNAPSHOT_EVERY = 20`, `C
 | `start` | Mélange la bibliothèque avec `seed`, pioche 7 (`stats.drawn += 7`), journal « Début de partie » |
 | `shuffle` | Mélange la bibliothèque, journal « Mélange la bibliothèque » |
 | `draw` | Pioche `min(count, taille)` cartes ; bibliothèque vide → journal « Bibliothèque vide » |
-| `mulligan` | Main → bibliothèque, mélange, pioche 7, `stats.mulligans += 1`, journal « Mulligan n°N : mets N carte(s) en dessous » |
+| `mulligan` | Main → bibliothèque, mélange, pioche 7, `stats.mulligans += 1`. **Premier mulligan gratuit** : cartes à remettre en dessous = `max(0, mulligans − 1)`. Journal « Mulligan n°N (gratuit) » pour le premier, sinon « Mulligan n°N : mets K carte(s) en dessous » |
 | `move` | Retire la carte de sa zone et l'insère dans `to` à `position` (`top` par défaut pour la bibliothèque, à la fin pour les autres zones). Champ de bataille : `x`, `y` (par défaut 50/50, bornés à 0–100). En quittant le champ de bataille : `tapped`, `flipped`, `counters` remis à zéro. Un jeton qui va ailleurs que sur le champ de bataille **disparaît** (retiré de `cards`). Commandant de `command` vers une autre zone → `commanderCasts[id] += 1`. Terrain (type de la face avant contenant `Land`) de `hand` vers `battlefield` → `stats.landsPlayed += 1`. Déplacement dans la même zone : réordonne (bibliothèque) ou repositionne (champ de bataille). |
 | `tap` | Inverse `tapped` (champ de bataille uniquement) |
 | `untapAll` | Dégage tout le champ de bataille |
@@ -131,9 +131,9 @@ Constantes : `STARTING_LIFE = 40`, `OPENING_HAND = 7`, `SNAPSHOT_EVERY = 20`, `C
 | `nextTurn` | `turn += 1`, dégage tout, pioche 1 ; journal « Tour N » |
 | `reveal` | Journal « Révèle <nom> » (nom de la carte du dessus), sinon « Bibliothèque vide » |
 
-**Journal** : texte en français, préfixé du tour dans l'affichage. Nom de carte = nom anglais dans le moteur (le journal est indépendant de la langue d'affichage). Une carte vers ou depuis la bibliothèque, ou face cachée, est notée « une carte ». Exemples : « Pioche 2 cartes », « Sol Ring : main → champ de bataille », « une carte : main → bibliothèque (dessous) », « Kenrith : +1/+1 (2) », « Points de vie : 40 → 37 ».
+**Journal** : texte en français, préfixé du tour dans l'affichage. Nom de carte = **nom français** (`printed_name` de la version FR) s'il existe, sinon nom anglais, quelle que soit la langue d'affichage choisie. Une carte vers ou depuis la bibliothèque, ou face cachée, est notée « une carte ». Exemples : « Pioche 2 cartes », « Sol Ring : main → champ de bataille », « une carte : main → bibliothèque (dessous) », « Kenrith : +1/+1 (2) », « Points de vie : 40 → 37 ».
 
-Utilitaires exportés : `taxOf(state, id) = 2 × commanderCasts[id]`, `cardName(state, catalog, id)`, `cardData(state, catalog, id, lang): { name, image, typeLine, faces }`.
+Utilitaires exportés : `taxOf(state, id) = 2 × commanderCasts[id]`, `bottomCount(state) = max(0, stats.mulligans − 1)`, `cardName(state, catalog, id)`, `cardData(state, catalog, id, lang): { name, image, typeLine, faces }`.
 
 ### Rejouer et annuler (`replay.ts`)
 
@@ -184,7 +184,7 @@ Utilitaires exportés : `taxOf(state, id) = 2 × commanderCasts[id]`, `cardName(
 ### Démarrage
 
 - Si `loadGame` renvoie des actions : écran « Reprendre la partie (tour N) » / « Nouvelle partie ».
-- Nouvelle partie : `start` avec une graine aléatoire (`crypto.getRandomValues`), puis bandeau « Garder » / « Mulligan » tant qu'aucune autre action que des mulligans n'a été jouée. Après au moins un mulligan, le bandeau rappelle « Mets N carte(s) en dessous de ta bibliothèque » (N = nombre de mulligans).
+- Nouvelle partie : `start` avec une graine aléatoire (`crypto.getRandomValues`), puis bandeau « Garder » / « Mulligan » tant qu'aucune autre action que des mulligans n'a été jouée. Après au moins un mulligan, le bandeau rappelle « Mets K carte(s) en dessous de ta bibliothèque » avec K = `bottomCount(state)` = `max(0, mulligans − 1)` (premier mulligan gratuit) ; rien à remettre si K = 0.
 - Les cartes exclues (introuvables) sont signalées dans un bandeau refermable.
 
 ---
@@ -200,7 +200,7 @@ Utilitaires exportés : `taxOf(state, id) = 2 × commanderCasts[id]`, `cardName(
 
 - `random.ts` : même graine → même ordre ; graines différentes → ordres différents ; permutation sans perte ni doublon.
 - `setup.ts` : 30 Forêts → 30 exemplaires d'identifiants distincts ; commandant en `command` ; aucune carte en main avant `start`.
-- `apply.ts` : un bloc par action (cas de la spec ci-dessus), plus : immuabilité de l'état d'entrée ; `start` donne 7 cartes en main et bibliothèque = total − commandants − 7 ; mulligan ; dessus et dessous de bibliothèque ; jeton qui disparaît ; taxe à l'aller seulement ; terrain joué compté ; remise à zéro en quittant le champ de bataille ; `nextTurn` ; compteurs bornés à 0 ; journal (y compris l'anonymat des cartes cachées).
+- `apply.ts` : un bloc par action (cas de la spec ci-dessus), plus : premier mulligan gratuit (`bottomCount` 0 puis 1) ; nom français dans le journal avec repli anglais ; immuabilité de l'état d'entrée ; `start` donne 7 cartes en main et bibliothèque = total − commandants − 7 ; mulligan ; dessus et dessous de bibliothèque ; jeton qui disparaît ; taxe à l'aller seulement ; terrain joué compté ; remise à zéro en quittant le champ de bataille ; `nextTurn` ; compteurs bornés à 0 ; journal (y compris l'anonymat des cartes cachées).
 - `replay.ts` : rejouer donne un état égal ; `undo` équivaut à rejouer sans la dernière action ; égalité avec et sans snapshot (plus de 45 actions) ; `start` non annulable.
 - `storage.ts` (`localStorage` simulé) : aller-retour, empreinte différente → `null`, JSON illisible → `null`, accès qui lève une exception → `null` sans erreur.
 - `catalog.ts` : exclusion des introuvables, commandants, quantités.
