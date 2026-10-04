@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, LogIn } from 'lucide-react'
+import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, LogIn, Users } from 'lucide-react'
 import type { CurrentUser } from '@/lib/auth/types'
 import UserMenu from './UserMenu'
 
@@ -14,11 +14,12 @@ const navLinks = [
   { href: '/rules', label: 'Règles', icon: BookOpen },
 ]
 
+const lobbyLink = { href: '/salon', label: 'Salon', icon: Users }
 const adminLink = { href: '/admin', label: 'Admin', icon: Shield }
 
 export default function Navbar({ user }: { user: CurrentUser | null }) {
   const pathname = usePathname()
-  const links = user?.isAdmin ? [...navLinks, adminLink] : navLinks
+  const links = [...navLinks, ...(user && !user.isBootstrap ? [lobbyLink] : []), ...(user?.isAdmin ? [adminLink] : [])]
 
   return (
     <nav className="sticky top-0 z-50 border-b border-dc-border bg-dc-surface/95 backdrop-blur-sm">
