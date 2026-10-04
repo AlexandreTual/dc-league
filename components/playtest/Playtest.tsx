@@ -5,15 +5,54 @@ import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
-import { bottomCount } from '@/lib/game/apply'
+import { bottomCount, cardData, taxOf } from '@/lib/game/apply'
 import { GameHistory } from '@/lib/game/replay'
 import { clearGame, loadGame, saveGame } from '@/lib/game/storage'
-import type { Catalog, GameAction, ZoneId } from '@/lib/game/types'
+import type { Catalog, GameAction, GameState, ZoneId } from '@/lib/game/types'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import TopBar from './TopBar'
+import CardMenu, { type MenuItem } from './CardMenu'
 import { Battlefield, Hand, ZonePile, type CardHandlers } from './zones'
 
 const LANG_KEY = 'dc-card-lang'
+
+type MenuState = { kind: 'card'; id: string; zone: ZoneId; x: number; y: number } | { kind: 'library'; x: number; y: number }
+
+const DESTINATIONS: { label: string; to: ZoneId; position?: 'top' | 'bottom' }[] = [
+  { label: 'Main', to: 'hand' },
+  { label: 'Champ de bataille', to: 'battlefield' },
+  { label: 'Cimetière', to: 'graveyard' },
+  { label: 'Exil', to: 'exile' },
+  { label: 'Zone de commandement', to: 'command' },
+  { label: 'Dessus de la bibliothèque', to: 'library', position: 'top' },
+  { label: 'Dessous de la bibliothèque', to: 'library', position: 'bottom' },
+]
+
+function cardMenuItems(state: GameState, catalog: Catalog, lang: Lang, id: string, zone: ZoneId, dispatch: (a: GameAction) => void): MenuItem[] {
+  const card = state.cards[id]
+  const data = cardData(state, catalog, id, lang)
+  const items: MenuItem[] = [{ kind: 'title', label: zone === 'library' ? 'Carte de la bibliothèque' : data.name }]
+  if (zone === 'battlefield') {
+    items.push({ kind: 'action', label: card.tapped ? 'Dégager' : 'Engager', onSelect: () => dispatch({ type: 'tap', id }) })
+    if (!card.token && (data.faces?.length ?? 0) > 1) {
+      items.push({ kind: 'action', label: 'Retourner', onSelect: () => dispatch({ type: 'flip', id }) })
+    }
+    items.push({ kind: 'action', label: card.faceDown ? 'Face visible' : 'Face cachée', onSelect: () => dispatch({ type: 'faceDown', id }) })
+    items.push({ kind: 'separator' })
+    items.push({ kind: 'stepper', label: '+1/+1', value: card.counters.plus, onChange: (d) => dispatch({ type: 'counter', id, kind: 'plus', delta: d }) })
+    items.push({ kind: 'stepper', label: '-1/-1', value: card.counters.minus, onChange: (d) => dispatch({ type: 'counter', id, kind: 'minus', delta: d }) })
+    items.push({ kind: 'stepper', label: 'Compteur', value: card.counters.other, onChange: (d) => dispatch({ type: 'counter', id, kind: 'other', delta: d }) })
+  }
+  if (card.isCommander) {
+    items.push({ kind: 'stepper', label: 'Taxe', value: `+${taxOf(state, id)}`, onChange: (d) => dispatch({ type: 'commanderTax', id, delta: d }) })
+  }
+  items.push({ kind: 'separator' }, { kind: 'title', label: 'Envoyer vers' })
+  for (const dest of DESTINATIONS) {
+    if (dest.to === zone && dest.to !== 'library') continue
+    items.push({ kind: 'action', label: dest.label, onSelect: () => dispatch({ type: 'move', id, to: dest.to, position: dest.position }) })
+  }
+  return items
+}
 
 function randomSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0]
@@ -37,6 +76,7 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
   const [kept, setKept] = useState(false)
   const [showExcluded, setShowExcluded] = useState(excluded.length > 0)
   const [dragging, setDragging] = useState<{ id: string; from: ZoneId } | null>(null)
+  const [menu, setMenu] = useState<MenuState | null>(null)
   const shiftDown = useRef(false)
 
   const rerender = () => setVersion((v) => v + 1)
@@ -121,7 +161,7 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
       else if (zone === 'library') dispatch({ type: 'draw', count: 1 })
       else if (zone === 'hand') dispatch({ type: 'move', id, to: 'battlefield', x: 50, y: 50 })
     },
-    onContextMenu: () => {},
+    onContextMenu: (id, zone, e) => setMenu({ kind: 'card', id, zone, x: e.clientX, y: e.clientY }),
     onHover: () => {},
   }
 
@@ -209,6 +249,10 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
           )}
         </DragOverlay>
       </DndContext>
+
+      {menu?.kind === 'card' && state.cards[menu.id] && (
+        <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={cardMenuItems(state, catalog, lang, menu.id, menu.zone, dispatch)} />
+      )}
     </div>
   )
 }
