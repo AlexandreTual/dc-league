@@ -38,7 +38,7 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
     <div
       ref={ref}
       role="menu"
-      className="fixed z-[60] min-w-[13rem] bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm"
+      className="fixed z-[60] w-60 bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm"
       style={pos}
       onContextMenu={(e) => e.preventDefault()}
     >

@@ -141,6 +141,22 @@ Mise en place : `npm run db:migrate:remote` (applique `migrations/0003_deck_card
 
 ---
 
+## Mode test
+
+Sur la page d'un deck importé (`/decks/<id>`), le bouton **Tester le deck** ouvre un plateau de test solo (`/decks/<id>/test`), pensé pour l'ordinateur.
+
+- **Glisser-déposer** entre main, champ de bataille, bibliothèque (Maj = dessous), cimetière, exil et zone de commandement.
+- **Double-clic** : engager une carte du champ de bataille, piocher depuis la bibliothèque, poser une carte de la main.
+- **Clic droit** sur une carte : engager, retourner, face cachée, marqueurs, taxe du commandant, envoyer vers une zone. Sur la bibliothèque : piocher, mélanger, regarder les X du dessus, chercher, révéler. Clic sur le cimetière ou l'exil : voir la pile.
+- **Jetons** : recherche Scryfall ou jeton personnalisé. **Journal** et statistiques de la partie.
+- **Raccourcis** : `D` piocher, `U` tout dégager, `N` tour suivant, `S` mélanger, `M` mulligan, `Ctrl+Z` annuler, `Échap` fermer.
+- Mulligan à la londonienne, **premier mulligan gratuit**. Taxe de commandant comptée automatiquement.
+- La partie est **sauvegardée dans le navigateur** et peut être reprise ; elle est ignorée si le deck a été réimporté.
+
+Vérification dans un navigateur : `node scripts/playtest-check.mjs <url> <deckId> <dossier-captures>` (Chromium requis).
+
+---
+
 ## Guide d'utilisation
 
 ### Démarrer une ligue
