@@ -35,3 +35,12 @@ describe('adaptateur D1 de test', () => {
     expect(results).toEqual([{ id: 'p1' }])
   })
 })
+
+describe('batch avec lecture', () => {
+  it('renvoie les lignes des SELECT comme D1', async () => {
+    const db = createTestDb()
+    await db.prepare("INSERT INTO players (id, name) VALUES ('p1', 'A')").run()
+    const [select] = await db.batch([db.prepare('SELECT id FROM players')])
+    expect(select.results).toEqual([{ id: 'p1' }])
+  })
+})

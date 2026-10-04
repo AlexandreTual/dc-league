@@ -121,7 +121,7 @@ export default function AdminDashboard({
       })
       if (res.ok) {
         const lp = await res.json() as any
-        setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null }])
+        setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null, deck_has_cards: false }])
         showToast(`${player.name} inscrit`)
       } else {
         const data = await res.json() as any
@@ -213,6 +213,7 @@ export default function AdminDashboard({
         deck_name: null as string | null,
         deck_moxfield_url: null as string | null,
         deck_commander_image_url: null as string | null,
+        deck_has_cards: false,
       }
 
       if (league && showNewPlayerDeck && newPlayerDeckName.trim()) {

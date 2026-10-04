@@ -38,8 +38,13 @@ class Statement {
   }
 
   execute() {
+    // Comme D1, un batch renvoie les lignes des requêtes de lecture.
+    if (/^\s*(SELECT|WITH)\b/i.test(this.sql)) {
+      const results = this.sqlite.prepare(this.sql).all(...this.values)
+      return { success: true as const, results, meta: { changes: 0, last_row_id: 0 } }
+    }
     const r = this.sqlite.prepare(this.sql).run(...this.values)
-    return { success: true as const, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }
+    return { success: true as const, results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }
   }
 }
 
