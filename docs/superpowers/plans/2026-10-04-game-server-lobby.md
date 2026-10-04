@@ -148,8 +148,9 @@ interface KvStorage { get<T>(key: string): Promise<T | undefined>; get<T>(keys: 
 interface Socket { send(data: string): void; close(code?: number, reason?: string): void }
 type SocketInfo = { playerId: string | null }
 class RoomRuntime {
-  constructor(storage: KvStorage, db: D1Database, tableId: string, clock: () => number, seed: () => number)
-  init(body: { setup: GameSetup; hostId: string }): Promise<Response>        // 409 si déjà initialisé
+  constructor(storage: KvStorage, db: D1Database, sockets: () => { socket: Socket; info: SocketInfo }[], clock: () => number, seed: () => number)
+  load(): Promise<void>; state(): RoomState | null
+  init(body: { tableId: string; setup: GameSetup; hostId: string }): Promise<Response>  // 409 si déjà initialisé
   connect(socket: Socket, info: SocketInfo): Promise<void>                      // envoie la vue complète
   message(socket: Socket, info: SocketInfo, raw: string): Promise<void>
   disconnect(socket: Socket, info: SocketInfo): Promise<void>
