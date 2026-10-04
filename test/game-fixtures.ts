@@ -34,3 +34,12 @@ export function place(
   }
   return { ...state, players, started: true }
 }
+
+import { applyAction } from '@/lib/game/mp/apply'
+import { createInitialState } from '@/lib/game/mp/setup'
+
+export function run(setup: GameSetup, ...actions: import('@/lib/game/mp/types').GameAction[]) {
+  return actions.reduce((s, a) => applyAction(s, a), createInitialState(setup))
+}
+
+export const start = (seed = 1): import('@/lib/game/mp/types').GameAction => ({ type: 'start', actor: 'server', seed })

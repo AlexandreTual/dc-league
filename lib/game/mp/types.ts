@@ -4,10 +4,13 @@ export type { CardFace, Catalog, CatalogEntry, TokenData }
 
 export type Format = 'commander' | 'duel'
 
-export const FORMAT_RULES: Record<Format, { life: number; commanderDamage: boolean; firstPlayerDraws: boolean }> = {
-  commander: { life: 40, commanderDamage: true, firstPlayerDraws: true },
-  duel: { life: 20, commanderDamage: false, firstPlayerDraws: false },
+export const FORMAT_RULES: Record<Format, { life: number; commanderDamage: boolean }> = {
+  commander: { life: 40, commanderDamage: true },
+  duel: { life: 20, commanderDamage: false },
 }
+
+/** Règle 103.8 : à partir de 3 joueurs, le premier joueur pioche à son premier tour. */
+export const FIRST_PLAYER_DRAWS_FROM = 3
 
 export const COMMANDER_DAMAGE_LETHAL = 21
 export const POISON_LETHAL = 10

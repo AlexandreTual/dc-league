@@ -43,7 +43,7 @@ type GameSetup = {
 | Points de vie de départ | 40 | 20 |
 | Blessures de commandant | suivies, alerte à 21 | **non utilisées** (action refusée, compteur absent de l'interface) |
 | Poison mortel (alerte) | 10 | 10 |
-| Pioche du premier joueur à son premier tour | oui | non |
+| Pioche du premier joueur à son premier tour | selon le nombre de joueurs (règle 103.8) : oui à partir de 3 joueurs, non à 1 ou 2 | idem (donc non en 1 contre 1) |
 
 `OPENING_HAND = 7`, `SNAPSHOT_EVERY = 20`, `COMMANDER_TAX_STEP = 2`.
 
@@ -179,7 +179,7 @@ Pure, ne modifie jamais `state`. Si `canApply` renvoie une erreur, l'état est r
 
 - `start` : chaque bibliothèque est mélangée avec une graine dérivée (`seed + index du joueur`) ; chacun pioche 7 ; `turnOrder` = joueurs mélangés avec `seed` ; `activePlayer = turnOrder[0]` ; journal « Début de partie : <nom> commence ».
 - `mulligan` / `keep` : comme en solo, par joueur (premier mulligan gratuit : à remettre en dessous = `max(0, mulligans − 1)`).
-- `endTurn` : joueur suivant non éliminé dans `turnOrder` ; s'il revient au premier joueur, `turn += 1`. Le nouveau joueur actif dégage tous les permanents qu'il contrôle et pioche 1, **sauf** au tout premier tour de la partie en format `duel` (le premier joueur ne pioche pas ; `firstTurnDone` suit ce cas). Journal « Tour N : <nom> ».
+- `endTurn` : joueur suivant non éliminé dans `turnOrder` ; s'il revient au premier joueur, `turn += 1`. Le nouveau joueur actif dégage tous les permanents qu'il contrôle et pioche 1. Le premier tour du premier joueur commence au `start`, sans pioche ; à partir de 3 joueurs, il pioche 1 carte au moment où il garde sa main (`keep`), après ses mulligans (`firstTurnDone` évite une seconde pioche). Journal « Tour N : <nom> ».
 - `move` : comme en solo (remise à zéro en quittant un champ de bataille, jeton qui disparaît hors champ de bataille, taxe à la sortie de la zone de commandement, terrain joué depuis la main). `knownBy` vidé, puis `[actor]` si `faceDown: true` (l'exilant voit la carte). Une carte prise sur la bibliothèque d'un autre est retirée de ce que l'auteur regarde.
 - `giveControl` : retire la carte du champ de bataille actuel et l'ajoute à celui de `to`, en conservant son état.
 - `commanderDamage` : `players[target].commanderDamage[commander] += delta` (borné à 0) **et** `life -= delta`.
