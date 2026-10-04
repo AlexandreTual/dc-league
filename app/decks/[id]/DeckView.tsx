@@ -96,9 +96,11 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               <RefreshCw className="w-3.5 h-3.5" /> Réimporter
             </Link>
           )}
-          <button disabled className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted opacity-50 cursor-not-allowed" title="Bientôt">
-            <Play className="w-3.5 h-3.5" /> Tester le deck · Bientôt
-          </button>
+          {cards.length > 0 && (
+            <Link href={`/decks/${deck.id}/test`} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-gold/40 rounded-lg text-dc-gold hover:bg-dc-gold/10">
+              <Play className="w-3.5 h-3.5" /> Tester le deck
+            </Link>
+          )}
         </div>
       </div>
 
