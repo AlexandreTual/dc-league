@@ -19,3 +19,18 @@ export function setupFor(format: Format, n: number, options: Partial<GameSetup['
 
 /** Identifiant d'un exemplaire du deck de test : ref 1 Kenrith, 2 Sol Ring, 3 Forêt, 4 Delver. */
 export const card = (player: string, ref: number, n = 1) => `${player}:c${ref}-${n}`
+
+/** Construit une situation de test : déplace des cartes à la main, sans passer par le moteur. */
+export function place(
+  state: import('@/lib/game/mp/types').GameState,
+  moves: { id: string; player: string; zone: import('@/lib/game/mp/types').PlayerZone }[],
+): import('@/lib/game/mp/types').GameState {
+  const players = structuredClone(state.players)
+  for (const { id, player, zone } of moves) {
+    for (const p of Object.values(players)) {
+      for (const z of Object.keys(p.zones) as (keyof typeof p.zones)[]) p.zones[z] = p.zones[z].filter((x) => x !== id)
+    }
+    players[player].zones[zone].push(id)
+  }
+  return { ...state, players, started: true }
+}
