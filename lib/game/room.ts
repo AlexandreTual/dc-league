@@ -48,8 +48,14 @@ export type Outcome = { changed: boolean; error: string | null; events: RoomEven
 
 export type RoomContext = { now: number; seed: () => number }
 
+/** Absence de l'hôte au-delà de laquelle son rôle passe à un autre joueur. */
+export const HOST_TIMEOUT_MS = 5 * 60_000
+
 const MSG = {
   spectator: 'Les spectateurs ne peuvent pas jouer',
+  finished: 'La partie est terminée',
+  notHost: "Seul l'hôte peut faire ça",
+  notTheirTurn: "Ce n'est pas son tour",
   nothingToUndo: 'Rien à annuler',
   unknown: 'Message inconnu',
 }
@@ -59,21 +65,22 @@ const done = (events: RoomEvent[] = []): Outcome => ({ changed: true, error: nul
 
 // ── Création ──────────────────────────────────────────────────────────────────
 
-function baseRoom(tableId: string, setup: GameSetup, hostId: string, history: GameHistory): RoomState {
+/** `now` : instant de création (ou de réveil) ; un joueur pas encore connecté est absent depuis cet instant. */
+function baseRoom(tableId: string, setup: GameSetup, hostId: string, history: GameHistory, now: number): RoomState {
   return {
     tableId,
     hostId,
     seats: setup.players.map((p) => ({ playerId: p.id, name: p.name })),
     history,
     online: {},
-    absentSince: {},
+    absentSince: Object.fromEntries(setup.players.map((p) => [p.id, now])),
     finished: false,
     winner: null,
   }
 }
 
-export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: number): RoomState {
-  return baseRoom(tableId, setup, hostId, new GameHistory(setup, [{ type: 'start', actor: 'server', seed }]))
+export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: number, now: number): RoomState {
+  return baseRoom(tableId, setup, hostId, new GameHistory(setup, [{ type: 'start', actor: 'server', seed }]), now)
 }
 
 export function restoreRoom(
@@ -82,8 +89,9 @@ export function restoreRoom(
   hostId: string,
   actions: GameAction[],
   meta: { finished: boolean; winner: string | null },
+  now: number,
 ): RoomState {
-  return { ...baseRoom(tableId, setup, hostId, new GameHistory(setup, actions)), ...meta }
+  return { ...baseRoom(tableId, setup, hostId, new GameHistory(setup, actions), now), ...meta }
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
@@ -99,14 +107,48 @@ function serverAction(action: ClientAction, actor: string, seed: () => number): 
   return full
 }
 
+/** Joue une action ; termine la partie s'il ne reste qu'un joueur en lice (à partir de 2 joueurs). */
 function play(room: RoomState, action: GameAction): Outcome {
   const error = room.history.push(action)
-  return error === null ? done() : refused(error)
+  if (error !== null) return refused(error)
+  const players = Object.values(room.history.state.players)
+  const alive = players.filter((p) => !p.eliminated)
+  if (players.length >= 2 && alive.length <= 1) return finish(room, alive[0]?.id ?? null)
+  return done()
 }
 
-export function handleMessage(room: RoomState, from: string | null, msg: ClientMessage, ctx: RoomContext): Outcome {
-  if (!isSeated(room, from)) return refused(MSG.spectator)
+function finish(room: RoomState, winner: string | null): Outcome {
+  room.finished = true
+  room.winner = winner
+  return done([{ type: 'finished', winner }])
+}
 
+/** Si l'hôte est absent depuis plus de 5 minutes, son rôle passe au premier joueur connecté suivant. */
+function checkHost(room: RoomState, now: number): RoomEvent[] {
+  const since = room.absentSince[room.hostId]
+  if ((room.online[room.hostId] ?? 0) > 0 || since === undefined || now - since <= HOST_TIMEOUT_MS) return []
+  const order = room.seats.map((s) => s.playerId)
+  const start = order.indexOf(room.hostId)
+  for (let step = 1; step < order.length; step++) {
+    const next = order[(start + step) % order.length]
+    if ((room.online[next] ?? 0) > 0) {
+      room.hostId = next
+      return [{ type: 'hostChanged', hostId: next }]
+    }
+  }
+  return []
+}
+
+function hostCommand(room: RoomState, from: string, msg: Extract<ClientMessage, { type: 'host' }>): Outcome {
+  if (from !== room.hostId) return refused(MSG.notHost)
+  if (msg.op === 'close') return finish(room, null)
+  if (msg.op === 'eliminate') return play(room, { type: 'eliminate', actor: from, target: msg.target })
+  if (room.history.state.activePlayer !== msg.target) return refused(MSG.notTheirTurn)
+  return play(room, { type: 'endTurn', actor: msg.target })
+}
+
+function dispatch(room: RoomState, from: string, msg: ClientMessage, ctx: RoomContext): Outcome {
+  if (room.finished) return refused(MSG.finished)
   switch (msg.type) {
     case 'action':
       return play(room, serverAction(msg.action, from, ctx.seed))
@@ -114,9 +156,36 @@ export function handleMessage(room: RoomState, from: string | null, msg: ClientM
       return room.history.undo(from) ? done() : refused(MSG.nothingToUndo)
     case 'concede':
       return play(room, { type: 'eliminate', actor: from, target: from })
+    case 'host':
+      return hostCommand(room, from, msg)
     default:
       return refused(MSG.unknown)
   }
+}
+
+export function handleMessage(room: RoomState, from: string | null, msg: ClientMessage, ctx: RoomContext): Outcome {
+  if (!isSeated(room, from)) return refused(MSG.spectator)
+  const hostEvents = checkHost(room, ctx.now)
+  const outcome = dispatch(room, from, msg, ctx)
+  if (hostEvents.length === 0) return outcome
+  return { changed: true, error: outcome.error, events: [...hostEvents, ...outcome.events] }
+}
+
+// ── Présence ──────────────────────────────────────────────────────────────────
+
+export function handleConnect(room: RoomState, playerId: string | null, now: number): Outcome {
+  if (!isSeated(room, playerId)) return { changed: false, error: null, events: [] }
+  room.online[playerId] = (room.online[playerId] ?? 0) + 1
+  delete room.absentSince[playerId]
+  return done(checkHost(room, now))
+}
+
+export function handleDisconnect(room: RoomState, playerId: string | null, now: number): Outcome {
+  if (!isSeated(room, playerId) || !room.online[playerId]) return { changed: false, error: null, events: [] }
+  room.online[playerId] -= 1
+  if (room.online[playerId] > 0) return { changed: false, error: null, events: [] }
+  room.absentSince[playerId] = now
+  return done()
 }
 
 // ── Vues ──────────────────────────────────────────────────────────────────────

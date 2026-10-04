@@ -4,11 +4,11 @@ import { createRng } from './random'
 import { applyAction } from './apply'
 import { replay } from './replay'
 import { isVisibleTo, zoneOf } from './rules'
-import { createRoom, handleMessage, mergeCards, viewMessageFor, type CardDataMap, type ClientAction, type ClientMessage, type RoomState } from './room'
+import { createRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, onlinePlayers, viewMessageFor, type CardDataMap, type ClientAction, type ClientMessage, type RoomState } from './room'
 import { PLAYER_ZONES, type GameAction, type PlayerZone } from './types'
 
 const ctx = (seed = 77, now = 0) => ({ now, seed: () => seed })
-const room = (n = 3) => createRoom('t1', setupFor('commander', n), 'p1', 5)
+const room = (n = 3, now = 0) => createRoom('t1', setupFor('commander', n), 'p1', 5, now)
 const act = (r: RoomState, from: string | null, action: ClientAction, c = ctx()) => handleMessage(r, from, { type: 'action', action }, c)
 const keepAll = (r: RoomState) => r.seats.forEach((s) => act(r, s.playerId, { type: 'keep' }))
 const state = (r: RoomState) => r.history.state
@@ -177,4 +177,91 @@ it('une action de la table équivaut à applyAction', () => {
   const before = state(r)
   act(r, 'p1', { type: 'draw', count: 1 })
   expect(state(r)).toEqual(applyAction(before, { type: 'draw', actor: 'p1', count: 1 } as GameAction))
+})
+
+const MIN = 60_000
+const host = (r: RoomState, from: string, op: 'passTurn' | 'eliminate' | 'close', target = '', now = 0) =>
+  handleMessage(r, from, (op === 'close' ? { type: 'host', op } : { type: 'host', op, target }) as ClientMessage, ctx(1, now))
+
+describe('présence', () => {
+  it('un joueur dans deux onglets reste en ligne si un onglet se ferme', () => {
+    const r = room()
+    handleConnect(r, 'p1', 0)
+    handleConnect(r, 'p1', 0)
+    handleDisconnect(r, 'p1', 10)
+    expect(onlinePlayers(r)).toEqual(['p1'])
+    handleDisconnect(r, 'p1', 20)
+    expect(onlinePlayers(r)).toEqual([])
+  })
+
+  it('un spectateur ne compte pas', () => {
+    const r = room()
+    expect(handleConnect(r, null, 0).changed).toBe(false)
+    expect(onlinePlayers(r)).toEqual([])
+  })
+})
+
+describe('transmission du rôle d’hôte', () => {
+  it('après 5 minutes d’absence, au premier joueur connecté suivant ; sans retour automatique', () => {
+    const r = room(4)
+    for (const p of ['p1', 'p3', 'p4']) handleConnect(r, p, 0)
+    handleDisconnect(r, 'p1', 1000)
+    expect(act(r, 'p3', { type: 'draw', count: 1 }, ctx(1, 1000 + 5 * MIN - 1)).events).toEqual([])
+    expect(r.hostId).toBe('p1')
+    const out = act(r, 'p3', { type: 'draw', count: 1 }, ctx(1, 1000 + 5 * MIN + 1))
+    expect(out.events).toEqual([{ type: 'hostChanged', hostId: 'p3' }]) // p2 n'est pas connecté
+    expect(r.hostId).toBe('p3')
+    handleConnect(r, 'p1', 1000 + 6 * MIN)
+    expect(r.hostId).toBe('p3')
+  })
+
+  it('un hôte jamais connecté compte comme absent depuis la création', () => {
+    const r = room(3, 0)
+    expect(handleConnect(r, 'p2', 5 * MIN + 1).events).toEqual([{ type: 'hostChanged', hostId: 'p2' }])
+  })
+})
+
+describe('pouvoirs de l’hôte', () => {
+  it('passe le tour du joueur actif, refuse un autre et les non-hôtes', () => {
+    const r = room()
+    keepAll(r)
+    const active = state(r).activePlayer
+    const other = r.seats.map((s) => s.playerId).find((p) => p !== active)!
+    expect(host(r, 'p1', 'passTurn', other)).toMatchObject({ changed: false, error: "Ce n'est pas son tour" })
+    const nonHost = r.seats.map((s) => s.playerId).find((p) => p !== 'p1')!
+    expect(host(r, nonHost, 'passTurn', active)).toMatchObject({ changed: false, error: "Seul l'hôte peut faire ça" })
+    expect(host(r, 'p1', 'passTurn', active)).toMatchObject({ changed: true })
+    expect(state(r).activePlayer).not.toBe(active)
+  })
+
+  it('élimine un joueur', () => {
+    const r = room()
+    host(r, 'p1', 'eliminate', 'p2')
+    expect(state(r).players.p2.eliminated).toBe(true)
+  })
+
+  it('clore la partie : sans vainqueur, puis plus rien n’est accepté', () => {
+    const r = room()
+    expect(host(r, 'p1', 'close')).toEqual({ changed: true, error: null, events: [{ type: 'finished', winner: null }] })
+    expect(r).toMatchObject({ finished: true, winner: null })
+    expect(act(r, 'p2', { type: 'draw', count: 1 })).toMatchObject({ changed: false, error: 'La partie est terminée' })
+  })
+})
+
+describe('fin de partie', () => {
+  it('le dernier joueur non éliminé gagne', () => {
+    const r = room()
+    handleMessage(r, 'p2', { type: 'concede' }, ctx())
+    const out = host(r, 'p1', 'eliminate', 'p3')
+    expect(out.events).toEqual([{ type: 'finished', winner: 'p1' }])
+    expect(r).toMatchObject({ finished: true, winner: 'p1' })
+    expect(viewMessageFor(r, 'p1', {})).toMatchObject({ finished: true, winner: 'p1' })
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'La partie est terminée' })
+  })
+
+  it('jamais de fin automatique en solo', () => {
+    const r = room(1)
+    expect(handleMessage(r, 'p1', { type: 'concede' }, ctx()).events).toEqual([])
+    expect(r.finished).toBe(false)
+  })
 })
