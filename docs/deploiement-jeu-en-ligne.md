@@ -10,16 +10,18 @@ Il faut seulement lui donner, **une fois**, deux secrets. Tout se fait depuis le
 
 ## 1. Créer un jeton d'API Cloudflare
 
+Le tableau de bord Cloudflare est en anglais :
+
 1. Ouvre [dash.cloudflare.com](https://dash.cloudflare.com) et connecte-toi.
-2. Menu du profil (en haut à droite) → **Profil** → **Jetons d'API** (*API Tokens*).
-3. **Créer un jeton** → modèle **« Modifier les Workers Cloudflare »** (*Edit Cloudflare Workers*) → **Utiliser le modèle**.
-4. Dans **Autorisations**, ajoute une ligne : **Compte** → **D1** → **Modifier** (*Account · D1 · Edit*).
-5. **Ressources du compte** : choisis ton compte. **Ressources de zone** : laisse « Toutes les zones ».
-6. **Continuer** → **Créer le jeton**, puis **copie le jeton** (il ne sera plus affiché).
+2. Icône du profil (en haut à droite) → **Profile** → **API Tokens** → **Create Token**.
+3. Ligne **Edit Cloudflare Workers** → **Use template**.
+4. Section **Permissions** : sous les lignes déjà présentes, **+ Add more**, puis règle la nouvelle ligne sur **Account** | **D1** | **Edit**. (Les Durable Objects sont couverts par la ligne `Workers Scripts` | `Edit` du modèle.)
+5. **Account Resources** : **Include** + ton compte. **Zone Resources** : laisse **All zones**.
+6. **Continue to summary** → **Create Token**, puis **copie le jeton** (il ne sera plus affiché).
 
 ## 2. Trouver l'identifiant du compte
 
-Sur [dash.cloudflare.com](https://dash.cloudflare.com), ouvre **Workers & Pages** : l'**ID de compte** (*Account ID*) est affiché sur la droite (sur téléphone, plus bas dans la page). C'est aussi la longue suite de caractères dans l'adresse : `dash.cloudflare.com/<identifiant>/…`.
+Menu de gauche → **Workers & Pages** : l'**Account ID** est affiché sur la droite (sur téléphone, plus bas dans la page), avec un bouton pour le copier. C'est aussi la longue suite de caractères dans l'adresse : `dash.cloudflare.com/<identifiant>/…`.
 
 ## 3. Ajouter les secrets dans GitHub
 
@@ -32,13 +34,13 @@ Sur [dash.cloudflare.com](https://dash.cloudflare.com), ouvre **Workers & Pages*
 
 1. Fusionne la pull request du jeu en ligne sur `main` : l'Action **« Déployer le Worker de jeu »** se lance (onglet **Actions** du dépôt). On peut aussi la lancer à la main : **Actions** → **Déployer le Worker de jeu** → **Run workflow**.
 2. Attends qu'elle soit verte.
-3. Le site Pages a pu se construire **avant** que le Worker existe : dans Cloudflare → **Workers & Pages** → projet **dc-league** → **Déploiements**, relance le dernier déploiement (**Réessayer le déploiement**).
+3. Le site Pages a pu se construire **avant** que le Worker existe : dans Cloudflare → **Workers & Pages** → projet **dc-league** → onglet **Deployments**, sur le dernier déploiement : menu **⋯** → **Retry deployment**.
 
 ## 5. Vérifier
 
 - Le lien **Salon** apparaît dans le menu quand tu es connecté.
 - Crée une table, fais-la rejoindre par un ami (ou un second compte dans une fenêtre privée), choisissez vos decks, démarre : la partie s'affiche chez les deux et une pioche de l'un se voit chez l'autre.
-- En cas de souci : onglet **Actions** de GitHub (journal du déploiement), ou Cloudflare → **Workers & Pages** → **dc-league-game** → **Journaux**.
+- En cas de souci : onglet **Actions** de GitHub (journal du déploiement), ou Cloudflare → **Workers & Pages** → **dc-league-game** → **Logs**.
 
 ---
 
