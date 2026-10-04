@@ -14,6 +14,9 @@ import TopBar from './TopBar'
 import CardMenu, { type MenuItem } from './CardMenu'
 import PileModal from './PileModal'
 import TokenModal from './TokenModal'
+import LogPanel from './LogPanel'
+import PreviewPane from './PreviewPane'
+import { shortcutFor } from '@/lib/game/keyboard'
 import { Battlefield, Hand, ZonePile, type CardHandlers } from './zones'
 
 const LANG_KEY = 'dc-card-lang'
@@ -109,6 +112,8 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [pile, setPile] = useState<PileView | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
+  const [logOpen, setLogOpen] = useState(false)
+  const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
 
   const rerender = () => setVersion((v) => v + 1)
@@ -160,6 +165,35 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   )
 
+  useEffect(() => {
+    if (phase.step !== 'playing') return
+    const onKey = (e: KeyboardEvent) => {
+      const shortcut = shortcutFor(e)
+      if (!shortcut) return
+      if (shortcut === 'close') {
+        setMenu(null)
+        setPile(null)
+        setTokenOpen(false)
+        setLogOpen(false)
+        return
+      }
+      // Pas de raccourci de jeu tant qu'une fenêtre est ouverte.
+      if (pile || tokenOpen || menu) return
+      e.preventDefault()
+      if (shortcut === 'undo') return undo()
+      const actions = {
+        draw: { type: 'draw', count: 1 },
+        untapAll: { type: 'untapAll' },
+        nextTurn: { type: 'nextTurn' },
+        shuffle: { type: 'shuffle', seed: randomSeed() },
+        mulligan: { type: 'mulligan', seed: randomSeed() },
+      } satisfies Record<Exclude<typeof shortcut, 'undo' | 'close'>, GameAction>
+      dispatch(actions[shortcut])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase.step, dispatch, undo, pile, tokenOpen, menu])
+
   if (phase.step === 'loading' || !history.current && phase.step === 'playing') return null
 
   if (phase.step === 'resume') {
@@ -194,7 +228,7 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
       else if (zone === 'hand') dispatch({ type: 'move', id, to: 'battlefield', x: 50, y: 50 })
     },
     onContextMenu: (id, zone, e) => setMenu({ kind: 'card', id, zone, x: e.clientX, y: e.clientY }),
-    onHover: () => {},
+    onHover: (id) => setHovered(id),
   }
 
   function onDragStart(e: DragStartEvent) {
@@ -240,6 +274,7 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
         }}
         onUndo={undo}
         onToken={() => setTokenOpen(true)}
+        onLog={() => setLogOpen((open) => !open)}
         onNewGame={() => confirm('Commencer une nouvelle partie ?') && startGame(null)}
       />
 
@@ -261,6 +296,7 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
         </div>
       )}
 
+      <div className="relative flex-1 min-h-0 flex flex-col">
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
         <div className="flex-1 min-h-0 flex flex-col gap-2 p-2">
           <div className="flex-1 min-h-0 flex gap-2">
@@ -282,6 +318,9 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
           )}
         </DragOverlay>
       </DndContext>
+      {logOpen && <LogPanel state={state} onClose={() => setLogOpen(false)} />}
+      </div>
+      {!dragging && <PreviewPane id={hovered} state={state} catalog={catalog} lang={lang} />}
 
       {menu?.kind === 'card' && state.cards[menu.id] && (
         <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={cardMenuItems(state, catalog, lang, menu.id, menu.zone, dispatch)} />
