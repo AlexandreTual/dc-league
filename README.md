@@ -129,6 +129,18 @@ npm test   # tests unitaires (Vitest)
 
 ---
 
+## Import de decks
+
+Chaque joueur importe la liste de ses decks depuis **Mes decks** (`/profil/decks`) → « Importer la liste ».
+
+- **Format accepté** : export texte de Moxfield (Arena / MTGO), une carte par ligne : `1 Sol Ring`, `1x Sol Ring` ou `1 Sol Ring (C21) 263`. Sections reconnues : `Commander`, `Deck` ; `Sideboard`, `Maybeboard`, `Considering` et `Tokens` sont ignorées.
+- Les cartes sont complétées via **Scryfall**, en **français** quand une impression française existe (même édition en priorité), sinon en anglais. Un cache en base rend les imports suivants quasi instantanés.
+- Page publique **Voir le deck** (`/decks/<id>`) : cartes par type, image au survol ou au toucher, bascule FR/EN, choix du commandant.
+
+Mise en place : `npm run db:migrate:remote` (applique `migrations/0003_deck_cards.sql`), puis déployer.
+
+---
+
 ## Guide d'utilisation
 
 ### Démarrer une ligue
