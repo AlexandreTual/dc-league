@@ -1,0 +1,39 @@
+{
+  "object": "list",
+  "total_cards": 3,
+  "has_more": false,
+  "data": [
+    {
+      "object": "card",
+      "id": "kenrith-eld-fr",
+      "oracle_id": "oracle-kenrith",
+      "lang": "fr",
+      "name": "Kenrith, the Returned King",
+      "set": "eld",
+      "collector_number": "303",
+      "released_at": "2019-10-04",
+      "layout": "normal",
+      "mana_cost": "{4}{W}",
+      "cmc": 5.0,
+      "type_line": "Legendary Creature — Human Noble",
+      "oracle_text": "{T}: Add {C}{C}.",
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/kenrith-eld-fr.jpg",
+        "normal": "https://cards.scryfall.io/normal/front/kenrith-eld-fr.jpg"
+      },
+      "printed_name": "Kenrith, le roi revenu",
+      "printed_type_line": "Créature légendaire : humain et noble",
+      "printed_text": "{R} : Les créatures acquièrent le piétinement et la célérité jusqu'à la fin du tour."
+    }
+  ]
+}
