@@ -217,7 +217,51 @@ export function applyAction(state: GameState, action: GameAction, catalog: Catal
       return withLog(next, `Tour ${next.turn}`)
     }
 
-    default:
-      return state
+    case 'flip': {
+      const card = state.cards[action.id]
+      if (!card || card.ref === null || !state.zones.battlefield.includes(action.id)) return state
+      const faces = entryOf(catalog, card)?.en.faces
+      if (!faces || faces.length < 2) return state
+      return setCard(state, action.id, { flipped: !card.flipped })
+    }
+
+    case 'faceDown': {
+      if (!state.zones.battlefield.includes(action.id)) return state
+      return setCard(state, action.id, { faceDown: !state.cards[action.id].faceDown })
+    }
+
+    case 'counter': {
+      const card = state.cards[action.id]
+      if (!card) return state
+      const value = Math.max(0, card.counters[action.kind] + action.delta)
+      const label = { plus: '+1/+1', minus: '-1/-1', other: 'compteur' }[action.kind]
+      const name = card.faceDown ? 'une carte' : cardName(state, catalog, action.id)
+      return withLog(setCard(state, action.id, { counters: { ...card.counters, [action.kind]: value } }), `${name} : ${label} (${value})`)
+    }
+
+    case 'createToken': {
+      const id = `t${state.nextTokenId}`
+      const token: CardInstance = {
+        id, ref: null, token: action.token, isCommander: false, tapped: false, flipped: false, faceDown: false,
+        counters: NO_COUNTERS, x: clampPct(action.x), y: clampPct(action.y),
+      }
+      const next: GameState = {
+        ...state,
+        cards: { ...state.cards, [id]: token },
+        zones: { ...state.zones, battlefield: [...state.zones.battlefield, id] },
+        nextTokenId: state.nextTokenId + 1,
+      }
+      return withLog(next, `Crée un jeton ${action.token.name}`)
+    }
+
+    case 'commanderTax': {
+      const casts = Math.max(0, (state.commanderCasts[action.id] ?? 0) + action.delta)
+      return { ...state, commanderCasts: { ...state.commanderCasts, [action.id]: casts } }
+    }
+
+    case 'reveal': {
+      const top = state.zones.library[0]
+      return withLog(state, top ? `Révèle ${cardName(state, catalog, top)}` : 'Bibliothèque vide')
+    }
   }
 }
