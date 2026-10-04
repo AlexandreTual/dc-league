@@ -24,7 +24,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 | # | Sous-projet | Spec | Plan | État |
 |---|---|---|---|---|
 | 1 | Moteur multijoueur (propriétaire/contrôleur, compteurs, informations cachées, `viewFor`) | `specs/2026-10-04-multiplayer-engine-design.md` | `plans/2026-10-04-multiplayer-engine.md` | **terminé** (branche `ccr-c25fefc0-vailvt`, mode test migré) |
-| 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **plan en relecture** |
+| 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **terminé** (vérifié de bout en bout en local ; à déployer) |
 | 3 | Interface de table multijoueur | — | — | à faire |
 | 4 | Matchs de ligue en ligne (score proposé, confirmé) | — | — | à faire |
 
@@ -38,6 +38,8 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 ### Points à reprendre dans les sous-projets suivants
 
+- **Sous-projet 3** : quand l'hôte passe le tour d'un absent, le journal l'attribue à l'absent (« Chloé : Tour 1 : Ana ») ; préciser « (passé par l'hôte) ».
+- **Sous-projet 3** : la vue de jeu minimale (`components/online/MinimalGame.tsx`) est à remplacer par la vraie table.
 - **Sous-projet 3** : action « déplacer la carte du dessus de sa bibliothèque » (en ligne, le client ne connaît pas l'identifiant de la carte du dessus ; le mode test solo, lui, le connaît localement).
 - **Sous-projet 3** : interface pensée pour ordinateur d'abord, adaptation tablette envisagée ensuite.
 
@@ -52,3 +54,4 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 - Migrations D1 0002 et 0003 appliquées sur la base distante.
 - Import réel depuis Scryfall (bloqué dans l'environnement de développement), recherche de jetons, vraies images de cartes.
+- Jeu en ligne : secrets GitHub `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, premier déploiement du Worker, puis relance du déploiement Pages (`docs/deploiement-jeu-en-ligne.md`).
