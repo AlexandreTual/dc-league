@@ -24,3 +24,15 @@ export function cardRow(overrides: Partial<CardRow> = {}): CardRow {
     ...overrides,
   }
 }
+
+/** Remplit le cache : pour chaque clé, une carte EN et éventuellement une carte FR. */
+export async function seedCache(
+  db: D1Database,
+  entries: { key: string; en: CardRow | null; fr?: CardRow | null }[],
+) {
+  const { upsertCards, saveLookups } = await import('@/lib/db-cards')
+  const now = new Date('2026-10-04T12:00:00Z')
+  const cards = entries.flatMap((e) => [e.en, e.fr ?? null]).filter((c): c is CardRow => c !== null)
+  await upsertCards(db, cards, now)
+  await saveLookups(db, entries.map((e) => ({ key: e.key, en_card_id: e.en?.id ?? null, fr_card_id: e.fr?.id ?? null })), now)
+}

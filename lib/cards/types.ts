@@ -44,3 +44,21 @@ export type CardRow = {
 }
 
 export type CardLookup = { key: string; en_card_id: string | null; fr_card_id: string | null }
+
+export type DeckCardView = {
+  position: number
+  quantity: number
+  section: Section
+  requested_name: string
+  en: CardRow | null
+  fr: CardRow | null
+}
+
+export type ImportSummary = {
+  total: number
+  commanders: number
+  frenchCount: number
+  notFound: { lineNumber: number; text: string }[]
+  ignored: number
+  errors: { lineNumber: number; text: string }[]
+}

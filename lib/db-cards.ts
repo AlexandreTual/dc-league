@@ -1,5 +1,5 @@
 import type { Result } from './db'
-import type { CardLookup, CardRow } from './cards/types'
+import type { CardLookup, CardRow, DeckCardView, Section } from './cards/types'
 
 type Ok<T> = { data: T; error: null }
 type Err = { data: null; error: string }
@@ -130,6 +130,105 @@ export async function saveLookups(db: D1Database, lookups: CardLookup[], now: Da
           .bind(l.key, l.en_card_id, l.fr_card_id, now.toISOString()),
       ),
     )
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Contenu des decks ─────────────────────────────────────────────────────────
+
+export type DeckCardInsert = {
+  position: number
+  quantity: number
+  section: Section
+  requested_name: string
+  requested_set: string | null
+  requested_number: string | null
+  en_card_id: string | null
+  fr_card_id: string | null
+}
+
+export async function replaceDeckCards(db: D1Database, deckId: string, rows: DeckCardInsert[]): Promise<Result<true>> {
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM deck_cards WHERE deck_id = ?').bind(deckId),
+      ...rows.map((r) =>
+        db
+          .prepare(
+            `INSERT INTO deck_cards (deck_id, position, quantity, section, requested_name, requested_set, requested_number, en_card_id, fr_card_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(deckId, r.position, r.quantity, r.section, r.requested_name, r.requested_set, r.requested_number, r.en_card_id, r.fr_card_id),
+      ),
+    ])
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function listDeckCards(db: D1Database, deckId: string): Promise<Result<DeckCardView[]>> {
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM deck_cards WHERE deck_id = ? ORDER BY position ASC')
+      .bind(deckId)
+      .all<Record<string, unknown>>()
+    const ids = results.flatMap((r) => [r.en_card_id, r.fr_card_id]).filter((id): id is string => typeof id === 'string')
+    const cards = await getCards(db, ids)
+    if (cards.error !== null) return err(cards.error)
+    return ok(
+      results.map((r) => ({
+        position: Number(r.position),
+        quantity: Number(r.quantity),
+        section: r.section as Section,
+        requested_name: r.requested_name as string,
+        en: cards.data[r.en_card_id as string] ?? null,
+        fr: cards.data[r.fr_card_id as string] ?? null,
+      })),
+    )
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function countDeckCards(db: D1Database, deckIds: string[]): Promise<Result<Record<string, number>>> {
+  try {
+    const out: Record<string, number> = {}
+    for (const part of chunks([...new Set(deckIds)], IN_CHUNK)) {
+      const { results } = await db
+        .prepare(`SELECT deck_id, SUM(quantity) AS n FROM deck_cards WHERE deck_id IN (${placeholders(part.length)}) GROUP BY deck_id`)
+        .bind(...part)
+        .all<{ deck_id: string; n: number }>()
+      for (const r of results) out[r.deck_id] = Number(r.n)
+    }
+    return ok(out)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Passe une carte légendaire en section commandant et renvoie la carte (FR si disponible) pour l'image. */
+export async function setCommander(db: D1Database, deckId: string, position: number): Promise<Result<CardRow>> {
+  try {
+    const cards = await listDeckCards(db, deckId)
+    if (cards.error !== null) return err(cards.error)
+    const card = cards.data.find((c) => c.position === position)
+    if (!card?.en) return err('NOT_FOUND')
+    if (!card.en.type_line.includes('Legendary')) return err('NOT_LEGENDARY')
+    await db
+      .prepare("UPDATE deck_cards SET section = 'commander' WHERE deck_id = ? AND position = ?")
+      .bind(deckId, position)
+      .run()
+    return ok(card.fr ?? card.en)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function setDeckCommanderImage(db: D1Database, deckId: string, url: string | null): Promise<Result<true>> {
+  try {
+    await db.prepare('UPDATE decks SET commander_image_url = ? WHERE id = ?').bind(url, deckId).run()
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
