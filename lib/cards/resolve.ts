@@ -3,7 +3,7 @@ import { lookupKey } from './parse'
 import { pickFrenchPrint, toCardRow, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
 import type { CardLookup, CardRow, ParsedLine } from './types'
 
-export const MAX_BATCH_LINES = 25
+export { MAX_BATCH_LINES } from './parse'
 
 type Wanted = { key: string; name: string; set: string | null; number: string | null }
 

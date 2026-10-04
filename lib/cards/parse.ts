@@ -66,3 +66,35 @@ export function lookupKey(line: { name: string; set: string | null; number: stri
   const name = line.name.trim().replace(/\s+/g, ' ').toLowerCase()
   return `${name}|${(line.set ?? '').toLowerCase()}|${line.number ?? ''}`
 }
+
+export const MAX_BATCH_LINES = 25
+
+const isNullableString = (v: unknown) => v === null || typeof v === 'string'
+
+/** Valide un paquet reçu par l'API : 1 à 25 lignes bien formées, sinon null. */
+export function validateBatch(value: unknown): ParsedLine[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_BATCH_LINES) return null
+  const lines: ParsedLine[] = []
+  for (const item of value) {
+    const l = item as Record<string, unknown>
+    if (
+      !l || typeof l !== 'object' ||
+      !Number.isInteger(l.lineNumber) ||
+      !Number.isInteger(l.quantity) || (l.quantity as number) < 1 || (l.quantity as number) > 99 ||
+      typeof l.name !== 'string' || !l.name.trim() ||
+      !isNullableString(l.set) || !isNullableString(l.number) ||
+      (l.section !== 'main' && l.section !== 'commander')
+    ) {
+      return null
+    }
+    lines.push({
+      lineNumber: l.lineNumber as number,
+      quantity: l.quantity as number,
+      name: l.name,
+      set: l.set as string | null,
+      number: l.number as string | null,
+      section: l.section,
+    })
+  }
+  return lines
+}

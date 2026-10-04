@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { lookupKey, parseDeckList } from './parse'
+import { lookupKey, parseDeckList, validateBatch } from './parse'
 
 describe('parseDeckList : formats de ligne', () => {
   it.each([
@@ -73,5 +73,28 @@ describe('lookupKey', () => {
   })
   it('laisse vides les parties absentes', () => {
     expect(lookupKey({ name: 'Sol Ring', set: null, number: null })).toBe('sol ring||')
+  })
+})
+
+describe('validateBatch', () => {
+  const ok = { lineNumber: 1, quantity: 1, name: 'Sol Ring', set: null, number: null, section: 'main' }
+
+  it('accepte un paquet valide et ne garde que les champs attendus', () => {
+    expect(validateBatch([{ ...ok, extra: 'x' }, { ...ok, set: 'C21', number: '263', section: 'commander' }])).toEqual([
+      ok,
+      { ...ok, set: 'C21', number: '263', section: 'commander' },
+    ])
+  })
+
+  it.each([
+    ['pas un tableau', { lines: [] }],
+    ['vide', []],
+    ['plus de 25 lignes', Array(26).fill(ok)],
+    ['quantité invalide', [{ ...ok, quantity: 0 }]],
+    ['nom vide', [{ ...ok, name: '  ' }]],
+    ['section inconnue', [{ ...ok, section: 'sideboard' }]],
+    ['édition non textuelle', [{ ...ok, set: 12 }]],
+  ])('refuse un paquet %s', (_label, value) => {
+    expect(validateBatch(value)).toBeNull()
   })
 })
