@@ -340,6 +340,63 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return state.activePlayer === action.target ? passTurn(s, null) : s
     }
 
+    case 'reveal': {
+      const ids = action.ids === 'hand' ? state.players[action.actor].zones.hand : action.ids
+      const to = action.to === 'all' ? Object.keys(state.players) : action.to
+      const cards = { ...state.cards }
+      for (const id of ids) cards[id] = { ...cards[id], knownBy: [...new Set([...cards[id].knownBy, ...to])] }
+      const names = ids.map((id) => cardName(state, id)).join(', ')
+      const s = { ...state, cards }
+      if (action.to === 'all') return log(s, action.actor, `révèle : ${names}`)
+      const who = action.to.map((p) => state.players[p].name).join(', ')
+      return log(log(s, action.actor, `révèle ${plural(ids.length, 'carte')} à ${who}`), action.actor, `Révélé à ${who} : ${names}`, [...new Set([action.actor, ...action.to])])
+    }
+
+    case 'revealTop': {
+      const top = state.players[action.actor].zones.library[0]
+      return log(state, action.actor, top ? `révèle ${cardName(state, top)}` : 'Bibliothèque vide')
+    }
+
+    case 'toggleTopRevealed': {
+      const topRevealed = !state.players[action.actor].topRevealed
+      return log(setPlayer(state, action.actor, { topRevealed }), action.actor, topRevealed ? 'joue avec la carte du dessus révélée' : 'cache la carte du dessus')
+    }
+
+    case 'look':
+    case 'search': {
+      const library = state.players[action.target].zones.library
+      const seen = action.type === 'look' ? library.slice(0, action.count) : library
+      const cards = { ...state.cards }
+      for (const id of seen) cards[id] = { ...cards[id], knownBy: [...new Set([...cards[id].knownBy, action.actor])] }
+      const looking = state.lookingAt[action.actor] ?? []
+      const s: GameState = {
+        ...state,
+        cards,
+        lookingAt: { ...state.lookingAt, [action.actor]: looking.includes(action.target) ? looking : [...looking, action.target] },
+      }
+      const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
+      if (action.type === 'search') return log(s, action.actor, `fouille ${of}`)
+      const what = seen.length === 1 ? 'la carte du dessus' : `les ${seen.length} cartes du dessus`
+      const names = seen.map((id) => cardName(state, id)).join(', ')
+      return log(log(s, action.actor, `regarde ${what} de ${of}`), action.actor, `Tu as vu : ${names}`, [action.actor])
+    }
+
+    case 'endLook': {
+      const cards = { ...state.cards }
+      for (const id of state.players[action.target].zones.library) {
+        cards[id] = { ...cards[id], knownBy: cards[id].knownBy.filter((p) => p !== action.actor) }
+      }
+      let s: GameState = {
+        ...state,
+        cards,
+        lookingAt: { ...state.lookingAt, [action.actor]: state.lookingAt[action.actor].filter((p) => p !== action.target) },
+      }
+      const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
+      if (!action.shuffle) return log(s, action.actor, `arrête de regarder ${of}`)
+      s = shuffleLibrary(s, action.target, action.seed ?? 0)
+      return log(s, action.actor, `mélange ${of}`)
+    }
+
     default:
       return state
   }
