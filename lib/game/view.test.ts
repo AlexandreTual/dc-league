@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
-import { createRng } from '../random'
+import { createRng } from './random'
 import { applyAction } from './apply'
 import { canApply, isVisibleTo } from './rules'
 import { viewFor } from './view'

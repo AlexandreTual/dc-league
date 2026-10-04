@@ -5,7 +5,7 @@ import { clearGame, loadGame, saveGame } from './storage'
 import type { GameAction } from './types'
 
 const { catalog } = buildCatalog('d1', testDeckCards())
-const list: GameAction[] = [{ type: 'start', seed: 1 }, { type: 'draw', count: 1 }]
+const list: GameAction[] = [{ type: 'start', actor: 'server', seed: 1 }, { type: 'draw', actor: 'solo', count: 1 }]
 
 function memoryStorage() {
   const data = new Map<string, string>()
@@ -27,7 +27,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('sauvegarde', () => {
   it('fait l’aller-retour', () => {
     saveGame(catalog, list)
-    expect(JSON.parse(storage.data.get('dc-playtest-d1')!)).toEqual({ version: 1, fingerprint: catalog.fingerprint, actions: list })
+    expect(JSON.parse(storage.data.get('dc-playtest-d1')!)).toEqual({ version: 2, fingerprint: catalog.fingerprint, actions: list })
     expect(loadGame(catalog)).toEqual(list)
   })
 
@@ -39,7 +39,8 @@ describe('sauvegarde', () => {
   it('ignore une sauvegarde illisible ou d’une autre version de format', () => {
     storage.data.set('dc-playtest-d1', '{pas du json')
     expect(loadGame(catalog)).toBeNull()
-    storage.data.set('dc-playtest-d1', JSON.stringify({ version: 2, fingerprint: catalog.fingerprint, actions: list }))
+    // Version 1 : actions de l'ancien moteur solo, illisibles par le nouveau.
+    storage.data.set('dc-playtest-d1', JSON.stringify({ version: 1, fingerprint: catalog.fingerprint, actions: [{ type: 'start', seed: 1 }] }))
     expect(loadGame(catalog)).toBeNull()
   })
 

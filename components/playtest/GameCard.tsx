@@ -1,7 +1,7 @@
 'use client'
 
-import type { Catalog, GameState } from '@/lib/game/types'
-import { cardData, taxOf } from '@/lib/game/apply'
+import type { Catalog, CardView } from '@/lib/game/types'
+import { cardInfo } from '@/lib/game/apply'
 
 export type Lang = 'fr' | 'en'
 
@@ -13,23 +13,21 @@ export function CardBack({ className = '' }: { className?: string }) {
   )
 }
 
-/** Une carte : image, dos, ou carte texte (jeton sans image), avec marqueurs et taxe. */
-export default function GameCard({ id, state, catalog, lang, faceDown = false, className = '' }: {
-  id: string
-  state: GameState
+/** Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe. */
+export default function GameCard({ card, catalog, lang, tax = 0, className = '' }: {
+  card: CardView | null | undefined
   catalog: Catalog
   lang: Lang
-  faceDown?: boolean
+  tax?: number
   className?: string
 }) {
-  const card = state.cards[id]
   if (!card) return null
-  const data = cardData(state, catalog, id, lang)
-  if (faceDown || data.hidden) return <CardBack className={className} />
+  if (card.hidden) return <CardBack className={className} />
+  const data = cardInfo(catalog, card, lang)
+  if (data.hidden) return <CardBack className={className} />
 
   const { plus, minus, other } = card.counters
   const net = plus - minus
-  const tax = card.isCommander && state.zones.command.includes(id) ? taxOf(state, id) : 0
 
   return (
     <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}>

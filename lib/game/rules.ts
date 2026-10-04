@@ -56,6 +56,7 @@ const MSG = {
   alreadyEliminated: 'Ce joueur est déjà éliminé',
   notLooking: 'Tu ne regardes pas cette bibliothèque',
   badCount: 'Nombre de cartes invalide',
+  oneFace: "Cette carte n'a qu'une face",
 }
 
 const isPlayer = (state: GameState, id: string | null) => id !== null && id in state.players
@@ -126,7 +127,11 @@ export function canApply(state: GameState, action: GameAction): string | null {
       const where = zoneOf(state, action.id)
       if (!where) return MSG.unknownCard
       if (where.zone !== 'battlefield') return MSG.notOnBattlefield
-      return where.player === action.actor ? null : MSG.notController
+      if (where.player !== action.actor) return MSG.notController
+      if (action.type === 'faceDown') return null
+      const card = state.cards[action.id]
+      const faces = state.catalogs[card.owner]?.entries.find((e) => e.ref === card.ref)?.en.faces
+      return card.ref !== null && (faces?.length ?? 0) > 1 ? null : MSG.oneFace
     }
 
     case 'life':

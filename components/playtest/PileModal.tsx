@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { cardData } from '@/lib/game/apply'
-import type { Catalog, GameState, Position, ZoneId } from '@/lib/game/types'
+import { cardInfo } from '@/lib/game/apply'
+import type { Catalog, PlayerZone, Position, VisibleCard } from '@/lib/game/types'
 import GameCard, { type Lang } from './GameCard'
 
-const TARGETS: { label: string; to: ZoneId; position?: Position }[] = [
+const TARGETS: { label: string; to: PlayerZone; position?: Position }[] = [
   { label: 'Main', to: 'hand' },
   { label: 'Champ', to: 'battlefield' },
   { label: 'Cimetière', to: 'graveyard' },
@@ -16,29 +16,28 @@ const TARGETS: { label: string; to: ZoneId; position?: Position }[] = [
 ]
 
 /**
- * Fenêtre listant des cartes d'une zone, avec un bouton par destination.
- * Les cartes affichées sont figées à l'ouverture : une carte déplacée disparaît de la liste.
+ * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination.
+ * Une carte déplacée disparaît de la liste.
  */
-export default function PileModal({ title, zone, ids, searchable, shuffleDefault, state, catalog, lang, onMove, onClose }: {
+export default function PileModal({ title, zone, cards, searchable, shuffleDefault, catalog, lang, onMove, onClose }: {
   title: string
-  zone: ZoneId
-  ids: string[]
+  zone: PlayerZone
+  cards: VisibleCard[]
   searchable: boolean
   shuffleDefault: boolean | null
-  state: GameState
   catalog: Catalog
   lang: Lang
-  onMove: (id: string, to: ZoneId, position?: Position) => void
+  onMove: (id: string, to: PlayerZone, position?: Position) => void
   onClose: (shuffle: boolean) => void
 }) {
   const [moved, setMoved] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
   const [shuffle, setShuffle] = useState(shuffleDefault ?? false)
 
-  const visible = ids.filter((id) => !moved.has(id) && state.zones[zone].includes(id)).filter((id) => {
+  const visible = cards.filter((card) => !moved.has(card.id)).filter((card) => {
     if (!filter.trim()) return true
     const q = filter.trim().toLowerCase()
-    return [cardData(state, catalog, id, 'fr').name, cardData(state, catalog, id, 'en').name].some((n) => n.toLowerCase().includes(q))
+    return [cardInfo(catalog, card, 'fr').name, cardInfo(catalog, card, 'en').name].some((n) => n.toLowerCase().includes(q))
   })
 
   return (
@@ -58,9 +57,9 @@ export default function PileModal({ title, zone, ids, searchable, shuffleDefault
         </div>
         <div className="overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-4">
           {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">Aucune carte.</p>}
-          {visible.map((id) => (
+          {visible.map(({ id, ...card }) => (
             <div key={id} className="space-y-1.5" data-pile-card={id}>
-              <GameCard id={id} state={state} catalog={catalog} lang={lang} />
+              <GameCard card={{ id, ...card }} catalog={catalog} lang={lang} />
               <div className="grid grid-cols-3 gap-1">
                 {TARGETS.filter((t) => !(t.to === zone && t.to !== 'library')).map((t) => (
                   <button

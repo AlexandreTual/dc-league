@@ -1,6 +1,7 @@
 import type { Catalog, GameAction } from './types'
 
-const VERSION = 1
+/** Version 2 : actions du moteur multijoueur (avec `actor`). */
+const VERSION = 2
 const keyOf = (deckId: string) => `dc-playtest-${deckId}`
 
 type Saved = { version: number; fingerprint: string; actions: GameAction[] }

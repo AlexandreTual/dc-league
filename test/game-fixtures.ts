@@ -1,5 +1,7 @@
+import { applyAction } from '@/lib/game/apply'
 import { buildCatalog } from '@/lib/game/catalog'
-import type { Format, GameSetup } from '@/lib/game/mp/types'
+import { createInitialState } from '@/lib/game/setup'
+import type { Format, GameAction, GameSetup, GameState, PlayerZone } from '@/lib/game/types'
 import { testDeckCards } from './factories'
 
 const NAMES = ['Alex', 'Bob', 'Chloé', 'Dan', 'Eva']
@@ -22,9 +24,9 @@ export const card = (player: string, ref: number, n = 1) => `${player}:c${ref}-$
 
 /** Construit une situation de test : déplace des cartes à la main, sans passer par le moteur. */
 export function place(
-  state: import('@/lib/game/mp/types').GameState,
-  moves: { id: string; player: string; zone: import('@/lib/game/mp/types').PlayerZone }[],
-): import('@/lib/game/mp/types').GameState {
+  state: GameState,
+  moves: { id: string; player: string; zone: PlayerZone }[],
+): GameState {
   const players = structuredClone(state.players)
   for (const { id, player, zone } of moves) {
     for (const p of Object.values(players)) {
@@ -35,11 +37,8 @@ export function place(
   return { ...state, players, started: true }
 }
 
-import { applyAction } from '@/lib/game/mp/apply'
-import { createInitialState } from '@/lib/game/mp/setup'
-
-export function run(setup: GameSetup, ...actions: import('@/lib/game/mp/types').GameAction[]) {
+export function run(setup: GameSetup, ...actions: GameAction[]) {
   return actions.reduce((s, a) => applyAction(s, a), createInitialState(setup))
 }
 
-export const start = (seed = 1): import('@/lib/game/mp/types').GameAction => ({ type: 'start', actor: 'server', seed })
+export const start = (seed = 1): GameAction => ({ type: 'start', actor: 'server', seed })
