@@ -283,6 +283,57 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(s, action.actor, `Crée un jeton ${action.token.name}`)
     }
 
+    case 'flip': {
+      const flipped = !state.cards[action.id].flipped
+      return log(setCard(state, action.id, { flipped }), action.actor, `Transforme ${cardName(state, action.id)}`)
+    }
+
+    case 'faceDown': {
+      const faceDown = !state.cards[action.id].faceDown
+      const s = setCard(state, action.id, { faceDown, knownBy: faceDown ? [action.actor] : [] })
+      return log(s, action.actor, faceDown ? 'Met une carte face cachée' : `Retourne ${cardName(state, action.id)} face visible`)
+    }
+
+    case 'commanderTax': {
+      const casts = Math.max(0, (state.commanderCasts[action.id] ?? 0) + action.delta)
+      const s = { ...state, commanderCasts: { ...state.commanderCasts, [action.id]: casts } }
+      return log(s, action.actor, `Taxe de ${cardName(state, action.id)} : ${taxOf(s, action.id)}`)
+    }
+
+    case 'life': {
+      const target = state.players[action.target]
+      const life = target.life + action.delta
+      return log(setPlayer(state, action.target, { life }), action.actor, `${target.name} ${target.life} → ${life}`)
+    }
+
+    case 'poison': {
+      const target = state.players[action.target]
+      const poison = Math.max(0, target.poison + action.delta)
+      return log(setPlayer(state, action.target, { poison }), action.actor, `${target.name} : poison ${poison}`)
+    }
+
+    case 'playerCounter': {
+      const target = state.players[action.target]
+      const value = Math.max(0, (target.counters[action.name] ?? 0) + action.delta)
+      const s = setPlayer(state, action.target, { counters: { ...target.counters, [action.name]: value } })
+      return log(s, action.actor, `${target.name} : ${action.name} ${value}`)
+    }
+
+    case 'commanderDamage': {
+      const target = state.players[action.target]
+      const before = target.commanderDamage[action.commander] ?? 0
+      const after = Math.max(0, before + action.delta)
+      const life = target.life - (after - before)
+      const s = setPlayer(state, action.target, { life, commanderDamage: { ...target.commanderDamage, [action.commander]: after } })
+      return log(s, action.actor, `${target.name} : ${plural(after, 'blessure')} de ${cardName(state, action.commander)} (vie ${life})`)
+    }
+
+    case 'setMonarch':
+      return log({ ...state, monarch: action.to }, action.actor, action.to ? `${state.players[action.to].name} devient le monarque` : 'Plus de monarque')
+
+    case 'setInitiative':
+      return log({ ...state, initiative: action.to }, action.actor, action.to ? `${state.players[action.to].name} prend l’initiative` : 'Plus d’initiative')
+
     case 'eliminate': {
       let s = setPlayer(state, action.target, { eliminated: true })
       s = log(s, action.actor, `${state.players[action.target].name} est éliminé`)
