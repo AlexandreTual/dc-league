@@ -34,11 +34,11 @@ describe('cache de cartes', () => {
     expect((await getCards(db, ['sol-c21-en'])).data!['sol-c21-en'].printed_name).toBe('Anneau solaire')
   })
 
-  it("saveLookups mémorise l'absence de version française", async () => {
+  it("saveLookups mémorise l'absence de version française et sa date", async () => {
     await upsertCards(db, [cardRow()], now)
     await saveLookups(db, [{ key: 'sol ring||', en_card_id: 'sol-c21-en', fr_card_id: null }], now)
     expect((await getLookups(db, ['sol ring||'])).data).toEqual({
-      'sol ring||': { key: 'sol ring||', en_card_id: 'sol-c21-en', fr_card_id: null },
+      'sol ring||': { key: 'sol ring||', en_card_id: 'sol-c21-en', fr_card_id: null, fetched_at: now.toISOString() },
     })
   })
 
