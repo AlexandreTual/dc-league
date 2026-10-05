@@ -13,6 +13,8 @@ export function CardBack({ className = '' }: { className?: string }) {
   )
 }
 
+const badgeClass = 'px-1.5 rounded bg-black/80 text-dc-gold text-[9px] font-semibold uppercase tracking-wide whitespace-nowrap'
+
 /** Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe. */
 export default function GameCard({ card, catalog, lang, tax = 0, className = '' }: {
   card: CardView | null | undefined
@@ -33,12 +35,17 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '' 
   return (
     <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}>
       {data.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={data.image} alt={data.name} draggable={false} className="w-full h-full rounded-[6%] object-cover shadow-card" />
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data.image} alt={data.name} draggable={false} className="w-full h-full rounded-[6%] object-cover shadow-card" />
+          {/* Comme Moxfield : au milieu de la carte, juste au-dessus de la ligne de type. */}
+          {badge && <span className={`${badgeClass} absolute left-1/2 top-[55%] -translate-x-1/2 -translate-y-full`} data-token-badge>{badge}</span>}
+        </>
       ) : (
         <div className="w-full h-full rounded-[6%] border-2 border-dc-gold/50 bg-dc-surface p-1.5 flex flex-col text-[10px] leading-tight text-dc-text">
           <span className="font-semibold">{data.name}</span>
-          <span className="text-dc-muted mt-1">{data.typeLine}</span>
+          {badge && <span className={`${badgeClass} self-center my-1`} data-token-badge>{badge}</span>}
+          <span className={`text-dc-muted ${badge ? '' : 'mt-1'}`}>{data.typeLine}</span>
           {card.token?.power != null && (
             <span className="mt-auto self-end font-semibold">{card.token.power}/{card.token.toughness}</span>
           )}
@@ -52,9 +59,6 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '' 
         )}
         {other > 0 && <span className="px-1 rounded text-[10px] font-bold bg-dc-gold text-black">{other}</span>}
       </div>
-      {badge && (
-        <span className="absolute top-1 right-1 px-1 rounded bg-black/75 text-dc-gold text-[9px] font-semibold uppercase tracking-wide" data-token-badge>{badge}</span>
-      )}
       {tax > 0 && (
         <span className="absolute bottom-1 inset-x-1 text-center rounded bg-black/75 text-dc-gold text-[10px] font-semibold">Taxe +{tax}</span>
       )}
