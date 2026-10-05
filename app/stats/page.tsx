@@ -2,6 +2,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import { BarChart2, ExternalLink, Swords, Trophy, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 import { listMatchStats, computeAllStats, type PlayerRecord, type H2HEntry } from '@/lib/db-stats'
+import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -322,7 +323,8 @@ function H2HSection({ entries, players }: { entries: H2HEntry[]; players: Player
 
 export default async function StatsPage() {
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data: rows } = await listMatchStats(env.DB)
+  const { data: rows, error } = await listMatchStats(env.DB)
+  if (error) return <LoadError what="les statistiques" />
 
   const { players, h2h, totalMatches } = computeAllStats(rows ?? [])
 
