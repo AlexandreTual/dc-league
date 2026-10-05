@@ -22,6 +22,9 @@ import { Battlefield, Hand, ZonePile, type CardHandlers } from './zones'
 
 const LANG_KEY = 'dc-card-lang'
 
+/** Largeur / hauteur d'une carte (63 × 88 mm). */
+const CARD_RATIO = 63 / 88
+
 /** Le mode test est une partie à un seul joueur. */
 const ME = 'solo'
 
@@ -129,7 +132,8 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
   const [phase, setPhase] = useState<Phase>({ step: 'loading' })
   const [lang, setLang] = useState<Lang>('fr')
   const [showExcluded, setShowExcluded] = useState(excluded.length > 0)
-  const [dragging, setDragging] = useState<{ id: string; from: PlayerZone } | null>(null)
+  // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
+  const [dragging, setDragging] = useState<{ id: string; from: PlayerZone; height: number } | null>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [pile, setPile] = useState<PileView | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
@@ -262,10 +266,14 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
   }
 
   function onDragStart(e: DragStartEvent) {
-    setDragging({ id: String(e.active.id), from: e.active.data.current?.from as PlayerZone })
+    const id = String(e.active.id)
+    // offsetHeight ignore la rotation d'une carte engagée, contrairement au rectangle mesuré par dnd-kit.
+    const node = document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)
+    setDragging({ id, from: e.active.data.current?.from as PlayerZone, height: node?.offsetHeight || 134 })
   }
 
   function onDragEnd(e: DragEndEvent) {
+    const height = dragging?.height ?? 0
     setDragging(null)
     const to = e.over?.id as PlayerZone | undefined
     const id = String(e.active.id)
@@ -274,8 +282,10 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
       const rect = e.active.rect.current.translated
       const zone = e.over!.rect
       if (!rect) return
-      const x = ((rect.left + rect.width / 2 - zone.left) / zone.width) * 100
-      const y = ((rect.top + rect.height / 2 - zone.top) / zone.height) * 100
+      // Centre de l'aperçu tel que le joueur le voit (posé au coin haut-gauche du rectangle déplacé).
+      const width = height * CARD_RATIO
+      const x = ((rect.left + width / 2 - zone.left) / zone.width) * 100
+      const y = ((rect.top + height / 2 - zone.top) / zone.height) * 100
       dispatch({ type: 'move', id, to: { player: ME, zone: to }, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 })
     } else if (to === 'library') {
       dispatch({ type: 'move', id, to: { player: ME, zone: to }, position: shiftDown.current ? 'bottom' : 'top' })
@@ -345,8 +355,8 @@ export default function Playtest({ catalog, excluded, deckName }: { catalog: Cat
         </div>
         <DragOverlay dropAnimation={null}>
           {dragging && (
-            <div className="w-24 pointer-events-none">
-              {dragging.from === 'library' ? <CardBack /> : <GameCard card={cards.get(dragging.id)} catalog={catalog} lang={lang} />}
+            <div className="pointer-events-none" style={{ height: dragging.height, width: dragging.height * CARD_RATIO }} data-testid="drag-overlay">
+              {dragging.from === 'library' ? <CardBack className="h-full" /> : <GameCard card={cards.get(dragging.id)} catalog={catalog} lang={lang} className="h-full" />}
             </div>
           )}
         </DragOverlay>

@@ -60,9 +60,32 @@ try {
   const battlefield = await page.locator('[data-zone="battlefield"]').boundingBox()
   const firstCard = page.locator('[data-zone="hand"] [data-card-id]').first()
   const movedId = await firstCard.getAttribute('data-card-id')
-  await drag(firstCard, battlefield.x + battlefield.width * 0.3, battlefield.y + battlefield.height * 0.4)
+
+  // Pendant le glisser, l'aperçu garde la taille de la carte d'origine.
+  const source = await firstCard.boundingBox()
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(source.x + source.width / 2 + 40, source.y + source.height / 2 - 60, { steps: 10 })
+  const overlay = await page.getByTestId('drag-overlay').boundingBox()
+  check(Math.abs(overlay.height - source.height) <= 2, `aperçu de même taille que la carte (${Math.round(overlay.height)} px / ${Math.round(source.height)} px)`)
+  await page.mouse.up()
+  await page.waitForTimeout(200)
+  check((await handCount()) === 7, 'glisser lâché dans la main : la carte y reste')
+
+  // La carte se pose là où l'aperçu a été lâché : son centre arrive sur le centre de l'aperçu.
+  const box = await firstCard.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2 + 10, { steps: 5 })
+  await page.mouse.move(battlefield.x + battlefield.width * 0.3, battlefield.y + battlefield.height * 0.4, { steps: 15 })
+  const seen = await page.getByTestId('drag-overlay').boundingBox()
+  await page.mouse.up()
+  await page.waitForTimeout(200)
   check((await handCount()) === 6, 'glisser-déposer : 6 cartes en main')
   check((await battlefieldCount()) === 1, 'glisser-déposer : 1 carte sur le champ de bataille')
+  const placed = await page.locator(`[data-zone="battlefield"] [data-card-id="${movedId}"]`).boundingBox()
+  const gap = Math.hypot(placed.x + placed.width / 2 - (seen.x + seen.width / 2), placed.y + placed.height / 2 - (seen.y + seen.height / 2))
+  check(gap <= 3, `carte posée là où l'aperçu a été lâché (écart ${Math.round(gap)} px)`)
 
   const onField = page.locator(`[data-zone="battlefield"] [data-card-id="${movedId}"]`)
   await onField.dblclick()
