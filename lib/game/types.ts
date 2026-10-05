@@ -57,6 +57,8 @@ export type PlayerState = {
   kept: boolean
   mulligans: number
   topRevealed: boolean
+  /** Le propriétaire voit en permanence la carte du dessus de sa bibliothèque, les autres non (Bolas's Citadel…). */
+  peekTop: boolean
   zones: Record<PlayerZone, string[]>
   stats: { drawn: number; landsPlayed: number }
 }
@@ -129,6 +131,7 @@ export type GameAction =
   | { type: 'reveal'; actor: string; ids: string[] | 'hand'; to: 'all' | string[] }
   | { type: 'revealTop'; actor: string }
   | { type: 'toggleTopRevealed'; actor: string }
+  | { type: 'togglePeekTop'; actor: string }
   | { type: 'look'; actor: string; target: string; count: number }
   | { type: 'search'; actor: string; target: string }
   | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: number }

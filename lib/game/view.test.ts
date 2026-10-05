@@ -68,7 +68,7 @@ describe('anti-fuite', () => {
     const randomAction = (): GameAction => {
       const actor = pick(ids)
       const allCards = Object.keys(s.cards)
-      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop'])) {
+      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop'])) {
         case 'draw':
           return { type: 'draw', actor, count: 1 }
         case 'move': {
@@ -93,6 +93,8 @@ describe('anti-fuite', () => {
           return { type: 'endTurn', actor: s.activePlayer }
         case 'revealTop':
           return { type: 'revealTop', actor }
+        case 'peekTop':
+          return { type: 'togglePeekTop', actor }
         case 'toggleTop':
           return { type: 'toggleTopRevealed', actor }
         default:

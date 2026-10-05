@@ -385,6 +385,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(setPlayer(state, action.actor, { topRevealed }), action.actor, topRevealed ? 'joue avec la carte du dessus révélée' : 'cache la carte du dessus')
     }
 
+    case 'togglePeekTop': {
+      const peekTop = !state.players[action.actor].peekTop
+      const text = peekTop ? 'regarde la carte du dessus de sa bibliothèque en permanence' : 'ne regarde plus la carte du dessus'
+      return log(setPlayer(state, action.actor, { peekTop }), action.actor, text)
+    }
+
     case 'look':
     case 'search': {
       const library = state.players[action.target].zones.library
