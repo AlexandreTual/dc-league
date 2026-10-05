@@ -12,6 +12,8 @@ export type TokenData = {
   toughness: string | null
   colors: string[]
   image: string | null
+  /** Jeton créé comme copie d'une carte en jeu (mention « Copie » sur la table). */
+  copy?: boolean
 }
 
 export type Format = 'commander' | 'duel'

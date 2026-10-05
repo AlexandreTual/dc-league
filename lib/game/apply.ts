@@ -60,6 +60,12 @@ export function taxOf(state: Pick<GameState, 'commanderCasts'>, id: string): num
   return COMMANDER_TAX_STEP * (state.commanderCasts[id] ?? 0)
 }
 
+/** Mention affichée sur un jeton, pour le distinguer d'une vraie carte. */
+export function tokenBadge(card: Pick<CardInstance, 'token'>): 'Jeton' | 'Copie' | null {
+  if (!card.token) return null
+  return card.token.copy ? 'Copie' : 'Jeton'
+}
+
 export type CardInfo = { name: string; image: string | null; typeLine: string; faces: CardFace[] | null; hidden: boolean }
 
 const UNKNOWN: CardInfo = { name: 'une carte', image: null, typeLine: '', faces: null, hidden: true }
@@ -289,7 +295,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'createToken': {
       const id = `t${state.nextTokenId}`
       const token: CardInstance = {
-        id, owner: action.actor, ref: null, token: action.token, isCommander: false, tapped: false, flipped: false,
+        id, owner: action.actor, ref: null, token: action.copy ? { ...action.token, copy: true } : action.token, isCommander: false, tapped: false, flipped: false,
         faceDown: false, counters: NO_COUNTERS, x: clampPct(action.x), y: clampPct(action.y), knownBy: [],
       }
       let s: GameState = { ...state, cards: { ...state.cards, [id]: token }, nextTokenId: state.nextTokenId + 1 }
