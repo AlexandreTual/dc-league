@@ -61,6 +61,12 @@ describe('startTable', () => {
     expect(res.error).toBe('Erreur interne, réessaie plus tard')
     expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
+
+  it('table rouverte si le serveur de jeu est injoignable (exception)', async () => {
+    const throwing: GameInit = async () => { throw new Error('injoignable') }
+    await expect(startTable(db, throwing, tableId, 'p1')).rejects.toThrow('injoignable')
+    expect((await getTable(db, tableId)).data!.status).toBe('open')
+  })
 })
 
 describe('startTable concurrent', () => {

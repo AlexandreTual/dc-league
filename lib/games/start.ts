@@ -26,9 +26,15 @@ export async function startTable(db: D1Database, init: GameInit, tableId: string
   if (claimError !== null) return { data: null, error: INTERNAL_ERROR }
   if (!claimed) return { data: null, error: 'La partie a déjà commencé' }
 
-  const result = await createGame(db, init, tableId)
-  if (result.error !== null) await releaseStart(db, tableId)
-  return result
+  let started = false
+  try {
+    const result = await createGame(db, init, tableId)
+    started = result.error === null
+    return result
+  } finally {
+    // Échec, même par exception (serveur de jeu injoignable…) : la table redevient ouverte.
+    if (!started && (await releaseStart(db, tableId)).error !== null) console.error(`Table ${tableId} restée en démarrage`)
+  }
 }
 
 /** Table réservée : relue (places désormais figées), partie créée, table passée en cours. */
