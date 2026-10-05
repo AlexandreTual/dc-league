@@ -25,6 +25,7 @@ import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
+import ManaPool from './ManaPool'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import { libraryTop, type CardHandlers } from './zones'
@@ -309,6 +310,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         onToken={() => setTokenOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
+        mana={source.mode === 'local' && mine ? <ManaPool pool={mine.mana} keep={mine.keepMana} editable={canAct} send={send} /> : undefined}
         onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
         extra={source.online && me && !finished && (
           <>

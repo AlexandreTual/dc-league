@@ -11,7 +11,7 @@ export const barButton =
  * Barre du haut de la table. En mode test : vie du joueur et « Nouvelle partie ».
  * En ligne : joueur actif, « Piocher », et les commandes passées dans `extra` (abandon, hôte).
  */
-export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, life, onNextTurn, onDraw, onLife, onLang, onUndo, onNewGame, onToken, onLog, onSettings, extra }: {
+export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, life, onNextTurn, onDraw, onLife, onLang, onUndo, onNewGame, onToken, onLog, onSettings, mana, extra }: {
   back: { href: string; label: string }
   turn: number
   activeName?: string
@@ -29,6 +29,8 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
   onToken: () => void
   onLog: () => void
   onSettings: () => void
+  /** Ma réserve de mana (mode test ; en ligne, elle est dans mon panneau). */
+  mana?: React.ReactNode
   extra?: React.ReactNode
 }) {
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
@@ -48,6 +50,7 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
           <button className={barButton} onClick={(e) => onLife(step(e))} aria-label="Gagner des points de vie"><Plus className="w-3.5 h-3.5" /></button>
         </div>
       )}
+      {mana && <span className="text-xs text-dc-text ml-2">{mana}</span>}
       <div className="flex flex-wrap items-center gap-2 ml-auto">
         <button className={barButton} onClick={onLang} aria-label="Langue des cartes">
           <span className={lang === 'fr' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>FR</span>/
