@@ -15,3 +15,15 @@ export function safeRedirectPath(from: string | null | undefined): string {
   if (!from || !from.startsWith('/') || from.startsWith('//') || from.startsWith('/\\')) return '/profil'
   return from
 }
+
+/** Adresse saisie sans les espaces autour ; vide → null. */
+export function normalizeEmail(s: string | null | undefined): string | null {
+  const v = (s ?? '').trim()
+  return v ? v : null
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function validateEmail(s: string): string | null {
+  return s.length <= 254 && EMAIL_RE.test(s) ? null : 'Adresse mail invalide'
+}

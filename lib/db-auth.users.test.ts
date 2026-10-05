@@ -3,7 +3,7 @@ import { createTestDb } from '@/test/d1'
 import {
   AUTH_ERR,
   countAdmins,
-  createInvitation,
+  INVITATION_TTL_MS, createInvitation,
   createUserFromInvitation,
   getUserByPlayerId,
   getUserByUsername,
@@ -29,7 +29,7 @@ beforeEach(async () => {
 
 async function signup(playerId: string, username: string, opts: { grantAdmin?: boolean; idHash?: string } = {}) {
   const idHash = opts.idHash ?? `inv-${playerId}-${username}`
-  await createInvitation(db, { idHash, playerId, kind: 'signup', grantAdmin: opts.grantAdmin ?? false, now })
+  await createInvitation(db, { idHash, playerId, kind: 'signup', grantAdmin: opts.grantAdmin ?? false, now, ttlMs: INVITATION_TTL_MS })
   return createUserFromInvitation(db, { invitationId: idHash, username, passwordHash: 'h', now })
 }
 
@@ -43,7 +43,7 @@ describe('invitations et création de compte', () => {
   })
 
   it('getValidInvitation renvoie le nom du joueur', async () => {
-    await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     const inv = (await getValidInvitation(db, 'i1', now)).data
     expect(inv).toMatchObject({ player_id: 'p1', player_name: 'Alex', kind: 'signup', grant_admin: false })
   })
@@ -56,21 +56,21 @@ describe('invitations et création de compte', () => {
   })
 
   it('refuse une invitation expirée', async () => {
-    await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     expect((await getValidInvitation(db, 'i1', days(8))).data).toBeNull()
     const r = await createUserFromInvitation(db, { invitationId: 'i1', username: 'Alex', passwordHash: 'h', now: days(8) })
     expect(r.error).toBe(AUTH_ERR.INVITATION_INVALID)
   })
 
   it('une nouvelle invitation annule la précédente', async () => {
-    await createInvitation(db, { idHash: 'old', playerId: 'p1', kind: 'signup', grantAdmin: false, now })
-    await createInvitation(db, { idHash: 'new', playerId: 'p1', kind: 'signup', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 'old', playerId: 'p1', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
+    await createInvitation(db, { idHash: 'new', playerId: 'p1', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     expect((await getValidInvitation(db, 'old', now)).data).toBeNull()
     expect((await getValidInvitation(db, 'new', now)).data).not.toBeNull()
   })
 
   it("renvoie la date d'expiration à 7 jours", async () => {
-    const r = await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: false, now })
+    const r = await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     expect(r.data?.expiresAt).toBe(days(7).toISOString())
   })
 
@@ -100,7 +100,7 @@ describe('réinitialisation du mot de passe', () => {
       db.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES ('s1', ?, '2099-01-01')").bind(user.id),
       db.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES ('s2', ?, '2099-01-01')").bind(user.id),
     ])
-    await createInvitation(db, { idHash: 'r1', playerId: 'p1', kind: 'reset', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 'r1', playerId: 'p1', kind: 'reset', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     const r = await resetPasswordFromInvitation(db, { invitationId: 'r1', passwordHash: 'nouveau', now })
     expect(r.data?.userId).toBe(user.id)
     expect((await getUserByPlayerId(db, 'p1')).data?.password_hash).toBe('nouveau')
@@ -110,7 +110,7 @@ describe('réinitialisation du mot de passe', () => {
 
   it('refuse une invitation de type signup', async () => {
     await signup('p1', 'Alex')
-    await createInvitation(db, { idHash: 's1', playerId: 'p1', kind: 'signup', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 's1', playerId: 'p1', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     const r = await resetPasswordFromInvitation(db, { invitationId: 's1', passwordHash: 'x', now })
     expect(r.error).toBe(AUTH_ERR.INVITATION_INVALID)
   })
@@ -139,15 +139,15 @@ describe('setAdmin', () => {
 describe('listAccountStatuses', () => {
   it("donne l'état de chaque joueur", async () => {
     await signup('p1', 'Alex', { grantAdmin: true })
-    await createInvitation(db, { idHash: 'i2', playerId: 'p2', kind: 'signup', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 'i2', playerId: 'p2', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     const statuses = (await listAccountStatuses(db, now)).data!
     expect(statuses.p1).toMatchObject({ status: 'account', username: 'Alex', isAdmin: true })
-    expect(statuses.p2).toEqual({ status: 'pending', expiresAt: days(7).toISOString() })
+    expect(statuses.p2).toEqual({ status: 'pending', email: null, expiresAt: days(7).toISOString() })
     expect(statuses.p3 ?? { status: 'none' }).toEqual({ status: 'none' })
   })
 
   it('ignore une invitation expirée', async () => {
-    await createInvitation(db, { idHash: 'i2', playerId: 'p2', kind: 'signup', grantAdmin: false, now })
+    await createInvitation(db, { idHash: 'i2', playerId: 'p2', kind: 'signup', grantAdmin: false, now, ttlMs: INVITATION_TTL_MS })
     const statuses = (await listAccountStatuses(db, days(8))).data!
     expect(statuses.p2 ?? { status: 'none' }).toEqual({ status: 'none' })
   })
