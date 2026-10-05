@@ -20,7 +20,7 @@
 
 ---
 
-## Tâche 1 : plein écran
+## Tâche 1 : plein écran (#35)
 
 **Fichiers :**
 - Modifier : `components/online/OnlineTable.tsx`
@@ -75,7 +75,7 @@ export default function OnlineTable({ tableId }: { tableId: string }) {
 
 ---
 
-## Tâche 2 : pastille d'un joueur et bulle de détail
+## Tâche 2 : pastille d'un joueur et bulle de détail (#36)
 
 **Fichiers :**
 - Créer : `lib/game/player-badges.ts`, `lib/game/player-badges.test.ts`
@@ -309,7 +309,7 @@ Ajouter ensuite : `check(await chloe.page.locator('[data-bubble]').count() === 0
 
 ---
 
-## Tâche 3 : piles en vignettes et hauteurs du Duel
+## Tâche 3 : piles en vignettes et hauteurs du Duel (#37)
 
 **Fichiers :**
 - Modifier : `components/table/zones.tsx` (`ZonePile`)
@@ -410,7 +410,7 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
 
 ---
 
-## Tâche 4 : bandeaux d'adversaires compacts
+## Tâche 4 : bandeaux d'adversaires compacts (#38)
 
 **Fichiers :**
 - Modifier : `components/table/OpponentStrip.tsx`
@@ -475,7 +475,7 @@ Le titre passé à `onPile` reste « Cimetière » / « Exil » (titre de la fen
 
 ---
 
-## Tâche 5 : réglage « Taille des cartes »
+## Tâche 5 : réglage « Taille des cartes » (#39)
 
 **Fichiers :**
 - Modifier : `lib/table-settings.ts`, `lib/table-settings.test.ts`
