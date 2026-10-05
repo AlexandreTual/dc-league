@@ -1,15 +1,18 @@
 // Vérifie l'affichage à 375 px de large (téléphone) : pas de défilement horizontal, menu repliable,
 // confirmations de l'admin avec texte, bouton « Réinitialiser le score » visible.
-// Usage : node scripts/mobile-check.mjs http://localhost:8788 <dossier-captures>
+// Usage : node scripts/mobile-check.mjs http://localhost:8788 <dossier-captures> [inscriptions]
 // Prérequis : seed-online.mjs appliqué, u-e2e-1 admin et une saison active avec au moins un match joué.
+// Avec « inscriptions » : saison active sans match, au moins un joueur inscrit (section Participants) ;
+// seule cette section est vérifiée, avec un texte agrandi comme sur un téléphone réglé en grande police.
 import { chromium } from 'playwright-core'
 import { mkdirSync } from 'node:fs'
 
-const [base = 'http://localhost:8788', out = '/tmp/mobile-check'] = process.argv.slice(2)
+const [base = 'http://localhost:8788', out = '/tmp/mobile-check', mode = 'tout'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
-const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true })
+const WIDTH = 375
+const context = await browser.newContext({ viewport: { width: WIDTH, height: 812 }, hasTouch: true, isMobile: true })
 await context.addCookies([{ name: 'dc_session', value: 'jeton-de-test-e2e-1', url: base }])
 const page = await context.newPage()
 
@@ -18,7 +21,36 @@ function check(ok, label) {
   console.log(`${ok ? '✓' : '✗'} ${label}`)
   if (!ok) failures++
 }
-const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+// Comparé à la largeur de l'écran : en mode mobile, une page trop large élargit aussi window.innerWidth.
+const overflow = () => page.evaluate((width) => document.documentElement.scrollWidth - width, WIDTH)
+
+// Section Participants (saison pas encore générée), texte agrandi de 30 % : noms lisibles, rien hors de l'écran.
+if (mode === 'inscriptions') {
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = '130%' })
+  })
+  await page.goto(base + '/admin')
+  await page.getByRole('heading', { name: /Participants/ }).waitFor()
+  check((await overflow()) <= 0, `participants : pas de défilement horizontal (${await overflow()} px en trop)`)
+  const names = await page.locator('select[aria-label^="Deck de "]').evaluateAll((selects) =>
+    selects.map((select) => {
+      const name = select.getAttribute('aria-label').replace('Deck de ', '')
+      const span = [...select.closest('.space-y-2').querySelectorAll('span')].find((s) => s.textContent === name)
+      return { name, visible: span.getBoundingClientRect().width, needed: span.scrollWidth }
+    }),
+  )
+  check(names.length > 0, `participants : ${names.length} joueur(s) inscrit(s) avec la liste des decks`)
+  // Nom entier, ou tronqué avec « … » en gardant au moins 80 px (un nom très long).
+  for (const n of names) {
+    check(n.visible + 1 >= Math.min(n.needed, 80), `participants : nom « ${n.name} » lisible (${Math.round(n.visible)} px sur ${n.needed})`)
+  }
+  const add = await page.getByRole('button', { name: 'Ajouter', exact: true }).boundingBox()
+  check(add !== null && add.x + add.width <= WIDTH - 16, `participants : bouton « Ajouter » dans l'écran (bord droit à ${Math.round(add.x + add.width)} px sur ${WIDTH})`)
+  await page.screenshot({ path: `${out}/admin-participants.png`, fullPage: true })
+  await browser.close()
+  console.log(failures ? `${failures} échec(s)` : 'Tout est bon')
+  process.exit(failures ? 1 : 0)
+}
 
 // Accueil connecté
 await page.goto(base + '/')

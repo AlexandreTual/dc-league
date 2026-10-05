@@ -593,7 +593,8 @@ export default function AdminDashboard({
 
                 return (
                   <div key={player.id} className="space-y-2">
-                    <div className="flex items-center gap-3 bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5">
+                    {/* Sur téléphone, la liste des decks passe sous le nom pour qu'il reste lisible. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5">
                       <input
                         type="checkbox"
                         checked={isEnrolled}
@@ -610,7 +611,7 @@ export default function AdminDashboard({
                         <span className="text-dc-text text-sm font-semibold truncate">{player.name}</span>
                       </div>
                       {isEnrolled && (
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="order-last basis-full pl-7 sm:order-none sm:basis-auto sm:pl-0 flex items-center gap-2 sm:shrink-0">
                           <select
                             value={assignedDeckId}
                             aria-label={`Deck de ${player.name}`}
@@ -624,7 +625,7 @@ export default function AdminDashboard({
                                 handleAssignDeck(player.id, e.target.value)
                               }
                             }}
-                            className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors max-w-[160px]"
+                            className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors w-full sm:w-auto sm:max-w-[160px]"
                           >
                             <option value="">Sans deck</option>
                             {decksForPlayer.map((d) => (
@@ -727,12 +728,12 @@ export default function AdminDashboard({
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
                   placeholder="ex: Alexandre"
-                  className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+                  className="flex-1 min-w-0 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
                 />
                 <button
                   type="submit"
                   disabled={!newPlayerName.trim() || addPlayerLoading}
-                  className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <UserPlus className="w-4 h-4" />
                   {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
