@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { generateRoundRobinMatches } from './leaderboard'
-import { ERREURS_LIGUE, generateSemifinals, insertMatches, listMatches, listPlayoffs, updatePlayoffScore } from './db'
+import {
+  ERREURS_LIGUE, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
+  statusForError, updateMatchScore, updatePlayoffScore,
+} from './db'
 import { createLeague } from './db-leagues'
 
 let db: D1Database
@@ -57,6 +60,53 @@ describe('doubles clics', () => {
     await Promise.all(semis.map((s) => updatePlayoffScore(db, s.id, 2, 0)))
     await Promise.all(semis.map((s) => updatePlayoffScore(db, s.id, 2, 0)))
     expect((await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)).toEqual(['semi1', 'semi2', 'final', 'third_place'])
+  })
+})
+
+describe('ligue close et match inconnu', () => {
+  async function ligueClose() {
+    const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
+    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
+    await updateMatchScore(db, m.id, 2, 0)
+    await updatePlayoffScore(db, semis[0].id, 2, 0)
+    await db.prepare("UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = 'l1'").run()
+    return { m, semi: semis[0] }
+  }
+
+  it('refuse de modifier ou réinitialiser le score d’un match de ligue close', async () => {
+    const { m } = await ligueClose()
+    expect((await updateMatchScore(db, m.id, 0, 2)).error).toBe(ERREURS_LIGUE.leagueClosed)
+    expect((await resetMatchScore(db, m.id)).error).toBe(ERREURS_LIGUE.leagueClosed)
+    expect((await listMatches(db, 'l1')).data!.find((x) => x.id === m.id)).toMatchObject({ score_p1: 2, score_p2: 0 })
+  })
+
+  it('refuse de modifier ou réinitialiser un score de playoffs de ligue close', async () => {
+    const { semi } = await ligueClose()
+    expect((await updatePlayoffScore(db, semi.id, 0, 2)).error).toBe(ERREURS_LIGUE.leagueClosed)
+    expect((await resetPlayoffScore(db, semi.id)).error).toBe(ERREURS_LIGUE.leagueClosed)
+    expect((await listPlayoffs(db, 'l1')).data!.find((x) => x.id === semi.id)).toMatchObject({ score_p1: 2, score_p2: 0 })
+  })
+
+  it('renvoie une erreur en français pour un match inconnu', async () => {
+    expect((await updateMatchScore(db, 'inconnu', 2, 0)).error).toBe(ERREURS_LIGUE.matchNotFound)
+    expect((await resetMatchScore(db, 'inconnu')).error).toBe(ERREURS_LIGUE.matchNotFound)
+    expect((await updatePlayoffScore(db, 'inconnu', 2, 0)).error).toBe(ERREURS_LIGUE.playoffNotFound)
+    expect((await resetPlayoffScore(db, 'inconnu')).error).toBe(ERREURS_LIGUE.playoffNotFound)
+  })
+
+  it('associe un statut HTTP à chaque erreur', () => {
+    expect(statusForError(ERREURS_LIGUE.matchNotFound)).toBe(404)
+    expect(statusForError(ERREURS_LIGUE.playoffNotFound)).toBe(404)
+    expect(statusForError(ERREURS_LIGUE.leagueClosed)).toBe(409)
+    expect(statusForError(ERREURS_LIGUE.finalScored)).toBe(409)
+    expect(statusForError(ERREURS_LIGUE.matchesExist)).toBe(409)
+    expect(statusForError('SQLITE_BUSY')).toBe(500)
+  })
+
+  it('les scores d’une ligue active restent modifiables', async () => {
+    const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
+    expect((await updateMatchScore(db, m.id, 2, 1)).data).toMatchObject({ score_p1: 2, score_p2: 1, is_completed: true })
+    expect((await resetMatchScore(db, m.id)).data).toMatchObject({ score_p1: null, is_completed: false })
   })
 })
 

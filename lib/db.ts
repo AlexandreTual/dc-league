@@ -123,6 +123,24 @@ async function scoreRefusal(db: D1Database, table: 'matches' | 'playoffs', id: s
   return null
 }
 
+/** Écrit un score si la ligue du match est ouverte, puis relit la ligne. */
+async function writeScore(
+  db: D1Database,
+  table: 'matches' | 'playoffs',
+  id: string,
+  sets: string,
+  values: number[],
+): Promise<Result<Record<string, unknown>>> {
+  const { meta } = await db
+    .prepare(`UPDATE ${table} SET ${sets} WHERE id = ? AND ${openLeague(table)}`)
+    .bind(...values, id)
+    .run()
+  const notFound = table === 'matches' ? ERREURS_LIGUE.matchNotFound : ERREURS_LIGUE.playoffNotFound
+  if (!meta.changes) return err((await scoreRefusal(db, table, id)) ?? notFound)
+  const row = await db.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first<Record<string, unknown>>()
+  return row ? ok(row) : err(notFound)
+}
+
 function ok<T>(data: T): Ok<T> {
   return { data, error: null }
 }
@@ -332,12 +350,8 @@ export async function updateMatchScore(
   score_p2: number
 ): Promise<Result<DbMatch>> {
   try {
-    await db
-      .prepare('UPDATE matches SET score_p1 = ?, score_p2 = ?, is_completed = 1 WHERE id = ?')
-      .bind(score_p1, score_p2, id)
-      .run()
-    const row = await db.prepare('SELECT * FROM matches WHERE id = ?').bind(id).first<Record<string, unknown>>()
-    return ok(normalizeMatch(row!))
+    const { data, error } = await writeScore(db, 'matches', id, 'score_p1 = ?, score_p2 = ?, is_completed = 1', [score_p1, score_p2])
+    return error === null ? ok(normalizeMatch(data)) : err(error)
   } catch (e) {
     return err((e as Error).message)
   }
@@ -345,12 +359,8 @@ export async function updateMatchScore(
 
 export async function resetMatchScore(db: D1Database, id: string): Promise<Result<DbMatch>> {
   try {
-    await db
-      .prepare('UPDATE matches SET score_p1 = NULL, score_p2 = NULL, is_completed = 0 WHERE id = ?')
-      .bind(id)
-      .run()
-    const row = await db.prepare('SELECT * FROM matches WHERE id = ?').bind(id).first<Record<string, unknown>>()
-    return ok(normalizeMatch(row!))
+    const { data, error } = await writeScore(db, 'matches', id, 'score_p1 = NULL, score_p2 = NULL, is_completed = 0', [])
+    return error === null ? ok(normalizeMatch(data)) : err(error)
   } catch (e) {
     return err((e as Error).message)
   }
@@ -516,12 +526,8 @@ export async function updatePlayoffScore(
 
 export async function resetPlayoffScore(db: D1Database, id: string): Promise<Result<DbPlayoff>> {
   try {
-    await db
-      .prepare('UPDATE playoffs SET score_p1 = NULL, score_p2 = NULL, is_completed = 0 WHERE id = ?')
-      .bind(id)
-      .run()
-    const row = await db.prepare('SELECT * FROM playoffs WHERE id = ?').bind(id).first<Record<string, unknown>>()
-    return ok(normalizePlayoff(row!))
+    const { data, error } = await writeScore(db, 'playoffs', id, 'score_p1 = NULL, score_p2 = NULL, is_completed = 0', [])
+    return error === null ? ok(normalizePlayoff(data)) : err(error)
   } catch (e) {
     return err((e as Error).message)
   }
