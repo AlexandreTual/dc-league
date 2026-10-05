@@ -49,11 +49,16 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 - **Corrigé — glisser-déposer** : l'aperçu garde la taille de la carte d'origine et la carte se pose au centre de l'aperçu (contrôles ajoutés à `scripts/playtest-check.mjs`).
 - **À prévoir — jetons du deck** : proposer les jetons créés par les cartes du deck (données `all_parts` de Scryfall), en plus de la recherche actuelle.
 
-## Prochains chantiers (ordre validé le 5 octobre)
+## Organisation du travail (depuis le 5 octobre)
 
-1. Import par lien Moxfield / Archidekt — fait (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché).
-2. Mot de passe oublié et invitations par mail (adresse mail des comptes, service d'envoi type Resend) — conception complète à faire.
-3. Sous-projet 4 : matchs de ligue en ligne.
+Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plans/`) et ses dépendances ; une IA (ou une session) traite une issue et ouvre une PR qui la ferme. Les consignes communes sont dans `CLAUDE.md`. Cette feuille de route garde la vue d'ensemble.
+
+## Prochains chantiers
+
+1. Import par lien Moxfield / Archidekt — **fait** (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché).
+2. Mot de passe oublié et invitations par mail — spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md` ; tâche 1 faite, tâches 2 à 5 en issues (à enchaîner dans l'ordre).
+3. Jetons copies depuis les cartes en jeu — plan `plans/2026-10-05-token-copies.md` (indépendant, peut être fait en parallèle).
+4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
 
 ## Idées pour plus tard
 
