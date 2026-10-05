@@ -146,6 +146,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
               <div className="mt-4 pt-4 border-t border-dc-border">
                 <ImportPanel
                   deckId={deck.id}
+                  defaultLink={deck.moxfield_url ?? ''}
                   onDone={(total) => {
                     setCardCounts((prev) => ({ ...prev, [deck.id]: total }))
                     router.refresh()
