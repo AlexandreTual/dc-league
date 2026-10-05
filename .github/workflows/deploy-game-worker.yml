@@ -1,0 +1,47 @@
+# Déploie le Worker de jeu en ligne (workers/game) et applique les migrations D1 à chaque fusion sur main.
+# Secrets à créer une fois dans le dépôt : CLOUDFLARE_API_TOKEN et CLOUDFLARE_ACCOUNT_ID
+# (voir docs/deploiement-jeu-en-ligne.md).
+name: Déployer le Worker de jeu
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/**'
+      - 'lib/game/**'
+      - 'lib/db-games.ts'
+      - 'lib/db.ts'
+      - 'migrations/**'
+      - '.github/workflows/deploy-game-worker.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-game-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Migrations de la base D1
+        run: npx wrangler d1 migrations apply dc-league --remote
+
+      - name: Déployer le Worker
+        working-directory: workers/game
+        run: npx wrangler deploy

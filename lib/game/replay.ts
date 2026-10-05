@@ -1,19 +1,20 @@
 import { applyAction } from './apply'
+import { canApply } from './rules'
 import { createInitialState } from './setup'
-import { SNAPSHOT_EVERY, type Catalog, type GameAction, type GameState } from './types'
+import { SNAPSHOT_EVERY, type GameAction, type GameSetup, type GameState } from './types'
 
-export function replay(catalog: Catalog, actions: readonly GameAction[]): GameState {
-  return actions.reduce((state, action) => applyAction(state, action, catalog), createInitialState(catalog))
+export function replay(setup: GameSetup, actions: readonly GameAction[]): GameState {
+  return actions.reduce(applyAction, createInitialState(setup))
 }
 
-/** Partie = liste d'actions. Un état est mis de côté toutes les 20 actions pour annuler vite. */
+/** Partie = liste d'actions acceptées. Un état est mis de côté toutes les 20 actions pour annuler vite. */
 export class GameHistory {
   private list: GameAction[] = []
   private snapshots = new Map<number, GameState>()
   private current: GameState
 
-  constructor(private readonly catalog: Catalog, actions: readonly GameAction[] = []) {
-    this.current = createInitialState(catalog)
+  constructor(setup: GameSetup, actions: readonly GameAction[] = []) {
+    this.current = createInitialState(setup)
     this.snapshots.set(0, this.current)
     for (const action of actions) this.push(action)
   }
@@ -26,27 +27,29 @@ export class GameHistory {
     return this.list
   }
 
-  push(action: GameAction): GameState {
-    this.current = applyAction(this.current, action, this.catalog)
+  /** null si l'action est jouée, sinon le message de refus (et rien ne change). */
+  push(action: GameAction): string | null {
+    const error = canApply(this.current, action)
+    if (error !== null) return error
+    this.current = applyAction(this.current, action)
     this.list.push(action)
     if (this.list.length % SNAPSHOT_EVERY === 0) this.snapshots.set(this.list.length, this.current)
-    return this.current
+    return null
   }
 
-  /** Le début de partie (première action) ne s'annule pas. */
-  canUndo(): boolean {
-    return this.list.length > 1
+  /** Vrai si la dernière action est de `actor` (personne n'a joué depuis) et n'est pas le début de partie. */
+  canUndo(actor: string): boolean {
+    const last = this.list.at(-1)
+    return !!last && last.type !== 'start' && last.actor === actor
   }
 
-  undo(): GameState {
-    if (!this.canUndo()) return this.current
+  undo(actor: string): boolean {
+    if (!this.canUndo(actor)) return false
     this.list.pop()
     const length = this.list.length
     for (const key of this.snapshots.keys()) if (key > length) this.snapshots.delete(key)
     const base = Math.max(...this.snapshots.keys())
-    let state = this.snapshots.get(base)!
-    for (const action of this.list.slice(base)) state = applyAction(state, action, this.catalog)
-    this.current = state
-    return state
+    this.current = this.list.slice(base).reduce(applyAction, this.snapshots.get(base)!)
+    return true
   }
 }

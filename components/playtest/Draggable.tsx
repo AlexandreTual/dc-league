@@ -1,12 +1,12 @@
 'use client'
 
 import { useDraggable } from '@dnd-kit/core'
-import type { ZoneId } from '@/lib/game/types'
+import type { PlayerZone } from '@/lib/game/types'
 
 /** Enveloppe déplaçable : la carte d'origine s'estompe, l'aperçu suit le pointeur (DragOverlay). */
 export default function Draggable({ id, from, children, className = '', style, onDoubleClick, onContextMenu, onHover }: {
   id: string
-  from: ZoneId
+  from: PlayerZone
   children: React.ReactNode
   className?: string
   style?: React.CSSProperties

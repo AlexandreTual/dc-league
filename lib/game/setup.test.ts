@@ -1,34 +1,36 @@
 import { describe, it, expect } from 'vitest'
-import { testDeckCards } from '@/test/factories'
-import { buildCatalog } from './catalog'
+import { setupFor } from '@/test/game-fixtures'
 import { createInitialState } from './setup'
 
-const { catalog } = buildCatalog('d1', testDeckCards())
-
 describe('createInitialState', () => {
-  const state = createInitialState(catalog)
-
-  it('crée un exemplaire distinct par unité de quantité', () => {
-    const forests = Object.values(state.cards).filter((c) => c.ref === 3).map((c) => c.id)
+  it('prépare 4 joueurs en Commander', () => {
+    const s = createInitialState(setupFor('commander', 4))
+    expect(Object.keys(s.players)).toEqual(['p1', 'p2', 'p3', 'p4'])
+    for (const p of Object.values(s.players)) {
+      expect(p).toMatchObject({ life: 40, poison: 0, kept: false, mulligans: 0, eliminated: false, topRevealed: false })
+      expect(p.zones.library).toHaveLength(32)
+      expect(p.zones.command).toEqual([`${p.id}:c1-1`])
+      expect(p.zones.hand).toEqual([])
+    }
+    const forests = Object.keys(s.cards).filter((id) => id.startsWith('p2:c3-'))
     expect(forests).toHaveLength(30)
-    expect(new Set(forests).size).toBe(30)
-    expect(forests).toContain('c3-1')
-    expect(forests).toContain('c3-30')
+    expect(forests).toContain('p2:c3-30')
+    expect(s.cards['p2:c3-1']).toMatchObject({ owner: 'p2', ref: 3, knownBy: [], token: null })
+    expect(s.cards['p3:c1-1'].isCommander).toBe(true)
   })
 
-  it('place le commandant en zone de commandement et le reste en bibliothèque', () => {
-    expect(state.zones.command).toEqual(['c1-1'])
-    expect(state.cards['c1-1'].isCommander).toBe(true)
-    expect(state.zones.library).toHaveLength(32)
-    expect(state.zones.hand).toEqual([])
-    expect(state.zones.battlefield).toEqual([])
+  it('met 20 points de vie en duel', () => {
+    const s = createInitialState(setupFor('duel', 2))
+    expect(s.players.p1.life).toBe(20)
+    expect(s.format).toBe('duel')
   })
 
-  it('initialise les compteurs', () => {
-    expect(state).toMatchObject({ life: 40, turn: 1, log: [], nextTokenId: 1, commanderCasts: {} })
-    expect(state.stats).toEqual({ drawn: 0, landsPlayed: 0, mulligans: 0 })
-    expect(state.cards['c2-1']).toMatchObject({
-      tapped: false, flipped: false, faceDown: false, token: null, counters: { plus: 0, minus: 0, other: 0 },
+  it('initialise la partie', () => {
+    const s = createInitialState(setupFor('commander', 3))
+    expect(s).toMatchObject({
+      turnOrder: ['p1', 'p2', 'p3'], activePlayer: 'p1', turn: 1, started: false,
+      monarch: null, initiative: null, log: [], nextTokenId: 1, commanderCasts: {}, lookingAt: {},
     })
+    expect(Object.keys(s.catalogs)).toEqual(['p1', 'p2', 'p3'])
   })
 })

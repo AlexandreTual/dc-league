@@ -1,15 +1,17 @@
 'use client'
 
 import { X } from 'lucide-react'
-import type { GameState } from '@/lib/game/types'
+import type { PlayerView } from '@/lib/game/types'
 
-export default function LogPanel({ state, onClose }: { state: GameState; onClose: () => void }) {
+/** Journal du mode test : un seul joueur, donc lignes affichées sans le nom de l'auteur. */
+export default function LogPanel({ view, onClose }: { view: PlayerView; onClose: () => void }) {
+  const me = view.players[view.me]
   const stats: [string, number][] = [
-    ['Tour', state.turn],
-    ['Cartes piochées', state.stats.drawn],
-    ['Terrains joués', state.stats.landsPlayed],
-    ['Mulligans', state.stats.mulligans],
-    ['Bibliothèque', state.zones.library.length],
+    ['Tour', view.turn],
+    ['Cartes piochées', me.stats.drawn],
+    ['Terrains joués', me.stats.landsPlayed],
+    ['Mulligans', me.mulligans],
+    ['Bibliothèque', me.zones.library.count],
   ]
   return (
     <aside className="absolute top-0 right-0 bottom-0 z-50 w-80 bg-dc-surface border-l border-dc-border flex flex-col shadow-card" aria-label="Journal">
@@ -26,8 +28,8 @@ export default function LogPanel({ state, onClose }: { state: GameState; onClose
         ))}
       </dl>
       <ol className="flex-1 overflow-y-auto px-4 py-3 space-y-1 text-sm" data-testid="log">
-        {[...state.log].reverse().map((entry, i) => (
-          <li key={state.log.length - i} className="text-dc-text">
+        {[...view.log].reverse().map((entry, i) => (
+          <li key={view.log.length - i} className="text-dc-text">
             <span className="text-dc-muted mr-2">T{entry.turn}</span>{entry.text}
           </li>
         ))}

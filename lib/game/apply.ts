@@ -1,18 +1,22 @@
 import { shuffle } from './random'
+import { canApply, controllerOf, zoneOf } from './rules'
 import {
   COMMANDER_TAX_STEP,
+  FIRST_PLAYER_DRAWS_FROM,
+  HIDDEN_ZONES,
   OPENING_HAND,
-  ZONES,
   type CardFace,
   type CardInstance,
   type Catalog,
   type GameAction,
   type GameState,
+  type PlayerState,
+  type PlayerZone,
   type Position,
-  type ZoneId,
+  type ZoneRef,
 } from './types'
 
-const ZONE_LABELS: Record<ZoneId, string> = {
+const ZONE_LABELS: Record<PlayerZone, string> = {
   library: 'bibliothèque',
   hand: 'main',
   battlefield: 'champ de bataille',
@@ -27,56 +31,52 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`
 
 // ── Lecture ───────────────────────────────────────────────────────────────────
 
-function entryOf(catalog: Catalog, card: CardInstance) {
-  return card.ref === null ? undefined : catalog.entries.find((e) => e.ref === card.ref)
+function entryOf(state: GameState, card: CardInstance) {
+  return card.ref === null ? undefined : state.catalogs[card.owner]?.entries.find((e) => e.ref === card.ref)
 }
 
-export function zoneOf(state: GameState, id: string): ZoneId | null {
-  return ZONES.find((z) => state.zones[z].includes(id)) ?? null
-}
-
-/** Nom pour le journal : nom français s'il existe, sinon anglais. */
-export function cardName(state: GameState, catalog: Catalog, id: string): string {
+/** Nom pour le journal : français s'il existe, sinon anglais. */
+export function cardName(state: GameState, id: string): string {
   const card = state.cards[id]
   if (!card) return 'une carte'
   if (card.token) return card.token.name
-  const entry = entryOf(catalog, card)
+  const entry = entryOf(state, card)
   return entry?.fr?.printed_name ?? entry?.en.name ?? 'une carte'
 }
 
-export function isLand(state: GameState, catalog: Catalog, id: string): boolean {
+export function isLand(state: GameState, id: string): boolean {
   const card = state.cards[id]
   if (!card) return false
-  const typeLine = card.token?.typeLine ?? entryOf(catalog, card)?.en.type_line ?? ''
+  const typeLine = card.token?.typeLine ?? entryOf(state, card)?.en.type_line ?? ''
   return typeLine.split(' // ')[0].includes('Land')
 }
 
-export function bottomCount(state: GameState): number {
-  return Math.max(0, state.stats.mulligans - 1)
+export function bottomCount(state: GameState, playerId: string): number {
+  return Math.max(0, (state.players[playerId]?.mulligans ?? 0) - 1)
 }
 
-export function taxOf(state: GameState, id: string): number {
+export function taxOf(state: Pick<GameState, 'commanderCasts'>, id: string): number {
   return COMMANDER_TAX_STEP * (state.commanderCasts[id] ?? 0)
 }
 
-export function cardData(
-  state: GameState,
-  catalog: Catalog,
-  id: string,
+export type CardInfo = { name: string; image: string | null; typeLine: string; faces: CardFace[] | null; hidden: boolean }
+
+const UNKNOWN: CardInfo = { name: 'une carte', image: null, typeLine: '', faces: null, hidden: true }
+
+/** Nom, image et type affichés d'une carte, à partir du catalogue de son propriétaire. */
+export function cardInfo(
+  catalog: Catalog | undefined,
+  card: Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown'>,
   lang: 'fr' | 'en',
-): { name: string; image: string | null; typeLine: string; faces: CardFace[] | null; hidden: boolean } {
-  const card = state.cards[id]
-  if (card?.token) {
-    return { name: card.token.name, image: card.token.image, typeLine: card.token.typeLine, faces: null, hidden: false }
-  }
-  const entry = card ? entryOf(catalog, card) : undefined
+): CardInfo {
+  if (card.token) return { name: card.token.name, image: card.token.image, typeLine: card.token.typeLine, faces: null, hidden: false }
+  const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
   const shown = (lang === 'fr' ? entry?.fr : null) ?? entry?.en
-  if (!card || !shown) return { name: 'une carte', image: null, typeLine: '', faces: null, hidden: true }
+  if (!shown) return UNKNOWN
   const faces = shown.faces
   const face = card.flipped && faces && faces.length > 1 ? faces[1] : null
-  const name = face ? (face.printed_name ?? face.name) : (shown.printed_name ?? shown.name)
   return {
-    name,
+    name: face ? (face.printed_name ?? face.name) : (shown.printed_name ?? shown.name),
     image: face?.image_normal ?? shown.image_normal,
     typeLine: face?.type_line ?? shown.type_line,
     faces,
@@ -84,18 +84,28 @@ export function cardData(
   }
 }
 
+export function cardData(state: GameState, id: string, lang: 'fr' | 'en'): CardInfo {
+  const card = state.cards[id]
+  return card ? cardInfo(state.catalogs[card.owner], card, lang) : UNKNOWN
+}
+
 // ── Écriture (toujours sur des copies) ────────────────────────────────────────
 
-function withLog(state: GameState, text: string): GameState {
-  return { ...state, log: [...state.log, { turn: state.turn, text }] }
+function log(state: GameState, actor: string | null, text: string, visibleTo: string[] | 'all' = 'all'): GameState {
+  return { ...state, log: [...state.log, { turn: state.turn, actor, text, visibleTo }] }
+}
+
+function setPlayer(state: GameState, id: string, patch: Partial<PlayerState>): GameState {
+  return { ...state, players: { ...state.players, [id]: { ...state.players[id], ...patch } } }
+}
+
+function setZone(state: GameState, ref: ZoneRef, ids: string[]): GameState {
+  const player = state.players[ref.player]
+  return setPlayer(state, ref.player, { zones: { ...player.zones, [ref.zone]: ids } })
 }
 
 function setCard(state: GameState, id: string, patch: Partial<CardInstance>): GameState {
   return { ...state, cards: { ...state.cards, [id]: { ...state.cards[id], ...patch } } }
-}
-
-function setZone(state: GameState, zone: ZoneId, ids: string[]): GameState {
-  return { ...state, zones: { ...state.zones, [zone]: ids } }
 }
 
 function insertAt(list: string[], id: string, position: Position): string[] {
@@ -105,163 +115,299 @@ function insertAt(list: string[], id: string, position: Position): string[] {
   return [...list.slice(0, index), id, ...list.slice(index)]
 }
 
-function draw(state: GameState, count: number): GameState {
-  const n = Math.min(Math.max(0, count), state.zones.library.length)
-  const drawn = state.zones.library.slice(0, n)
+function zoneLabel(state: GameState, actor: string, ref: ZoneRef): string {
+  return ref.player === actor ? ZONE_LABELS[ref.zone] : `${ZONE_LABELS[ref.zone]} de ${state.players[ref.player].name}`
+}
+
+function draw(state: GameState, playerId: string, count: number): GameState {
+  const player = state.players[playerId]
+  const n = Math.min(Math.max(0, count), player.zones.library.length)
+  const drawn = player.zones.library.slice(0, n)
+  const cards = { ...state.cards }
+  for (const id of drawn) cards[id] = { ...cards[id], knownBy: [] }
   return {
-    ...state,
-    zones: { ...state.zones, library: state.zones.library.slice(n), hand: [...state.zones.hand, ...drawn] },
-    stats: { ...state.stats, drawn: state.stats.drawn + n },
+    ...setPlayer(state, playerId, {
+      zones: { ...player.zones, library: player.zones.library.slice(n), hand: [...player.zones.hand, ...drawn] },
+      stats: { ...player.stats, drawn: player.stats.drawn + n },
+    }),
+    cards,
   }
 }
 
-function shuffleLibrary(state: GameState, seed: number): GameState {
-  return setZone(state, 'library', shuffle(state.zones.library, seed))
+function shuffleLibrary(state: GameState, playerId: string, seed: number): GameState {
+  const library = state.players[playerId].zones.library
+  const cards = { ...state.cards }
+  for (const id of library) cards[id] = { ...cards[id], knownBy: [] }
+  return { ...setZone(state, { player: playerId, zone: 'library' }, shuffle(library, seed)), cards }
 }
 
-function untapAll(state: GameState): GameState {
+function untapAllOf(state: GameState, playerId: string): GameState {
   const cards = { ...state.cards }
-  for (const id of state.zones.battlefield) cards[id] = { ...cards[id], tapped: false }
+  for (const id of state.players[playerId].zones.battlefield) cards[id] = { ...cards[id], tapped: false }
   return { ...state, cards }
 }
 
-function move(state: GameState, catalog: Catalog, action: Extract<GameAction, { type: 'move' }>): GameState {
-  const card = state.cards[action.id]
-  const from = zoneOf(state, action.id)
-  if (!card || !from) return state
-  const { to } = action
-  const hidden = card.faceDown || to === 'library' || (from === 'library' && to === 'hand')
-  const name = hidden ? 'une carte' : cardName(state, catalog, action.id)
+/** Passe au joueur suivant non éliminé : il dégage ses permanents et pioche 1. */
+function passTurn(state: GameState, actor: string | null): GameState {
+  const order = state.turnOrder
+  const current = order.indexOf(state.activePlayer)
+  for (let step = 1; step <= order.length; step++) {
+    const index = (current + step) % order.length
+    const next = order[index]
+    if (state.players[next].eliminated) continue
+    const turn = index <= current ? state.turn + 1 : state.turn
+    let s: GameState = { ...state, activePlayer: next, turn, firstTurnDone: true }
+    s = draw(untapAllOf(s, next), next, 1)
+    return log(s, actor, `Tour ${turn} : ${s.players[next].name}`)
+  }
+  return state
+}
 
-  // Repositionnement sur le champ de bataille : pas de journal.
-  if (from === 'battlefield' && to === 'battlefield') {
+function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): GameState {
+  const card = state.cards[action.id]
+  const from = zoneOf(state, action.id)!
+  const { to } = action
+
+  if (from.zone === 'battlefield' && to.zone === 'battlefield' && from.player === to.player) {
     return setCard(state, action.id, { x: clampPct(action.x ?? card.x), y: clampPct(action.y ?? card.y) })
   }
 
-  let next = setZone(state, from, state.zones[from].filter((id) => id !== action.id))
+  const willBeHidden = card.faceDown || !!action.faceDown || HIDDEN_ZONES.includes(to.zone)
+  const name = willBeHidden ? 'une carte' : cardName(state, action.id)
+  let next = setZone(state, from, state.players[from.player].zones[from.zone].filter((id) => id !== action.id))
 
-  // Un jeton qui quitte le champ de bataille cesse d'exister.
-  if (card.token && to !== 'battlefield') {
+  if (card.token && to.zone !== 'battlefield') {
     const cards = { ...next.cards }
     delete cards[action.id]
-    return withLog({ ...next, cards }, `${name} : ${ZONE_LABELS[from]} → ${ZONE_LABELS[to]} (disparaît)`)
+    return log({ ...next, cards }, action.actor, `${name} : ${zoneLabel(state, action.actor, from)} → ${zoneLabel(state, action.actor, to)} (disparaît)`)
   }
 
-  const position: Position = action.position ?? (to === 'library' ? 'top' : 'bottom')
-  next = setZone(next, to, insertAt(next.zones[to], action.id, position))
+  const position: Position = action.position ?? (to.zone === 'library' ? 'top' : 'bottom')
+  next = setZone(next, to, insertAt(next.players[to.player].zones[to.zone], action.id, position))
 
-  const patch: Partial<CardInstance> = {}
-  if (to === 'battlefield') {
+  const patch: Partial<CardInstance> = { knownBy: action.faceDown ? [action.actor] : [] }
+  if (from.zone === 'battlefield') Object.assign(patch, { tapped: false, flipped: false, faceDown: false, counters: NO_COUNTERS })
+  if (action.faceDown) patch.faceDown = true
+  if (to.zone === 'battlefield') {
     patch.x = clampPct(action.x ?? 50)
     patch.y = clampPct(action.y ?? 50)
   }
-  if (from === 'battlefield') {
-    Object.assign(patch, { tapped: false, flipped: false, faceDown: false, counters: NO_COUNTERS })
-  }
   next = setCard(next, action.id, patch)
 
-  if (card.isCommander && from === 'command' && to !== 'command') {
+  if (card.isCommander && from.zone === 'command' && to.zone !== 'command') {
     next = { ...next, commanderCasts: { ...next.commanderCasts, [action.id]: (next.commanderCasts[action.id] ?? 0) + 1 } }
   }
-  if (from === 'hand' && to === 'battlefield' && isLand(state, catalog, action.id)) {
-    next = { ...next, stats: { ...next.stats, landsPlayed: next.stats.landsPlayed + 1 } }
+  if (from.zone === 'hand' && to.zone === 'battlefield' && isLand(state, action.id)) {
+    const owner = next.players[card.owner]
+    next = setPlayer(next, card.owner, { stats: { ...owner.stats, landsPlayed: owner.stats.landsPlayed + 1 } })
   }
 
-  const where = to === 'library' ? ` (${position === 'bottom' ? 'dessous' : position === 'top' ? 'dessus' : `position ${position}`})` : ''
-  return withLog(next, `${name} : ${ZONE_LABELS[from]} → ${ZONE_LABELS[to]}${where}`)
+  const where = to.zone === 'library' ? ` (${position === 'bottom' ? 'dessous' : position === 'top' ? 'dessus' : `position ${position}`})` : ''
+  return log(next, action.actor, `${name} : ${zoneLabel(state, action.actor, from)} → ${zoneLabel(state, action.actor, to)}${where}`)
 }
 
 // ── Point d'entrée ────────────────────────────────────────────────────────────
 
-export function applyAction(state: GameState, action: GameAction, catalog: Catalog): GameState {
+/** Applique une action permise ; une action refusée renvoie l'état tel quel (même référence). */
+export function applyAction(state: GameState, action: GameAction): GameState {
+  if (canApply(state, action) !== null) return state
+
   switch (action.type) {
-    case 'start':
-      return withLog(draw(shuffleLibrary(state, action.seed), OPENING_HAND), 'Début de partie')
-
-    case 'shuffle':
-      return withLog(shuffleLibrary(state, action.seed), 'Mélange la bibliothèque')
-
-    case 'draw': {
-      if (state.zones.library.length === 0) return withLog(state, 'Bibliothèque vide')
-      const n = Math.min(action.count, state.zones.library.length)
-      return withLog(draw(state, n), `Pioche ${plural(n, 'carte')}`)
+    case 'start': {
+      let s: GameState = { ...state, started: true }
+      Object.keys(s.players).forEach((id, i) => {
+        s = draw(shuffleLibrary(s, id, action.seed + i), id, OPENING_HAND)
+      })
+      const turnOrder = shuffle(Object.keys(s.players), action.seed)
+      s = { ...s, turnOrder, activePlayer: turnOrder[0] }
+      return log(s, null, `Début de partie : ${s.players[turnOrder[0]].name} commence`)
     }
 
     case 'mulligan': {
-      const back = { ...state, zones: { ...state.zones, library: [...state.zones.library, ...state.zones.hand], hand: [] } }
-      const drawn = draw(shuffleLibrary(back, action.seed), OPENING_HAND)
-      const next = { ...drawn, stats: { ...drawn.stats, mulligans: state.stats.mulligans + 1 } }
-      const k = bottomCount(next)
-      const n = next.stats.mulligans
-      return withLog(next, k === 0 ? `Mulligan n°${n} (gratuit)` : `Mulligan n°${n} : mets ${k} carte(s) en dessous`)
+      const player = state.players[action.actor]
+      let s = setPlayer(state, action.actor, {
+        zones: { ...player.zones, library: [...player.zones.library, ...player.zones.hand], hand: [] },
+      })
+      s = draw(shuffleLibrary(s, action.actor, action.seed), action.actor, OPENING_HAND)
+      const n = player.mulligans + 1
+      s = setPlayer(s, action.actor, { mulligans: n })
+      const k = bottomCount(s, action.actor)
+      return log(s, action.actor, k === 0 ? `Mulligan n°${n} (gratuit)` : `Mulligan n°${n} : met ${k} carte(s) en dessous`)
     }
+
+    case 'keep': {
+      let s = setPlayer(state, action.actor, { kept: true })
+      const firstPlayerDraws = Object.keys(state.players).length >= FIRST_PLAYER_DRAWS_FROM
+      if (firstPlayerDraws && !state.firstTurnDone && action.actor === state.turnOrder[0]) {
+        s = { ...draw(s, action.actor, 1), firstTurnDone: true }
+      }
+      return log(s, action.actor, 'Garde sa main')
+    }
+
+    case 'draw': {
+      if (state.players[action.actor].zones.library.length === 0) return log(state, action.actor, 'Bibliothèque vide')
+      const n = Math.min(action.count, state.players[action.actor].zones.library.length)
+      return log(draw(state, action.actor, n), action.actor, `Pioche ${plural(n, 'carte')}`)
+    }
+
+    case 'shuffle':
+      return log(shuffleLibrary(state, action.actor, action.seed), action.actor, 'Mélange sa bibliothèque')
+
+    case 'endTurn':
+      return passTurn(state, action.actor)
 
     case 'move':
-      return move(state, catalog, action)
+      return move(state, action)
 
-    case 'tap': {
-      if (!state.zones.battlefield.includes(action.id)) return state
-      return setCard(state, action.id, { tapped: !state.cards[action.id].tapped })
+    case 'giveControl': {
+      const from = zoneOf(state, action.id)!
+      let s = setZone(state, from, state.players[from.player].zones.battlefield.filter((id) => id !== action.id))
+      s = setZone(s, { player: action.to, zone: 'battlefield' }, [...s.players[action.to].zones.battlefield, action.id])
+      return log(s, action.actor, `donne le contrôle de ${cardName(state, action.id)} à ${state.players[action.to].name}`)
     }
+
+    case 'tap':
+      return setCard(state, action.id, { tapped: !state.cards[action.id].tapped })
 
     case 'untapAll':
-      return untapAll(state)
-
-    case 'life': {
-      const life = state.life + action.delta
-      return withLog({ ...state, life }, `Points de vie : ${state.life} → ${life}`)
-    }
-
-    case 'nextTurn': {
-      const next = draw(untapAll({ ...state, turn: state.turn + 1 }), 1)
-      return withLog(next, `Tour ${next.turn}`)
-    }
-
-    case 'flip': {
-      const card = state.cards[action.id]
-      if (!card || card.ref === null || !state.zones.battlefield.includes(action.id)) return state
-      const faces = entryOf(catalog, card)?.en.faces
-      if (!faces || faces.length < 2) return state
-      return setCard(state, action.id, { flipped: !card.flipped })
-    }
-
-    case 'faceDown': {
-      if (!state.zones.battlefield.includes(action.id)) return state
-      return setCard(state, action.id, { faceDown: !state.cards[action.id].faceDown })
-    }
+      return untapAllOf(state, action.actor)
 
     case 'counter': {
       const card = state.cards[action.id]
-      if (!card) return state
       const value = Math.max(0, card.counters[action.kind] + action.delta)
       const label = { plus: '+1/+1', minus: '-1/-1', other: 'compteur' }[action.kind]
-      const name = card.faceDown ? 'une carte' : cardName(state, catalog, action.id)
-      return withLog(setCard(state, action.id, { counters: { ...card.counters, [action.kind]: value } }), `${name} : ${label} (${value})`)
+      const name = card.faceDown ? 'une carte' : cardName(state, action.id)
+      return log(setCard(state, action.id, { counters: { ...card.counters, [action.kind]: value } }), action.actor, `${name} : ${label} (${value})`)
     }
 
     case 'createToken': {
       const id = `t${state.nextTokenId}`
       const token: CardInstance = {
-        id, ref: null, token: action.token, isCommander: false, tapped: false, flipped: false, faceDown: false,
-        counters: NO_COUNTERS, x: clampPct(action.x), y: clampPct(action.y),
+        id, owner: action.actor, ref: null, token: action.token, isCommander: false, tapped: false, flipped: false,
+        faceDown: false, counters: NO_COUNTERS, x: clampPct(action.x), y: clampPct(action.y), knownBy: [],
       }
-      const next: GameState = {
-        ...state,
-        cards: { ...state.cards, [id]: token },
-        zones: { ...state.zones, battlefield: [...state.zones.battlefield, id] },
-        nextTokenId: state.nextTokenId + 1,
-      }
-      return withLog(next, `Crée un jeton ${action.token.name}`)
+      let s: GameState = { ...state, cards: { ...state.cards, [id]: token }, nextTokenId: state.nextTokenId + 1 }
+      s = setZone(s, { player: action.actor, zone: 'battlefield' }, [...s.players[action.actor].zones.battlefield, id])
+      return log(s, action.actor, `Crée un jeton ${action.token.name}`)
+    }
+
+    case 'flip': {
+      const flipped = !state.cards[action.id].flipped
+      return log(setCard(state, action.id, { flipped }), action.actor, `Transforme ${cardName(state, action.id)}`)
+    }
+
+    case 'faceDown': {
+      const faceDown = !state.cards[action.id].faceDown
+      const s = setCard(state, action.id, { faceDown, knownBy: faceDown ? [action.actor] : [] })
+      return log(s, action.actor, faceDown ? 'Met une carte face cachée' : `Retourne ${cardName(state, action.id)} face visible`)
     }
 
     case 'commanderTax': {
       const casts = Math.max(0, (state.commanderCasts[action.id] ?? 0) + action.delta)
-      return { ...state, commanderCasts: { ...state.commanderCasts, [action.id]: casts } }
+      const s = { ...state, commanderCasts: { ...state.commanderCasts, [action.id]: casts } }
+      return log(s, action.actor, `Taxe de ${cardName(state, action.id)} : ${taxOf(s, action.id)}`)
+    }
+
+    case 'life': {
+      const target = state.players[action.target]
+      const life = target.life + action.delta
+      return log(setPlayer(state, action.target, { life }), action.actor, `${target.name} ${target.life} → ${life}`)
+    }
+
+    case 'poison': {
+      const target = state.players[action.target]
+      const poison = Math.max(0, target.poison + action.delta)
+      return log(setPlayer(state, action.target, { poison }), action.actor, `${target.name} : poison ${poison}`)
+    }
+
+    case 'playerCounter': {
+      const target = state.players[action.target]
+      const value = Math.max(0, (target.counters[action.name] ?? 0) + action.delta)
+      const s = setPlayer(state, action.target, { counters: { ...target.counters, [action.name]: value } })
+      return log(s, action.actor, `${target.name} : ${action.name} ${value}`)
+    }
+
+    case 'commanderDamage': {
+      const target = state.players[action.target]
+      const before = target.commanderDamage[action.commander] ?? 0
+      const after = Math.max(0, before + action.delta)
+      const life = target.life - (after - before)
+      const s = setPlayer(state, action.target, { life, commanderDamage: { ...target.commanderDamage, [action.commander]: after } })
+      return log(s, action.actor, `${target.name} : ${plural(after, 'blessure')} de ${cardName(state, action.commander)} (vie ${life})`)
+    }
+
+    case 'setMonarch':
+      return log({ ...state, monarch: action.to }, action.actor, action.to ? `${state.players[action.to].name} devient le monarque` : 'Plus de monarque')
+
+    case 'setInitiative':
+      return log({ ...state, initiative: action.to }, action.actor, action.to ? `${state.players[action.to].name} prend l’initiative` : 'Plus d’initiative')
+
+    case 'eliminate': {
+      let s = setPlayer(state, action.target, { eliminated: true })
+      s = log(s, action.actor, `${state.players[action.target].name} est éliminé`)
+      return state.activePlayer === action.target ? passTurn(s, null) : s
     }
 
     case 'reveal': {
-      const top = state.zones.library[0]
-      return withLog(state, top ? `Révèle ${cardName(state, catalog, top)}` : 'Bibliothèque vide')
+      const ids = action.ids === 'hand' ? state.players[action.actor].zones.hand : action.ids
+      const to = action.to === 'all' ? Object.keys(state.players) : action.to
+      const cards = { ...state.cards }
+      for (const id of ids) cards[id] = { ...cards[id], knownBy: [...new Set([...cards[id].knownBy, ...to])] }
+      const names = ids.map((id) => cardName(state, id)).join(', ')
+      const s = { ...state, cards }
+      if (action.to === 'all') return log(s, action.actor, `révèle : ${names}`)
+      const who = action.to.map((p) => state.players[p].name).join(', ')
+      return log(log(s, action.actor, `révèle ${plural(ids.length, 'carte')} à ${who}`), action.actor, `Révélé à ${who} : ${names}`, [...new Set([action.actor, ...action.to])])
     }
+
+    case 'revealTop': {
+      const top = state.players[action.actor].zones.library[0]
+      return log(state, action.actor, top ? `révèle ${cardName(state, top)}` : 'Bibliothèque vide')
+    }
+
+    case 'toggleTopRevealed': {
+      const topRevealed = !state.players[action.actor].topRevealed
+      return log(setPlayer(state, action.actor, { topRevealed }), action.actor, topRevealed ? 'joue avec la carte du dessus révélée' : 'cache la carte du dessus')
+    }
+
+    case 'look':
+    case 'search': {
+      const library = state.players[action.target].zones.library
+      const seen = action.type === 'look' ? library.slice(0, action.count) : library
+      const cards = { ...state.cards }
+      for (const id of seen) cards[id] = { ...cards[id], knownBy: [...new Set([...cards[id].knownBy, action.actor])] }
+      const looking = state.lookingAt[action.actor] ?? []
+      const s: GameState = {
+        ...state,
+        cards,
+        lookingAt: { ...state.lookingAt, [action.actor]: looking.includes(action.target) ? looking : [...looking, action.target] },
+      }
+      const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
+      if (action.type === 'search') return log(s, action.actor, `fouille ${of}`)
+      const what = seen.length === 1 ? 'la carte du dessus' : `les ${seen.length} cartes du dessus`
+      const names = seen.map((id) => cardName(state, id)).join(', ')
+      return log(log(s, action.actor, `regarde ${what} de ${of}`), action.actor, `Tu as vu : ${names}`, [action.actor])
+    }
+
+    case 'endLook': {
+      const cards = { ...state.cards }
+      for (const id of state.players[action.target].zones.library) {
+        cards[id] = { ...cards[id], knownBy: cards[id].knownBy.filter((p) => p !== action.actor) }
+      }
+      let s: GameState = {
+        ...state,
+        cards,
+        lookingAt: { ...state.lookingAt, [action.actor]: state.lookingAt[action.actor].filter((p) => p !== action.target) },
+      }
+      const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
+      if (!action.shuffle) return log(s, action.actor, `arrête de regarder ${of}`)
+      s = shuffleLibrary(s, action.target, action.seed ?? 0)
+      return log(s, action.actor, `mélange ${of}`)
+    }
+
+    default:
+      return state
   }
 }
+
+export { controllerOf, zoneOf }

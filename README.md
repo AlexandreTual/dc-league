@@ -216,3 +216,10 @@ dc-app/
 └── .env.example
 ```
 # dc-league
+
+---
+
+## Jeu en ligne
+
+Le jeu en ligne (salon, parties à 2–5 en direct) repose sur un Worker Cloudflare séparé (`workers/game`).
+Mise en ligne, secrets à créer et développement local : voir [docs/deploiement-jeu-en-ligne.md](docs/deploiement-jeu-en-ligne.md).
