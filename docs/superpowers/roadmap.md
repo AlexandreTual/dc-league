@@ -16,6 +16,7 @@ Méthode pour chaque sous-projet : conception (spec validée) → plan → exéc
 | Comptes joueurs | `specs/2026-10-03-player-accounts-design.md` | `plans/2026-10-03-player-accounts.md` | fusionné (PR #5) |
 | Import de decks (Scryfall, cartes en français) | `specs/2026-10-04-deck-import-design.md` | `plans/2026-10-04-deck-import.md` | fusionné (PR #5) |
 | Mode test solo (type Moxfield) | `specs/2026-10-04-playtest-design.md` | `plans/2026-10-04-playtest.md` | fusionné (PR #5) |
+| Import de deck par lien (Moxfield, Archidekt) | design validé en conversation (chantier borné) | — | terminé, à vérifier en production |
 
 ## En cours : jeu en ligne à 2–5 joueurs (option B)
 
@@ -48,6 +49,12 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 - **Corrigé — glisser-déposer** : l'aperçu garde la taille de la carte d'origine et la carte se pose au centre de l'aperçu (contrôles ajoutés à `scripts/playtest-check.mjs`).
 - **À prévoir — jetons du deck** : proposer les jetons créés par les cartes du deck (données `all_parts` de Scryfall), en plus de la recherche actuelle.
 
+## Prochains chantiers (ordre validé le 5 octobre)
+
+1. Import par lien Moxfield / Archidekt — fait (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché).
+2. Mot de passe oublié et invitations par mail (adresse mail des comptes, service d'envoi type Resend) — conception complète à faire.
+3. Sous-projet 4 : matchs de ligue en ligne.
+
 ## Idées pour plus tard
 
 - Analyse de deck par IA (courbe de mana, cohérence, suggestions).
@@ -59,3 +66,4 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 - Recherche de jetons sur Scryfall (l'import et les images de cartes sont confirmés).
 - Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
+- Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).

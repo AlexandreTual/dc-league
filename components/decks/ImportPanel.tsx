@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Upload } from 'lucide-react'
+import { Link2, Upload } from 'lucide-react'
 import { MAX_BATCH_LINES, parseDeckList } from '@/lib/cards/parse'
 import type { ImportSummary } from '@/lib/cards/types'
 import { errorClass, inputClass, primaryButtonClass, sendJson } from '@/components/formStyles'
@@ -16,10 +16,13 @@ type Phase =
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export default function ImportPanel({ deckId, onDone }: { deckId: string; onDone: (total: number) => void }) {
+/** `defaultLink` : lien du deck déjà enregistré (Moxfield), proposé pour la récupération. */
+export default function ImportPanel({ deckId, defaultLink = '', onDone }: { deckId: string; defaultLink?: string; onDone: (total: number) => void }) {
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<Phase>({ step: 'edit' })
   const [commitError, setCommitError] = useState('')
+  const [link, setLink] = useState(defaultLink)
+  const [linkState, setLinkState] = useState<{ busy: boolean; error: string; source: string }>({ busy: false, error: '', source: '' })
   const parsed = useMemo(() => parseDeckList(text), [text])
 
   const cardCount = parsed.lines.reduce((n, l) => n + l.quantity, 0)
@@ -29,6 +32,16 @@ export default function ImportPanel({ deckId, onDone }: { deckId: string; onDone
     for (let i = 0; i < parsed.lines.length; i += MAX_BATCH_LINES) out.push(parsed.lines.slice(i, i + MAX_BATCH_LINES))
     return out
   }, [parsed])
+
+  /** Lit le deck sur Moxfield ou Archidekt et remplit la liste ; l'import reste à lancer. */
+  async function fetchLink() {
+    setLinkState({ busy: true, error: '', source: '' })
+    const { error, data } = await sendJson(`/api/decks/${deckId}/import/link`, 'POST', { url: link })
+    if (error) return setLinkState({ busy: false, error, source: '' })
+    const { text: fetched, name } = data as { text: string; name: string | null }
+    setText(fetched)
+    setLinkState({ busy: false, error: '', source: name ?? '' })
+  }
 
   async function resolveBatch(index: number): Promise<string | null> {
     const url = `/api/decks/${deckId}/import/resolve`
@@ -84,6 +97,23 @@ export default function ImportPanel({ deckId, onDone }: { deckId: string; onDone
 
   return (
     <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          className={inputClass + ' flex-1 min-w-0'}
+          type="url"
+          value={link}
+          disabled={busy || linkState.busy}
+          onChange={(e) => setLink(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && link.trim() && fetchLink()}
+          placeholder="Lien Moxfield ou Archidekt (https://moxfield.com/decks/…)"
+          aria-label="Lien du deck"
+        />
+        <button className={primaryButtonClass.replace('w-full', 'w-auto') + ' shrink-0 px-4 !py-2.5'} disabled={busy || linkState.busy || !link.trim()} onClick={fetchLink}>
+          <span className="inline-flex items-center gap-2"><Link2 className="w-4 h-4" /> {linkState.busy ? 'Récupération…' : 'Récupérer'}</span>
+        </button>
+      </div>
+      {linkState.error && <p className={errorClass} data-testid="link-error">{linkState.error}</p>}
+      {linkState.source && <p className="text-dc-muted text-xs" data-testid="link-ok">Liste de « {linkState.source} » récupérée : vérifie-la puis clique sur Importer.</p>}
       <textarea
         className={inputClass + ' font-mono text-xs'}
         rows={12}
@@ -93,7 +123,7 @@ export default function ImportPanel({ deckId, onDone }: { deckId: string; onDone
         placeholder={'Commander\n1 Kenrith, the Returned King (ELD) 303\n\nDeck\n1 Sol Ring (C21) 263\n…'}
       />
       <p className="text-dc-muted text-xs">
-        Dans Moxfield : Export → copier la liste en texte. {cardCount} cartes · {commanderCount} commandant(s) ·{' '}
+        Ou colle la liste en texte (Moxfield : Export → Copier). {cardCount} cartes · {commanderCount} commandant(s) ·{' '}
         {parsed.ignored} ligne(s) ignorée(s) · {parsed.errors.length} illisible(s)
       </p>
       {parsed.errors.length > 0 && (
