@@ -9,7 +9,18 @@ const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite')
 type Sqlite = InstanceType<typeof DatabaseSync>
 type Value = string | number | bigint | null | Uint8Array
 
-export const MIGRATIONS = ['0001_schema.sql', '0002_accounts.sql', '0003_deck_cards.sql', '0004_game_tables.sql', '0005_email.sql', '0006_table_starting.sql']
+export const MIGRATIONS = [
+  '0001_schema.sql',
+  '0002_accounts.sql',
+  '0003_deck_cards.sql',
+  '0004_game_tables.sql',
+  '0005_email.sql',
+  '0006_table_starting.sql',
+  '0007_ligue_index.sql',
+]
+
+/** D1 refuse une requête qui lie plus de 100 paramètres. */
+export const MAX_BOUND_PARAMETERS = 100
 
 class Statement {
   constructor(
@@ -22,13 +33,22 @@ class Statement {
     return new Statement(this.sqlite, this.sql, values.map(toValue))
   }
 
+  /** Même refus que D1 au-delà de 100 paramètres liés. */
+  private checkLimit() {
+    if (this.values.length > MAX_BOUND_PARAMETERS) {
+      throw new Error(`too many SQL variables at offset ${MAX_BOUND_PARAMETERS}: SQLITE_ERROR`)
+    }
+  }
+
   async first<T>(column?: string): Promise<T | null> {
+    this.checkLimit()
     const row = this.sqlite.prepare(this.sql).get(...this.values) as Record<string, unknown> | undefined
     if (!row) return null
     return (column ? row[column] : row) as T
   }
 
   async all<T>(): Promise<{ results: T[]; success: true }> {
+    this.checkLimit()
     const rows = this.sqlite.prepare(this.sql).all(...this.values) as T[]
     return { results: rows, success: true }
   }
@@ -38,6 +58,7 @@ class Statement {
   }
 
   execute() {
+    this.checkLimit()
     // Comme D1, un batch renvoie les lignes des requêtes de lecture.
     if (/^\s*(SELECT|WITH)\b/i.test(this.sql)) {
       const results = this.sqlite.prepare(this.sql).all(...this.values)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { isAdminAuthenticated } from '@/lib/auth'
-import { updateMatchScore, resetMatchScore } from '@/lib/db'
+import { updateMatchScore, resetMatchScore, statusForError } from '@/lib/db'
 
 export const runtime = 'edge'
 
@@ -29,7 +29,7 @@ export async function PATCH(
   const { env } = getRequestContext<CloudflareEnv>()
   const { id } = await params
   const { data, error } = await updateMatchScore(env.DB, id, score_p1, score_p2)
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
   return NextResponse.json(data)
 }
 
@@ -44,6 +44,6 @@ export async function DELETE(
   const { env } = getRequestContext<CloudflareEnv>()
   const { id } = await params
   const { data, error } = await resetMatchScore(env.DB, id)
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
   return NextResponse.json(data)
 }

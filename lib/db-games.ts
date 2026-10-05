@@ -1,6 +1,7 @@
 // Salon du jeu en ligne : tables et places. Utilisé par le site et par le Worker de jeu (imports relatifs).
 import type { Result } from './db'
 import type { Format } from './game/types'
+import { chunks, placeholders } from './db-chunks'
 
 /** `starting` : démarrage en cours (plus personne ne rejoint, ne part ni ne change de deck). */
 export type TableStatus = 'open' | 'starting' | 'playing' | 'finished'
@@ -52,14 +53,18 @@ async function guard<T>(run: () => Promise<Result<T>>): Promise<Result<T>> {
 async function loadPlayers(db: D1Database, tableIds: string[]): Promise<Map<string, GameTablePlayer[]>> {
   const byTable = new Map<string, GameTablePlayer[]>(tableIds.map((id) => [id, []]))
   if (tableIds.length === 0) return byTable
-  const { results } = await db
-    .prepare(
-      `SELECT s.table_id, s.player_id, p.name, s.deck_id, d.name AS deck_name, s.seat
-       FROM game_seats s JOIN players p ON p.id = s.player_id LEFT JOIN decks d ON d.id = s.deck_id
-       WHERE s.table_id IN (${tableIds.map(() => '?').join(', ')}) ORDER BY s.seat`,
-    )
-    .bind(...tableIds)
-    .all<Record<string, unknown>>()
+  const results: Record<string, unknown>[] = []
+  for (const part of chunks(tableIds)) {
+    const rows = await db
+      .prepare(
+        `SELECT s.table_id, s.player_id, p.name, s.deck_id, d.name AS deck_name, s.seat
+         FROM game_seats s JOIN players p ON p.id = s.player_id LEFT JOIN decks d ON d.id = s.deck_id
+         WHERE s.table_id IN (${placeholders(part.length)}) ORDER BY s.seat`,
+      )
+      .bind(...part)
+      .all<Record<string, unknown>>()
+    results.push(...rows.results)
+  }
   for (const r of results) {
     byTable.get(r.table_id as string)!.push({
       playerId: r.player_id as string,
