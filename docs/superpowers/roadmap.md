@@ -46,7 +46,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 ## Retours de test (5 octobre)
 
 - Connexion, import d'un deck (cartes en français) et mode test : OK, interface fluide.
-- **À corriger — glisser-déposer** : pendant le déplacement, l'aperçu de la carte rétrécit (largeur fixe de 96 px) et la carte se pose décalée (position calculée sur le centre de la carte d'origine, pas sur l'aperçu). Concerne le mode test et la future table en ligne.
+- **Corrigé — glisser-déposer** : l'aperçu garde la taille de la carte d'origine et la carte se pose au centre de l'aperçu (contrôles ajoutés à `scripts/playtest-check.mjs`).
 - **À prévoir — jetons du deck** : proposer les jetons créés par les cartes du deck (données `all_parts` de Scryfall), en plus de la recherche actuelle.
 
 ## Idées pour plus tard
