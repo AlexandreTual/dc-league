@@ -6,10 +6,12 @@ import {
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { Crown, Flag } from 'lucide-react'
+import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
+import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
@@ -56,6 +58,11 @@ function visibleCards(view: PlayerView): Map<string, VisibleCard> {
   return map
 }
 
+/** Durées des repères d'activité. */
+const HIGHLIGHT_MS = 1500
+const LINE_MS = 4000
+const MAX_LINES = 3
+
 const sameZone = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
 
 /** La table de jeu, pour le mode test comme pour le jeu en ligne. */
@@ -70,14 +77,41 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [logOpen, setLogOpen] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
+  const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
+  const [lines, setLines] = useState<ActivityLine[]>([])
+  const prevView = useRef<PlayerView | null>(null)
+  const lineKey = useRef(0)
+  const highlightTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const finished = source.online?.finished ?? false
-  const canAct = me !== null && !finished && (source.online?.status ?? 'open') === 'open'
+  const status = source.online?.status ?? 'open'
+  const canAct = me !== null && !finished && status === 'open'
   const cards = useMemo(() => visibleCards(view), [view])
   const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct }
   const send = source.send
 
   useEffect(() => setLang(readLang()), [])
+
+  // Repères d'activité : ce que les autres viennent de faire (rien à la connexion ni à la reconnexion).
+  useEffect(() => {
+    if (status !== 'open') {
+      prevView.current = null
+      return
+    }
+    const prev = prevView.current
+    prevView.current = view
+    const { changed, lines: added } = diffViews(prev, view, me)
+    if (added.length === 0) return
+    if (changed.length > 0) {
+      setHighlighted(new Set(changed))
+      clearTimeout(highlightTimer.current)
+      highlightTimer.current = setTimeout(() => setHighlighted(new Set()), HIGHLIGHT_MS)
+    }
+    const fresh = added.map((l) => ({ key: ++lineKey.current, author: view.players[l.actor]?.name ?? '', text: l.text }))
+    setLines((current) => [...current, ...fresh].slice(-MAX_LINES))
+    const keys = new Set(fresh.map((l) => l.key))
+    setTimeout(() => setLines((current) => current.filter((l) => !keys.has(l.key))), LINE_MS)
+  }, [view, me, status])
 
   useEffect(() => {
     const track = (e: KeyboardEvent) => { shiftDown.current = e.shiftKey }
@@ -202,7 +236,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
 
   const mine = me ? view.players[me] : null
   const toBottom = mine ? Math.max(0, mine.mulligans - 1) : 0
-  const zoneProps = { view, catalogs, lang, handlers, interactive: canAct }
+  const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
   /** Commandes de l'hôte : passer le tour du joueur actif (s'il n'est pas l'hôte), éliminer, clore. */
@@ -270,6 +304,11 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
 
       {notice}
 
+      {status !== 'open' && (
+        <div className="px-3 py-1.5 text-sm bg-dc-red/30 border-b border-dc-red-light/40 text-dc-text" data-testid="reconnecting">
+          {status === 'connecting' ? 'Connexion…' : 'Reconnexion…'}
+        </div>
+      )}
       {!me && (
         <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">Tu regardes cette partie</div>
       )}
@@ -299,7 +338,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 players={opponents}
                 renderStrip={(p, focus) => (
                   <OpponentStrip
-                    view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers}
+                    view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
                     panel={panelFor(p, focus, true)}
                     onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
                     onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, p), e)}
@@ -337,6 +376,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
             )}
           </DragOverlay>
         </DndContext>
+        <ActivityFeed lines={lines} error={source.error} />
         {logOpen && <LogPanel view={view} onClose={() => setLogOpen(false)} />}
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
