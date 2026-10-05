@@ -151,6 +151,22 @@ try {
   const libraryAfter = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
   check(libraryAfter === libraryBefore, `bibliothèque inchangée en taille (${libraryAfter}), ${looked} en dessous`)
 
+  // Recherche filtrée par type : seules les créatures, puis « Tous » remet toute la bibliothèque.
+  await page.locator('[data-zone="library"]').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /Chercher une carte/ }).click()
+  await page.getByRole('dialog').waitFor()
+  const creatureButton = page.getByRole('group', { name: 'Filtrer par type' }).getByRole('button', { name: /^Créature \(\d+\)$/ })
+  const creatures = Number((await creatureButton.innerText()).match(/\((\d+)\)/)[1])
+  await creatureButton.click()
+  const shownTypes = await page.locator('[data-pile-card] [title]').evaluateAll((els) => els.map((e) => e.getAttribute('title')))
+  check(creatures > 0 && shownTypes.length === creatures && shownTypes.every((n) => n === 'Llanowar Elves'),
+    `filtre « Créature » : ${creatures} créatures seulement`)
+  await page.getByRole('button', { name: 'Tous', exact: true }).click()
+  check((await page.locator('[data-pile-card]').count()) === libraryAfter, `filtre « Tous » : toute la bibliothèque (${libraryAfter})`)
+  await capture('recherche-filtre')
+  await page.getByRole('dialog').getByRole('checkbox').uncheck()
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click()
+
   const commander = page.locator('[data-zone="command"] [data-card-id]').first()
   const commanderId = await commander.getAttribute('data-card-id')
   await drag(commander, battlefield.x + battlefield.width * 0.6, battlefield.y + battlefield.height * 0.5)
