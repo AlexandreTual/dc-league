@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction, cardName } from './apply'
 import { isVisibleTo, zoneOf } from './rules'
+import { viewFor } from './view'
 import type { GameAction, GameState } from './types'
 
 const apply = (s: GameState, ...actions: GameAction[]) => actions.reduce((acc, a) => applyAction(acc, a), s)
@@ -104,5 +105,55 @@ describe('dessus de bibliothèque', () => {
     const s0 = game()
     const s = applyAction(s0, { type: 'revealTop', actor: 'p2' })
     expect(s.log.at(-1)).toMatchObject({ actor: 'p2', text: `révèle ${cardName(s, s0.players.p2.zones.library[0])}`, visibleTo: 'all' })
+  })
+
+  it('revealTop : la carte du dessus est visible de tous, dans la vue de chacun', () => {
+    const s = applyAction(game(), { type: 'revealTop', actor: 'p2' })
+    const top = s.players.p2.zones.library[0]
+    for (const p of ['p1', 'p2', 'p3']) {
+      expect(isVisibleTo(s, top, p)).toBe(true)
+      expect(viewFor(s, p).players.p2.zones.library.visible.map((v) => [v.index, v.card.id])).toEqual([[0, top]])
+    }
+  })
+
+  it('revealTop : la carte redevient cachée après une pioche, un mélange ou un déplacement', () => {
+    const s = applyAction(game(), { type: 'revealTop', actor: 'p2' })
+    const top = s.players.p2.zones.library[0]
+    const drawn = applyAction(s, { type: 'draw', actor: 'p2', count: 1 })
+    expect(isVisibleTo(drawn, top, 'p1')).toBe(false)
+    expect(viewFor(drawn, 'p1').players.p2.zones.library.visible).toEqual([])
+    const shuffled = applyAction(s, { type: 'shuffle', actor: 'p2', seed: 3 })
+    expect(shuffled.players.p2.zones.library.some((id) => isVisibleTo(shuffled, id, 'p1') || isVisibleTo(shuffled, id, 'p2'))).toBe(false)
+    const moved = apply(s,
+      { type: 'moveTop', actor: 'p2', to: { player: 'p2', zone: 'hand' } },
+      { type: 'move', actor: 'p2', id: top, to: { player: 'p2', zone: 'library' } })
+    expect(isVisibleTo(moved, top, 'p1')).toBe(false)
+  })
+
+  it('revealTop puis regarder sa bibliothèque : la carte révélée reste visible de tous', () => {
+    let s = applyAction(game(), { type: 'revealTop', actor: 'p2' })
+    const top = s.players.p2.zones.library[0]
+    s = apply(s, { type: 'look', actor: 'p2', target: 'p2', count: 3 }, { type: 'endLook', actor: 'p2', target: 'p2', shuffle: false })
+    expect(['p1', 'p2', 'p3'].every((p) => isVisibleTo(s, top, p))).toBe(true)
+    expect(isVisibleTo(s, s.players.p2.zones.library[1], 'p2')).toBe(false)
+  })
+
+  it('revealTop : visible aussi d’un spectateur', () => {
+    const s = applyAction(game(), { type: 'revealTop', actor: 'p2' })
+    expect(viewFor(s, 'spectateur').players.p2.zones.library.visible.map((v) => v.card.id)).toEqual([s.players.p2.zones.library[0]])
+  })
+
+  it('seul joueur : regarder le dessus puis arrêter ne laisse pas la carte visible', () => {
+    let s = run(setupFor('commander', 1), start(1))
+    s = apply(s, { type: 'look', actor: 'p1', target: 'p1', count: 2 }, { type: 'endLook', actor: 'p1', target: 'p1', shuffle: false })
+    expect(viewFor(s, 'p1').players.p1.zones.library.visible).toEqual([])
+  })
+
+  it('topRevealed : la carte du dessus est exposée au propriétaire comme aux autres', () => {
+    const s = applyAction(game(), { type: 'toggleTopRevealed', actor: 'p1' })
+    const top = s.players.p1.zones.library[0]
+    for (const p of ['p1', 'p2', 'p3']) {
+      expect(viewFor(s, p).players.p1.zones.library.visible.map((v) => [v.index, v.card.id])).toEqual([[0, top]])
+    }
   })
 })

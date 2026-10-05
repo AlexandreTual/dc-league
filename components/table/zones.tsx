@@ -31,6 +31,10 @@ export type ZoneProps = {
 
 const visible = (cards: CardView[]) => cards.filter((c): c is VisibleCard => !c.hidden)
 
+/** Carte du dessus de la bibliothèque d'un joueur, si celui qui regarde la connaît (révélée, regardée…). */
+export const libraryTop = (view: PlayerView, player: string): VisibleCard | null =>
+  view.players[player]?.zones.library.visible.find((v) => v.index === 0)?.card ?? null
+
 function useZone(ref: ZoneRef) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId(ref), data: ref })
   return { setNodeRef, highlight: isOver ? 'ring-2 ring-dc-gold/60' : '' }
@@ -117,8 +121,9 @@ const PILE_LABELS: Record<PlayerZone, string> = {
 }
 
 /**
- * Pile latérale. Bibliothèque : dos de carte ; seul son propriétaire peut glisser la carte du dessus
- * (identifiant `top:<joueur>`, résolu par le moteur avec moveTop).
+ * Pile latérale. Bibliothèque : dos de carte, ou la carte du dessus face visible quand elle est connue ;
+ * seul son propriétaire peut la glisser (identifiant `top:<joueur>`, résolu par le moteur avec moveTop).
+ * Le clic droit y ouvre toujours le menu de la bibliothèque.
  */
 export function ZonePile(props: ZoneProps & {
   zone: 'command' | 'library' | 'graveyard' | 'exile'
@@ -137,6 +142,11 @@ export function ZonePile(props: ZoneProps & {
   const cards = zone === 'library' ? [] : zone === 'command' ? visible(zones.command) : visible(zones[zone]).slice(-1)
   const empty = count === 0
   const canDrawTop = zone === 'library' && count > 0 && player === props.me && props.interactive
+  const top = zone === 'library' ? libraryTop(view, player) : null
+  const topFace = top
+    ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
+    : <CardBack className="h-full" />
+  const hoverTop = top ? (h: boolean) => props.handlers.onHover(h ? top.id : null) : undefined
   return (
     <div
       ref={setNodeRef}
@@ -155,11 +165,13 @@ export function ZonePile(props: ZoneProps & {
         {empty && <div className="aspect-[63/88] h-full rounded-[6%] border border-dashed border-dc-border" />}
         {zone === 'library' && !empty && (
           canDrawTop ? (
-            <Draggable id={topId(player)} from={ref} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), ref)}>
-              <CardBack className="h-full" />
+            <Draggable id={topId(player)} from={ref} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), ref)} onHover={hoverTop}>
+              {topFace}
             </Draggable>
           ) : (
-            <CardBack className="h-full" />
+            <div className="h-full" onMouseEnter={() => hoverTop?.(true)} onMouseLeave={() => hoverTop?.(false)}>
+              {topFace}
+            </div>
           )
         )}
         {cards.map((card) => (

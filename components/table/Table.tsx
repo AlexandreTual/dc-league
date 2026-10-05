@@ -25,7 +25,7 @@ import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
 import TopBar, { barButton } from './TopBar'
 import type { GameSource } from './source'
-import type { CardHandlers } from './zones'
+import { libraryTop, type CardHandlers } from './zones'
 
 const LANG_KEY = 'dc-card-lang'
 
@@ -369,9 +369,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
           <DragOverlay dropAnimation={null}>
             {dragging && (
               <div className="pointer-events-none" style={{ height: dragging.height, width: dragging.height * CARD_RATIO }} data-testid="drag-overlay">
-                {dragging.id.startsWith('top:') || dragging.from.zone === 'library'
-                  ? <CardBack className="h-full" />
-                  : <GameCard card={cards.get(dragging.id)} catalog={catalogs[cards.get(dragging.id)?.owner ?? '']} lang={lang} className="h-full" />}
+                {(() => {
+                  // Carte du dessus : face visible si je la connais, dos sinon.
+                  const shown = dragging.id.startsWith('top:') ? libraryTop(view, dragging.from.player)
+                    : dragging.from.zone === 'library' ? null : cards.get(dragging.id)
+                  return shown
+                    ? <GameCard card={shown} catalog={catalogs[shown.owner]} lang={lang} className="h-full" />
+                    : <CardBack className="h-full" />
+                })()}
               </div>
             )}
           </DragOverlay>
