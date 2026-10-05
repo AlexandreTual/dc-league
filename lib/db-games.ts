@@ -2,7 +2,8 @@
 import type { Result } from './db'
 import type { Format } from './game/types'
 
-export type TableStatus = 'open' | 'playing' | 'finished'
+/** `starting` : démarrage en cours (plus personne ne rejoint, ne part ni ne change de deck). */
+export type TableStatus = 'open' | 'starting' | 'playing' | 'finished'
 
 export type GameTablePlayer = { playerId: string; name: string; deckId: string | null; deckName: string | null; seat: number }
 
@@ -103,6 +104,9 @@ async function openTable(db: D1Database, id: string): Promise<Result<GameTable>>
   return ok(data)
 }
 
+/** Condition SQL « la table (paramètre) est encore ouverte », pour rendre les écritures du salon atomiques. */
+const STILL_OPEN = "EXISTS (SELECT 1 FROM game_tables WHERE id = ? AND status = 'open')"
+
 async function reload(db: D1Database, id: string): Promise<Result<GameTable>> {
   const { data, error } = await getTable(db, id)
   if (error !== null) return fail(error)
@@ -137,15 +141,26 @@ export async function listTables(db: D1Database): Promise<Result<GameTable[]>> {
   })
 }
 
+/** Prend la place suivante en une seule requête : table ouverte, place libre et pas déjà assis, vérifiés à l'insertion. */
 export async function joinTable(db: D1Database, id: string, playerId: string): Promise<Result<GameTable>> {
   return guard(async () => {
+    const { meta } = await db
+      .prepare(
+        `INSERT INTO game_seats (table_id, player_id, seat)
+         SELECT t.id, ?, COALESCE((SELECT MAX(seat) FROM game_seats WHERE table_id = t.id), 0) + 1
+         FROM game_tables t
+         WHERE t.id = ? AND t.status = 'open'
+           AND (SELECT COUNT(*) FROM game_seats WHERE table_id = t.id) < t.seats
+           AND NOT EXISTS (SELECT 1 FROM game_seats WHERE table_id = t.id AND player_id = ?)`,
+      )
+      .bind(playerId, id, playerId)
+      .run()
+    if (meta.changes > 0) return reload(db, id)
+    // Rien d'inséré : déjà assis, ou la raison du refus.
     const { data: table, error } = await openTable(db, id)
     if (error !== null) return fail(error)
     if (table.players.some((p) => p.playerId === playerId)) return ok(table)
-    if (table.players.length >= table.seats) return fail(ERR.full)
-    const seat = Math.max(0, ...table.players.map((p) => p.seat)) + 1
-    await db.prepare('INSERT INTO game_seats (table_id, player_id, seat) VALUES (?, ?, ?)').bind(id, playerId, seat).run()
-    return reload(db, id)
+    return fail(ERR.full)
   })
 }
 
@@ -159,11 +174,16 @@ export async function leaveTable(db: D1Database, id: string, playerId: string): 
       await deleteTable(db, id)
       return ok(null)
     }
-    const statements = [db.prepare('DELETE FROM game_seats WHERE table_id = ? AND player_id = ?').bind(id, playerId)]
+    const statements = [
+      db.prepare(`DELETE FROM game_seats WHERE table_id = ? AND player_id = ? AND ${STILL_OPEN}`).bind(id, playerId, id),
+    ]
     if (table.hostPlayerId === playerId) {
-      statements.push(db.prepare('UPDATE game_tables SET host_player_id = ? WHERE id = ?').bind(rest[0].playerId, id))
+      statements.push(
+        db.prepare("UPDATE game_tables SET host_player_id = ? WHERE id = ? AND status = 'open'").bind(rest[0].playerId, id),
+      )
     }
-    await db.batch(statements)
+    const [removed] = await db.batch(statements)
+    if (removed.meta.changes === 0) return openTable(db, id).then((r) => (r.error !== null ? r : reload(db, id)))
     return reload(db, id)
   })
 }
@@ -173,7 +193,11 @@ export async function removeSeat(db: D1Database, id: string, hostId: string, pla
     const { data: table, error } = await openTable(db, id)
     if (error !== null) return fail(error)
     if (table.hostPlayerId !== hostId || playerId === hostId) return fail(ERR.notHost)
-    await db.prepare('DELETE FROM game_seats WHERE table_id = ? AND player_id = ?').bind(id, playerId).run()
+    const { meta } = await db
+      .prepare(`DELETE FROM game_seats WHERE table_id = ? AND player_id = ? AND ${STILL_OPEN}`)
+      .bind(id, playerId, id)
+      .run()
+    if (meta.changes === 0) return openTable(db, id).then((r) => (r.error !== null ? r : reload(db, id)))
     return reload(db, id)
   })
 }
@@ -185,7 +209,11 @@ export async function chooseDeck(db: D1Database, id: string, playerId: string, d
     if (!table.players.some((p) => p.playerId === playerId)) return fail(ERR.notSeated)
     const deck = await db.prepare('SELECT player_id FROM decks WHERE id = ?').bind(deckId).first<{ player_id: string }>()
     if (deck?.player_id !== playerId) return fail(ERR.notYourDeck)
-    await db.prepare('UPDATE game_seats SET deck_id = ? WHERE table_id = ? AND player_id = ?').bind(deckId, id, playerId).run()
+    const { meta } = await db
+      .prepare(`UPDATE game_seats SET deck_id = ? WHERE table_id = ? AND player_id = ? AND ${STILL_OPEN}`)
+      .bind(deckId, id, playerId, id)
+      .run()
+    if (meta.changes === 0) return openTable(db, id).then((r) => (r.error !== null ? r : fail(ERR.notSeated)))
     return reload(db, id)
   })
 }
@@ -206,6 +234,24 @@ async function run(db: D1Database, sql: string, ...params: unknown[]): Promise<R
   })
 }
 
+/**
+ * Réserve le démarrage : passe la table de `open` à `starting` si elle est encore ouverte et que `hostId` en est l'hôte.
+ * Renvoie true si la réservation est obtenue (un seul démarrage à la fois, plus aucun changement de places).
+ */
+export async function claimStart(db: D1Database, id: string, hostId: string): Promise<Result<boolean>> {
+  return guard(async () => {
+    const { meta } = await db
+      .prepare("UPDATE game_tables SET status = 'starting' WHERE id = ? AND host_player_id = ? AND status = 'open'")
+      .bind(id, hostId)
+      .run()
+    return ok(meta.changes > 0)
+  })
+}
+
+/** Rend la table ouverte après un démarrage échoué. */
+export const releaseStart = (db: D1Database, id: string) =>
+  run(db, "UPDATE game_tables SET status = 'open' WHERE id = ? AND status = 'starting'", id)
+
 export const markPlaying = (db: D1Database, id: string) =>
   run(db, "UPDATE game_tables SET status = 'playing', last_activity_at = datetime('now') WHERE id = ?", id)
 
@@ -225,6 +271,14 @@ export async function deleteTable(db: D1Database, id: string): Promise<Result<nu
       db.prepare('DELETE FROM game_tables WHERE id = ?').bind(id),
     ])
     return ok(null)
+  })
+}
+
+/** Tables dont la partie est en cours. */
+export async function playingTables(db: D1Database): Promise<Result<string[]>> {
+  return guard(async () => {
+    const { results } = await db.prepare("SELECT id FROM game_tables WHERE status = 'playing'").all<{ id: string }>()
+    return ok(results.map((r) => r.id))
   })
 }
 

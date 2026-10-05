@@ -62,3 +62,25 @@ describe('startTable', () => {
     expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
 })
+
+describe('startTable concurrent', () => {
+  it('deux démarrages simultanés : une seule partie créée', async () => {
+    const results = await Promise.all([startTable(db, okInit, tableId, 'p1'), startTable(db, okInit, tableId, 'p1')])
+    expect(results.filter((r) => r.data?.status === 'playing')).toHaveLength(1)
+    expect(results.filter((r) => r.error === 'La partie a déjà commencé')).toHaveLength(1)
+    expect(calls).toHaveLength(1)
+  })
+
+  it('pendant la création, personne ne rejoint : la partie a les joueurs réservés', async () => {
+    await db.prepare("INSERT INTO players (id, name) VALUES ('p3', 'Chloé')").run()
+    let joined: string | null = 'pas tenté'
+    const slowInit: GameInit = async (id, body) => {
+      joined = (await joinTable(db, tableId, 'p3')).error
+      return okInit(id, body)
+    }
+    const res = await startTable(db, slowInit, tableId, 'p1')
+    expect(joined).toBe('La partie a déjà commencé')
+    expect(res.data!.players.map((p) => p.playerId)).toEqual(['p1', 'p2'])
+    expect(calls[0].body.setup.players.map((p) => p.id)).toEqual(['p1', 'p2'])
+  })
+})
