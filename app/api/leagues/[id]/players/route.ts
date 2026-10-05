@@ -1,36 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { isAdminAuthenticated } from '@/lib/auth'
+import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
+import { requiredId } from '@/lib/auth/validation'
 import { enrollLeaguePlayer } from '@/lib/db-leagues'
 import { countMatches } from '@/lib/db'
 
 export const runtime = 'edge'
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+export function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return apiRoute(req, 'admin', async ({ db, body }) => {
+    const { id } = await params
 
-  const { env } = getRequestContext<CloudflareEnv>()
-  const db = env.DB
-  const { id } = await params
+    const { data: matchCount, error: countErr } = await countMatches(db, id)
+    if (countErr !== null) return resultError(countErr)
+    if (matchCount > 0) {
+      return badRequest('Les matchs ont déjà été générés. Impossible de modifier les participants.')
+    }
 
-  const { data: matchCount, error: countErr } = await countMatches(db, id)
-  if (countErr) return NextResponse.json({ error: countErr }, { status: 500 })
-  if (matchCount && matchCount > 0) {
-    return NextResponse.json(
-      { error: 'Les matchs ont déjà été générés. Impossible de modifier les participants.' },
-      { status: 400 }
-    )
-  }
+    const playerId = requiredId(body.player_id, 'Le joueur')
+    if (!playerId.ok) return badRequest(playerId.error)
 
-  const { player_id } = await req.json() as { player_id?: string }
-  if (!player_id) return NextResponse.json({ error: 'player_id requis' }, { status: 400 })
-
-  const { data, error } = await enrollLeaguePlayer(db, id, player_id)
-  if (error) return NextResponse.json({ error }, { status: 500 })
-  return NextResponse.json(data, { status: 201 })
+    const { data, error } = await enrollLeaguePlayer(db, id, playerId.value)
+    if (error !== null) return resultError(error)
+    return NextResponse.json(data, { status: 201 })
+  })
 }
