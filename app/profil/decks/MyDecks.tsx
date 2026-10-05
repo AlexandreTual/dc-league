@@ -8,11 +8,12 @@ import ImportPanel from '@/components/decks/ImportPanel'
 import type { DbDeck } from '@/lib/db-decks'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
-type DeckFields = { name: string; moxfield_url: string; commander_image_url: string }
-const emptyFields: DeckFields = { name: '', moxfield_url: '', commander_image_url: '' }
+// L'image du commandant vient de l'import de la liste (carte en section commandant).
+type DeckFields = { name: string; moxfield_url: string }
+const emptyFields: DeckFields = { name: '', moxfield_url: '' }
 
 function fieldsOf(deck: DbDeck): DeckFields {
-  return { name: deck.name, moxfield_url: deck.moxfield_url ?? '', commander_image_url: deck.commander_image_url ?? '' }
+  return { name: deck.name, moxfield_url: deck.moxfield_url ?? '' }
 }
 
 function DeckForm({ initial, submitLabel, onSubmit, onCancel }: {
@@ -42,12 +43,8 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel }: {
         <input className={inputClass} value={fields.name} onChange={set('name')} placeholder="Kenrith Group Hug" />
       </div>
       <div>
-        <label className={labelClass}>Lien Moxfield</label>
+        <label className={labelClass}>Lien du deck (Moxfield ou Archidekt)</label>
         <input className={inputClass} value={fields.moxfield_url} onChange={set('moxfield_url')} placeholder="https://moxfield.com/decks/…" />
-      </div>
-      <div>
-        <label className={labelClass}>Image du commandant (URL)</label>
-        <input className={inputClass} value={fields.commander_image_url} onChange={set('commander_image_url')} placeholder="https://…" />
       </div>
       {error && <p className={errorClass}>{error}</p>}
       <div className="flex gap-2">
@@ -124,7 +121,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                   {cardCounts[deck.id] ? <p className="text-dc-muted text-xs">{cardCounts[deck.id]} cartes</p> : null}
                   {deck.moxfield_url && (
                     <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="text-dc-gold text-xs inline-flex items-center gap-1 hover:underline">
-                      Moxfield <ExternalLink className="w-3 h-3" />
+                      {deck.moxfield_url.includes('archidekt') ? 'Archidekt' : 'Moxfield'} <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
