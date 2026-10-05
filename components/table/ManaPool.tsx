@@ -26,9 +26,10 @@ function ManaSymbol({ color, small = false }: { color: ManaColor; small?: boolea
  * Réserve de mana d'un joueur : pastilles des couleurs non nulles, visibles de tous.
  * Pour sa propre réserve, un clic ouvre le détail : + (Maj : +5), − ou clic droit, Vider, et l'option de garde.
  */
-export default function ManaPool({ pool, keep, editable, send, openUp = false, alignRight = false }: {
-  pool: Pool
-  keep: boolean
+export default function ManaPool({ pool, keep = false, editable, send, openUp = false, alignRight = false }: {
+  /** Absente quand le serveur de jeu n'a pas encore la réserve de mana (déployé avant elle) : rien n'est affiché. */
+  pool: Pool | undefined
+  keep: boolean | undefined
   editable: boolean
   send: (action: ClientAction) => void
   /** Ouvrir le détail vers le haut (réserve placée en bas de l'écran). */
@@ -43,6 +44,7 @@ export default function ManaPool({ pool, keep, editable, send, openUp = false, a
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
+  if (!pool) return null
   const total = MANA_COLORS.reduce((n, c) => n + pool[c], 0)
   const filled = MANA_COLORS.filter((c) => pool[c] > 0)
   const add = (color: ManaColor, delta: number) => send({ type: 'mana', color, delta })
