@@ -185,8 +185,11 @@ export type PlayerView = {
   lookingAt: string[]
   /** Dernières lignes du journal visibles par ce joueur (au plus VIEW_LOG_LIMIT). */
   log: Omit<LogEntry, 'visibleTo'>[]
-  /** Rang, dans le journal complet visible par ce joueur, de la première ligne de `log`. */
-  logStart: number
+  /**
+   * Rang, dans le journal complet visible par ce joueur, de la première ligne de `log`.
+   * Absent avec un serveur de jeu plus ancien (journal non tronqué) : compter 0.
+   */
+  logStart?: number
   /** Renseigné par GameHistory / le serveur. */
   canUndo: boolean
 }

@@ -28,7 +28,7 @@ export function diffViews(prev: PlayerView | null, next: PlayerView, me: string 
   const changed: string[] = []
   for (const [id, print] of fingerprints(next)) if (before.get(id) !== print) changed.push(id)
   // Le journal envoyé est tronqué : on compare les rangs de fin dans le journal complet.
-  const count = next.logStart + next.log.length - (prev.logStart + prev.log.length)
+  const count = (next.logStart ?? 0) + next.log.length - ((prev.logStart ?? 0) + prev.log.length)
   const added = count > 0 ? next.log.slice(-Math.min(count, next.log.length)) : []
   const lines = added
     .filter((l) => me === null || l.actor !== me)
