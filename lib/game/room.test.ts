@@ -4,7 +4,7 @@ import { createRng } from './random'
 import { applyAction } from './apply'
 import { replay } from './replay'
 import { isVisibleTo, zoneOf } from './rules'
-import { createRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, onlinePlayers, viewMessageFor, type CardDataMap, type ClientAction, type ClientMessage, type RoomState } from './room'
+import { createRoom, restoreRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, onlinePlayers, viewMessageFor, type CardDataMap, type ClientAction, type ClientMessage, type RoomState } from './room'
 import { PLAYER_ZONES, type GameAction, type PlayerZone } from './types'
 
 const ctx = (seed = 77, now = 0) => ({ now, seed: () => seed })
@@ -242,6 +242,17 @@ describe('transmission du rôle d’hôte', () => {
     expect(r.hostId).toBe('p3')
     handleConnect(r, 'p1', 1000 + 6 * MIN)
     expect(r.hostId).toBe('p3')
+  })
+
+  it('au réveil, la date d’absence enregistrée est conservée (sinon : depuis le réveil)', () => {
+    const setup = setupFor('commander', 3)
+    const actions = [...room().history.actions]
+    const meta = { finished: false, winner: null }
+    const r = restoreRoom('t1', setup, 'p1', actions, meta, 10 * MIN, { p1: 1000 })
+    expect(r.absentSince).toEqual({ p1: 1000, p2: 10 * MIN, p3: 10 * MIN })
+    expect(handleConnect(r, 'p2', 10 * MIN).events).toEqual([{ type: 'hostChanged', hostId: 'p2' }])
+    const fresh = restoreRoom('t1', setup, 'p1', actions, meta, 10 * MIN)
+    expect(handleConnect(fresh, 'p2', 10 * MIN).events).toEqual([])
   })
 
   it('un hôte jamais connecté compte comme absent depuis la création', () => {

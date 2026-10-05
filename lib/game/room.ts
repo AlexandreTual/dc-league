@@ -68,15 +68,20 @@ const done = (events: RoomEvent[] = []): Outcome => ({ changed: true, error: nul
 
 // ── Création ──────────────────────────────────────────────────────────────────
 
-/** `now` : instant de création (ou de réveil) ; un joueur pas encore connecté est absent depuis cet instant. */
-function baseRoom(tableId: string, setup: GameSetup, hostId: string, history: GameHistory, now: number): RoomState {
+/**
+ * `now` : instant de création (ou de réveil) ; un joueur pas encore connecté est absent depuis cet instant,
+ * sauf date d'absence enregistrée (`saved`, conservée à travers l'hibernation).
+ */
+function baseRoom(
+  tableId: string, setup: GameSetup, hostId: string, history: GameHistory, now: number, saved: Record<string, number> = {},
+): RoomState {
   return {
     tableId,
     hostId,
     seats: setup.players.map((p) => ({ playerId: p.id, name: p.name })),
     history,
     online: {},
-    absentSince: Object.fromEntries(setup.players.map((p) => [p.id, now])),
+    absentSince: Object.fromEntries(setup.players.map((p) => [p.id, saved[p.id] ?? now])),
     finished: false,
     winner: null,
   }
@@ -94,8 +99,9 @@ export function restoreRoom(
   actions: GameAction[],
   meta: { finished: boolean; winner: string | null },
   now: number,
+  absentSince: Record<string, number> = {},
 ): RoomState {
-  return { ...baseRoom(tableId, setup, hostId, new GameHistory(setup, actions), now), ...meta }
+  return { ...baseRoom(tableId, setup, hostId, new GameHistory(setup, actions), now, absentSince), ...meta }
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────

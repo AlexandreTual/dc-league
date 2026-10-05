@@ -8,6 +8,7 @@ import { RoomRuntime, type InitBody, type SocketInfo } from './runtime'
  * stockage du Durable Object. Routes (appelées par le site seulement, via la liaison GAME) :
  *   POST /tables/<id>/init   — crée la partie (corps InitBody)
  *   GET  /tables/<id>/ws     — WebSocket ; X-Player-Id (joueur) ou X-Spectator (spectateur)
+ *   POST /tables/<id>/sync   — retente l'enregistrement en D1 d'une fin de partie (nettoyage)
  *   DELETE /tables/<id>      — supprime la partie (nettoyage)
  */
 export class GameRoom extends DurableObject<Env> {
@@ -23,6 +24,10 @@ export class GameRoom extends DurableObject<Env> {
     const path = new URL(request.url).pathname
     if (request.method === 'DELETE') {
       await this.runtime.destroy()
+      return new Response(null, { status: 204 })
+    }
+    if (request.method === 'POST' && path.endsWith('/sync')) {
+      await this.runtime.sync()
       return new Response(null, { status: 204 })
     }
     if (request.method === 'POST' && path.endsWith('/init')) {

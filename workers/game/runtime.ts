@@ -25,7 +25,11 @@ export type SocketInfo = { playerId: string | null }
 
 export type InitBody = { tableId: string; setup: GameSetup; hostId: string }
 
-type Meta = { tableId: string; hostId: string; finished: boolean; winner: string | null }
+/** `finishPending` : fin de partie pas encore enregistrée en D1, à retenter (connexion suivante ou nettoyage). */
+type Meta = { tableId: string; hostId: string; finished: boolean; winner: string | null; finishPending?: boolean }
+
+/** Joueur → instant depuis lequel il est absent ; enregistré pour survivre à l'hibernation. */
+type Presence = Record<string, number>
 
 export const MAX_MESSAGE_BYTES = 16 * 1024
 export const MAX_MESSAGES_PER_SECOND = 20
@@ -54,13 +58,18 @@ export class RoomRuntime {
     return this.room
   }
 
-  /** Charge la partie depuis le stockage (une fois) ; la présence est recalculée d'après les sockets ouvertes. */
+  /**
+   * Charge la partie depuis le stockage (une fois). Connectés : d'après les sockets ouvertes ;
+   * absents : depuis la date enregistrée, ou depuis maintenant si elle manque.
+   */
   async load(): Promise<void> {
     if (this.loaded) return
-    const [setup, meta] = await Promise.all([this.storage.get<GameSetup>('setup'), this.storage.get<Meta>('meta')])
+    const [setup, meta, presence] = await Promise.all([
+      this.storage.get<GameSetup>('setup'), this.storage.get<Meta>('meta'), this.storage.get<Presence>('presence'),
+    ])
     if (setup && meta) {
       const actions = [...(await this.storage.list<GameAction>({ prefix: 'a:' })).values()]
-      const room = restoreRoom(meta.tableId, setup, meta.hostId, actions, meta, this.clock())
+      const room = restoreRoom(meta.tableId, setup, meta.hostId, actions, meta, this.clock(), presence ?? {})
       for (const { info } of this.sockets()) {
         if (info.playerId && room.seats.some((s) => s.playerId === info.playerId)) {
           room.online[info.playerId] = (room.online[info.playerId] ?? 0) + 1
@@ -69,8 +78,15 @@ export class RoomRuntime {
       }
       this.room = room
       this.meta = meta
+      if (JSON.stringify(room.absentSince) !== JSON.stringify(presence ?? {})) await this.savePresence()
     }
     this.loaded = true
+  }
+
+  /** Retente l'enregistrement en D1 d'une fin de partie restée en attente (appelé par le nettoyage). */
+  async sync(): Promise<void> {
+    await this.load()
+    if (this.room && this.meta?.finishPending) await this.reportFinish()
   }
 
   async init(body: InitBody): Promise<Response> {
@@ -80,6 +96,7 @@ export class RoomRuntime {
     const meta: Meta = { tableId: body.tableId, hostId: body.hostId, finished: false, winner: null }
     await this.storage.put('setup', body.setup)
     await this.storage.put(actionKey(0), room.history.actions[0])
+    await this.storage.put('presence', room.absentSince)
     await this.storage.put('meta', meta)
     this.room = room
     this.meta = meta
@@ -90,6 +107,8 @@ export class RoomRuntime {
     await this.load()
     if (!this.room) return socket.close(1011, 'Partie introuvable')
     const outcome = handleConnect(this.room, info.playerId, this.clock())
+    if (outcome.changed) await this.savePresence()
+    if (this.meta?.finishPending) await this.reportFinish()
     await this.afterEvents(outcome)
     if (outcome.changed) this.broadcast()
     else this.sendView(socket, info)
@@ -99,7 +118,9 @@ export class RoomRuntime {
     await this.load()
     if (!this.room) return
     const outcome = handleDisconnect(this.room, info.playerId, this.clock())
-    if (outcome.changed) this.broadcast()
+    if (!outcome.changed) return
+    await this.savePresence()
+    this.broadcast()
   }
 
   async message(socket: Socket, info: SocketInfo, raw: string): Promise<void> {
@@ -185,6 +206,35 @@ export class RoomRuntime {
     }
   }
 
+  /** Écrit les dates d'absence ; un échec n'a pas d'effet sur la partie (au pire, l'absence repart du réveil). */
+  private async savePresence(): Promise<void> {
+    try {
+      await this.storage.put('presence', this.room!.absentSince)
+    } catch (e) {
+      console.error('Présence non enregistrée', e)
+    }
+  }
+
+  /** Enregistre la fin de partie en D1 ; en cas d'échec, la marque en attente pour la retenter plus tard. */
+  private async reportFinish(): Promise<void> {
+    const room = this.room!
+    let pending: boolean
+    try {
+      pending = (await finishTable(this.db, room.tableId, room.winner)).error !== null
+    } catch {
+      pending = true
+    }
+    const meta = this.meta!
+    if ((meta.finishPending ?? false) === pending) return
+    const next = { ...meta, finishPending: pending }
+    try {
+      await this.storage.put('meta', next)
+      this.meta = next
+    } catch (e) {
+      console.error('Métadonnées non enregistrées', e)
+    }
+  }
+
   /** Répercute en D1 l'activité (au plus une fois par minute), l'hôte et la fin de partie. Erreurs D1 sans effet sur la partie. */
   private async afterEvents(outcome: Outcome): Promise<void> {
     const room = this.room!
@@ -202,7 +252,7 @@ export class RoomRuntime {
             await this.storage.put('meta', this.meta)
           }
         }
-        if (event.type === 'finished') await finishTable(this.db, room.tableId, event.winner)
+        if (event.type === 'finished') await this.reportFinish()
       }
     } catch (e) {
       console.error('Mise à jour D1 impossible', e)

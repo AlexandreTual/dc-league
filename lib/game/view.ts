@@ -3,6 +3,9 @@ import { PLAYER_ZONES, type CardView, type GameState, type PlayerView, type Play
 
 const HIDDEN: CardView = { hidden: true }
 
+/** Lignes du journal envoyées dans une vue ; le journal complet reste dans l'état (et le stockage). */
+export const VIEW_LOG_LIMIT = 200
+
 function visibleCard(state: GameState, id: string): VisibleCard {
   const c = state.cards[id]
   return {
@@ -32,6 +35,9 @@ export function viewFor(state: GameState, playerId: string, canUndo = false): Pl
     players[player.id] = { ...rest, zones }
   }
 
+  const log = state.log.filter((l) => l.visibleTo === 'all' || l.visibleTo.includes(playerId))
+  const logStart = Math.max(0, log.length - VIEW_LOG_LIMIT)
+
   return {
     me: playerId,
     format: state.format,
@@ -43,9 +49,8 @@ export function viewFor(state: GameState, playerId: string, canUndo = false): Pl
     players,
     commanderCasts: state.commanderCasts,
     lookingAt: state.lookingAt[playerId] ?? [],
-    log: state.log
-      .filter((l) => l.visibleTo === 'all' || l.visibleTo.includes(playerId))
-      .map(({ turn, actor, text }) => ({ turn, actor, text })),
+    log: log.slice(logStart).map(({ turn, actor, text }) => ({ turn, actor, text })),
+    logStart,
     canUndo,
   }
 }
