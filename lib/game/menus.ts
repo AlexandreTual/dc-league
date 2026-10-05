@@ -2,7 +2,7 @@
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
 import type { ClientAction } from './room'
-import type { Catalog, PlayerView, PlayerZone, Position, TokenData, VisibleCard, ZoneRef } from './types'
+import { OPENING_HAND, type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
 
 export type MenuCommand =
   | { kind: 'action'; action: ClientAction }
@@ -82,6 +82,16 @@ function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: b
   return entries
 }
 
+/**
+ * Cartes encore à mettre au-dessous après un mulligan, main pas encore gardée : la main doit
+ * redescendre à 7 moins une carte par mulligan au-delà du premier (gratuit).
+ */
+export function cardsToBottom(view: PlayerView, player: string): number {
+  const p = view.players[player]
+  if (!p || p.kept) return 0
+  return Math.max(0, p.zones.hand.length - (OPENING_HAND - Math.max(0, p.mulligans - 1)))
+}
+
 /** Entrées pour une carte visible dans une zone donnée ; vide pour un spectateur ou une partie finie. */
 export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): MenuEntry[] {
   const me = ctx.me
@@ -111,8 +121,7 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
   const entries: MenuEntry[] = [title]
   if (zone.zone === 'hand') {
     // Mulligan à payer : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone).
-    const mine = ctx.view.players[me]
-    if (!mine.kept && mine.mulligans > 1) {
+    if (cardsToBottom(ctx.view, me) > 0) {
       entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
     }
     entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))

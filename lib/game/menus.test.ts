@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
-import { cardMenu, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
+import { cardMenu, cardsToBottom, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
 import { applyAction } from './apply'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
@@ -74,6 +74,17 @@ describe('cardMenu', () => {
     const entries = cardMenu(ctx(s), visible(s, id), at('p1', 'hand'))
     expect(labels(entries)[0]).toBe('Mettre au-dessous')
     expect(item(entries, 'Mettre au-dessous')).toEqual([{ kind: 'action', action: { type: 'move', id, to: at('p1', 'library'), position: 'bottom' } }])
+  })
+
+  it('« Mettre au-dessous » disparaît une fois les cartes dues mises dessous', () => {
+    const mull = (st: GameState, seed: number) => applyAction(st, { type: 'mulligan', actor: 'p1', seed })
+    const s = mull(mull(setup(), 1), 2)
+    expect(cardsToBottom(viewFor(s, 'p1'), 'p1')).toBe(1)
+    const first = s.players.p1.zones.hand[0]
+    const after = applyAction(s, { type: 'move', actor: 'p1', id: first, to: at('p1', 'library'), position: 'bottom' })
+    expect(cardsToBottom(viewFor(after, 'p1'), 'p1')).toBe(0)
+    const entries = cardMenu(ctx(after), visible(after, after.players.p1.zones.hand[0]), at('p1', 'hand'))
+    expect(labels(entries)).not.toContain('Mettre au-dessous')
   })
 
   it('pas de « Mettre au-dessous » sans carte à mettre dessous, ni une fois la main gardée', () => {

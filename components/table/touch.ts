@@ -69,6 +69,8 @@ const claimed = new WeakSet<Event>()
 /** Dernier appui long : le menu contextuel natif qui le suit (Android) est ignoré. */
 let lastLongPress = 0
 const SAME_GESTURE_MS = 1000
+/** Délai entre le lever du doigt et le clic qu'il émet, au-delà duquel un clic est un vrai toucher. */
+const CLICK_AFTER_LIFT_MS = 300
 
 /**
  * Annule un glisser dnd-kit en cours ou en attente : ses capteurs écoutent Échap (event.code) sur le document.
@@ -80,12 +82,21 @@ function cancelDrag() {
 
 /** Le clic émis au lever du doigt ne doit pas choisir une entrée du menu qui vient de s'ouvrir dessous. */
 function swallowNextClick() {
+  const done = () => {
+    window.removeEventListener('click', swallow, true)
+    window.removeEventListener('pointerup', lifted, true)
+    window.removeEventListener('pointercancel', lifted, true)
+  }
   const swallow = (e: Event) => {
     e.stopPropagation()
     e.preventDefault()
+    done()
   }
-  window.addEventListener('click', swallow, { capture: true, once: true })
-  setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 600)
+  // Le doigt peut rester posé longtemps : on attend qu'il se lève, puis le clic qui suit de peu.
+  const lifted = () => setTimeout(done, CLICK_AFTER_LIFT_MS)
+  window.addEventListener('click', swallow, true)
+  window.addEventListener('pointerup', lifted, true)
+  window.addEventListener('pointercancel', lifted, true)
 }
 
 /** Un seul doigt à la fois : un appui long en cours au plus, et le menu qu'il ouvrira. */

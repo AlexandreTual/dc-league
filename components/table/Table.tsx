@@ -8,7 +8,7 @@ import {
 import { Crown, Flag } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
-import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { cardMenu, cardsToBottom, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -268,7 +268,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     : view.players[pile.player].zones[pile.zone].filter((c): c is VisibleCard => !c.hidden).reverse()
 
   const mine = me ? view.players[me] : null
-  const toBottom = mine ? Math.max(0, mine.mulligans - 1) : 0
+  const toBottom = me ? cardsToBottom(view, me) : 0
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
