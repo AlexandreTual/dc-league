@@ -42,7 +42,12 @@ async function registerAttempt(db: D1Database, key: string, ip: string | null | 
   const counts = await recordAttempt(db, ipKey ? [key, ipKey] : [key], now)
   if (counts.error !== null) return { error: counts.error }
   const [keyCount, ipCount = 0] = counts.data
-  if (keyCount > MAX_FAILURES || ipCount > MAX_IP_ATTEMPTS) return { blocked: true }
+  if (keyCount > MAX_FAILURES || ipCount > MAX_IP_ATTEMPTS) {
+    // Une tentative refusée ne compte pas : sinon réessayer prolongerait le blocage indéfiniment.
+    await forgetAttempt(db, key, now)
+    if (ipKey) await forgetAttempt(db, ipKey, now)
+    return { blocked: true }
+  }
   return { blocked: false, ipKey }
 }
 

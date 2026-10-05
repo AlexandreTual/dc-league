@@ -72,6 +72,15 @@ describe('loginWithPassword', () => {
     expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD }, minutes(16))).ok).toBe(true)
   })
 
+  it('une tentative refusée (429) ne prolonge pas le blocage', async () => {
+    await createAccount('p1', 'Alex')
+    for (let i = 0; i < 5; i++) await loginWithPassword(db, { username: 'Alex', password: 'mauvais-mdp', ip: '203.0.113.7' }, now)
+    for (let m = 6; m <= 10; m++) {
+      expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD, ip: '203.0.113.7' }, minutes(m))).ok).toBe(false)
+    }
+    expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD, ip: '203.0.113.7' }, minutes(16))).ok).toBe(true)
+  })
+
   it('compte les tentatives simultanées : 5 vérifications au plus', async () => {
     await createAccount('p1', 'Alex')
     const results = await Promise.all(
