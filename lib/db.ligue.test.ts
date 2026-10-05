@@ -59,3 +59,57 @@ describe('doubles clics', () => {
     expect((await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)).toEqual(['semi1', 'semi2', 'final', 'third_place'])
   })
 })
+
+describe('correction d’une demi-finale', () => {
+  // semi1 : p1 contre p4, semi2 : p2 contre p3.
+  async function demiFinalesJouees() {
+    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
+    const s1 = semis.find((p) => p.stage === 'semi1')!
+    const s2 = semis.find((p) => p.stage === 'semi2')!
+    await updatePlayoffScore(db, s1.id, 2, 0)
+    await updatePlayoffScore(db, s2.id, 2, 1)
+    return { s1, s2 }
+  }
+  const stage = async (s: string) => (await listPlayoffs(db, 'l1')).data!.find((p) => p.stage === s)!
+
+  it('met à jour la finale et la petite finale quand le vainqueur change', async () => {
+    const { s1 } = await demiFinalesJouees()
+    expect(await stage('final')).toMatchObject({ player1_id: 'p1', player2_id: 'p2' })
+    expect(await stage('third_place')).toMatchObject({ player1_id: 'p4', player2_id: 'p3' })
+
+    const { data, error } = await updatePlayoffScore(db, s1.id, 1, 2)
+    expect(error).toBeNull()
+    const final = await stage('final')
+    const third = await stage('third_place')
+    expect(final).toMatchObject({ player1_id: 'p4', player2_id: 'p2' })
+    expect(third).toMatchObject({ player1_id: 'p1', player2_id: 'p3' })
+    expect(data!.generated.map((p) => p.id).sort()).toEqual([final.id, third.id].sort())
+    expect((await listPlayoffs(db, 'l1')).data).toHaveLength(4)
+  })
+
+  it('ne touche à rien si le vainqueur ne change pas', async () => {
+    const { s1 } = await demiFinalesJouees()
+    const final = await stage('final')
+    await updatePlayoffScore(db, final.id, 2, 0)
+    const { data, error } = await updatePlayoffScore(db, s1.id, 2, 1)
+    expect(error).toBeNull()
+    expect(data!.generated).toEqual([])
+    expect(await stage('semi1')).toMatchObject({ score_p1: 2, score_p2: 1 })
+    expect(await stage('final')).toMatchObject({ player1_id: 'p1', player2_id: 'p2', score_p1: 2 })
+  })
+
+  it('refuse la correction si la finale a déjà un score', async () => {
+    const { s1 } = await demiFinalesJouees()
+    await updatePlayoffScore(db, (await stage('final')).id, 2, 0)
+    expect((await updatePlayoffScore(db, s1.id, 0, 2)).error).toBe(ERREURS_LIGUE.finalScored)
+    expect(await stage('semi1')).toMatchObject({ score_p1: 2, score_p2: 0 })
+    expect(await stage('final')).toMatchObject({ player1_id: 'p1', player2_id: 'p2' })
+  })
+
+  it('refuse la correction si la petite finale a déjà un score', async () => {
+    const { s2 } = await demiFinalesJouees()
+    await updatePlayoffScore(db, (await stage('third_place')).id, 2, 0)
+    expect((await updatePlayoffScore(db, s2.id, 0, 2)).error).toBe(ERREURS_LIGUE.finalScored)
+    expect(await stage('semi2')).toMatchObject({ score_p1: 2, score_p2: 1 })
+  })
+})
