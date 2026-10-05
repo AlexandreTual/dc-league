@@ -103,8 +103,9 @@ export type GameAction =
   | { type: 'keep'; actor: string }
   | { type: 'draw'; actor: string; count: number }
   | { type: 'shuffle'; actor: string; seed: number }
-  | { type: 'endTurn'; actor: string }
+  | { type: 'endTurn'; actor: string; byHost?: boolean }
   | { type: 'move'; actor: string; id: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
+  | { type: 'moveTop'; actor: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
   | { type: 'giveControl'; actor: string; id: string; to: string }
   | { type: 'tap'; actor: string; id: string }
   | { type: 'untapAll'; actor: string }

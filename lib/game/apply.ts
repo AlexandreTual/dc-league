@@ -148,7 +148,7 @@ function untapAllOf(state: GameState, playerId: string): GameState {
 }
 
 /** Passe au joueur suivant non éliminé : il dégage ses permanents et pioche 1. */
-function passTurn(state: GameState, actor: string | null): GameState {
+function passTurn(state: GameState, actor: string | null, byHost = false): GameState {
   const order = state.turnOrder
   const current = order.indexOf(state.activePlayer)
   for (let step = 1; step <= order.length; step++) {
@@ -158,7 +158,7 @@ function passTurn(state: GameState, actor: string | null): GameState {
     const turn = index <= current ? state.turn + 1 : state.turn
     let s: GameState = { ...state, activePlayer: next, turn, firstTurnDone: true }
     s = draw(untapAllOf(s, next), next, 1)
-    return log(s, actor, `Tour ${turn} : ${s.players[next].name}`)
+    return log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
   }
   return state
 }
@@ -254,7 +254,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(shuffleLibrary(state, action.actor, action.seed), action.actor, 'Mélange sa bibliothèque')
 
     case 'endTurn':
-      return passTurn(state, action.actor)
+      return passTurn(state, action.actor, action.byHost)
+
+    case 'moveTop': {
+      const { type: _type, ...rest } = action
+      return move(state, { ...rest, type: 'move', id: state.players[action.actor].zones.library[0] })
+    }
 
     case 'move':
       return move(state, action)

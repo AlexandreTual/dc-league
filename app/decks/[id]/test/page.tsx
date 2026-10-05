@@ -4,7 +4,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getDeck } from '@/lib/db-decks'
 import { listDeckCards } from '@/lib/db-cards'
 import { buildCatalog } from '@/lib/game/catalog'
-import Playtest from '@/components/playtest/Playtest'
+import LocalTable from '@/components/table/LocalTable'
 
 export const runtime = 'edge'
 
@@ -28,7 +28,7 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
   // Le plateau couvre tout l'écran sous la barre de navigation, sans toucher au layout du site.
   return (
     <div className="fixed inset-x-0 bottom-0 top-16 z-40 bg-dc-bg">
-      <Playtest catalog={catalog} excluded={excluded} deckName={deck.name} />
+      <LocalTable catalog={catalog} excluded={excluded} deckName={deck.name} />
     </div>
   )
 }

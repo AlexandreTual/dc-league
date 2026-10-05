@@ -3,16 +3,20 @@
 import { X } from 'lucide-react'
 import type { PlayerView } from '@/lib/game/types'
 
-/** Journal du mode test : un seul joueur, donc lignes affichées sans le nom de l'auteur. */
+/** Journal de la partie et mes statistiques (aucune pour un spectateur). */
 export default function LogPanel({ view, onClose }: { view: PlayerView; onClose: () => void }) {
   const me = view.players[view.me]
-  const stats: [string, number][] = [
-    ['Tour', view.turn],
-    ['Cartes piochées', me.stats.drawn],
-    ['Terrains joués', me.stats.landsPlayed],
-    ['Mulligans', me.mulligans],
-    ['Bibliothèque', me.zones.library.count],
-  ]
+  // À plusieurs, chaque ligne porte le nom de son auteur (les lignes du serveur n'en ont pas).
+  const author = (actor: string | null) => (Object.keys(view.players).length > 1 && actor ? view.players[actor]?.name : null)
+  const stats: [string, number][] = me
+    ? [
+        ['Tour', view.turn],
+        ['Cartes piochées', me.stats.drawn],
+        ['Terrains joués', me.stats.landsPlayed],
+        ['Mulligans', me.mulligans],
+        ['Bibliothèque', me.zones.library.count],
+      ]
+    : [['Tour', view.turn]]
   return (
     <aside className="absolute top-0 right-0 bottom-0 z-50 w-80 bg-dc-surface border-l border-dc-border flex flex-col shadow-card" aria-label="Journal">
       <div className="flex items-center px-4 py-3 border-b border-dc-border">
@@ -30,7 +34,9 @@ export default function LogPanel({ view, onClose }: { view: PlayerView; onClose:
       <ol className="flex-1 overflow-y-auto px-4 py-3 space-y-1 text-sm" data-testid="log">
         {[...view.log].reverse().map((entry, i) => (
           <li key={view.log.length - i} className="text-dc-text">
-            <span className="text-dc-muted mr-2">T{entry.turn}</span>{entry.text}
+            <span className="text-dc-muted mr-2">T{entry.turn}</span>
+            {author(entry.actor) && <span className="text-dc-gold mr-1.5">{author(entry.actor)}</span>}
+            {entry.text}
           </li>
         ))}
       </ol>

@@ -265,3 +265,18 @@ describe('fin de partie', () => {
     expect(r.finished).toBe(false)
   })
 })
+
+describe('passage de tour par l’hôte au journal', () => {
+  it('commande hôte : mention ; action du joueur avec byHost : ignorée', () => {
+    const r = room()
+    keepAll(r)
+    const active = state(r).activePlayer
+    if (active === 'p1') act(r, 'p1', { type: 'endTurn' })
+    const target = state(r).activePlayer
+    handleMessage(r, 'p1', { type: 'host', op: 'passTurn', target }, ctx())
+    expect(state(r).log.at(-1)?.text).toMatch(/\(passé par l’hôte\)$/)
+    const next = state(r).activePlayer
+    act(r, next, { type: 'endTurn', byHost: true } as ClientAction)
+    expect(state(r).log.at(-1)?.text).not.toMatch(/passé par l’hôte/)
+  })
+})
