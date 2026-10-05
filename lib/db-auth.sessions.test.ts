@@ -3,7 +3,7 @@ import { createTestDb } from '@/test/d1'
 import {
   clearFailures,
   countRecentFailures,
-  createInvitation,
+  INVITATION_TTL_MS, createInvitation,
   createUserFromInvitation,
   deleteExpiredSessions,
   deleteSession,
@@ -23,7 +23,7 @@ let userId: string
 beforeEach(async () => {
   db = createTestDb()
   await db.prepare("INSERT INTO players (id, name, avatar_url) VALUES ('p1', 'Alex', 'https://img/a.png')").run()
-  await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: true, now })
+  await createInvitation(db, { idHash: 'i1', playerId: 'p1', kind: 'signup', grantAdmin: true, now, ttlMs: INVITATION_TTL_MS })
   userId = (await createUserFromInvitation(db, { invitationId: 'i1', username: 'Alex', passwordHash: 'h', now })).data!.id
 })
 

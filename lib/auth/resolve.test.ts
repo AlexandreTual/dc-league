@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
-import { createInvitation, createUserFromInvitation, getSessionWithUser, insertSession } from '@/lib/db-auth'
+import { INVITATION_TTL_MS, createInvitation, createUserFromInvitation, getSessionWithUser, insertSession } from '@/lib/db-auth'
 import { hashToken } from './crypto'
 import { BOOTSTRAP_USER_ID, resolveSession } from './resolve'
 
@@ -12,7 +12,7 @@ let userId: string
 
 async function addUser(playerId: string, name: string, grantAdmin: boolean) {
   await db.prepare('INSERT INTO players (id, name) VALUES (?, ?)').bind(playerId, name).run()
-  await createInvitation(db, { idHash: `inv-${playerId}`, playerId, kind: 'signup', grantAdmin, now })
+  await createInvitation(db, { idHash: `inv-${playerId}`, playerId, kind: 'signup', grantAdmin, now, ttlMs: INVITATION_TTL_MS })
   return (await createUserFromInvitation(db, { invitationId: `inv-${playerId}`, username: name, passwordHash: 'h', now })).data!.id
 }
 

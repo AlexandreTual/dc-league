@@ -9,7 +9,7 @@ const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite')
 type Sqlite = InstanceType<typeof DatabaseSync>
 type Value = string | number | bigint | null | Uint8Array
 
-const MIGRATIONS = ['0001_schema.sql', '0002_accounts.sql', '0003_deck_cards.sql', '0004_game_tables.sql']
+const MIGRATIONS = ['0001_schema.sql', '0002_accounts.sql', '0003_deck_cards.sql', '0004_game_tables.sql', '0005_email.sql']
 
 class Statement {
   constructor(

@@ -8,6 +8,7 @@ export type DbUser = {
   username: string
   password_hash: string | null
   is_admin: boolean
+  email: string | null
   created_at: string
 }
 
@@ -24,13 +25,14 @@ export type DbInvitation = {
 
 export type AccountStatus =
   | { status: 'none' }
-  | { status: 'pending'; expiresAt: string }
-  | { status: 'account'; userId: string; username: string; isAdmin: boolean }
+  | { status: 'pending'; expiresAt: string; email: string | null }
+  | { status: 'account'; userId: string; username: string; isAdmin: boolean; email: string | null }
 
 export const AUTH_ERR = {
   USERNAME_TAKEN: 'USERNAME_TAKEN',
   PLAYER_HAS_ACCOUNT: 'PLAYER_HAS_ACCOUNT',
   INVITATION_INVALID: 'INVITATION_INVALID',
+  EMAIL_TAKEN: 'EMAIL_TAKEN',
   LAST_ADMIN: 'LAST_ADMIN',
   NOT_FOUND: 'NOT_FOUND',
 } as const
@@ -51,6 +53,7 @@ function normalizeUser(row: Record<string, unknown>): DbUser {
     username: row.username as string,
     password_hash: (row.password_hash as string) ?? null,
     is_admin: Number(row.is_admin) === 1,
+    email: (row.email as string) ?? null,
     created_at: row.created_at as string,
   }
 }
@@ -59,6 +62,7 @@ function uniqueViolation(e: unknown): string | null {
   const msg = (e as Error).message ?? ''
   if (msg.includes('users.username')) return AUTH_ERR.USERNAME_TAKEN
   if (msg.includes('users.player_id')) return AUTH_ERR.PLAYER_HAS_ACCOUNT
+  if (msg.includes('users.email') || msg.includes('idx_users_email')) return AUTH_ERR.EMAIL_TAKEN
   return null
 }
 
@@ -73,6 +77,29 @@ export async function getUserByUsername(db: D1Database, username: string): Promi
     return ok(row ? normalizeUser(row) : null)
   } catch (e) {
     return err((e as Error).message)
+  }
+}
+
+export async function getUserByEmail(db: D1Database, email: string): Promise<Result<DbUser | null>> {
+  try {
+    if (!email) return ok(null)
+    const row = await db
+      .prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE')
+      .bind(email)
+      .first<Record<string, unknown>>()
+    return ok(row ? normalizeUser(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Adresse du compte (null pour l'effacer) ; EMAIL_TAKEN si un autre compte la porte. */
+export async function setUserEmail(db: D1Database, userId: string, email: string | null): Promise<Result<true>> {
+  try {
+    await db.prepare('UPDATE users SET email = ? WHERE id = ?').bind(email, userId).run()
+    return ok(true)
+  } catch (e) {
+    return err(uniqueViolation(e) ?? (e as Error).message)
   }
 }
 
@@ -137,10 +164,10 @@ export async function setAdmin(db: D1Database, userId: string, isAdmin: boolean)
 export async function listAccountStatuses(db: D1Database, now: Date): Promise<Result<Record<string, AccountStatus>>> {
   try {
     const [{ results: users }, { results: invitations }] = await Promise.all([
-      db.prepare('SELECT id, player_id, username, is_admin FROM users').all<Record<string, unknown>>(),
+      db.prepare('SELECT id, player_id, username, is_admin, email FROM users').all<Record<string, unknown>>(),
       db
         .prepare(
-          `SELECT player_id, MAX(expires_at) AS expires_at FROM invitations
+          `SELECT player_id, MAX(expires_at) AS expires_at, email FROM invitations
            WHERE kind = 'signup' AND used_at IS NULL AND expires_at > ?
            GROUP BY player_id`,
         )
@@ -149,7 +176,7 @@ export async function listAccountStatuses(db: D1Database, now: Date): Promise<Re
     ])
     const statuses: Record<string, AccountStatus> = {}
     for (const inv of invitations) {
-      statuses[inv.player_id as string] = { status: 'pending', expiresAt: inv.expires_at as string }
+      statuses[inv.player_id as string] = { status: 'pending', expiresAt: inv.expires_at as string, email: (inv.email as string) ?? null }
     }
     for (const u of users) {
       statuses[u.player_id as string] = {
@@ -157,6 +184,7 @@ export async function listAccountStatuses(db: D1Database, now: Date): Promise<Re
         userId: u.id as string,
         username: u.username as string,
         isAdmin: Number(u.is_admin) === 1,
+        email: (u.email as string) ?? null,
       }
     }
     return ok(statuses)
@@ -169,15 +197,15 @@ export async function listAccountStatuses(db: D1Database, now: Date): Promise<Re
 
 export async function createInvitation(
   db: D1Database,
-  input: { idHash: string; playerId: string; kind: InvitationKind; grantAdmin: boolean; now: Date },
+  input: { idHash: string; playerId: string; kind: InvitationKind; grantAdmin: boolean; now: Date; ttlMs: number; email?: string | null },
 ): Promise<Result<{ expiresAt: string }>> {
   try {
-    const expiresAt = new Date(input.now.getTime() + INVITATION_TTL_MS).toISOString()
+    const expiresAt = new Date(input.now.getTime() + input.ttlMs).toISOString()
     await db.batch([
       db.prepare('DELETE FROM invitations WHERE player_id = ? AND used_at IS NULL').bind(input.playerId),
       db
-        .prepare('INSERT INTO invitations (id, player_id, kind, grant_admin, expires_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(input.idHash, input.playerId, input.kind, input.grantAdmin ? 1 : 0, expiresAt),
+        .prepare('INSERT INTO invitations (id, player_id, kind, grant_admin, expires_at, email) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(input.idHash, input.playerId, input.kind, input.grantAdmin ? 1 : 0, expiresAt, input.email ?? null),
     ])
     return ok({ expiresAt })
   } catch (e) {
@@ -223,8 +251,11 @@ export async function createUserFromInvitation(
     const [insert] = await db.batch([
       db
         .prepare(
-          `INSERT INTO users (id, player_id, username, password_hash, is_admin)
-           SELECT ?, player_id, ?, ?, grant_admin FROM invitations WHERE ${VALID_INVITATION}`,
+          // L'adresse de l'invitation est reprise sauf si un autre compte la porte déjà entre-temps.
+          `INSERT INTO users (id, player_id, username, password_hash, is_admin, email)
+           SELECT ?, player_id, ?, ?, grant_admin,
+                  CASE WHEN EXISTS (SELECT 1 FROM users WHERE email = invitations.email COLLATE NOCASE) THEN NULL ELSE email END
+           FROM invitations WHERE ${VALID_INVITATION}`,
         )
         .bind(userId, input.username, input.passwordHash, input.invitationId, 'signup', nowIso),
       db
@@ -412,6 +443,60 @@ export async function playerExists(db: D1Database, playerId: string): Promise<Re
   try {
     const row = await db.prepare('SELECT 1 AS found FROM players WHERE id = ?').bind(playerId).first()
     return ok(row !== null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Mot de passe oublié ───────────────────────────────────────────────────────
+
+export const PASSWORD_REQUEST_WINDOW_MS = 3600 * 1000
+
+const requestWindowStart = (now: Date) => new Date(now.getTime() - PASSWORD_REQUEST_WINDOW_MS).toISOString()
+
+export async function countPasswordRequests(db: D1Database, userId: string, now: Date): Promise<Result<number>> {
+  try {
+    const row = await db
+      .prepare('SELECT COUNT(*) AS n FROM password_requests WHERE user_id = ? AND requested_at > ?')
+      .bind(userId, requestWindowStart(now))
+      .first<{ n: number }>()
+    return ok(Number(row?.n ?? 0))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function recordPasswordRequest(db: D1Database, userId: string, now: Date): Promise<Result<true>> {
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM password_requests WHERE requested_at <= ?').bind(requestWindowStart(now)),
+      db.prepare('INSERT INTO password_requests (user_id, requested_at) VALUES (?, ?)').bind(userId, now.toISOString()),
+    ])
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Boîte de test (MAIL_TEST=1) ───────────────────────────────────────────────
+
+export type TestMail = { to: string; subject: string; text: string; created_at: string }
+
+export async function insertTestMail(db: D1Database, mail: { to: string; subject: string; text: string }): Promise<Result<true>> {
+  try {
+    await db.prepare('INSERT INTO test_mails (to_email, subject, text) VALUES (?, ?, ?)').bind(mail.to, mail.subject, mail.text).run()
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function listTestMails(db: D1Database): Promise<Result<TestMail[]>> {
+  try {
+    const { results } = await db
+      .prepare('SELECT to_email, subject, text, created_at FROM test_mails ORDER BY id DESC LIMIT 20')
+      .all<Record<string, unknown>>()
+    return ok(results.map((r) => ({ to: r.to_email as string, subject: r.subject as string, text: r.text as string, created_at: r.created_at as string })))
   } catch (e) {
     return err((e as Error).message)
   }

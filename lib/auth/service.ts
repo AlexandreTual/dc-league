@@ -11,6 +11,7 @@ import {
   getUserByPlayerId,
   getUserByUsername,
   getValidInvitation,
+  INVITATION_TTL_MS,
   insertSession,
   playerExists,
   recordFailure,
@@ -125,6 +126,7 @@ export async function issueInvitation(
     kind: input.kind,
     grantAdmin: input.kind === 'signup' && input.grantAdmin,
     now,
+    ttlMs: INVITATION_TTL_MS,
   })
   if (r.error !== null) return internal(r.error)
   return { ok: true, value: { token, expiresAt: r.data.expiresAt } }
