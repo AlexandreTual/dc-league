@@ -15,6 +15,7 @@ import {
   type PlayerState,
   type PlayerZone,
   type Position,
+  type Seed,
   type ZoneRef,
 } from './types'
 
@@ -142,7 +143,7 @@ function draw(state: GameState, playerId: string, count: number): GameState {
   }
 }
 
-function shuffleLibrary(state: GameState, playerId: string, seed: number): GameState {
+function shuffleLibrary(state: GameState, playerId: string, seed: Seed): GameState {
   const library = state.players[playerId].zones.library
   const cards = { ...state.cards }
   for (const id of library) cards[id] = { ...cards[id], knownBy: [] }
@@ -203,6 +204,10 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
   const patch: Partial<CardInstance> = { knownBy: action.faceDown ? [action.actor] : [] }
   if (from.zone === 'battlefield') Object.assign(patch, { tapped: false, flipped: false, faceDown: false, counters: NO_COUNTERS })
   if (action.faceDown) patch.faceDown = true
+  // Face cachée n'a de sens que sur le champ de bataille et en exil : ailleurs, la carte redevient normale.
+  if (to.zone !== 'battlefield' && to.zone !== 'exile') patch.faceDown = false
+  // Une carte qui reste face cachée (exil → champ de bataille…) garde ceux qui la connaissaient.
+  else if (card.faceDown && from.zone !== 'battlefield' && !action.faceDown) patch.knownBy = card.knownBy
   if (to.zone === 'battlefield') {
     patch.x = clampPct(action.x ?? 50)
     patch.y = clampPct(action.y ?? 50)
@@ -230,8 +235,11 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'start': {
       let s: GameState = { ...state, started: true }
+      // Anciennes parties : graines dérivées (graine + rang) ; nouvelles : une graine indépendante par joueur.
+      const seedOf = (id: string, i: number): Seed =>
+        action.seeds?.[id] ?? (typeof action.seed === 'number' ? action.seed + i : `${action.seed}:${i}`)
       Object.keys(s.players).forEach((id, i) => {
-        s = draw(shuffleLibrary(s, id, action.seed + i), id, OPENING_HAND)
+        s = draw(shuffleLibrary(s, id, seedOf(id, i)), id, OPENING_HAND)
       })
       const turnOrder = shuffle(Object.keys(s.players), action.seed)
       s = { ...s, turnOrder, activePlayer: turnOrder[0] }
@@ -283,7 +291,11 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const from = zoneOf(state, action.id)!
       let s = setZone(state, from, state.players[from.player].zones.battlefield.filter((id) => id !== action.id))
       s = setZone(s, { player: action.to, zone: 'battlefield' }, [...s.players[action.to].zones.battlefield, action.id])
-      return log(s, action.actor, `donne le contrôle de ${cardName(state, action.id)} à ${state.players[action.to].name}`)
+      // Règle 708.5 : le contrôleur d'une carte face cachée peut la regarder.
+      const card = state.cards[action.id]
+      if (card.faceDown) s = setCard(s, action.id, { knownBy: [...new Set([...card.knownBy, action.to])] })
+      const what = state.cards[action.id].faceDown ? 'd’une carte face cachée' : `de ${cardName(state, action.id)}`
+      return log(s, action.actor, `donne le contrôle ${what} à ${state.players[action.to].name}`)
     }
 
     case 'tap':
@@ -312,8 +324,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     }
 
     case 'flip': {
-      const flipped = !state.cards[action.id].flipped
-      return log(setCard(state, action.id, { flipped }), action.actor, `Transforme ${cardName(state, action.id)}`)
+      const card = state.cards[action.id]
+      const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
+      return log(setCard(state, action.id, { flipped: !card.flipped }), action.actor, `Transforme ${name}`)
     }
 
     case 'faceDown': {
