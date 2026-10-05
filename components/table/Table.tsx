@@ -5,6 +5,7 @@ import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
+import { Crown, Flag } from 'lucide-react'
 import { shortcutFor } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
@@ -20,7 +21,7 @@ import PlayerPanel from './PlayerPanel'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
-import TopBar from './TopBar'
+import TopBar, { barButton } from './TopBar'
 import type { GameSource } from './source'
 import type { CardHandlers } from './zones'
 
@@ -63,7 +64,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[] } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[] } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
@@ -204,6 +205,22 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
+  /** Commandes de l'hôte : passer le tour du joueur actif (s'il n'est pas l'hôte), éliminer, clore. */
+  const hostItems = (): MenuItem[] => {
+    const host = source.online?.hostCommands
+    if (!host) return []
+    const name = (p: string) => view.players[p].name
+    const items: MenuItem[] = [{ kind: 'title', label: 'Hôte' }]
+    if (view.activePlayer !== me) {
+      items.push({ kind: 'action', label: `Passer le tour de ${name(view.activePlayer)}`, onSelect: () => host.passTurn(view.activePlayer) })
+    }
+    for (const p of opponents.filter((p) => !view.players[p].eliminated)) {
+      items.push({ kind: 'action', label: `Éliminer ${name(p)}`, onSelect: () => confirm(`Éliminer ${name(p)} ?`) && host.eliminate(p) })
+    }
+    items.push({ kind: 'separator' }, { kind: 'action', label: 'Clore la partie', onSelect: () => confirm('Clore la partie sans vainqueur ?') && host.close() })
+    return items
+  }
+
   const panelFor = (player: string, onTitleClick?: () => void, compact = false) => (
     <PlayerPanel
       view={view} player={player} catalogs={catalogs} lang={lang}
@@ -235,12 +252,31 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         onToken={() => setTokenOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
+        extra={source.online && me && !finished && (
+          <>
+            {source.online.hostCommands && (
+              <button className={barButton} onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, entries: [], items: hostItems() })}>
+                <Crown className="w-3.5 h-3.5 text-dc-gold" /> Hôte
+              </button>
+            )}
+            {!mine?.eliminated && (
+              <button className={barButton} onClick={() => confirm('Abandonner la partie ?') && source.online?.concede()}>
+                <Flag className="w-3.5 h-3.5" /> Abandonner
+              </button>
+            )}
+          </>
+        )}
       />
 
       {notice}
 
       {!me && (
         <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">Tu regardes cette partie</div>
+      )}
+      {finished && (
+        <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30" data-testid="finished">
+          {source.online?.winner ? `Victoire de ${view.players[source.online.winner]?.name ?? '?'}` : 'Partie close'}
+        </div>
       )}
 
       {mine && !mine.kept && canAct && (
@@ -305,7 +341,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={toItems(menu.entries)} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(menu.entries)} />}
       {pile && (
         <PileModal
           title={pile.title}
