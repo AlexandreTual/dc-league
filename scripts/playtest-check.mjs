@@ -46,6 +46,10 @@ try {
   await page.goto(`${base}/decks/${deckId}/test`)
   await page.waitForSelector('[data-zone="hand"] [data-card-id]')
 
+  // Plein écran : le haut de la fenêtre appartient à la table, pas à la barre du site.
+  const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
+  check(await coversSite(page), 'plein écran : la table couvre la barre du site')
+
   check((await handCount()) === 7, 'main de départ de 7 cartes')
   check(await page.locator('[data-testid="mulligan-banner"]').isVisible(), 'bandeau de mulligan affiché')
   await capture('depart')

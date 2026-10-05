@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const { env } = getRequestContext<CloudflareEnv>()
   const { data: table } = await getTable(env.DB, id)
-  if (!table || table.status === 'open') return NextResponse.json({ error: 'Partie introuvable' }, { status: 404 })
+  if (!table || table.status === 'open' || table.status === 'starting') return NextResponse.json({ error: 'Partie introuvable' }, { status: 404 })
 
   // En-têtes reconstruits : rien de ce que le navigateur envoie ne passe, hormis la poignée de main WebSocket.
   const headers = new Headers({ Upgrade: 'websocket' })

@@ -189,6 +189,61 @@ describe('D1', () => {
     expect((await getTable(db, tableId)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p2' })
     expect(storage.data.get('meta')).toMatchObject({ finished: true, winner: 'p2' })
   })
+
+  it('fin de partie non enregistrée en D1 : retentée à la connexion suivante ou par sync', async () => {
+    const real = db
+    let failFinish = true
+    const flaky = {
+      ...real,
+      prepare: (sql: string) => {
+        if (failFinish && sql.includes("status = 'finished'")) throw new Error('D1 indisponible')
+        return real.prepare(sql)
+      },
+    } as D1Database
+    const rt = new RoomRuntime(storage, flaky, () => sockets, () => now, () => 42)
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    await open(rt, 'p2')
+    await send(rt, s1, { type: 'host', op: 'eliminate', target: 'p2' })
+    expect((await getTable(real, tableId)).data!.status).toBe('playing')
+    expect(storage.data.get('meta')).toMatchObject({ finished: true, finishPending: true })
+
+    // Réveil : toujours en échec, puis D1 revient.
+    const awake = new RoomRuntime(storage, flaky, () => sockets, () => now, () => 42)
+    await awake.sync()
+    expect(storage.data.get('meta')).toMatchObject({ finishPending: true })
+    failFinish = false
+    await awake.sync()
+    expect((await getTable(real, tableId)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p1' })
+    expect(storage.data.get('meta')).toMatchObject({ finishPending: false })
+  })
+})
+
+describe('présence à travers l’hibernation', () => {
+  it('la date d’absence de l’hôte est enregistrée : son rôle passe même si l’objet a dormi', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const s2 = await open(rt, 'p2')
+    sockets = sockets.filter((s) => s.socket !== s1)
+    await rt.disconnect(s1, { playerId: 'p1' })
+    expect(storage.data.get('presence')).toEqual({ p1: now })
+
+    // L'objet dort 6 minutes puis se réveille sur un message de p2.
+    now += 6 * 60_000
+    const awake = runtime()
+    await send(awake, s2, { type: 'action', action: { type: 'draw', count: 1 } })
+    expect(awake.state()!.hostId).toBe('p2')
+    expect((await getTable(db, tableId)).data!.hostPlayerId).toBe('p2')
+  })
+
+  it('reconnexion : la présence enregistrée est effacée', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    expect(storage.data.get('presence')).toEqual({ p1: now, p2: now })
+    await open(rt, 'p1')
+    expect(storage.data.get('presence')).toEqual({ p2: now })
+  })
 })
 
 describe('destroy et nettoyage', () => {
@@ -210,8 +265,31 @@ describe('destroy et nettoyage', () => {
       get: (id: string) => ({ fetch: async (url: string, init?: RequestInit) => { deleted.push(`${init?.method} ${id} ${url}`); return new Response(null) } }),
     } as unknown as DurableObjectNamespace
     expect(await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))).toBe(1)
-    expect(deleted).toEqual([`DELETE ${tableId} https://game/tables/${tableId}`])
+    expect(deleted).toEqual([
+      `POST ${tableId} https://game/tables/${tableId}/sync`,
+      `DELETE ${tableId} https://game/tables/${tableId}`,
+    ])
     expect((await getTable(db, tableId)).data).toBeNull()
     expect((await getTable(db, fresh)).data).not.toBeNull()
+  })
+
+  it('cleanupStale : l’échec d’une table n’arrête pas les suivantes ; table gardée si sa partie reste', async () => {
+    const other = (await createTable(db, { hostPlayerId: 'p2', format: 'duel', seats: 2, eliminatedSeeAll: false })).data!.id
+    const third = (await createTable(db, { hostPlayerId: 'p2', format: 'duel', seats: 2, eliminatedSeeAll: false })).data!.id
+    await db.prepare("UPDATE game_tables SET last_activity_at = '2026-09-01 00:00:00'").run()
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: (id: string) => ({
+        fetch: async () => {
+          if (id === tableId) throw new Error('objet injoignable')
+          if (id === other) return new Response(null, { status: 500 })
+          return new Response(null)
+        },
+      }),
+    } as unknown as DurableObjectNamespace
+    expect(await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))).toBe(1)
+    expect((await getTable(db, tableId)).data).not.toBeNull()
+    expect((await getTable(db, other)).data).not.toBeNull()
+    expect((await getTable(db, third)).data).toBeNull()
   })
 })

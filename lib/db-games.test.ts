@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestDb } from '@/test/d1'
+import { MIGRATIONS, createTestDb, readMigration } from '@/test/d1'
 import {
-  chooseDeck, createTable, deleteTable, finishTable, getTable, joinTable, leaveTable, listTables, markPlaying,
-  removeSeat, setHost, staleTables, startCheck, touchActivity,
+  chooseDeck, claimStart, createTable, deleteTable, finishTable, getTable, joinTable, leaveTable, listTables, markPlaying,
+  playingTables, releaseStart, removeSeat, setHost, staleTables, startCheck, touchActivity,
 } from './db-games'
 
 let db: D1Database
@@ -46,6 +46,51 @@ describe('joinTable', () => {
     await markPlaying(db, id)
     expect((await joinTable(db, id, 'p3')).error).toBe('La partie a déjà commencé')
     expect((await joinTable(db, 'zzz', 'p3')).error).toBe('Table introuvable')
+  })
+})
+
+describe('joinTable concurrents', () => {
+  it('jamais plus de joueurs que de places, même en simultané', async () => {
+    const { id } = (await commander(3)).data!
+    const results = await Promise.all(['p2', 'p3', 'p4'].map((p) => joinTable(db, id, p)))
+    expect(results.filter((r) => r.error === null)).toHaveLength(2)
+    expect(results.filter((r) => r.error === 'Table complète')).toHaveLength(1)
+    expect((await getTable(db, id)).data!.players.map((p) => p.seat)).toEqual([1, 2, 3])
+  })
+})
+
+describe('réservation du démarrage', () => {
+  it('une seule réservation, par l’hôte ; ensuite plus de changement de places ni de deck', async () => {
+    const { id } = (await commander()).data!
+    await joinTable(db, id, 'p2')
+    await joinTable(db, id, 'p3')
+    expect((await claimStart(db, id, 'p2')).data).toBe(false)
+    const claims = await Promise.all([claimStart(db, id, 'p1'), claimStart(db, id, 'p1')])
+    expect(claims.map((c) => c.data).sort()).toEqual([false, true])
+    expect((await getTable(db, id)).data!.status).toBe('starting')
+
+    expect((await joinTable(db, id, 'p4')).error).toBe('La partie a déjà commencé')
+    expect((await leaveTable(db, id, 'p2')).error).toBe('La partie a déjà commencé')
+    expect((await chooseDeck(db, id, 'p2', 'd-p2')).error).toBe('La partie a déjà commencé')
+    expect((await removeSeat(db, id, 'p1', 'p3')).error).toBe('La partie a déjà commencé')
+    expect((await getTable(db, id)).data!.players.map((p) => [p.playerId, p.deckId])).toEqual([['p1', null], ['p2', null], ['p3', null]])
+
+    await releaseStart(db, id)
+    expect((await getTable(db, id)).data!.status).toBe('open')
+    expect((await joinTable(db, id, 'p4')).error).toBeNull()
+  })
+
+  it('migration 0006 : places conservées, statut starting accepté', async () => {
+    const old = createTestDb(MIGRATIONS.filter((f) => f < '0006'))
+    await old.prepare("INSERT INTO players (id, name) VALUES ('p1', 'Alex'), ('p2', 'Bob')").run()
+    await old.prepare("INSERT INTO game_tables (id, host_player_id, format, seats) VALUES ('t', 'p1', 'commander', 4)").run()
+    await old.prepare("INSERT INTO game_seats (table_id, player_id, seat) VALUES ('t', 'p1', 1), ('t', 'p2', 2)").run()
+    await old.exec(readMigration('0006_table_starting.sql'))
+    expect((await getTable(old, 't')).data!.players.map((p) => p.playerId)).toEqual(['p1', 'p2'])
+    expect((await claimStart(old, 't', 'p1')).data).toBe(true)
+    await deleteTable(old, 't')
+    const seats = await old.prepare('SELECT COUNT(*) AS n FROM game_seats').first<{ n: number }>()
+    expect(seats!.n).toBe(0)
   })
 })
 
@@ -118,6 +163,7 @@ describe('cycle de vie', () => {
     await markPlaying(db, b)
     await finishTable(db, c, 'p1')
     expect((await listTables(db)).data!.map((t) => t.id)).toEqual([b, a])
+    expect((await playingTables(db)).data).toEqual([b])
     expect((await getTable(db, c)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p1' })
   })
 
