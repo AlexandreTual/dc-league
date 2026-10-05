@@ -15,7 +15,7 @@ export type GameSource = {
   error: string | null
   mode: 'local' | 'online'
   online?: {
-    status: 'connecting' | 'open' | 'reconnecting'
+    status: 'connecting' | 'open' | 'reconnecting' | 'closed'
     host: string
     players: string[]
     finished: boolean
