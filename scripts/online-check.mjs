@@ -205,12 +205,35 @@ try {
   check(leaks(chloe).length === 0, `aucune donnée de carte cachée reçue par Chloé (${leaks(chloe).join(', ')})`)
   await ana.page.getByRole('button', { name: 'Fermer' }).click()
 
+  // ── Ana voit en permanence la carte du dessus de sa bibliothèque, pour elle seule ──
+  const anaLibrary = board(ana, ANA.id).locator('[data-zone="library"]')
+  await anaLibrary.click({ button: 'right' })
+  await ana.page.getByRole('menuitem', { name: 'Voir la carte du dessus (pour moi seul)' }).click()
+  await anaLibrary.locator('img').waitFor()
+  const peeked = lastView(ana).players[ANA.id].zones.library.visible.find((v) => v.index === 0)?.card.id
+  check(!!peeked, `Ana voit la carte du dessus de sa bibliothèque (${peeked})`)
+  await capture(ana, 'voir-dessus')
+  await bastien.page.waitForTimeout(500)
+  check(lastView(bastien).players[ANA.id].zones.library.visible.length === 0, 'Bastien voit toujours un dos de carte')
+  check(!JSON.stringify(bastien.frames).includes(`"${peeked}"`), 'Bastien ne reçoit aucune donnée de la carte du dessus d’Ana')
+  check(leaks(bastien).length === 0, `aucune donnée de carte cachée reçue par Bastien (${leaks(bastien).join(', ')})`)
+
   // ── moveTop : Ana glisse le dessus de sa bibliothèque sur son champ de bataille ──
   const myBattlefield = board(ana, ANA.id).locator('[data-zone="battlefield"] [data-card-id]')
   const onBattlefield = await myBattlefield.count()
   await drag(ana, board(ana, ANA.id).locator(`[data-card-id="top:${ANA.id}"]`), board(ana, ANA.id).locator('[data-zone="battlefield"]'))
   await ana.page.waitForFunction(([id, n]) => document.querySelectorAll(`[data-board="${id}"] [data-zone="battlefield"] [data-card-id]`).length === n, [ANA.id, onBattlefield + 1])
   check(true, 'Ana glisse la carte du dessus de sa bibliothèque sur son champ de bataille')
+  await board(ana, ANA.id).locator(`[data-zone="battlefield"] [data-card-id="${peeked}"]`).waitFor()
+  await anaLibrary.locator('img').waitFor()
+  const nextTop = lastView(ana).players[ANA.id].zones.library.visible.find((v) => v.index === 0)?.card.id
+  check(!!nextTop && nextTop !== peeked, `la carte vue est sur le champ de bataille, Ana voit la suivante (${nextTop})`)
+  await bastien.page.waitForTimeout(500)
+  check(!JSON.stringify(bastien.frames).includes(`"${nextTop}"`), 'Bastien ne reçoit rien de la nouvelle carte du dessus')
+  await anaLibrary.click({ button: 'right' })
+  await ana.page.getByRole('menuitem', { name: 'Ne plus voir la carte du dessus' }).click()
+  await ana.page.waitForFunction((id) => !document.querySelector(`[data-board="${id}"] [data-zone="library"] img`), ANA.id)
+  check(true, 'Ana ne voit plus la carte du dessus : dos de carte')
 
   // ── Rechargement ──
   const chloeHand = await myHand(chloe).count()

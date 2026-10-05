@@ -7,7 +7,7 @@ describe('createInitialState', () => {
     const s = createInitialState(setupFor('commander', 4))
     expect(Object.keys(s.players)).toEqual(['p1', 'p2', 'p3', 'p4'])
     for (const p of Object.values(s.players)) {
-      expect(p).toMatchObject({ life: 40, poison: 0, kept: false, mulligans: 0, eliminated: false, topRevealed: false })
+      expect(p).toMatchObject({ life: 40, poison: 0, kept: false, mulligans: 0, eliminated: false, topRevealed: false, peekTop: false })
       expect(p.zones.library).toHaveLength(32)
       expect(p.zones.command).toEqual([`${p.id}:c1-1`])
       expect(p.zones.hand).toEqual([])

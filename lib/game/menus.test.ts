@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { cardMenu, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
+import { applyAction } from './apply'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
 
@@ -147,7 +148,16 @@ describe('libraryMenu et handMenu', () => {
     const entries = libraryMenu(ctx(s), 'p1')
     expect(entries[0]).toEqual({ kind: 'title', label: `Bibliothèque (${s.players.p1.zones.library.length})` })
     expect(labels(entries)).toEqual(['Piocher 1', 'Piocher N…', 'Mélanger', 'Regarder les X du dessus…', 'Chercher une carte…',
-      'Révéler la carte du dessus', 'Jouer avec la carte du dessus révélée'])
+      'Révéler la carte du dessus', 'Jouer avec la carte du dessus révélée', 'Voir la carte du dessus (pour moi seul)'])
+    expect(item(entries, 'Voir la carte du dessus (pour moi seul)')).toEqual([{ kind: 'action', action: { type: 'togglePeekTop' } }])
+  })
+
+  it('ma bibliothèque, option active : « Ne plus voir la carte du dessus »', () => {
+    const s = applyAction(setup(), { type: 'togglePeekTop', actor: 'p1' })
+    const entries = libraryMenu(ctx(s), 'p1')
+    expect(labels(entries)).toContain('Ne plus voir la carte du dessus')
+    expect(labels(entries)).not.toContain('Voir la carte du dessus (pour moi seul)')
+    expect(item(entries, 'Ne plus voir la carte du dessus')).toEqual([{ kind: 'action', action: { type: 'togglePeekTop' } }])
   })
 
   it('bibliothèque d’un adversaire : regarder ou chercher', () => {

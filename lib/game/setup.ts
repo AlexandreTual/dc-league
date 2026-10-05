@@ -32,6 +32,7 @@ export function createInitialState(setup: GameSetup): GameState {
       kept: false,
       mulligans: 0,
       topRevealed: false,
+      peekTop: false,
       zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
       stats: { drawn: 0, landsPlayed: 0 },
     }

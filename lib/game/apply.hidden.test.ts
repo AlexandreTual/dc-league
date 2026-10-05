@@ -157,3 +157,50 @@ describe('dessus de bibliothèque', () => {
     }
   })
 })
+
+describe('voir la carte du dessus pour soi seul', () => {
+  it('togglePeekTop active puis désactive l’option, avec le journal public', () => {
+    let s = applyAction(game(), { type: 'togglePeekTop', actor: 'p1' })
+    expect(s.players.p1.peekTop).toBe(true)
+    expect(s.log.at(-1)).toMatchObject({ actor: 'p1', text: 'regarde la carte du dessus de sa bibliothèque en permanence', visibleTo: 'all' })
+    s = applyAction(s, { type: 'togglePeekTop', actor: 'p1' })
+    expect(s.players.p1.peekTop).toBe(false)
+    expect(s.log.at(-1)).toMatchObject({ actor: 'p1', text: 'ne regarde plus la carte du dessus', visibleTo: 'all' })
+  })
+
+  it('la carte du dessus est dans la vue du propriétaire seulement, sans rien chez les autres', () => {
+    const s = applyAction(game(), { type: 'togglePeekTop', actor: 'p1' })
+    const top = s.players.p1.zones.library[0]
+    expect(viewFor(s, 'p1').players.p1.zones.library.visible.map((v) => [v.index, v.card.id])).toEqual([[0, top]])
+    for (const other of ['p2', 'spectateur']) {
+      const v = viewFor(s, other)
+      expect(v.players.p1.zones.library.visible).toEqual([])
+      expect(JSON.stringify(v).includes(`"${top}"`)).toBe(false)
+    }
+  })
+
+  it('après une pioche, la nouvelle carte du dessus est visible du propriétaire', () => {
+    let s = applyAction(game(), { type: 'togglePeekTop', actor: 'p1' })
+    const top = s.players.p1.zones.library[0]
+    s = applyAction(s, { type: 'draw', actor: 'p1', count: 1 })
+    const next = s.players.p1.zones.library[0]
+    expect(next).not.toBe(top)
+    expect(viewFor(s, 'p1').players.p1.zones.library.visible.map((v) => v.card.id)).toEqual([next])
+    expect(isVisibleTo(s, next, 'p2')).toBe(false)
+  })
+
+  it('avec « Jouer avec la carte du dessus révélée » en plus, tout le monde la voit', () => {
+    const s = apply(game(), { type: 'togglePeekTop', actor: 'p1' }, { type: 'toggleTopRevealed', actor: 'p1' })
+    const top = s.players.p1.zones.library[0]
+    expect(['p1', 'p2', 'p3'].every((p) => isVisibleTo(s, top, p))).toBe(true)
+  })
+
+  it('le propriétaire peut déplacer la carte vue ; l’option survit au changement de tour', () => {
+    let s = apply(game(), ...['p1', 'p2', 'p3'].map((p) => ({ type: 'keep', actor: p }) as GameAction), { type: 'togglePeekTop', actor: 'p1' })
+    const top = s.players.p1.zones.library[0]
+    s = applyAction(s, { type: 'moveTop', actor: 'p1', to: { player: 'p1', zone: 'battlefield' }, x: 30, y: 30 })
+    expect(zoneOf(s, top)).toEqual({ player: 'p1', zone: 'battlefield' })
+    s = applyAction(s, { type: 'endTurn', actor: s.activePlayer })
+    expect(s.players.p1.peekTop).toBe(true)
+  })
+})

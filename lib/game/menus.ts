@@ -157,6 +157,7 @@ export function libraryMenu(ctx: MenuContext, player: string): MenuEntry[] {
     search,
     item('Révéler la carte du dessus', act({ type: 'revealTop' })),
     item(mine.topRevealed ? 'Cacher la carte du dessus' : 'Jouer avec la carte du dessus révélée', act({ type: 'toggleTopRevealed' })),
+    item(mine.peekTop ? 'Ne plus voir la carte du dessus' : 'Voir la carte du dessus (pour moi seul)', act({ type: 'togglePeekTop' })),
   ]
 }
 
