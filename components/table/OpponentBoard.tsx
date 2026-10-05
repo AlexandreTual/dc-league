@@ -16,11 +16,11 @@ export default function OpponentBoard(props: ZoneProps & {
       {panel}
       <div className="flex-1 min-h-0 flex gap-2">
         <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} />
-        <div className="w-28 shrink-0 grid grid-rows-4 gap-1.5 min-h-0">
-          <ZonePile zone="command" me={me} {...zoneProps} />
-          <ZonePile zone="library" me={me} {...zoneProps} onPileContextMenu={onLibraryMenu} />
-          <ZonePile zone="graveyard" me={me} {...zoneProps} onPileClick={() => onPile('graveyard', `Cimetière de ${name}`)} />
-          <ZonePile zone="exile" me={me} {...zoneProps} onPileClick={() => onPile('exile', `Exil de ${name}`)} />
+        <div className="w-44 shrink-0 grid grid-cols-2 grid-rows-2 gap-1.5 min-h-0">
+          <ZonePile zone="command" me={me} compact {...zoneProps} />
+          <ZonePile zone="library" me={me} compact {...zoneProps} onPileContextMenu={onLibraryMenu} />
+          <ZonePile zone="graveyard" me={me} compact {...zoneProps} onPileClick={() => onPile('graveyard', `Cimetière de ${name}`)} />
+          <ZonePile zone="exile" me={me} compact {...zoneProps} onPileClick={() => onPile('exile', `Exil de ${name}`)} />
         </div>
       </div>
       <Hand {...zoneProps} heightClass="h-[22%]" />

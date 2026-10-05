@@ -275,7 +275,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         canEndTurn={canAct && (source.mode === 'local' || view.activePlayer === me)}
         life={source.mode === 'local' ? mine?.life : undefined}
         onNextTurn={() => send({ type: 'endTurn' })}
-        onDraw={source.mode === 'online' ? () => send({ type: 'draw', count: 1 }) : undefined}
+        onDraw={source.mode === 'online' && me ? () => send({ type: 'draw', count: 1 }) : undefined}
         onLife={(delta) => me && send({ type: 'life', target: me, delta })}
         onLang={() => {
           const next = lang === 'fr' ? 'en' : 'fr'

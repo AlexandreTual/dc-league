@@ -25,7 +25,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 |---|---|---|---|---|
 | 1 | Moteur multijoueur (propriétaire/contrôleur, compteurs, informations cachées, `viewFor`) | `specs/2026-10-04-multiplayer-engine-design.md` | `plans/2026-10-04-multiplayer-engine.md` | **terminé et déployé** (PR #6, mode test migré) |
 | 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **terminé et déployé** (PR #6 ; partie à plusieurs pas encore testée en vrai) |
-| 3 | Interface de table multijoueur | `specs/2026-10-05-online-table-design.md` | `plans/2026-10-05-online-table.md` | **plan en relecture** |
+| 3 | Interface de table multijoueur | `specs/2026-10-05-online-table-design.md` | `plans/2026-10-05-online-table.md` | **terminé** (vérifié de bout en bout : `scripts/online-check.mjs`, `scripts/playtest-check.mjs` ; PR à ouvrir) |
 | 4 | Matchs de ligue en ligne (score proposé, confirmé) | — | — | à faire |
 
 ### Décisions déjà prises (jeu en ligne)
@@ -38,10 +38,9 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 ### Points à reprendre dans les sous-projets suivants
 
-- **Sous-projet 3** : quand l'hôte passe le tour d'un absent, le journal l'attribue à l'absent (« Chloé : Tour 1 : Ana ») ; préciser « (passé par l'hôte) ».
-- **Sous-projet 3** : la vue de jeu minimale (`components/online/MinimalGame.tsx`) est à remplacer par la vraie table.
-- **Sous-projet 3** : action « déplacer la carte du dessus de sa bibliothèque » (en ligne, le client ne connaît pas l'identifiant de la carte du dessus ; le mode test solo, lui, le connaît localement).
-- **Sous-projet 3** : interface pensée pour ordinateur d'abord, adaptation tablette envisagée ensuite.
+- Sous-projet 3 (fait) : mention « (passé par l'hôte) », vraie table à la place de la vue minimale, action `moveTop` pour la carte du dessus.
+- Interface pensée pour ordinateur d'abord ; adaptation tablette ensuite.
+- Les blessures de commandant retirent aussi des points de vie (choix du moteur) : 3 PV puis 5 blessures → 32 PV.
 
 ## Retours de test (5 octobre)
 

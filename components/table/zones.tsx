@@ -123,6 +123,8 @@ const PILE_LABELS: Record<PlayerZone, string> = {
 export function ZonePile(props: ZoneProps & {
   zone: 'command' | 'library' | 'graveyard' | 'exile'
   me: string | null
+  /** Pile réduite (plateau agrandi d'un adversaire, où la hauteur manque). */
+  compact?: boolean
   onPileClick?: () => void
   onPileContextMenu?: (e: React.MouseEvent) => void
 }) {
@@ -140,7 +142,7 @@ export function ZonePile(props: ZoneProps & {
       ref={setNodeRef}
       data-zone={zone}
       data-player={player}
-      className={`relative rounded-xl border border-dc-border bg-dc-surface/60 p-2 flex flex-col items-center gap-1 min-h-0 ${highlight}`}
+      className={`relative rounded-xl border border-dc-border bg-dc-surface/60 ${props.compact ? 'p-1 gap-0.5' : 'p-2 gap-1'} flex flex-col items-center min-h-0 ${highlight}`}
       onClick={props.onPileClick}
       onContextMenu={(e) => {
         if (!props.onPileContextMenu) return
@@ -148,7 +150,7 @@ export function ZonePile(props: ZoneProps & {
         props.onPileContextMenu(e)
       }}
     >
-      <span className="text-dc-muted text-xs">{PILE_LABELS[zone]} ({count})</span>
+      <span className={`text-dc-muted ${props.compact ? 'text-[10px] leading-tight truncate max-w-full' : 'text-xs'}`}>{PILE_LABELS[zone]} ({count})</span>
       <div className={`flex-1 min-h-0 w-full flex ${zone === 'command' ? 'gap-1' : ''} justify-center`}>
         {empty && <div className="aspect-[63/88] h-full rounded-[6%] border border-dashed border-dc-border" />}
         {zone === 'library' && !empty && (
