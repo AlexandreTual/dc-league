@@ -49,20 +49,19 @@ export const ERREURS_LIGUE = {
     'La finale ou la petite finale a déjà un score : réinitialise-le avant de changer le vainqueur de cette demi-finale.',
 } as const
 
+/** Statut HTTP des erreurs métier de la ligue (pour `resultError` des routes API). */
+export const STATUTS_LIGUE: Readonly<Record<string, number>> = {
+  [ERREURS_LIGUE.matchNotFound]: 404,
+  [ERREURS_LIGUE.playoffNotFound]: 404,
+  [ERREURS_LIGUE.matchesExist]: 409,
+  [ERREURS_LIGUE.playoffsExist]: 409,
+  [ERREURS_LIGUE.leagueClosed]: 409,
+  [ERREURS_LIGUE.finalScored]: 409,
+}
+
 /** Statut HTTP d'une erreur renvoyée par les fonctions de ligue (500 si elle est inattendue). */
 export function statusForError(error: string): number {
-  switch (error) {
-    case ERREURS_LIGUE.matchNotFound:
-    case ERREURS_LIGUE.playoffNotFound:
-      return 404
-    case ERREURS_LIGUE.matchesExist:
-    case ERREURS_LIGUE.playoffsExist:
-    case ERREURS_LIGUE.leagueClosed:
-    case ERREURS_LIGUE.finalScored:
-      return 409
-    default:
-      return 500
-  }
+  return STATUTS_LIGUE[error] ?? 500
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -229,16 +228,33 @@ export async function getPlayerIdsWithHistory(db: D1Database): Promise<Result<st
   }
 }
 
+export const PLAYER_ERR = {
+  HAS_HISTORY: 'Ce joueur a participé à une league et ne peut pas être supprimé.',
+  LAST_ADMIN: "Ce joueur est le dernier admin : nomme un autre admin avant de le supprimer.",
+} as const
+
 export async function deletePlayer(db: D1Database, id: string): Promise<Result<true>> {
   try {
     const row = await db
       .prepare('SELECT COUNT(*) as n FROM league_players WHERE player_id = ?')
       .bind(id)
       .first<{ n: number }>()
-    if ((row?.n ?? 0) > 0) {
-      return err('Ce joueur a participé à une league et ne peut pas être supprimé.')
+    if ((row?.n ?? 0) > 0) return err(PLAYER_ERR.HAS_HISTORY)
+    // Suppression conditionnée en une seule requête : le compte lié (supprimé en cascade)
+    // ne doit pas être le dernier admin.
+    const r = await db
+      .prepare(
+        `DELETE FROM players WHERE id = ?1 AND NOT (
+           EXISTS (SELECT 1 FROM users WHERE player_id = ?1 AND is_admin = 1)
+           AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1
+         )`,
+      )
+      .bind(id)
+      .run()
+    if (r.meta.changes === 0) {
+      const lastAdmin = await db.prepare('SELECT 1 AS found FROM users WHERE player_id = ? AND is_admin = 1').bind(id).first()
+      if (lastAdmin) return err(PLAYER_ERR.LAST_ADMIN)
     }
-    await db.prepare('DELETE FROM players WHERE id = ?').bind(id).run()
     return ok(true)
   } catch (e) {
     return err((e as Error).message)

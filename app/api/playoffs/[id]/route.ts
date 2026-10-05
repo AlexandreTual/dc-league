@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { isAdminAuthenticated } from '@/lib/auth'
-import { updatePlayoffScore, resetPlayoffScore, statusForError } from '@/lib/db'
+import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
+import { updatePlayoffScore, resetPlayoffScore, STATUTS_LIGUE } from '@/lib/db'
 
 export const runtime = 'edge'
 
@@ -10,41 +9,28 @@ const VALID_SCORES = [
   [2, 0], [2, 1], [1, 2], [0, 2],
 ]
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+type Params = { params: Promise<{ id: string }> }
 
-  const { score_p1, score_p2 } = await req.json() as { score_p1: number; score_p2: number }
-  const isValid = VALID_SCORES.some(([s1, s2]) => s1 === score_p1 && s2 === score_p2)
-  if (!isValid) {
-    return NextResponse.json(
-      { error: 'Score invalide. Scores BO3 acceptés : 2-0, 2-1, 1-1, 1-2, 0-2' },
-      { status: 400 }
-    )
-  }
+export function PATCH(req: NextRequest, { params }: Params) {
+  return apiRoute(req, 'admin', async ({ db, body }) => {
+    const { score_p1, score_p2 } = body
+    const isValid = VALID_SCORES.some(([s1, s2]) => s1 === score_p1 && s2 === score_p2)
+    if (!isValid) {
+      return badRequest('Score invalide. Scores acceptés en playoffs : 2-0, 2-1, 1-2, 0-2 (pas de match nul)')
+    }
 
-  const { env } = getRequestContext<CloudflareEnv>()
-  const { id } = await params
-  const { data, error } = await updatePlayoffScore(env.DB, id, score_p1, score_p2)
-  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
-  return NextResponse.json(data)
+    const { id } = await params
+    const { data, error } = await updatePlayoffScore(db, id, score_p1 as number, score_p2 as number)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
+    return NextResponse.json(data)
+  })
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
-
-  const { env } = getRequestContext<CloudflareEnv>()
-  const { id } = await params
-  const { data, error } = await resetPlayoffScore(env.DB, id)
-  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
-  return NextResponse.json(data)
+export function DELETE(req: NextRequest, { params }: Params) {
+  return apiRoute(req, 'admin', async ({ db }) => {
+    const { id } = await params
+    const { data, error } = await resetPlayoffScore(db, id)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
+    return NextResponse.json(data)
+  })
 }

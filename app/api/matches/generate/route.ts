@@ -1,58 +1,42 @@
-import { NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { isAdminAuthenticated } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { generateRoundRobinMatches } from '@/lib/leaderboard'
-import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs, statusForError } from '@/lib/db'
+import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs, STATUTS_LIGUE } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 
 export const runtime = 'edge'
 
-export async function POST() {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+export function POST(req: NextRequest) {
+  return apiRoute(req, 'admin', async ({ db }) => {
+    const { data: league, error: leagueErr } = await getActiveLeague(db)
+    if (leagueErr !== null) return resultError(leagueErr)
+    if (!league) return badRequest('Aucune ligue active.')
 
-  const { env } = getRequestContext<CloudflareEnv>()
-  const db = env.DB
+    const { data: existing, error: countErr } = await countMatches(db, league.id)
+    if (countErr !== null) return resultError(countErr)
+    if (existing > 0) return NextResponse.json({ error: 'Les matchs ont déjà été générés.' }, { status: 409 })
 
-  const { data: league } = await getActiveLeague(db)
-  if (!league) return NextResponse.json({ error: 'Aucune ligue active.' }, { status: 400 })
+    const { data: enrolled, error: enrolledErr } = await listLeaguePlayers(db, league.id)
+    if (enrolledErr !== null) return resultError(enrolledErr)
+    if (enrolled.length < 2) return badRequest('Il faut au moins 2 joueurs inscrits pour générer la ligue.')
 
-  const { data: existing, error: countErr } = await countMatches(db, league.id)
-  if (countErr) return NextResponse.json({ error: countErr }, { status: 500 })
-  if (existing && existing > 0) {
-    return NextResponse.json({ error: 'Les matchs ont déjà été générés.' }, { status: 400 })
-  }
-
-  const { data: enrolled, error: enrolledErr } = await listLeaguePlayers(db, league.id)
-  if (enrolledErr) return NextResponse.json({ error: enrolledErr }, { status: 500 })
-  if (!enrolled || enrolled.length < 2) {
-    return NextResponse.json(
-      { error: 'Il faut au moins 2 joueurs inscrits pour générer la ligue.' },
-      { status: 400 }
-    )
-  }
-
-  const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
-  const { data, error } = await insertMatches(db, matchDefs, league.id)
-  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
-  return NextResponse.json({ ok: true, count: data?.length ?? 0, matches: data }, { status: 201 })
+    const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
+    const { data, error } = await insertMatches(db, matchDefs, league.id)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
+    return NextResponse.json({ ok: true, count: data.length, matches: data }, { status: 201 })
+  })
 }
 
-export async function DELETE() {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+export function DELETE(req: NextRequest) {
+  return apiRoute(req, 'admin', async ({ db }) => {
+    const { data: league, error: leagueErr } = await getActiveLeague(db)
+    if (leagueErr !== null) return resultError(leagueErr)
+    if (!league) return badRequest('Aucune ligue active.')
 
-  const { env } = getRequestContext<CloudflareEnv>()
-  const db = env.DB
-
-  const { data: league } = await getActiveLeague(db)
-  if (!league) return NextResponse.json({ error: 'Aucune ligue active.' }, { status: 400 })
-
-  const { error } = await deleteAllMatches(db, league.id)
-  if (error) return NextResponse.json({ error }, { status: 500 })
-  const { error: pErr } = await deleteAllPlayoffs(db, league.id)
-  if (pErr) return NextResponse.json({ error: pErr }, { status: 500 })
-  return NextResponse.json({ ok: true })
+    const { error } = await deleteAllMatches(db, league.id)
+    if (error !== null) return resultError(error)
+    const { error: pErr } = await deleteAllPlayoffs(db, league.id)
+    if (pErr !== null) return resultError(pErr)
+    return NextResponse.json({ ok: true })
+  })
 }
