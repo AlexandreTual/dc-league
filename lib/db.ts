@@ -1,3 +1,5 @@
+import { chunks, placeholders } from './db-chunks'
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type DbPlayer = {
@@ -251,12 +253,15 @@ export async function insertMatches(
         .bind(id, m.player1_id, m.player2_id, m.round_number, leagueId)
     })
     await db.batch(stmts)
-    const placeholders = ids.map(() => '?').join(',')
-    const { results } = await db
-      .prepare(`SELECT * FROM matches WHERE id IN (${placeholders})`)
-      .bind(...ids)
-      .all<Record<string, unknown>>()
-    return ok(results.map(normalizeMatch))
+    const rows: Record<string, unknown>[] = []
+    for (const part of chunks(ids)) {
+      const { results } = await db
+        .prepare(`SELECT * FROM matches WHERE id IN (${placeholders(part.length)})`)
+        .bind(...part)
+        .all<Record<string, unknown>>()
+      rows.push(...results)
+    }
+    return ok(rows.map(normalizeMatch))
   } catch (e) {
     return err((e as Error).message)
   }
