@@ -84,12 +84,15 @@ function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: b
 
 /**
  * Cartes encore à mettre au-dessous après un mulligan, main pas encore gardée : la main doit
- * redescendre à 7 moins une carte par mulligan au-delà du premier (gratuit).
+ * redescendre à 7 moins une carte par mulligan au-delà du premier (gratuit). Le moteur ne compte pas
+ * les cartes déjà mises dessous : on part de la taille de la main, bornée par la dette du mulligan
+ * (une carte piochée avant de garder, en ligne, ne crée pas de dette).
  */
 export function cardsToBottom(view: PlayerView, player: string): number {
   const p = view.players[player]
   if (!p || p.kept) return 0
-  return Math.max(0, p.zones.hand.length - (OPENING_HAND - Math.max(0, p.mulligans - 1)))
+  const owed = Math.max(0, p.mulligans - 1)
+  return Math.min(owed, Math.max(0, p.zones.hand.length - (OPENING_HAND - owed)))
 }
 
 /** Entrées pour une carte visible dans une zone donnée ; vide pour un spectateur ou une partie finie. */

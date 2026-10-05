@@ -87,6 +87,12 @@ describe('cardMenu', () => {
     expect(labels(entries)).not.toContain('Mettre au-dessous')
   })
 
+  it('carte piochée avant de garder (en ligne) : rien à mettre dessous sans mulligan payant', () => {
+    let s = setup()
+    while (s.players.p1.zones.hand.length < 8) s = applyAction(s, { type: 'draw', actor: 'p1', count: 1 })
+    expect(cardsToBottom(viewFor(s, 'p1'), 'p1')).toBe(0)
+  })
+
   it('pas de « Mettre au-dessous » sans carte à mettre dessous, ni une fois la main gardée', () => {
     const once = applyAction(setup(), { type: 'mulligan', actor: 'p1', seed: 1 })
     const free = cardMenu(ctx(once), visible(once, once.players.p1.zones.hand[0]), at('p1', 'hand'))
