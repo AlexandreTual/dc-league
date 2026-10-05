@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Crown, Heart, MoreHorizontal } from 'lucide-react'
 import { cardInfo } from '@/lib/game/apply'
 import { playerBadges } from '@/lib/game/player-badges'
@@ -31,9 +31,10 @@ export default function PlayerPill(props: {
   const { up = false, ...panelProps } = props
   const { view, player, catalogs, lang, host, online, canAct, send, onTitleClick } = panelProps
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
   const p = view.players[player]
   const active = view.activePlayer === player
-  const commanders = opposingCommanders(view, player)
+  const commanders = view.format === 'commander' ? opposingCommanders(view, player) : []
   const commanderName = (id: string) => {
     const c = commanders.find((x) => x.id === id)
     return c ? cardInfo(catalogs[c.owner], c, lang).name : 'commandant'
@@ -41,13 +42,20 @@ export default function PlayerPill(props: {
 
   useEffect(() => {
     if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('pointerdown', onDown)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [open])
 
   return (
-    <div className="relative inline-flex" data-panel={player}>
+    <div className="relative inline-flex" data-panel={player} ref={ref}>
       <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs text-dc-text whitespace-nowrap
         ${active ? 'border-dc-gold/70 bg-dc-gold/10' : 'border-dc-border bg-dc-surface/70'} ${p.eliminated ? 'opacity-50' : ''}`}>
         {online && <span className={`w-2 h-2 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? 'en ligne' : 'hors ligne'} />}
@@ -65,12 +73,9 @@ export default function PlayerPill(props: {
         </button>
       </div>
       {open && (
-        <>
-          <div className="fixed inset-0 z-[57]" onClick={() => setOpen(false)} />
-          <div className={`absolute left-0 ${up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw]`} data-bubble={player}>
-            <PlayerPanel {...panelProps} />
-          </div>
-        </>
+        <div className={`absolute left-0 ${up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] bg-dc-surface rounded-xl shadow-card`} data-bubble={player}>
+          <PlayerPanel {...panelProps} />
+        </div>
       )}
     </div>
   )
