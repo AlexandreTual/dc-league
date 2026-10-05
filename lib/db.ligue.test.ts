@@ -149,6 +149,13 @@ describe('correction d’une demi-finale', () => {
     expect(await stage('final')).toMatchObject({ player1_id: 'p1', player2_id: 'p2', score_p1: 2 })
   })
 
+  it('réaligne une finale sans score créée avec de mauvais joueurs (saisies simultanées)', async () => {
+    const { s1 } = await demiFinalesJouees()
+    await db.prepare("UPDATE playoffs SET player1_id = 'p4', player2_id = 'p3' WHERE stage = 'final'").run()
+    expect((await updatePlayoffScore(db, s1.id, 2, 0)).error).toBeNull()
+    expect(await stage('final')).toMatchObject({ player1_id: 'p1', player2_id: 'p2' })
+  })
+
   it('refuse la correction si la finale a déjà un score', async () => {
     const { s1 } = await demiFinalesJouees()
     await updatePlayoffScore(db, (await stage('final')).id, 2, 0)

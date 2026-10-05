@@ -507,31 +507,38 @@ export async function updatePlayoffScore(
       return err((await scoreRefusal(db, 'playoffs', id)) ?? ERREURS_LIGUE.finalScored)
     }
 
-    // Création de la finale et de la petite finale, après l'écriture du score : si les deux
-    // demi-finales sont saisies en même temps, la dernière à relire voit les deux jouées.
+    // Après l'écriture du score, on relit : la finale et la petite finale sont créées si elles manquent,
+    // ou réalignées (tant qu'elles n'ont pas de score) si une saisie simultanée de l'autre
+    // demi-finale les a créées avec des joueurs devenus faux.
     if ((current.stage === 'semi1' || current.stage === 'semi2') && leagueId) {
       const byStage = await playoffsByStage(db, leagueId)
       const s1 = byStage.get('semi1')
       const s2 = byStage.get('semi2')
-      const missing = s1?.is_completed && s2?.is_completed ? finalists(s1, s2).filter(([stage]) => !byStage.has(stage)) : []
-      if (missing.length > 0) {
-        const ids = missing.map(() => uuid())
-        await db.batch(
-          // Insertion seulement si les demi-finales ont toujours les scores relus et la ligue est ouverte :
-          // une correction ou une remise à zéro simultanée ne laisse pas une finale aux mauvais joueurs.
-          missing.map(([stage, p1, p2], i) =>
-            db.prepare(
-              `${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = ?)
-               AND EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND is_completed = 1 AND score_p1 = ? AND score_p2 = ?)
-               AND EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND is_completed = 1 AND score_p1 = ? AND score_p2 = ?)
-               AND NOT EXISTS (SELECT 1 FROM leagues WHERE id = ? AND is_active = 0)`,
-            ).bind(
-              ids[i], stage, p1, p2, leagueId, leagueId, stage,
-              s1!.id, s1!.score_p1, s1!.score_p2, s2!.id, s2!.score_p1, s2!.score_p2, leagueId,
-            ),
-          ),
-        )
-        touched.push(...ids)
+      if (s1?.is_completed && s2?.is_completed) {
+        // Écriture seulement si les demi-finales ont toujours les scores relus et que la ligue est ouverte.
+        const unchanged = `EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND is_completed = 1 AND score_p1 = ? AND score_p2 = ?)
+          AND EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND is_completed = 1 AND score_p1 = ? AND score_p2 = ?)
+          AND NOT EXISTS (SELECT 1 FROM leagues WHERE id = ? AND is_active = 0)`
+        const unchangedValues = [s1.id, s1.score_p1, s1.score_p2, s2.id, s2.score_p1, s2.score_p2, leagueId]
+        const writes: D1PreparedStatement[] = []
+        for (const [stage, p1, p2] of finalists(s1, s2)) {
+          const existing = byStage.get(stage)
+          if (!existing) {
+            const newId = uuid()
+            touched.push(newId)
+            writes.push(
+              db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = ?) AND ${unchanged}`)
+                .bind(newId, stage, p1, p2, leagueId, leagueId, stage, ...unchangedValues),
+            )
+          } else if (!existing.is_completed && (existing.player1_id !== p1 || existing.player2_id !== p2)) {
+            if (!touched.includes(existing.id)) touched.push(existing.id)
+            writes.push(
+              db.prepare(`UPDATE playoffs SET player1_id = ?, player2_id = ? WHERE id = ? AND is_completed = 0 AND ${unchanged}`)
+                .bind(p1, p2, existing.id, ...unchangedValues),
+            )
+          }
+        }
+        if (writes.length > 0) await db.batch(writes)
       }
     }
 
