@@ -75,7 +75,7 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
 }
 
 /** Main : mes cartes face visible ; celle d'un autre en dos de carte (seulement leur nombre est connu). */
-export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEvent) => void }) {
+export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEvent) => void; heightClass?: string }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'hand' }
   const { setNodeRef, highlight } = useZone(ref)
@@ -85,7 +85,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEve
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative h-[28%] flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
+      className={`relative ${props.heightClass ?? 'h-[28%]'} flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
       onContextMenu={(e) => {
         if (!props.onZoneContextMenu) return
         e.preventDefault()

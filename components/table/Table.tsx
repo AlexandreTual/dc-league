@@ -13,6 +13,10 @@ import CardMenu, { type MenuItem } from './CardMenu'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
+import OpponentBoard from './OpponentBoard'
+import OpponentStrip from './OpponentStrip'
+import OpponentsArea from './OpponentsArea'
+import PlayerPanel from './PlayerPanel'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
@@ -198,17 +202,29 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const mine = me ? view.players[me] : null
   const toBottom = mine ? Math.max(0, mine.mulligans - 1) : 0
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct }
+  // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
+  const opponents = Object.keys(view.players).filter((p) => p !== me)
+  const panelFor = (player: string, onTitleClick?: () => void, compact = false) => (
+    <PlayerPanel
+      view={view} player={player} catalogs={catalogs} lang={lang}
+      host={source.online?.host} online={source.online?.players}
+      canAct={canAct} send={send} onTitleClick={onTitleClick} compact={compact}
+    />
+  )
 
   return (
     <div className="h-full flex flex-col">
       <TopBar
-        deckId={source.local?.deckId ?? ''}
-        deckName={source.local?.deckName ?? ''}
+        back={source.local ? { href: `/decks/${source.local.deckId}`, label: source.local.deckName } : { href: '/salon', label: 'Salon' }}
         turn={view.turn}
-        life={mine?.life ?? 0}
+        activeName={source.mode === 'online' ? view.players[view.activePlayer]?.name : undefined}
         lang={lang}
+        canAct={canAct}
         canUndo={canAct && source.canUndo}
+        canEndTurn={canAct && (source.mode === 'local' || view.activePlayer === me)}
+        life={source.mode === 'local' ? mine?.life : undefined}
         onNextTurn={() => send({ type: 'endTurn' })}
+        onDraw={source.mode === 'online' ? () => send({ type: 'draw', count: 1 }) : undefined}
         onLife={(delta) => me && send({ type: 'life', target: me, delta })}
         onLang={() => {
           const next = lang === 'fr' ? 'en' : 'fr'
@@ -218,10 +234,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
-        onNewGame={() => confirm('Commencer une nouvelle partie ?') && source.local?.newGame()}
+        onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
       />
 
       {notice}
+
+      {!me && (
+        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">Tu regardes cette partie</div>
+      )}
 
       {mine && !mine.kept && canAct && (
         <div className="px-3 py-2 text-sm bg-dc-gold/10 border-b border-dc-gold/30 text-dc-gold flex items-center gap-3" data-testid="mulligan-banner">
@@ -236,11 +256,36 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
 
       <div className="relative flex-1 min-h-0 flex flex-col">
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
+          {opponents.length > 0 && (
+            <div className={`${me ? 'h-[42%] shrink-0' : 'flex-1'} min-h-0 px-2 pt-2`}>
+              <OpponentsArea
+                view={view}
+                players={opponents}
+                renderStrip={(p, focus) => (
+                  <OpponentStrip
+                    view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers}
+                    panel={panelFor(p, focus, true)}
+                    onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
+                    onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, p), e)}
+                  />
+                )}
+                renderBoard={(p) => (
+                  <OpponentBoard
+                    {...zoneProps} player={p} me={me}
+                    panel={panelFor(p)}
+                    onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, p), e)}
+                    onPile={(zone, title) => setPile({ title, player: p, zone, mode: 'browse' })}
+                  />
+                )}
+              />
+            </div>
+          )}
           {me && (
             <MyBoard
               {...zoneProps}
               player={me}
               me={me}
+              panel={source.mode === 'online' ? panelFor(me) : undefined}
               onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, me), e)}
               onHandMenu={(e) => openMenu(handMenu(menuCtx), e)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
