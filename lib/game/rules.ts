@@ -31,7 +31,7 @@ export function isVisibleAt(state: GameState, id: string, where: ZoneRef, player
   if (card.knownBy.includes(playerId) || card.knownBy.includes(EVERYONE)) return true
   if (where.zone === 'library') {
     const owner = state.players[where.player]
-    return owner.topRevealed && owner.zones.library[0] === id
+    return (owner.topRevealed || (owner.peekTop && owner.id === playerId)) && owner.zones.library[0] === id
   }
   if (where.zone === 'hand') return card.owner === playerId
   return !card.faceDown
@@ -98,6 +98,7 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'shuffle':
     case 'untapAll':
     case 'toggleTopRevealed':
+    case 'togglePeekTop':
     case 'revealTop':
     case 'createToken':
       return null
