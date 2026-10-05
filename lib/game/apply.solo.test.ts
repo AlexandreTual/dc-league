@@ -1,7 +1,7 @@
 // Cas repris de l'ancien moteur solo, joués à un seul joueur sur le nouveau moteur.
 import { describe, it, expect } from 'vitest'
 import { card, run, setupFor, start } from '@/test/game-fixtures'
-import { applyAction, bottomCount, cardData } from './apply'
+import { applyAction, bottomCount, cardData, tokenBadge } from './apply'
 import { zoneOf } from './rules'
 import type { GameAction, GameState, TokenData } from './types'
 
@@ -156,6 +156,15 @@ describe('cartes', () => {
     const forest: TokenData = { name: 'Forêt', typeLine: 'Basic Land — Forest', power: null, toughness: null, colors: [], image: null }
     const s = solo({ type: 'createToken', actor: P, token: forest, x: 0, y: 0, copy: true })
     expect(texts(s).at(-1)).toBe('Crée un jeton Forêt (copie)')
+    expect(s.cards.t1.token).toEqual({ ...forest, copy: true })
+  })
+
+  it('mention affichée : « Copie » pour un jeton copie, « Jeton » pour les autres jetons, rien pour une carte', () => {
+    const forest: TokenData = { name: 'Forêt', typeLine: 'Basic Land — Forest', power: null, toughness: null, colors: [], image: null }
+    const s = solo({ type: 'createToken', actor: P, token: forest, x: 0, y: 0, copy: true }, { type: 'createToken', actor: P, token: soldier, x: 0, y: 0 })
+    expect(tokenBadge(s.cards.t1)).toBe('Copie')
+    expect(tokenBadge(s.cards.t2)).toBe('Jeton')
+    expect(tokenBadge(s.cards[sol])).toBeNull()
   })
 
   it.each(['hand', 'graveyard', 'library'] as const)('un jeton envoyé vers %s disparaît', (zone) => {

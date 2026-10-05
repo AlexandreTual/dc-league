@@ -389,6 +389,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(menu.entries)} />}
       {pile && (
         <PileModal
+          key={`${pile.player}-${pile.zone}-${pile.mode}`}
           title={pile.title}
           zone={pile.zone}
           cards={pileCards}

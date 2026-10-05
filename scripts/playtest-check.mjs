@@ -122,18 +122,20 @@ try {
   await page.keyboard.press('Escape')
   check(!(await page.getByRole('menu').isVisible()), 'Échap ferme le menu')
 
-  await page.getByRole('button', { name: /Jeton/ }).click()
+  await page.getByRole('button', { name: 'Jeton', exact: true }).click()
   await page.getByRole('button', { name: 'Personnalisé' }).click()
   await page.getByPlaceholder('Nom (ex. Soldat)').fill('Soldat')
   await page.getByRole('button', { name: 'Créer le jeton' }).click()
   check((await battlefieldCount()) === 2, 'jeton personnalisé créé')
-  check((await page.locator('[data-zone="battlefield"]').innerText()).includes('Soldat'), 'jeton : nom affiché')
+  const badges = () => page.locator('[data-zone="battlefield"] [data-token-badge]').allTextContents()
+  check((await page.locator('[data-zone="battlefield"]').innerText()).includes('Soldat') && (await badges()).join() === 'Jeton', 'jeton : nom et mention « Jeton » affichés')
 
   const copiedName = await onField.locator('[title]').first().getAttribute('title')
   await onField.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Créer un jeton copie', exact: true }).click()
   const sameName = await page.locator(`[data-zone="battlefield"] [data-card-id] [title="${copiedName}"]`).count()
-  check((await battlefieldCount()) === 3 && sameName === 2, `jeton copie : un second « ${copiedName} » sur le champ de bataille`)
+  check((await battlefieldCount()) === 3 && sameName === 2 && (await badges()).includes('Copie'),
+    `jeton copie : un second « ${copiedName} » marqué « Copie » sur le champ de bataille`)
 
   const libraryBefore = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
   page.once('dialog', (d) => d.accept('3'))
@@ -148,6 +150,22 @@ try {
   await page.getByRole('button', { name: 'Fermer' }).click()
   const libraryAfter = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
   check(libraryAfter === libraryBefore, `bibliothèque inchangée en taille (${libraryAfter}), ${looked} en dessous`)
+
+  // Recherche filtrée par type : seules les créatures, puis « Tous » remet toute la bibliothèque.
+  await page.locator('[data-zone="library"]').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /Chercher une carte/ }).click()
+  await page.getByRole('dialog').waitFor()
+  const creatureButton = page.getByRole('group', { name: 'Filtrer par type' }).getByRole('button', { name: /^Créature \(\d+\)$/ })
+  const creatures = Number((await creatureButton.innerText()).match(/\((\d+)\)/)[1])
+  await creatureButton.click()
+  const shownTypes = await page.locator('[data-pile-card] [title]').evaluateAll((els) => els.map((e) => e.getAttribute('title')))
+  check(creatures > 0 && shownTypes.length === creatures && shownTypes.every((n) => n === 'Llanowar Elves'),
+    `filtre « Créature » : ${creatures} créatures seulement`)
+  await page.getByRole('button', { name: 'Tous', exact: true }).click()
+  check((await page.locator('[data-pile-card]').count()) === libraryAfter, `filtre « Tous » : toute la bibliothèque (${libraryAfter})`)
+  await capture('recherche-filtre')
+  await page.getByRole('dialog').getByRole('checkbox').uncheck()
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click()
 
   // Carte du dessus face visible : une image dans la pile (un dos de carte n'en a pas).
   const library = page.locator('[data-zone="library"]')
@@ -196,7 +214,7 @@ try {
   await page.keyboard.press('Control+z')
   check((await handCount()) === handBefore, 'Ctrl+Z : annule la pioche')
 
-  await page.getByRole('button', { name: /Jeton/ }).click()
+  await page.getByRole('button', { name: 'Jeton', exact: true }).click()
   await page.getByPlaceholder(/Soldat, Treasure/).fill('d')
   check((await handCount()) === handBefore, 'touche D pendant la saisie : pas de pioche')
   await page.keyboard.press('Escape')

@@ -1,7 +1,7 @@
 'use client'
 
 import type { Catalog, CardView } from '@/lib/game/types'
-import { cardInfo } from '@/lib/game/apply'
+import { cardInfo, tokenBadge } from '@/lib/game/apply'
 
 export type Lang = 'fr' | 'en'
 
@@ -12,6 +12,8 @@ export function CardBack({ className = '' }: { className?: string }) {
     </div>
   )
 }
+
+const badgeClass = 'text-white text-[9px] font-semibold uppercase tracking-wide whitespace-nowrap [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]'
 
 /** Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe. */
 export default function GameCard({ card, catalog, lang, tax = 0, className = '' }: {
@@ -28,16 +30,22 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '' 
 
   const { plus, minus, other } = card.counters
   const net = plus - minus
+  const badge = tokenBadge(card)
 
   return (
     <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}>
       {data.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={data.image} alt={data.name} draggable={false} className="w-full h-full rounded-[6%] object-cover shadow-card" />
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data.image} alt={data.name} draggable={false} className="w-full h-full rounded-[6%] object-cover shadow-card" />
+          {/* Comme Moxfield : au milieu de la carte, juste au-dessus de la ligne de type. */}
+          {badge && <span className={`${badgeClass} absolute left-1/2 top-[55%] -translate-x-1/2 -translate-y-full`} data-token-badge>{badge}</span>}
+        </>
       ) : (
         <div className="w-full h-full rounded-[6%] border-2 border-dc-gold/50 bg-dc-surface p-1.5 flex flex-col text-[10px] leading-tight text-dc-text">
           <span className="font-semibold">{data.name}</span>
-          <span className="text-dc-muted mt-1">{data.typeLine}</span>
+          {badge && <span className={`${badgeClass} self-center my-1`} data-token-badge>{badge}</span>}
+          <span className={`text-dc-muted ${badge ? '' : 'mt-1'}`}>{data.typeLine}</span>
           {card.token?.power != null && (
             <span className="mt-auto self-end font-semibold">{card.token.power}/{card.token.toughness}</span>
           )}
