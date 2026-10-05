@@ -63,5 +63,5 @@ node scripts/online-check.mjs http://localhost:8788 /tmp
 
 ## À savoir
 
-- `scripts/patch-next-on-pages.mjs` corrige next-on-pages (qui perdait la connexion WebSocket) à chaque `npm install`. La version de `@cloudflare/next-on-pages` est figée : en cas de mise à jour, le script s'arrête avec un message si le code visé a changé.
+- `scripts/patch-next-on-pages.mjs` corrige next-on-pages (qui perdait la connexion WebSocket) à chaque `npm install`. La version de `@cloudflare/next-on-pages` est figée : en cas de mise à jour, le script s'arrête avec un message si le code visé a changé. Il corrige aussi un défaut de Next 15.5 (la page `app/not-found.tsx` perdait le runtime edge, ce qui faisait échouer le build) ; si ce code-là change, il se contente d'un avertissement.
 - Les tables sans activité depuis 7 jours sont supprimées chaque nuit par le Worker.

@@ -1,0 +1,39 @@
+# Vérifications de chaque pull request : tests, types (site et Worker de jeu), lint et build Cloudflare Pages.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Types du site
+        run: npx tsc --noEmit
+
+      - name: Types du Worker de jeu
+        run: npx tsc -p workers/game --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Cloudflare Pages
+        run: npx @cloudflare/next-on-pages
