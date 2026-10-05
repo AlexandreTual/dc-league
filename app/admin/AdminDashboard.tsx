@@ -324,16 +324,17 @@ export default function AdminDashboard({
       if (error) return showToast(`Erreur : ${error}`)
       const { match, generated } = data as any
       setPlayoffs((prev) => {
-        const updated = prev.map((p) => (p.id === matchId ? match : p))
-        // Ajouter les matchs auto-générés (finale + petite finale)
-        const newIds = new Set(updated.map((p) => p.id))
-        for (const g of generated ?? []) {
-          if (!newIds.has(g.id)) updated.push(g)
+        // Finale et petite finale créées ou corrigées : remplacer celles déjà affichées, ajouter les autres.
+        const changed = [match, ...(generated ?? [])]
+        const byId = new Map(changed.map((p) => [p.id, p]))
+        const updated = prev.map((p) => byId.get(p.id) ?? p)
+        for (const g of changed) {
+          if (!prev.some((p) => p.id === g.id)) updated.push(g)
         }
         return updated
       })
       setSelectedPlayoff(null)
-      showToast(generated?.length > 0 ? '✓ Score enregistré · Finale et petite finale générées !' : 'Score enregistré !')
+      showToast(generated?.length > 0 ? '✓ Score enregistré · Finale et petite finale à jour !' : 'Score enregistré !')
       router.refresh()
     },
     [router, showToast]

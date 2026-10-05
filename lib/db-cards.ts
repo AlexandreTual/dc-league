@@ -1,5 +1,5 @@
 import type { Result } from './db'
-import type { CardLookup, CardRow, DeckCardView, Section } from './cards/types'
+import type { CardLookup, CardRow, DeckCardView, Section, StoredCardLookup } from './cards/types'
 
 type Ok<T> = { data: T; error: null }
 type Err = { data: null; error: string }
@@ -98,12 +98,12 @@ export async function getCards(db: D1Database, ids: string[]): Promise<Result<Re
   }
 }
 
-export async function getLookups(db: D1Database, keys: string[]): Promise<Result<Record<string, CardLookup>>> {
+export async function getLookups(db: D1Database, keys: string[]): Promise<Result<Record<string, StoredCardLookup>>> {
   try {
-    const out: Record<string, CardLookup> = {}
+    const out: Record<string, StoredCardLookup> = {}
     for (const part of chunks([...new Set(keys)], IN_CHUNK)) {
       const { results } = await db
-        .prepare(`SELECT key, en_card_id, fr_card_id FROM card_lookups WHERE key IN (${placeholders(part.length)})`)
+        .prepare(`SELECT key, en_card_id, fr_card_id, fetched_at FROM card_lookups WHERE key IN (${placeholders(part.length)})`)
         .bind(...part)
         .all<Record<string, unknown>>()
       for (const row of results) {
@@ -111,6 +111,7 @@ export async function getLookups(db: D1Database, keys: string[]): Promise<Result
           key: row.key as string,
           en_card_id: (row.en_card_id as string) ?? null,
           fr_card_id: (row.fr_card_id as string) ?? null,
+          fetched_at: row.fetched_at as string,
         }
       }
     }

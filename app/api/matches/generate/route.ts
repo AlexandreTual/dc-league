@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { isAdminAuthenticated } from '@/lib/auth'
 import { generateRoundRobinMatches } from '@/lib/leaderboard'
-import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs } from '@/lib/db'
+import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs, statusForError } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 
 export const runtime = 'edge'
@@ -35,7 +35,7 @@ export async function POST() {
 
   const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
   const { data, error } = await insertMatches(db, matchDefs, league.id)
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
   return NextResponse.json({ ok: true, count: data?.length ?? 0, matches: data }, { status: 201 })
 }
 
