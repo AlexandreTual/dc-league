@@ -2,6 +2,7 @@ import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
   COMMANDER_TAX_STEP,
+  EVERYONE,
   FIRST_PLAYER_DRAWS_FROM,
   HIDDEN_ZONES,
   OPENING_HAND,
@@ -372,8 +373,11 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     }
 
     case 'revealTop': {
+      // Visible de tous jusqu'à ce qu'elle bouge : pioche, déplacement et mélange vident knownBy.
       const top = state.players[action.actor].zones.library[0]
-      return log(state, action.actor, top ? `révèle ${cardName(state, top)}` : 'Bibliothèque vide')
+      if (!top) return log(state, action.actor, 'Bibliothèque vide')
+      const s = setCard(state, top, { knownBy: [EVERYONE] })
+      return log(s, action.actor, `révèle ${cardName(state, top)}`)
     }
 
     case 'toggleTopRevealed': {

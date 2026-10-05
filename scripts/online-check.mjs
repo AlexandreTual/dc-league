@@ -205,6 +205,30 @@ try {
   check(leaks(chloe).length === 0, `aucune donnée de carte cachée reçue par Chloé (${leaks(chloe).join(', ')})`)
   await ana.page.getByRole('button', { name: 'Fermer' }).click()
 
+  // ── Carte du dessus d'Ana montrée à tous : « Révéler », puis « Jouer avec la carte du dessus révélée » ──
+  const anaPile = board(ana, ANA.id).locator('[data-zone="library"]')
+  // Bandeau ou plateau agrandi : la pile d'Ana porte data-zone et data-player dans les deux cas.
+  const anaTopSeenBy = (who) => who.page.locator(`[data-zone="library"][data-player="${ANA.id}"] img`)
+  const anaMenu = async (name) => {
+    await anaPile.click({ button: 'right' })
+    await ana.page.getByRole('menuitem', { name }).click()
+  }
+  await anaMenu('Révéler la carte du dessus')
+  await anaPile.locator('img').waitFor()
+  for (const who of [bastien, chloe]) await anaTopSeenBy(who).waitFor()
+  check(true, 'Ana révèle la carte du dessus : face visible chez Ana, Bastien et Chloé')
+  await capture(bastien, 'dessus-revele-chez-bastien')
+  await ana.page.getByRole('button', { name: 'Piocher' }).click()
+  for (const who of [bastien, chloe]) await anaTopSeenBy(who).waitFor({ state: 'detached' })
+  check(true, 'Ana pioche la carte révélée : dos de carte chez les autres')
+  await anaMenu('Jouer avec la carte du dessus révélée')
+  for (const who of [bastien, chloe]) await anaTopSeenBy(who).waitFor()
+  await anaPile.locator('img').waitFor()
+  check(true, 'Ana joue avec la carte du dessus révélée : visible chez tout le monde')
+  await anaMenu('Cacher la carte du dessus')
+  for (const who of [bastien, chloe]) await anaTopSeenBy(who).waitFor({ state: 'detached' })
+  check(true, 'Ana cache la carte du dessus : dos de carte chez les autres')
+
   // ── moveTop : Ana glisse le dessus de sa bibliothèque sur son champ de bataille ──
   const myBattlefield = board(ana, ANA.id).locator('[data-zone="battlefield"] [data-card-id]')
   const onBattlefield = await myBattlefield.count()

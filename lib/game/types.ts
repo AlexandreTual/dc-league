@@ -61,6 +61,9 @@ export type PlayerState = {
   stats: { drawn: number; landsPlayed: number }
 }
 
+/** Dans `knownBy` : carte révélée à tous (joueurs et spectateurs), jusqu'à ce qu'elle bouge. */
+export const EVERYONE = '*'
+
 export type CardInstance = {
   id: string
   owner: string

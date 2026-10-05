@@ -1,4 +1,4 @@
-import { FORMAT_RULES, HIDDEN_ZONES, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
+import { EVERYONE, FORMAT_RULES, HIDDEN_ZONES, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
 
 // ── Lecture ───────────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ export function isVisibleAt(state: GameState, id: string, where: ZoneRef, player
   const card = state.cards[id]
   const viewer = state.players[playerId]
   if (viewer?.eliminated && state.options.eliminatedSeeAll) return true
-  if (card.knownBy.includes(playerId)) return true
+  if (card.knownBy.includes(playerId) || card.knownBy.includes(EVERYONE)) return true
   if (where.zone === 'library') {
     const owner = state.players[where.player]
     return owner.topRevealed && owner.zones.library[0] === id

@@ -167,6 +167,30 @@ try {
   await page.getByRole('dialog').getByRole('checkbox').uncheck()
   await page.getByRole('button', { name: 'Fermer', exact: true }).click()
 
+  // Carte du dessus face visible : une image dans la pile (un dos de carte n'en a pas).
+  const library = page.locator('[data-zone="library"]')
+  const libraryMenu = async (name) => {
+    await library.click({ button: 'right' })
+    await page.getByRole('menuitem', { name }).click()
+    await page.waitForTimeout(200)
+  }
+  const topFaceUp = async () => (await library.locator('img').count()) === 1
+  check(!(await topFaceUp()), 'bibliothèque : dos de carte par défaut')
+  await libraryMenu('Révéler la carte du dessus')
+  check(await topFaceUp(), 'révéler la carte du dessus : face visible sur la pile')
+  await capture('dessus-revele')
+  await library.locator('img').dblclick()
+  await page.waitForTimeout(200)
+  check(!(await topFaceUp()), 'carte révélée piochée : la pile montre un dos de carte')
+  await libraryMenu('Jouer avec la carte du dessus révélée')
+  check(await topFaceUp(), 'jouer avec la carte du dessus révélée : face visible sur la pile')
+  const topName = await library.locator('img').getAttribute('alt')
+  await library.locator('img').dblclick()
+  await page.waitForTimeout(200)
+  check(await topFaceUp() && (await library.locator('img').getAttribute('alt')) !== null, `après la pioche de ${topName} : la suivante est face visible`)
+  await libraryMenu('Cacher la carte du dessus')
+  check(!(await topFaceUp()), 'cacher la carte du dessus : dos de carte')
+
   const commander = page.locator('[data-zone="command"] [data-card-id]').first()
   const commanderId = await commander.getAttribute('data-card-id')
   await drag(commander, battlefield.x + battlefield.width * 0.6, battlefield.y + battlefield.height * 0.5)

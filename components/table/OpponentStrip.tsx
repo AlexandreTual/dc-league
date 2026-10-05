@@ -4,7 +4,7 @@ import { cardInfo } from '@/lib/game/apply'
 import { groupBattlefield, type Stack } from '@/lib/game/battlefield'
 import type { Catalog, PlayerView, VisibleCard } from '@/lib/game/types'
 import GameCard, { CardBack, type Lang } from './GameCard'
-import type { CardHandlers } from './zones'
+import { libraryTop, type CardHandlers } from './zones'
 
 const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terrains']] as const
 
@@ -24,6 +24,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   const rows = groupBattlefield(zones.battlefield, catalogs)
   const visible = (cards: typeof zones.graveyard) => cards.filter((c): c is VisibleCard => !c.hidden)
   const battlefield = { player, zone: 'battlefield' as const }
+  const top = libraryTop(view, player)
 
   const mini = (card: VisibleCard, zone: 'battlefield' | 'command' | 'graveyard' | 'exile', count = 1) => (
     <div
@@ -62,10 +63,15 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       <div className="flex-1 min-h-0 flex gap-2">
         <div className="w-28 shrink-0 flex flex-col gap-0.5 overflow-hidden text-[11px] text-dc-muted">
           <span data-zone="hand" data-player={player}>Main : <span className="text-dc-text" data-testid="hand-count">{zones.hand.length}</span></span>
-          <span data-zone="library" data-player={player} className="cursor-context-menu" onContextMenu={(e) => { e.preventDefault(); onLibraryMenu(e) }}>
-            Bibliothèque : <span className="text-dc-text">{zones.library.count}</span>
+          <span data-zone="library" data-player={player} className="flex items-center gap-1 cursor-context-menu" onContextMenu={(e) => { e.preventDefault(); onLibraryMenu(e) }}>
+            {top && (
+              <span className="h-6 shrink-0" onMouseEnter={() => handlers.onHover(top.id)} onMouseLeave={() => handlers.onHover(null)}>
+                <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
+              </span>
+            )}
+            <span>Bibliothèque : <span className="text-dc-text">{zones.library.count}</span></span>
           </span>
-          
+
           {visible(zones.command).length > 0 && (
             <div className="flex items-center gap-1" data-zone="command" data-player={player}>
               {visible(zones.command).map((c) => (
