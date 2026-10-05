@@ -434,6 +434,22 @@ function outcome(p: DbPlayoff): [string | null, string | null] {
   return (p.score_p1 ?? 0) > (p.score_p2 ?? 0) ? [p.player1_id, p.player2_id] : [p.player2_id, p.player1_id]
 }
 
+/** Matchs de playoffs d'une ligue, par phase. */
+async function playoffsByStage(db: D1Database, leagueId: string): Promise<Map<PlayoffStage, DbPlayoff>> {
+  const { results } = await db
+    .prepare('SELECT * FROM playoffs WHERE league_id = ?')
+    .bind(leagueId)
+    .all<Record<string, unknown>>()
+  return new Map(results.map(normalizePlayoff).map((p) => [p.stage, p]))
+}
+
+/** Joueurs de la finale (vainqueurs) et de la petite finale (perdants) d'après les demi-finales. */
+function finalists(s1: DbPlayoff, s2: DbPlayoff): Array<[PlayoffStage, string | null, string | null]> {
+  const [winner1, loser1] = outcome(s1)
+  const [winner2, loser2] = outcome(s2)
+  return [['final', winner1, winner2], ['third_place', loser1, loser2]]
+}
+
 export async function updatePlayoffScore(
   db: D1Database,
   id: string,
@@ -450,38 +466,21 @@ export async function updatePlayoffScore(
     const current = normalizePlayoff(row)
     const leagueId = (row.league_id as string) ?? null
 
-    // Finale et petite finale à créer ou à corriger d'après le nouveau score de la demi-finale.
+    // Finale et petite finale existantes à corriger d'après le nouveau score de la demi-finale.
     const brackets: D1PreparedStatement[] = []
     const touched: string[] = []
     let movesFinals = false
     if ((current.stage === 'semi1' || current.stage === 'semi2') && leagueId) {
-      const { results } = await db
-        .prepare('SELECT * FROM playoffs WHERE league_id = ?')
-        .bind(leagueId)
-        .all<Record<string, unknown>>()
-      const byStage = new Map(results.map(normalizePlayoff).map((p) => [p.stage, p]))
+      const byStage = await playoffsByStage(db, leagueId)
       byStage.set(current.stage, { ...current, score_p1, score_p2, is_completed: true })
       const s1 = byStage.get('semi1')
       const s2 = byStage.get('semi2')
       if (s1?.is_completed && s2?.is_completed) {
-        const [winner1, loser1] = outcome(s1)
-        const [winner2, loser2] = outcome(s2)
-        // La finale n'est écrite que si la demi-finale a bien reçu ce score dans le même batch.
+        // La finale n'est corrigée que si la demi-finale a bien reçu ce score dans le même batch.
         const semiScored = 'EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND score_p1 = ? AND score_p2 = ? AND is_completed = 1)'
-        const targets: Array<[PlayoffStage, string | null, string | null]> = [
-          ['final', winner1, winner2],
-          ['third_place', loser1, loser2],
-        ]
-        for (const [stage, p1, p2] of targets) {
+        for (const [stage, p1, p2] of finalists(s1, s2)) {
           const existing = byStage.get(stage)
-          if (!existing) {
-            const newId = uuid()
-            touched.push(newId)
-            brackets.push(
-              db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = ?) AND ${semiScored}`)
-                .bind(newId, stage, p1, p2, leagueId, leagueId, stage, id, score_p1, score_p2),
-            )
-          } else if (existing.player1_id !== p1 || existing.player2_id !== p2) {
+          if (existing && (existing.player1_id !== p1 || existing.player2_id !== p2)) {
             if (existing.is_completed) return err(ERREURS_LIGUE.finalScored)
             movesFinals = true
             touched.push(existing.id)
@@ -506,6 +505,25 @@ export async function updatePlayoffScore(
     ])
     if (!scoreWrite.meta.changes) {
       return err((await scoreRefusal(db, 'playoffs', id)) ?? ERREURS_LIGUE.finalScored)
+    }
+
+    // Création de la finale et de la petite finale, après l'écriture du score : si les deux
+    // demi-finales sont saisies en même temps, la dernière à relire voit les deux jouées.
+    if ((current.stage === 'semi1' || current.stage === 'semi2') && leagueId) {
+      const byStage = await playoffsByStage(db, leagueId)
+      const s1 = byStage.get('semi1')
+      const s2 = byStage.get('semi2')
+      const missing = s1?.is_completed && s2?.is_completed ? finalists(s1, s2).filter(([stage]) => !byStage.has(stage)) : []
+      if (missing.length > 0) {
+        const ids = missing.map(() => uuid())
+        await db.batch(
+          missing.map(([stage, p1, p2], i) =>
+            db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = ?)`)
+              .bind(ids[i], stage, p1, p2, leagueId, leagueId, stage),
+          ),
+        )
+        touched.push(...ids)
+      }
     }
 
     const updatedRow = await db.prepare('SELECT * FROM playoffs WHERE id = ?').bind(id).first<Record<string, unknown>>()

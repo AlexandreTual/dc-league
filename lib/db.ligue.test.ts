@@ -58,6 +58,7 @@ describe('doubles clics', () => {
   it('la finale n’est créée qu’une fois quand les deux demi-finales sont saisies en même temps', async () => {
     const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
     await Promise.all(semis.map((s) => updatePlayoffScore(db, s.id, 2, 0)))
+    expect((await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)).toEqual(['semi1', 'semi2', 'final', 'third_place'])
     await Promise.all(semis.map((s) => updatePlayoffScore(db, s.id, 2, 0)))
     expect((await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)).toEqual(['semi1', 'semi2', 'final', 'third_place'])
   })
