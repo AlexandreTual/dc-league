@@ -24,8 +24,10 @@ export default function MyBoard(props: Omit<ZoneProps, 'player'> & {
           <ZonePile zone="exile" me={me} {...zoneProps} onPileClick={() => onPile('exile', 'Exil')} />
         </div>
       </div>
-      {panel}
-      <Hand {...zoneProps} onZoneContextMenu={onHandMenu} />
+      <div className="h-[28%] shrink-0 flex gap-2 items-center">
+        {panel && <div className="shrink-0">{panel}</div>}
+        <Hand {...zoneProps} onZoneContextMenu={onHandMenu} />
+      </div>
     </div>
   )
 }

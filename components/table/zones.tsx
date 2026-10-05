@@ -93,7 +93,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEve
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative h-[28%] flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
+      className={`relative flex-1 min-w-0 h-full flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
       onContextMenu={(e) => {
         if (!props.onZoneContextMenu) return
         e.preventDefault()
