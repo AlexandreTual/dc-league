@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow } from '@/test/factories'
 import type { CardRow, DeckCardView } from './types'
-import { displayCard, groupDeckCards } from './groups'
+import { displayCard, displayName, groupDeckCards } from './groups'
 
 let position = 0
 function view(en: Partial<CardRow> | null, opts: { quantity?: number; section?: 'main' | 'commander'; fr?: Partial<CardRow> } = {}): DeckCardView {
@@ -85,5 +85,25 @@ describe('displayCard', () => {
     expect(displayCard(withFr, 'en')?.lang).toBe('en')
     expect(displayCard(withoutFr, 'fr')?.lang).toBe('en')
     expect(displayCard(view(null), 'fr')).toBeNull()
+  })
+})
+
+describe('displayName', () => {
+  const face = (name: string, printed_name: string | null) => ({
+    name, printed_name, mana_cost: null, type_line: 'Creature', printed_type_line: null,
+    oracle_text: null, printed_text: null, image_normal: null, image_small: null,
+  })
+
+  it('carte recto-verso déjà en cache sans nom imprimé global : noms imprimés des faces', () => {
+    const card = view(
+      { name: 'Delver of Secrets // Insectile Aberration' },
+      { fr: { printed_name: null, faces: [face('Delver of Secrets', 'Sondeur de secrets'), face('Insectile Aberration', 'Aberration insectile')] } },
+    )
+    expect(displayName(card, 'fr')).toBe('Sondeur de secrets // Aberration insectile')
+    expect(displayName(card, 'en')).toBe('Delver of Secrets // Insectile Aberration')
+  })
+
+  it('sans nom imprimé ni faces : nom anglais', () => {
+    expect(displayName(view({ name: 'Mystic Remora' }, { fr: { printed_name: null } }), 'fr')).toBe('Mystic Remora')
   })
 })

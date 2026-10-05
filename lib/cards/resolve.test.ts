@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
-import { getCards, getLookups } from '@/lib/db-cards'
-import type { Identifier, ScryfallCard, ScryfallClient } from './scryfall'
+import { getCards, getLookups, saveLookups } from '@/lib/db-cards'
+import { ScryfallUnavailableError, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
 import type { ParsedLine } from './types'
 import { resolveLines } from './resolve'
 
@@ -21,6 +21,8 @@ const EN = [
   sc('sol-cmr', 'o-sol', 'Sol Ring', 'cmr', '472'),
   sc('signet', 'o-signet', 'Arcane Signet', 'c21', '236'),
   sc('remora', 'o-remora', 'Mystic Remora', 'ice', '87'),
+  sc('limdul', 'o-limdul', 'Lim-Dûl the Necromancer', 'hml', '12'),
+  sc('fire-ice', 'o-fire-ice', 'Fire // Ice', 'mh2', '290'),
 ]
 const FR = [
   sc('sol-cmr-fr', 'o-sol', 'Sol Ring', 'cmr', '472', 'fr'),
@@ -29,16 +31,21 @@ const FR = [
 ]
 
 function fakeClient() {
-  const calls = { collection: 0, search: 0 }
+  const calls = { collection: 0, search: 0, names: [] as string[] }
   const client: ScryfallClient = {
     async fetchCollection(ids: Identifier[]) {
       calls.collection++
       const cards: ScryfallCard[] = []
       const notFound: Identifier[] = []
       for (const id of ids) {
+        calls.names.push(...('name' in id ? [id.name] : []))
+        const plain = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        // Comme Scryfall : le nom « A // B » d'une carte double est introuvable, sa face avant suffit.
         const found =
           'name' in id
-            ? EN.find((c) => c.name.toLowerCase() === id.name.toLowerCase())
+            ? id.name.includes(' // ')
+              ? undefined
+              : EN.find((c) => plain(c.name) === plain(id.name) || plain(c.name.split(' // ')[0]) === plain(id.name))
             : EN.find((c) => c.set === id.set && c.collector_number === id.collector_number)
         if (found) cards.push(found)
         else notFound.push(id)
@@ -68,7 +75,7 @@ describe('resolveLines', () => {
     const r = await resolveLines(db, client, [line('Sol Ring', 'C21', '263')], now)
     expect(r).toEqual({ resolved: 1, notFound: [] })
     const lookup = (await getLookups(db, ['sol ring|c21|263'])).data!['sol ring|c21|263']
-    expect(lookup).toEqual({ key: 'sol ring|c21|263', en_card_id: 'sol-c21', fr_card_id: 'sol-c21-fr' })
+    expect(lookup).toMatchObject({ key: 'sol ring|c21|263', en_card_id: 'sol-c21', fr_card_id: 'sol-c21-fr' })
     const cards = (await getCards(db, ['sol-c21', 'sol-c21-fr'])).data!
     expect(cards['sol-c21-fr'].printed_name).toBe('Sol Ring (FR)')
     expect(Object.keys(cards)).toHaveLength(2)
@@ -83,7 +90,7 @@ describe('resolveLines', () => {
   it('sans version française, fr_card_id est null', async () => {
     const { client } = fakeClient()
     await resolveLines(db, client, [line('Mystic Remora')], now)
-    expect((await getLookups(db, ['mystic remora||'])).data!['mystic remora||']).toEqual({
+    expect((await getLookups(db, ['mystic remora||'])).data!['mystic remora||']).toMatchObject({
       key: 'mystic remora||', en_card_id: 'remora', fr_card_id: null,
     })
   })
@@ -124,7 +131,63 @@ describe('resolveLines', () => {
   it('une clé en double dans le paquet n’est résolue qu’une fois', async () => {
     const { client, calls } = fakeClient()
     const r = await resolveLines(db, client, [line('Sol Ring'), line('sol ring', null, null, 2)], now)
-    expect(calls).toEqual({ collection: 1, search: 1 })
+    expect(calls).toMatchObject({ collection: 1, search: 1 })
     expect(r.resolved).toBe(2)
+  })
+
+  it('carte double « A // B » sans édition : recherche par la face avant', async () => {
+    const { client, calls } = fakeClient()
+    const r = await resolveLines(db, client, [line('Fire // Ice')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+    expect(calls.names).toEqual(['Fire'])
+  })
+
+  it('compare les noms sans accents', async () => {
+    const { client } = fakeClient()
+    const r = await resolveLines(db, client, [line('Lim-Dul the Necromancer')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+  })
+
+  it('retente une entrée négative de plus de 7 jours, pas une plus récente', async () => {
+    const { client, calls } = fakeClient()
+    await saveLookups(db, [{ key: 'sol ring||', en_card_id: null, fr_card_id: null }], new Date('2026-09-30T12:00:00Z'))
+    expect((await resolveLines(db, client, [line('Sol Ring')], now)).notFound).toEqual(['Sol Ring'])
+    expect(calls.collection).toBe(0)
+
+    await saveLookups(db, [{ key: 'sol ring||', en_card_id: null, fr_card_id: null }], new Date('2026-09-26T12:00:00Z'))
+    expect((await resolveLines(db, client, [line('Sol Ring')], now)).notFound).toEqual([])
+    expect(calls.collection).toBe(1)
+    expect((await getLookups(db, ['sol ring||'])).data!['sol ring||']).toMatchObject({ en_card_id: 'sol-c21', fr_card_id: 'sol-cmr-fr' })
+  })
+
+  it('retente une carte sans version française après 7 jours', async () => {
+    const { client, calls } = fakeClient()
+    await resolveLines(db, client, [line('Mystic Remora')], new Date('2026-09-01T12:00:00Z'))
+    expect(calls.search).toBe(1)
+    await resolveLines(db, client, [line('Mystic Remora')], new Date('2026-09-05T12:00:00Z'))
+    expect(calls.search).toBe(1)
+    await resolveLines(db, client, [line('Mystic Remora')], now)
+    expect(calls.search).toBe(2)
+  })
+
+  it('Scryfall indisponible pendant le rafraîchissement d’une entrée négative : le cache sert', async () => {
+    const { client } = fakeClient()
+    await resolveLines(db, client, [line('Mystic Remora')], new Date('2026-09-01T12:00:00Z'))
+    const down: ScryfallClient = {
+      fetchCollection: async () => { throw new ScryfallUnavailableError('HTTP 429') },
+      searchFrenchPrints: async () => { throw new ScryfallUnavailableError('HTTP 429') },
+    }
+    expect(await resolveLines(db, down, [line('Mystic Remora')], now)).toEqual({ resolved: 1, notFound: [] })
+    // une carte jamais vue ne peut pas être servie : l'erreur remonte
+    await expect(resolveLines(db, down, [line('Mystic Remora'), line('Sol Ring', null, null, 2)], now)).rejects.toBeInstanceOf(
+      ScryfallUnavailableError,
+    )
+  })
+
+  it('garde une entrée positive (avec version française) quel que soit son âge', async () => {
+    const { client, calls } = fakeClient()
+    await resolveLines(db, client, [line('Sol Ring')], new Date('2025-01-01T12:00:00Z'))
+    await resolveLines(db, client, [line('Sol Ring')], now)
+    expect(calls.collection).toBe(1)
   })
 })

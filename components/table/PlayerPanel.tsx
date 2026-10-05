@@ -21,9 +21,9 @@ function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
   return (
     <span className={`inline-flex items-center gap-0.5 ${alert ? 'text-dc-red-light font-semibold' : ''}`}>
       {label}
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label="moins"><Minus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label={`moins : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Minus className="w-3 h-3" /></button>
       <span className="min-w-[1.75rem] text-center" data-testid={testId}>{value}</span>
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label="plus"><Plus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={`plus : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Plus className="w-3 h-3" /></button>
     </span>
   )
 }

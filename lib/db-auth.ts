@@ -416,12 +416,40 @@ export async function countRecentFailures(db: D1Database, username: string, now:
   }
 }
 
-export async function recordFailure(db: D1Database, username: string, now: Date): Promise<Result<true>> {
+/**
+ * Enregistre une tentative pour chaque clé AVANT toute vérification, puis renvoie le total récent
+ * de chaque clé (tentative comprise), dans une même transaction : des requêtes simultanées ne
+ * peuvent pas toutes passer sous la limite.
+ */
+export async function recordAttempt(db: D1Database, keys: string[], now: Date): Promise<Result<number[]>> {
   try {
-    await db.batch([
+    const at = now.toISOString()
+    const results = await db.batch<{ n: number }>([
       db.prepare('DELETE FROM login_attempts WHERE attempted_at <= ?').bind(windowStart(now)),
-      db.prepare('INSERT INTO login_attempts (username, attempted_at) VALUES (?, ?)').bind(username, now.toISOString()),
+      ...keys.map((key) => db.prepare('INSERT INTO login_attempts (username, attempted_at) VALUES (?, ?)').bind(key, at)),
+      ...keys.map((key) =>
+        db
+          .prepare('SELECT COUNT(*) AS n FROM login_attempts WHERE username = ? COLLATE NOCASE AND attempted_at > ?')
+          .bind(key, windowStart(now)),
+      ),
     ])
+    return ok(results.slice(1 + keys.length).map((r) => Number(r.results?.[0]?.n ?? 0)))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Retire une seule tentative de la clé (ex. : la connexion réussie ne compte pas pour l'IP). */
+export async function forgetAttempt(db: D1Database, key: string, now: Date): Promise<Result<true>> {
+  try {
+    await db
+      .prepare(
+        `DELETE FROM login_attempts WHERE rowid = (
+           SELECT rowid FROM login_attempts WHERE username = ? COLLATE NOCASE AND attempted_at = ? LIMIT 1
+         )`,
+      )
+      .bind(key, now.toISOString())
+      .run()
     return ok(true)
   } catch (e) {
     return err((e as Error).message)

@@ -1,29 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { assertSameOrigin, setSessionCookie } from '@/lib/auth/session'
+import { apiRoute } from '@/lib/auth/api'
+import { setSessionCookie } from '@/lib/auth/session'
 import { acceptInvitation, openSession } from '@/lib/auth/service'
 
 export const runtime = 'edge'
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  const refused = assertSameOrigin(req)
-  if (refused) return refused
+const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
-  const { token } = await params
-  const body = (await req.json().catch(() => ({}))) as { username?: string; password?: string; passwordConfirm?: string }
-  const { env } = getRequestContext<CloudflareEnv>()
-  const now = new Date()
+export function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  return apiRoute(req, 'public', async ({ db, body }) => {
+    const { token } = await params
+    const now = new Date()
 
-  const result = await acceptInvitation(
-    env.DB,
-    token,
-    { username: body.username, password: body.password ?? '', passwordConfirm: body.passwordConfirm ?? '' },
-    now,
-  )
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    const result = await acceptInvitation(
+      db,
+      token,
+      {
+        username: typeof body.username === 'string' ? body.username : undefined,
+        password: text(body.password),
+        passwordConfirm: text(body.passwordConfirm),
+      },
+      now,
+    )
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
 
-  const session = await openSession(env.DB, result.value.userId, now)
-  const res = NextResponse.json({ ok: true })
-  setSessionCookie(res, session.token, session.expiresAt)
-  return res
+    // openSession peut lever une erreur : apiRoute la transforme en 500 en français.
+    const session = await openSession(db, result.value.userId, now)
+    const res = NextResponse.json({ ok: true })
+    setSessionCookie(res, session.token, session.expiresAt)
+    return res
+  })
 }

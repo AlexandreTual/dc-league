@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Match, Player } from '@/lib/leaderboard'
 import { DbPlayoff, DbPlayer } from '@/lib/db'
@@ -11,6 +11,8 @@ import type { AccountStatus } from '@/lib/db-auth'
 import AccountsPanel from '@/components/admin/AccountsPanel'
 import MatchCard from '@/components/MatchCard'
 import ScoreModal from '@/components/ScoreModal'
+import { sendJson } from '@/components/formStyles'
+import { createToaster } from '@/components/toast'
 import {
   Shield,
   UserPlus,
@@ -93,10 +95,11 @@ export default function AdminDashboard({
   const enrolledCount = leaguePlayers.length
   const historySet = new Set(playerIdsWithHistory)
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(''), 3000)
-  }
+  // Un seul minuteur pour tous les toasts : un nouveau message annule l'effacement du précédent.
+  const toasterRef = useRef<ReturnType<typeof createToaster> | null>(null)
+  if (!toasterRef.current) toasterRef.current = createToaster(setToast)
+  useEffect(() => () => toasterRef.current?.dispose(), [])
+  const showToast = useCallback((msg: string) => toasterRef.current?.show(msg), [])
 
   // Build player map
   const playerMap: Record<string, Player> = {}
@@ -105,51 +108,36 @@ export default function AdminDashboard({
   async function handleToggleEnroll(player: Player, isEnrolled: boolean) {
     if (!league) return
     if (isEnrolled) {
-      const res = await fetch(`/api/leagues/${league.id}/players/${player.id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setLeaguePlayers((prev) => prev.filter((lp) => lp.player_id !== player.id))
-        showToast(`${player.name} désinscrit`)
-      } else {
-        const data = await res.json() as any
-        showToast(`Erreur : ${data.error}`)
-      }
+      const { error } = await sendJson(`/api/leagues/${league.id}/players/${player.id}`, 'DELETE')
+      if (error) return showToast(`Erreur : ${error}`)
+      setLeaguePlayers((prev) => prev.filter((lp) => lp.player_id !== player.id))
+      showToast(`${player.name} désinscrit`)
     } else {
-      const res = await fetch(`/api/leagues/${league.id}/players`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player_id: player.id }),
-      })
-      if (res.ok) {
-        const lp = await res.json() as any
-        setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null, deck_has_cards: false }])
-        showToast(`${player.name} inscrit`)
-      } else {
-        const data = await res.json() as any
-        showToast(`Erreur : ${data.error}`)
-      }
+      const { error, data } = await sendJson(`/api/leagues/${league.id}/players`, 'POST', { player_id: player.id })
+      if (error) return showToast(`Erreur : ${error}`)
+      const lp = data as any
+      setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null, deck_has_cards: false }])
+      showToast(`${player.name} inscrit`)
     }
   }
 
-  async function handleAssignDeck(playerId: string, deckId: string) {
-    if (!league) return
-    const res = await fetch(`/api/leagues/${league.id}/players/${playerId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deck_id: deckId || null }),
-    })
-    if (res.ok) {
-      const deck = playerDecks[playerId]?.find((d) => d.id === deckId)
-      setLeaguePlayers((prev) =>
-        prev.map((lp) =>
-          lp.player_id === playerId
-            ? { ...lp, deck_id: deckId || null, deck_name: deck?.name ?? null, deck_moxfield_url: deck?.moxfield_url ?? null, deck_commander_image_url: deck?.commander_image_url ?? null }
-            : lp
-        )
-      )
-    } else {
-      const data = await res.json() as any
-      showToast(`Erreur : ${data.error}`)
+  /** Assigne un deck ; `knownDeck` sert quand le deck vient d'être créé et n'est pas encore dans `playerDecks`. */
+  async function handleAssignDeck(playerId: string, deckId: string, knownDeck?: DbDeck): Promise<boolean> {
+    if (!league) return false
+    const { error } = await sendJson(`/api/leagues/${league.id}/players/${playerId}`, 'PATCH', { deck_id: deckId || null })
+    if (error) {
+      showToast(`Erreur : ${error}`)
+      return false
     }
+    const deck = knownDeck ?? playerDecks[playerId]?.find((d) => d.id === deckId)
+    setLeaguePlayers((prev) =>
+      prev.map((lp) =>
+        lp.player_id === playerId
+          ? { ...lp, deck_id: deckId || null, deck_name: deck?.name ?? null, deck_moxfield_url: deck?.moxfield_url ?? null, deck_commander_image_url: deck?.commander_image_url ?? null }
+          : lp
+      )
+    )
+    return true
   }
 
   async function handleCreateDeck(e: React.FormEvent, playerId: string) {
@@ -157,27 +145,21 @@ export default function AdminDashboard({
     if (!newDeckName.trim() || !league) return
     setDeckLoading(true)
     try {
-      const res = await fetch(`/api/players/${playerId}/decks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newDeckName.trim(),
-          commander_image_url: newDeckImage.trim() || null,
-          moxfield_url: newDeckMoxfield.trim() || null,
-        }),
+      const { error, data } = await sendJson(`/api/players/${playerId}/decks`, 'POST', {
+        name: newDeckName.trim(),
+        commander_image_url: newDeckImage.trim() || null,
+        moxfield_url: newDeckMoxfield.trim() || null,
       })
-      const deck = await res.json() as any
-      if (!res.ok) {
-        showToast(`Erreur : ${deck.error}`)
-        return
-      }
+      if (error) return showToast(`Erreur : ${error}`)
+      const deck = data as DbDeck
       setPlayerDecks((prev) => ({ ...prev, [playerId]: [...(prev[playerId] ?? []), deck] }))
-      await handleAssignDeck(playerId, deck.id)
+      const assigned = await handleAssignDeck(playerId, deck.id, deck)
+      // Le deck existe désormais : on ferme le formulaire même si l'assignation échoue (pas de doublon en réessayant).
       setNewDeckName('')
       setNewDeckImage('')
       setNewDeckMoxfield('')
       setCreatingDeckForPlayerId(null)
-      showToast(`Deck "${deck.name}" créé !`)
+      showToast(assigned ? `Deck "${deck.name}" créé !` : `Deck "${deck.name}" créé mais non assigné : choisis-le dans la liste`)
     } finally {
       setDeckLoading(false)
     }
@@ -189,16 +171,12 @@ export default function AdminDashboard({
     setAddPlayerLoading(true)
     setAddPlayerError('')
     try {
-      const res = await fetch('/api/players', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newPlayerName.trim() }),
-      })
-      const data = await res.json() as any
-      if (!res.ok) {
-        setAddPlayerError(data.error)
+      const { error, data: created } = await sendJson('/api/players', 'POST', { name: newPlayerName.trim() })
+      if (error) {
+        setAddPlayerError(error)
         return
       }
+      const data = created as any
 
       setPlayers((prev) => [...prev, data])
 
@@ -217,24 +195,22 @@ export default function AdminDashboard({
       }
 
       if (league && showNewPlayerDeck && newPlayerDeckName.trim()) {
-        const deckRes = await fetch(`/api/players/${data.id}/decks`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newPlayerDeckName.trim(),
-            commander_image_url: newPlayerDeckImage.trim() || null,
-            moxfield_url: newPlayerDeckMoxfield.trim() || null,
-          }),
+        const deckRes = await sendJson(`/api/players/${data.id}/decks`, 'POST', {
+          name: newPlayerDeckName.trim(),
+          commander_image_url: newPlayerDeckImage.trim() || null,
+          moxfield_url: newPlayerDeckMoxfield.trim() || null,
         })
-        if (deckRes.ok) {
-          const deck = await deckRes.json() as any
+        if (deckRes.error) {
+          setAddPlayerError(`${data.name} est ajouté, mais le deck n'a pas pu être créé : ${deckRes.error}`)
+        } else {
+          const deck = deckRes.data as DbDeck
           setPlayerDecks((prev) => ({ ...prev, [data.id]: [deck] }))
-          await fetch(`/api/leagues/${league.id}/players/${data.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deck_id: deck.id }),
-          })
-          newLp = { ...newLp, deck_id: deck.id, deck_name: deck.name, deck_moxfield_url: deck.moxfield_url, deck_commander_image_url: deck.commander_image_url }
+          const assign = await sendJson(`/api/leagues/${league.id}/players/${data.id}`, 'PATCH', { deck_id: deck.id })
+          if (assign.error) {
+            setAddPlayerError(`${data.name} est ajouté, mais le deck n'a pas pu être assigné : ${assign.error}`)
+          } else {
+            newLp = { ...newLp, deck_id: deck.id, deck_name: deck.name, deck_moxfield_url: deck.moxfield_url, deck_commander_image_url: deck.commander_image_url }
+          }
         }
       }
 
@@ -253,18 +229,10 @@ export default function AdminDashboard({
   }
 
   async function handleDeletePlayer(id: string, name: string) {
-    const res = await fetch('/api/players', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    if (res.ok) {
-      setPlayers((prev) => prev.filter((p) => p.id !== id))
-      showToast(`${name} supprimé`)
-    } else {
-      const data = await res.json() as any
-      showToast(`Erreur : ${data.error}`)
-    }
+    const { error } = await sendJson('/api/players', 'DELETE', { id })
+    if (error) return showToast(`Erreur : ${error}`)
+    setPlayers((prev) => prev.filter((p) => p.id !== id))
+    showToast(`${name} supprimé`)
   }
 
   async function handleGenerateLeague() {
@@ -273,14 +241,13 @@ export default function AdminDashboard({
     setGenerateError('')
 
     try {
-      const res = await fetch('/api/matches/generate', { method: 'POST' })
-      const data = await res.json() as any
-
-      if (!res.ok) {
-        setGenerateError(data.error)
+      const { error, data } = await sendJson('/api/matches/generate', 'POST')
+      if (error) {
+        setGenerateError(error)
       } else {
-        setMatches(data.matches ?? [])
-        showToast(`✓ ${data.count} matchs générés !`)
+        const result = data as any
+        setMatches(result.matches ?? [])
+        showToast(`✓ ${result.count} matchs générés !`)
         router.refresh()
       }
     } finally {
@@ -290,64 +257,50 @@ export default function AdminDashboard({
 
   async function handleResetLeague() {
     setConfirmResetLeague(false)
-    const res = await fetch('/api/matches/generate', { method: 'DELETE' })
-    if (res.ok) {
-      setMatches([])
-      setPlayoffs([])
-      showToast('Matchs et playoffs réinitialisés')
-      router.refresh()
-    } else {
-      const data = await res.json() as any
-      showToast(`Erreur : ${data.error}`)
-    }
+    const { error } = await sendJson('/api/matches/generate', 'DELETE')
+    if (error) return showToast(`Erreur : ${error}`)
+    setMatches([])
+    setPlayoffs([])
+    showToast('Matchs et playoffs réinitialisés')
+    router.refresh()
   }
 
   const handleSaveScore = useCallback(
     async (matchId: string, score_p1: number, score_p2: number) => {
-      const res = await fetch(`/api/matches/${matchId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score_p1, score_p2 }),
-      })
-
-      if (res.ok) {
-        const updated = await res.json() as any
-        setMatches((prev) =>
-          prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m))
-        )
-        showToast('Score enregistré !')
-        setSelectedMatch(null)
-        router.refresh()
-      } else {
-        const data = await res.json() as any
-        showToast(`Erreur : ${data.error}`)
-      }
-    },
-    [router]
-  )
-
-  async function handleResetScore(matchId: string) {
-    const res = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' })
-    if (res.ok) {
-      const updated = await res.json() as any
+      const { error, data } = await sendJson(`/api/matches/${matchId}`, 'PATCH', { score_p1, score_p2 })
+      if (error) return showToast(`Erreur : ${error}`)
+      const updated = data as any
       setMatches((prev) =>
         prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m))
       )
-      showToast('Score réinitialisé')
+      showToast('Score enregistré !')
+      setSelectedMatch(null)
       router.refresh()
-    }
+    },
+    [router, showToast]
+  )
+
+  async function handleResetScore(matchId: string) {
+    if (!confirm('Réinitialiser ce score ?')) return
+    const { error, data } = await sendJson(`/api/matches/${matchId}`, 'DELETE')
+    if (error) return showToast(`Erreur : ${error}`)
+    const updated = data as any
+    setMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m))
+    )
+    showToast('Score réinitialisé')
+    router.refresh()
   }
 
   async function handleGeneratePlayoffs() {
     setPlayoffLoading(true)
     setPlayoffError('')
     try {
-      const res = await fetch('/api/playoffs', { method: 'POST' })
-      const data = await res.json() as any
-      if (!res.ok) {
-        setPlayoffError(data.error)
+      const { error, data } = await sendJson('/api/playoffs', 'POST')
+      if (error) {
+        setPlayoffError(error)
       } else {
-        setPlayoffs(data)
+        setPlayoffs(data as DbPlayoff[])
         showToast('Demi-finales générées !')
         router.refresh()
       }
@@ -358,57 +311,57 @@ export default function AdminDashboard({
 
   async function handleResetPlayoffs() {
     setConfirmResetPlayoffs(false)
-    const res = await fetch('/api/playoffs', { method: 'DELETE' })
-    if (res.ok) {
-      setPlayoffs([])
-      showToast('Playoffs réinitialisés')
-      router.refresh()
-    }
+    const { error } = await sendJson('/api/playoffs', 'DELETE')
+    if (error) return showToast(`Erreur : ${error}`)
+    setPlayoffs([])
+    showToast('Playoffs réinitialisés')
+    router.refresh()
   }
 
   const handleSavePlayoffScore = useCallback(
     async (matchId: string, score_p1: number, score_p2: number) => {
-      const res = await fetch(`/api/playoffs/${matchId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score_p1, score_p2 }),
+      const { error, data } = await sendJson(`/api/playoffs/${matchId}`, 'PATCH', { score_p1, score_p2 })
+      if (error) return showToast(`Erreur : ${error}`)
+      const { match, generated } = data as any
+      setPlayoffs((prev) => {
+        // Finale et petite finale créées ou corrigées : remplacer celles déjà affichées, ajouter les autres.
+        const changed = [match, ...(generated ?? [])]
+        const byId = new Map(changed.map((p) => [p.id, p]))
+        const updated = prev.map((p) => byId.get(p.id) ?? p)
+        for (const g of changed) {
+          if (!prev.some((p) => p.id === g.id)) updated.push(g)
+        }
+        return updated
       })
-      if (res.ok) {
-        const { match, generated } = await res.json() as any
-        setPlayoffs((prev) => {
-          const updated = prev.map((p) => (p.id === matchId ? match : p))
-          // Ajouter les matchs auto-générés (finale + petite finale)
-          const newIds = new Set(updated.map((p) => p.id))
-          for (const g of generated ?? []) {
-            if (!newIds.has(g.id)) updated.push(g)
-          }
-          return updated
-        })
-        setSelectedPlayoff(null)
-        showToast(generated?.length > 0 ? '✓ Score enregistré · Finale et petite finale générées !' : 'Score enregistré !')
-        router.refresh()
-      } else {
-        const data = await res.json() as any
-        showToast(`Erreur : ${data.error}`)
-      }
+      setSelectedPlayoff(null)
+      showToast(generated?.length > 0 ? '✓ Score enregistré · Finale et petite finale à jour !' : 'Score enregistré !')
+      router.refresh()
     },
-    [router]
+    [router, showToast]
   )
 
   async function handleResetPlayoffScore(id: string) {
     if (!confirm('Réinitialiser ce score ?')) return
-    const res = await fetch(`/api/playoffs/${id}`, { method: 'DELETE' })
-    if (res.ok) {
-      const updated = await res.json() as any
-      setPlayoffs((prev) => prev.map((p) => (p.id === id ? updated : p)))
-      showToast('Score réinitialisé')
-    }
+    const { error, data } = await sendJson(`/api/playoffs/${id}`, 'DELETE')
+    if (error) return showToast(`Erreur : ${error}`)
+    const updated = data as DbPlayoff
+    setPlayoffs((prev) => prev.map((p) => (p.id === id ? updated : p)))
+    showToast('Score réinitialisé')
   }
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
+    const { error } = await sendJson('/api/auth/logout', 'POST')
+    if (error) return showToast(`Déconnexion impossible : ${error}`)
     router.push('/')
     router.refresh()
+  }
+
+  /** Recharge la liste des joueurs ; en cas d'échec, garde l'ancienne et renvoie de quoi compléter le toast. */
+  async function reloadPlayers(): Promise<string> {
+    const { error, data } = await sendJson('/api/players', 'GET')
+    if (error) return ` (liste des joueurs non rechargée : ${error})`
+    setPlayers(data as Player[])
+    return ''
   }
 
   async function handleCreateLeague(e: React.FormEvent) {
@@ -416,26 +369,15 @@ export default function AdminDashboard({
     if (!newLeagueName.trim()) return
     setCreateLeagueLoading(true)
     try {
-      const res = await fetch('/api/leagues', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newLeagueName.trim() }),
-      })
-      const data = await res.json() as any
-      if (!res.ok) {
-        showToast(`Erreur : ${data.error}`)
-      } else {
-        const playersRes = await fetch('/api/players')
-        if (playersRes.ok) {
-          const playersList = await playersRes.json() as any
-          setPlayers(playersList)
-        }
-        setLeague(data)
-        setLeaguePlayers([])
-        setNewLeagueName('')
-        showToast(`Saison "${data.name}" créée !`)
-        router.refresh()
-      }
+      const { error, data } = await sendJson('/api/leagues', 'POST', { name: newLeagueName.trim() })
+      if (error) return showToast(`Erreur : ${error}`)
+      const created = data as DbLeague
+      const warning = await reloadPlayers()
+      setLeague(created)
+      setLeaguePlayers([])
+      setNewLeagueName('')
+      showToast(`Saison "${created.name}" créée !${warning}`)
+      router.refresh()
     } finally {
       setCreateLeagueLoading(false)
     }
@@ -446,20 +388,15 @@ export default function AdminDashboard({
     setDeleteLoading(true)
     setConfirmDelete(false)
     try {
-      const res = await fetch(`/api/leagues/${league.id}`, { method: 'DELETE' })
-      const data = await res.json() as any
-      if (!res.ok) {
-        showToast(`Erreur : ${data.error}`)
-      } else {
-        const playersRes = await fetch('/api/players')
-        if (playersRes.ok) setPlayers(await playersRes.json() as any)
-        setLeague(null)
-        setLeaguePlayers([])
-        setMatches([])
-        setPlayoffs([])
-        showToast('Saison supprimée')
-        router.refresh()
-      }
+      const { error } = await sendJson(`/api/leagues/${league.id}`, 'DELETE')
+      if (error) return showToast(`Erreur : ${error}`)
+      const warning = await reloadPlayers()
+      setLeague(null)
+      setLeaguePlayers([])
+      setMatches([])
+      setPlayoffs([])
+      showToast(`Saison supprimée${warning}`)
+      router.refresh()
     } finally {
       setDeleteLoading(false)
     }
@@ -470,18 +407,14 @@ export default function AdminDashboard({
     setCloseLoading(true)
     setConfirmClose(false)
     try {
-      const res = await fetch(`/api/leagues/${league.id}/close`, { method: 'POST' })
-      const data = await res.json() as any
-      if (!res.ok) {
-        showToast(`Erreur : ${data.error}`)
-      } else {
-        setLeague(null)
-        setMatches([])
-        setPlayoffs([])
-        setPlayers([])
-        showToast(`Saison "${data.name}" archivée !`)
-        router.refresh()
-      }
+      const { error, data } = await sendJson(`/api/leagues/${league.id}/close`, 'POST')
+      if (error) return showToast(`Erreur : ${error}`)
+      setLeague(null)
+      setMatches([])
+      setPlayoffs([])
+      setPlayers([])
+      showToast(`Saison "${(data as DbLeague).name}" archivée !`)
+      router.refresh()
     } finally {
       setCloseLoading(false)
     }
@@ -500,13 +433,13 @@ export default function AdminDashboard({
     <div className="space-y-8">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-dc-surface border border-dc-gold/40 text-dc-gold px-5 py-3 rounded-xl shadow-gold text-sm font-semibold animate-pulse">
+        <div role="status" className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-max max-w-[calc(100vw-2rem)] text-center bg-dc-surface border border-dc-gold/40 text-dc-gold px-5 py-3 rounded-xl shadow-gold text-sm font-semibold animate-pulse">
           {toast}
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-dc-gold/10 border border-dc-gold/30 flex items-center justify-center">
             <Shield className="w-5 h-5 text-dc-gold" />
@@ -521,11 +454,11 @@ export default function AdminDashboard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {matches.length > 0 && (
             confirmResetLeague ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-dc-red-light text-xs hidden sm:block">
+                <span className="text-dc-red-light text-xs">
                   {matches.filter((m) => m.is_completed).length > 0 ? 'Scores perdus !' : 'Supprimer les matchs ?'}
                 </span>
                 <button onClick={handleResetLeague} className="text-xs px-3 py-2 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
@@ -534,6 +467,7 @@ export default function AdminDashboard({
             ) : (
               <button
                 onClick={() => setConfirmResetLeague(true)}
+                aria-label="Réinitialiser la ligue"
                 className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
               >
                 <RefreshCcw className="w-3.5 h-3.5" />
@@ -547,7 +481,7 @@ export default function AdminDashboard({
           ) && (
             confirmClose ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-dc-gold text-xs hidden sm:block">Confirmer ?</span>
+                <span className="text-dc-gold text-xs">Clôturer la saison ?</span>
                 <button
                   onClick={handleCloseLeague}
                   disabled={closeLoading}
@@ -565,6 +499,7 @@ export default function AdminDashboard({
             ) : (
               <button
                 onClick={() => setConfirmClose(true)}
+                aria-label="Clôturer la saison"
                 className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-gold/30"
               >
                 <Archive className="w-3.5 h-3.5" />
@@ -575,7 +510,7 @@ export default function AdminDashboard({
           {league && (
             confirmDelete ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-dc-red-light text-xs hidden sm:block">Supprimer la saison ?</span>
+                <span className="text-dc-red-light text-xs">Supprimer la saison ?</span>
                 <button onClick={handleDeleteLeague} disabled={deleteLoading} className="text-xs px-3 py-2 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all disabled:opacity-40">
                   {deleteLoading ? '…' : 'Oui'}
                 </button>
@@ -584,7 +519,7 @@ export default function AdminDashboard({
                 </button>
               </div>
             ) : (
-              <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
+              <button onClick={() => setConfirmDelete(true)} aria-label="Supprimer la saison" className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-2 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
                 <Trash2 className="w-3.5 h-3.5" />
                 <span className="hidden sm:block">Supprimer la saison</span>
               </button>
@@ -592,6 +527,7 @@ export default function AdminDashboard({
           )}
           <button
             onClick={handleLogout}
+            aria-label="Déconnexion"
             className="flex items-center gap-2 text-dc-muted hover:text-dc-text text-sm px-3 py-2 rounded-lg hover:bg-dc-border/30 transition-all"
           >
             <LogOut className="w-4 h-4" />
@@ -657,11 +593,13 @@ export default function AdminDashboard({
 
                 return (
                   <div key={player.id} className="space-y-2">
-                    <div className="flex items-center gap-3 bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5">
+                    {/* Sur téléphone, la liste des decks passe sous le nom pour qu'il reste lisible. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-dc-bg/50 border border-dc-border/40 rounded-xl px-4 py-2.5">
                       <input
                         type="checkbox"
                         checked={isEnrolled}
                         onChange={() => handleToggleEnroll(player, isEnrolled)}
+                        aria-label={`Inscrire ${player.name} à la saison`}
                         className="w-4 h-4 accent-dc-gold cursor-pointer"
                       />
                       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -673,9 +611,10 @@ export default function AdminDashboard({
                         <span className="text-dc-text text-sm font-semibold truncate">{player.name}</span>
                       </div>
                       {isEnrolled && (
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="order-last basis-full pl-7 sm:order-none sm:basis-auto sm:pl-0 flex items-center gap-2 sm:shrink-0">
                           <select
                             value={assignedDeckId}
+                            aria-label={`Deck de ${player.name}`}
                             onChange={(e) => {
                               if (e.target.value === '__new__') {
                                 setCreatingDeckForPlayerId(player.id)
@@ -686,7 +625,7 @@ export default function AdminDashboard({
                                 handleAssignDeck(player.id, e.target.value)
                               }
                             }}
-                            className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors max-w-[160px]"
+                            className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors w-full sm:w-auto sm:max-w-[160px]"
                           >
                             <option value="">Sans deck</option>
                             {decksForPlayer.map((d) => (
@@ -698,6 +637,7 @@ export default function AdminDashboard({
                       )}
                       <button
                         onClick={() => handleDeletePlayer(player.id, player.name)}
+                        aria-label={`Supprimer ${player.name}`}
                         disabled={historySet.has(player.id)}
                         title={
                           isEnrolled
@@ -788,12 +728,12 @@ export default function AdminDashboard({
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
                   placeholder="ex: Alexandre"
-                  className="flex-1 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
+                  className="flex-1 min-w-0 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
                 />
                 <button
                   type="submit"
                   disabled={!newPlayerName.trim() || addPlayerLoading}
-                  className="flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <UserPlus className="w-4 h-4" />
                   {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
@@ -977,8 +917,9 @@ export default function AdminDashboard({
                           {match.is_completed && (
                             <button
                               onClick={() => handleResetScore(match.id)}
-                              className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity text-dc-muted hover:text-dc-red-light p-1"
+                              className="absolute top-3 left-3 transition-opacity text-dc-muted hover:text-dc-red-light p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
                               title="Réinitialiser le score"
+                              aria-label="Réinitialiser le score"
                             >
                               <RefreshCcw className="w-3.5 h-3.5" />
                             </button>
@@ -1004,6 +945,7 @@ export default function AdminDashboard({
             {playoffs.length > 0 && (
               confirmResetPlayoffs ? (
                 <div className="flex items-center gap-1.5">
+                  <span className="text-dc-red-light text-xs">Effacer les playoffs ?</span>
                   <button onClick={handleResetPlayoffs} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
                   <button onClick={() => setConfirmResetPlayoffs(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">Non</button>
                 </div>
@@ -1094,8 +1036,9 @@ export default function AdminDashboard({
                           {playoff.is_completed && (
                             <button
                               onClick={() => handleResetPlayoffScore(playoff.id)}
-                              className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity text-dc-muted hover:text-dc-red-light p-1"
-                              title="Réinitialiser"
+                              className="absolute top-3 left-3 transition-opacity text-dc-muted hover:text-dc-red-light p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
+                              title="Réinitialiser le score"
+                              aria-label="Réinitialiser le score"
                             >
                               <RefreshCcw className="w-3.5 h-3.5" />
                             </button>
@@ -1135,8 +1078,9 @@ export default function AdminDashboard({
                           {playoff.is_completed && (
                             <button
                               onClick={() => handleResetPlayoffScore(playoff.id)}
-                              className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity text-dc-muted hover:text-dc-red-light p-1"
-                              title="Réinitialiser"
+                              className="absolute top-3 left-3 transition-opacity text-dc-muted hover:text-dc-red-light p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
+                              title="Réinitialiser le score"
+                              aria-label="Réinitialiser le score"
                             >
                               <RefreshCcw className="w-3.5 h-3.5" />
                             </button>

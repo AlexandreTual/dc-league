@@ -21,12 +21,38 @@ const SECTION_HEADERS: Record<string, Section | 'ignore'> = {
   tokens: 'ignore',
 }
 
-// quantité optionnelle, nom, puis éventuellement "(SET) numéro", puis des marques *F* ignorées
-const CARD_LINE = /^(?:(\d+)x?\s+)?(.+?)(?:\s+\(([A-Za-z0-9]+)\)\s+(\S+))?((?:\s+\*[A-Za-z]+\*)*)$/
+// quantité optionnelle (« 1 », « 1x », « 1X », « 1 x »), nom, puis éventuellement "(SET) numéro",
+// puis des marques *F* ignorées
+const CARD_LINE = /^(?:(\d+)\s*(?:[xX]\s+|\s+))?(.+?)(?:\s+\(([A-Za-z0-9]+)\)\s+(\S+))?((?:\s+\*[A-Za-z]+\*)*)$/
+// catégories Archidekt en fin de ligne : « [Ramp] », « [Commander{top}] », « [Ramp,Draw] »
+const CATEGORIES = /\s*\[([^\]]*)\]$/
+// réserve au format MTGO / Arena : « SB: 1 Duress »
+const SIDEBOARD_LINE = /^SB:/i
 
 function headerOf(line: string): Section | 'ignore' | null {
-  const word = line.replace(/^\/\/\s*/, '').replace(/:$/, '').trim().toLowerCase()
+  const word = line
+    .replace(/^\/\/\s*/, '')
+    .replace(/:$/, '')
+    .replace(/\s*\(\d+\)$/, '') // « Commander (1) », « Deck (99) »
+    .trim()
+    .toLowerCase()
   return SECTION_HEADERS[word] ?? null
+}
+
+/**
+ * Retire les catégories finales et indique si l'une d'elles est « Commander », ou si la carte est hors du deck
+ * (catégorie Sideboard / Maybeboard, ou marquée {noDeck} par Archidekt).
+ */
+function splitCategories(line: string): { line: string; commander: boolean; outOfDeck: boolean } {
+  const m = CATEGORIES.exec(line)
+  if (!m) return { line, commander: false, outOfDeck: false }
+  const categories = m[1].split(',')
+  const names = categories.map((c) => c.replace(/\{[^}]*\}/g, '').trim().toLowerCase())
+  return {
+    line: line.slice(0, m.index),
+    commander: names.includes('commander'),
+    outOfDeck: categories.some((c) => /\{noDeck\}/i.test(c)) || names.some((n) => SECTION_HEADERS[n] === 'ignore'),
+  }
 }
 
 export function parseDeckList(text: string): ParseResult {
@@ -43,19 +69,31 @@ export function parseDeckList(text: string): ParseResult {
       section = header
       return
     }
-    if (section === 'ignore') {
+    if (section === 'ignore' || SIDEBOARD_LINE.test(line)) {
       result.ignored++
       return
     }
 
-    const m = CARD_LINE.exec(line)
+    const categories = splitCategories(line)
+    if (categories.outOfDeck) {
+      result.ignored++
+      return
+    }
+    const m = CARD_LINE.exec(categories.line)
     const quantity = m?.[1] ? Number(m[1]) : 1
     const name = m?.[2]?.trim() ?? ''
     if (!m || !name || /^\d+$/.test(name) || quantity < 1 || quantity > 99) {
       result.errors.push({ lineNumber, text: raw.trim() })
       return
     }
-    result.lines.push({ lineNumber, quantity, name, set: m[3] ?? null, number: m[4] ?? null, section })
+    result.lines.push({
+      lineNumber,
+      quantity,
+      name,
+      set: m[3] ?? null,
+      number: m[4] ?? null,
+      section: categories.commander ? 'commander' : section,
+    })
   })
 
   result.tooLong = result.lines.length > MAX_CARD_LINES
@@ -67,11 +105,13 @@ export function lookupKey(line: { name: string; set: string | null; number: stri
   return `${name}|${(line.set ?? '').toLowerCase()}|${line.number ?? ''}`
 }
 
-export const MAX_BATCH_LINES = 25
+// 20 lignes = au plus 20 cartes distinctes, soit une seule recherche Scryfall des versions françaises par paquet
+// (la requête `q` de Scryfall est tronquée à 1000 caractères : 20 `oracleid:` au plus).
+export const MAX_BATCH_LINES = 20
 
 const isNullableString = (v: unknown) => v === null || typeof v === 'string'
 
-/** Valide un paquet reçu par l'API : 1 à 25 lignes bien formées, sinon null. */
+/** Valide un paquet reçu par l'API : 1 à MAX_BATCH_LINES lignes bien formées, sinon null. */
 export function validateBatch(value: unknown): ParsedLine[] | null {
   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_BATCH_LINES) return null
   const lines: ParsedLine[] = []

@@ -16,6 +16,13 @@ describe('parseDeckList : formats de ligne', () => {
     ['1 Forest (SLD) 2024-1', { quantity: 1, name: 'Forest', set: 'SLD', number: '2024-1' }],
     ['1 Island (PLST) 123a', { quantity: 1, name: 'Island', set: 'PLST', number: '123a' }],
     ['1 Fire // Ice', { quantity: 1, name: 'Fire // Ice', set: null, number: null }],
+    ['1X Sol Ring', { quantity: 1, name: 'Sol Ring', set: null, number: null }],
+    ['1 x Sol Ring', { quantity: 1, name: 'Sol Ring', set: null, number: null }],
+    ['2 X Sol Ring', { quantity: 2, name: 'Sol Ring', set: null, number: null }],
+    ['1 Xenagos, God of Revels', { quantity: 1, name: 'Xenagos, God of Revels', set: null, number: null }],
+    ['1x Sol Ring (cmr) 472 [Ramp]', { quantity: 1, name: 'Sol Ring', set: 'cmr', number: '472' }],
+    ['1x Sol Ring (cmr) 472 *F* [Ramp,Artifact]', { quantity: 1, name: 'Sol Ring', set: 'cmr', number: '472' }],
+    ['1x Sol Ring [Ramp]', { quantity: 1, name: 'Sol Ring', set: null, number: null }],
   ])('lit « %s »', (text, expected) => {
     expect(parseDeckList(text).lines[0]).toEqual({ ...expected, section: 'main', lineNumber: 1 })
   })
@@ -28,6 +35,46 @@ describe('parseDeckList : sections', () => {
       ['Kenrith', 'commander'],
       ['Sol Ring', 'main'],
     ])
+  })
+
+  it('reconnaît les en-têtes avec compte « Commander (1) » et « Deck (99) »', () => {
+    const r = parseDeckList('Commander (1)\n1 Kenrith\n\nDeck (99)\n1 Sol Ring')
+    expect(r.lines.map((l) => [l.name, l.section])).toEqual([
+      ['Kenrith', 'commander'],
+      ['Sol Ring', 'main'],
+    ])
+    expect(r.errors).toEqual([])
+  })
+
+  it('en-tête « Sideboard (3) » : lignes ignorées', () => {
+    const r = parseDeckList('1 Sol Ring\nSideboard (1)\n1 Duress')
+    expect(r.lines.map((l) => l.name)).toEqual(['Sol Ring'])
+    expect(r.ignored).toBe(1)
+  })
+
+  it('catégorie [Commander] (Archidekt) → section commandant', () => {
+    const r = parseDeckList('1x Kenrith, the Returned King (eld) 303 [Commander{top}]\n1x Sol Ring (cmr) 472 [Ramp]\n1x Arcane Signet [Ramp,Commander]')
+    expect(r.lines.map((l) => [l.name, l.section])).toEqual([
+      ['Kenrith, the Returned King', 'commander'],
+      ['Sol Ring', 'main'],
+      ['Arcane Signet', 'commander'],
+    ])
+  })
+
+  it('catégories hors deck (Archidekt) : lignes ignorées', () => {
+    const r = parseDeckList(
+      '1x Sol Ring [Ramp]\n1x Duress (m19) 94 [Sideboard]\n1x Negate [Maybeboard{noDeck}{noPrice}]\n1x Opt [Idées{noDeck}]',
+    )
+    expect(r.lines.map((l) => l.name)).toEqual(['Sol Ring'])
+    expect(r.ignored).toBe(3)
+    expect(r.errors).toEqual([])
+  })
+
+  it('ignore et compte les lignes « SB: »', () => {
+    const r = parseDeckList('1 Sol Ring\nSB: 1 Duress\nSB:2 Negate')
+    expect(r.lines.map((l) => l.name)).toEqual(['Sol Ring'])
+    expect(r.ignored).toBe(2)
+    expect(r.errors).toEqual([])
   })
 
   it('ignore et compte réserve et maybeboard', () => {
@@ -89,7 +136,7 @@ describe('validateBatch', () => {
   it.each([
     ['pas un tableau', { lines: [] }],
     ['vide', []],
-    ['plus de 25 lignes', Array(26).fill(ok)],
+    ['plus de 20 lignes', Array(21).fill(ok)],
     ['quantité invalide', [{ ...ok, quantity: 0 }]],
     ['nom vide', [{ ...ok, name: '  ' }]],
     ['section inconnue', [{ ...ok, section: 'sideboard' }]],

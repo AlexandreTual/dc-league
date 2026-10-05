@@ -193,10 +193,10 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'reorderTop': {
       if (!(state.lookingAt[action.actor] ?? []).includes(action.target)) return MSG.notLooking
       if (action.ids.length === 0) return MSG.badCount
+      // Visibilité testée d'abord, où que soit la carte : sinon le message trahirait si une carte cachée est dans la bibliothèque.
+      if (!action.ids.every((id) => isVisibleTo(state, id, action.actor))) return MSG.hidden
       const library = state.players[action.target].zones.library
-      if (new Set(action.ids).size !== action.ids.length || !action.ids.every((id) => library.includes(id))) return MSG.unknownCard
-      const where = { player: action.target, zone: 'library' as const }
-      return action.ids.every((id) => isVisibleAt(state, id, where, action.actor)) ? null : MSG.hidden
+      return new Set(action.ids).size === action.ids.length && action.ids.every((id) => library.includes(id)) ? null : MSG.unknownCard
     }
   }
 }
