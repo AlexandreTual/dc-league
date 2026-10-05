@@ -204,6 +204,8 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
   const patch: Partial<CardInstance> = { knownBy: action.faceDown ? [action.actor] : [] }
   if (from.zone === 'battlefield') Object.assign(patch, { tapped: false, flipped: false, faceDown: false, counters: NO_COUNTERS })
   if (action.faceDown) patch.faceDown = true
+  // Face cachée n'a de sens que sur le champ de bataille et en exil : ailleurs, la carte redevient normale.
+  if (to.zone !== 'battlefield' && to.zone !== 'exile') patch.faceDown = false
   if (to.zone === 'battlefield') {
     patch.x = clampPct(action.x ?? 50)
     patch.y = clampPct(action.y ?? 50)
@@ -287,6 +289,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const from = zoneOf(state, action.id)!
       let s = setZone(state, from, state.players[from.player].zones.battlefield.filter((id) => id !== action.id))
       s = setZone(s, { player: action.to, zone: 'battlefield' }, [...s.players[action.to].zones.battlefield, action.id])
+      // Règle 708.5 : le contrôleur d'une carte face cachée peut la regarder.
+      const card = state.cards[action.id]
+      if (card.faceDown) s = setCard(s, action.id, { knownBy: [...new Set([...card.knownBy, action.to])] })
       const what = state.cards[action.id].faceDown ? 'd’une carte face cachée' : `de ${cardName(state, action.id)}`
       return log(s, action.actor, `donne le contrôle ${what} à ${state.players[action.to].name}`)
     }

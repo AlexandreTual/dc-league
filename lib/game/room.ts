@@ -4,6 +4,7 @@ import { startAction } from './random'
 import { GameHistory } from './replay'
 import { viewFor } from './view'
 import type { CatalogEntry, GameAction, GameSetup, PlayerView, Seed } from './types'
+import { parseClientAction } from './validate'
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -58,6 +59,7 @@ const MSG = {
   notHost: "Seul l'hôte peut faire ça",
   notTheirTurn: "Ce n'est pas son tour",
   nothingToUndo: 'Rien à annuler',
+  eliminateOther: 'Seul l’hôte peut éliminer un autre joueur',
   unknown: 'Message inconnu',
 }
 
@@ -101,11 +103,16 @@ export function restoreRoom(
 const isSeated = (room: RoomState, playerId: string | null): playerId is string =>
   playerId !== null && room.seats.some((s) => s.playerId === playerId)
 
-/** Action complète : auteur imposé, graine tirée par le serveur quand l'action en utilise une. */
-function serverAction(action: ClientAction, actor: string, seed: () => Seed): GameAction {
-  // Champs que seul le serveur pose : auteur, graine, passage de tour par l'hôte.
-  const { actor: _a, seed: _s, byHost: _h, ...rest } = action as ClientAction & { actor?: unknown; seed?: unknown; byHost?: unknown }
-  const full = { ...rest, actor } as GameAction
+/**
+ * Action complète, ou message de refus : action validée champ par champ (rien de ce que pose le serveur
+ * n'est repris : auteur, graine, passage de tour par l'hôte), auteur imposé, graine tirée par le serveur.
+ */
+function serverAction(raw: unknown, actor: string, seed: () => Seed): GameAction | string {
+  const action = parseClientAction(raw)
+  if (typeof action === 'string') return action
+  // Éliminer un autre joueur passe par la commande de l'hôte ; un joueur ne peut que concéder.
+  if (action.type === 'eliminate' && action.target !== actor) return MSG.eliminateOther
+  const full = { ...action, actor } as GameAction
   if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook') return { ...full, seed: seed() } as GameAction
   return full
 }
@@ -153,8 +160,10 @@ function hostCommand(room: RoomState, from: string, msg: Extract<ClientMessage, 
 function dispatch(room: RoomState, from: string, msg: ClientMessage, ctx: RoomContext): Outcome {
   if (room.finished) return refused(MSG.finished)
   switch (msg.type) {
-    case 'action':
-      return play(room, serverAction(msg.action, from, ctx.seed))
+    case 'action': {
+      const action = serverAction(msg.action, from, ctx.seed)
+      return typeof action === 'string' ? refused(action) : play(room, action)
+    }
     case 'undo':
       return room.history.undo(from) ? done() : refused(MSG.nothingToUndo)
     case 'concede':
