@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, BarChart2 } from 'lucide-react'
+import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, LogIn, Users, BarChart2 } from 'lucide-react'
+import type { CurrentUser } from '@/lib/auth/types'
+import UserMenu from './UserMenu'
 
 const navLinks = [
   { href: '/', label: 'Classement', icon: Sword },
@@ -11,11 +13,14 @@ const navLinks = [
   { href: '/stats', label: 'Statistiques', icon: BarChart2 },
   { href: '/history', label: 'Historique', icon: Clock },
   { href: '/rules', label: 'Règles', icon: BookOpen },
-  { href: '/admin', label: 'Admin', icon: Shield },
 ]
 
-export default function Navbar() {
+const lobbyLink = { href: '/salon', label: 'Salon', icon: Users }
+const adminLink = { href: '/admin', label: 'Admin', icon: Shield }
+
+export default function Navbar({ user }: { user: CurrentUser | null }) {
   const pathname = usePathname()
+  const links = [...navLinks, ...(user && !user.isBootstrap ? [lobbyLink] : []), ...(user?.isAdmin ? [adminLink] : [])]
 
   return (
     <nav className="sticky top-0 z-50 border-b border-dc-border bg-dc-surface/95 backdrop-blur-sm">
@@ -33,7 +38,7 @@ export default function Navbar() {
 
           {/* Links */}
           <div className="flex items-center gap-1">
-            {navLinks.map(({ href, label, icon: Icon }) => {
+            {links.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href
               return (
                 <Link
@@ -50,6 +55,19 @@ export default function Navbar() {
                 </Link>
               )
             })}
+            <div className="ml-2 pl-2 border-l border-dc-border">
+              {user ? (
+                <UserMenu user={user} />
+              ) : (
+                <Link
+                  href="/connexion"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-dc-muted hover:text-dc-text hover:bg-dc-border/50 transition-all duration-200"
+                >
+                  <LogIn className="w-4 h-4 shrink-0" />
+                  <span className="hidden md:block">Connexion</span>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>

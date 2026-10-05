@@ -49,6 +49,7 @@ local.db
 # Git worktrees
 .worktrees/
 
-# Wrangler
-.wrangler/
 
+# Cloudflare local
+.dev.vars
+.wrangler/

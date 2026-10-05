@@ -7,3 +7,9 @@ pages_build_output_dir = ".vercel/output/static"
 binding = "DB"
 database_name = "dc-league"
 database_id = "423d63e2-938a-4a68-a8be-c12eafa0eb13"
+
+# Worker de jeu (workers/game) : un Durable Object par table.
+[[durable_objects.bindings]]
+name = "GAME"
+class_name = "GameRoom"
+script_name = "dc-league-game"

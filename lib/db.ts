@@ -98,6 +98,15 @@ export async function listPlayers(db: D1Database): Promise<Result<DbPlayer[]>> {
   }
 }
 
+export async function getPlayer(db: D1Database, id: string): Promise<Result<DbPlayer | null>> {
+  try {
+    const row = await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return ok(row ? normalizePlayer(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function countPlayers(db: D1Database): Promise<Result<number>> {
   try {
     const row = await db.prepare('SELECT COUNT(*) as n FROM players').first<{ n: number }>()
@@ -113,6 +122,34 @@ export async function insertPlayer(db: D1Database, data: { name: string }): Prom
     await db.prepare('INSERT INTO players (id, name) VALUES (?, ?)').bind(id, data.name).run()
     const row = await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first<Record<string, unknown>>()
     return ok(normalizePlayer(row!))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function updatePlayerProfile(
+  db: D1Database,
+  id: string,
+  data: { name?: string; avatar_url?: string | null }
+): Promise<Result<DbPlayer>> {
+  try {
+    const sets: string[] = []
+    const values: (string | null)[] = []
+    if (data.name !== undefined) {
+      const name = data.name.trim()
+      if (!name) return err('Le nom est requis')
+      sets.push('name = ?')
+      values.push(name)
+    }
+    if (data.avatar_url !== undefined) {
+      sets.push('avatar_url = ?')
+      values.push(data.avatar_url)
+    }
+    if (sets.length > 0) {
+      await db.prepare(`UPDATE players SET ${sets.join(', ')} WHERE id = ?`).bind(...values, id).run()
+    }
+    const row = await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return row ? ok(normalizePlayer(row)) : err('Joueur introuvable')
   } catch (e) {
     return err((e as Error).message)
   }

@@ -1,9 +1,10 @@
+import Link from 'next/link'
 import { PlayerStats } from '@/lib/leaderboard'
 import { ExternalLink, Trophy } from 'lucide-react'
 import PlayerName from './PlayerName'
 
 interface Props {
-  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null; deck_name?: string | null })[]
+  players: (PlayerStats & { moxfield_url?: string | null; commander_image_url?: string | null; deck_name?: string | null; deck_url?: string | null })[]
   totalPlayers: number
 }
 
@@ -76,7 +77,11 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                 </div>
                 {player.deck_name && (
                   <p className="text-dc-text/70 text-sm italic mt-0.5 truncate">
-                    {player.deck_name}
+                    {player.deck_url ? (
+                      <Link href={player.deck_url} className="hover:text-dc-gold hover:underline">{player.deck_name}</Link>
+                    ) : (
+                      player.deck_name
+                    )}
                   </p>
                 )}
                 <div className="text-dc-muted text-xs mt-0.5">

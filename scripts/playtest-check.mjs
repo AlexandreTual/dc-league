@@ -1,0 +1,155 @@
+// Vérification du mode test dans un vrai navigateur (Chromium piloté par playwright-core).
+// Usage : node scripts/playtest-check.mjs <url-de-base> <deckId> <dossier-captures>
+import { chromium } from 'playwright-core'
+
+const [base = 'http://localhost:8788', deckId, outDir = '.'] = process.argv.slice(2)
+if (!deckId) throw new Error('deckId manquant')
+
+const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const browser = await chromium.launch({ executablePath })
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const errors = []
+page.on('pageerror', (e) => errors.push(e.message))
+
+let shot = 0
+async function capture(label) {
+  shot++
+  await page.waitForTimeout(300) // laisser finir les animations
+  const path = `${outDir}/playtest-${shot}-${label}.png`
+  await page.screenshot({ path })
+  console.log(`📸 ${path}`)
+}
+
+function check(condition, message) {
+  if (!condition) throw new Error(`ÉCHEC : ${message}`)
+  console.log(`✓ ${message}`)
+}
+
+const handCount = () => page.locator('[data-zone="hand"] [data-card-id]').count()
+const battlefieldCount = () => page.locator('[data-zone="battlefield"] [data-card-id]').count()
+
+/** Glisse un élément vers un point, par petits pas (le capteur de dnd-kit exige un vrai mouvement). */
+async function drag(locator, x, y) {
+  const box = await locator.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2 + 10, { steps: 5 })
+  await page.mouse.move(x, y, { steps: 15 })
+  await page.mouse.up()
+  await page.waitForTimeout(200)
+}
+
+try {
+  // Effacer une éventuelle sauvegarde avant d'ouvrir la page de test (même origine).
+  await page.goto(`${base}/decks/${deckId}`)
+  await page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), deckId)
+  await page.goto(`${base}/decks/${deckId}/test`)
+  await page.waitForSelector('[data-zone="hand"] [data-card-id]')
+
+  check((await handCount()) === 7, 'main de départ de 7 cartes')
+  check(await page.locator('[data-testid="mulligan-banner"]').isVisible(), 'bandeau de mulligan affiché')
+  await capture('depart')
+
+  await page.getByRole('button', { name: 'Mulligan', exact: true }).click()
+  check((await handCount()) === 7, 'après mulligan : toujours 7 cartes (premier gratuit)')
+  check((await page.locator('[data-testid="mulligan-banner"]').innerText()).includes('Mulligan n°1'), 'bandeau : Mulligan n°1')
+  await capture('mulligan')
+  await page.getByRole('button', { name: 'Garder' }).click()
+  check(!(await page.locator('[data-testid="mulligan-banner"]').isVisible()), 'bandeau masqué après Garder')
+
+  const battlefield = await page.locator('[data-zone="battlefield"]').boundingBox()
+  const firstCard = page.locator('[data-zone="hand"] [data-card-id]').first()
+  const movedId = await firstCard.getAttribute('data-card-id')
+  await drag(firstCard, battlefield.x + battlefield.width * 0.3, battlefield.y + battlefield.height * 0.4)
+  check((await handCount()) === 6, 'glisser-déposer : 6 cartes en main')
+  check((await battlefieldCount()) === 1, 'glisser-déposer : 1 carte sur le champ de bataille')
+
+  const onField = page.locator(`[data-zone="battlefield"] [data-card-id="${movedId}"]`)
+  await onField.dblclick()
+  await page.waitForTimeout(250)
+  const transform = await onField.evaluate((el) => el.style.transform)
+  check(transform.includes('rotate(90deg)'), 'double-clic : carte engagée')
+
+  await page.getByRole('button', { name: /Tour suivant/ }).click()
+  check((await page.getByTestId('turn').innerText()) === 'Tour 2', 'tour suivant : tour 2')
+  check((await handCount()) === 7, 'tour suivant : pioche (7 cartes)')
+  check(!(await onField.evaluate((el) => el.style.transform)).includes('rotate(90deg)'), 'tour suivant : carte dégagée')
+  await capture('tour-2')
+
+  await page.getByRole('button', { name: /Annuler/ }).click()
+  check((await page.getByTestId('turn').innerText()) === 'Tour 1', 'annuler : retour au tour 1')
+  check((await handCount()) === 6, 'annuler : 6 cartes en main')
+  await capture('annuler')
+
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).waitFor()
+  await capture('reprise')
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await page.waitForSelector('[data-zone="hand"] [data-card-id]')
+  check((await handCount()) === 6, 'reprise : même main (6 cartes)')
+  check((await battlefieldCount()) === 1, 'reprise : même champ de bataille')
+
+  // ── Étape C : menu, marqueurs, jetons, bibliothèque, taxe, journal, raccourcis ──
+  await onField.click({ button: 'right' })
+  await page.getByRole('menu').waitFor()
+  await page.getByRole('button', { name: '+1/+1 plus' }).click()
+  await page.getByRole('button', { name: '+1/+1 plus' }).click()
+  check((await onField.innerText()).includes('+2/+2'), 'menu : 2 marqueurs +1/+1')
+  await capture('menu-marqueurs')
+  await page.keyboard.press('Escape')
+  check(!(await page.getByRole('menu').isVisible()), 'Échap ferme le menu')
+
+  await page.getByRole('button', { name: /Jeton/ }).click()
+  await page.getByRole('button', { name: 'Personnalisé' }).click()
+  await page.getByPlaceholder('Nom (ex. Soldat)').fill('Soldat')
+  await page.getByRole('button', { name: 'Créer le jeton' }).click()
+  check((await battlefieldCount()) === 2, 'jeton personnalisé créé')
+  check((await page.locator('[data-zone="battlefield"]').innerText()).includes('Soldat'), 'jeton : nom affiché')
+
+  const libraryBefore = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
+  page.once('dialog', (d) => d.accept('3'))
+  await page.locator('[data-zone="library"]').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /Regarder les X/ }).click()
+  await page.getByRole('dialog').waitFor()
+  check((await page.locator('[data-pile-card]').count()) === 3, 'regarder les 3 du dessus')
+  await capture('regarder-3')
+  const looked = await page.locator('[data-pile-card]').first().getAttribute('data-pile-card')
+  await page.locator('[data-pile-card]').first().getByRole('button', { name: 'Dessous' }).click()
+  check((await page.locator('[data-pile-card]').count()) === 2, 'carte envoyée dessous : retirée de la liste')
+  await page.getByRole('button', { name: 'Fermer' }).click()
+  const libraryAfter = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
+  check(libraryAfter === libraryBefore, `bibliothèque inchangée en taille (${libraryAfter}), ${looked} en dessous`)
+
+  const commander = page.locator('[data-zone="command"] [data-card-id]').first()
+  const commanderId = await commander.getAttribute('data-card-id')
+  await drag(commander, battlefield.x + battlefield.width * 0.6, battlefield.y + battlefield.height * 0.5)
+  const commanderOnField = page.locator(`[data-zone="battlefield"] [data-card-id="${commanderId}"]`)
+  check(await commanderOnField.isVisible(), 'commandant lancé sur le champ de bataille')
+  const command = await page.locator('[data-zone="command"]').boundingBox()
+  await drag(commanderOnField, command.x + command.width / 2, command.y + command.height / 2)
+  check((await page.locator('[data-zone="command"]').innerText()).includes('Taxe +2'), 'retour en zone de commandement : taxe +2')
+  await capture('taxe')
+
+  await page.getByRole('button', { name: /Journal/ }).click()
+  const log = await page.getByTestId('log').innerText()
+  check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1 (gratuit)'), 'journal en français')
+  await capture('journal')
+  await page.getByRole('button', { name: 'Fermer le journal' }).click()
+
+  const handBefore = await handCount()
+  await page.locator('body').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('d')
+  check((await handCount()) === handBefore + 1, 'touche D : pioche')
+  await page.keyboard.press('Control+z')
+  check((await handCount()) === handBefore, 'Ctrl+Z : annule la pioche')
+
+  await page.getByRole('button', { name: /Jeton/ }).click()
+  await page.getByPlaceholder(/Soldat, Treasure/).fill('d')
+  check((await handCount()) === handBefore, 'touche D pendant la saisie : pas de pioche')
+  await page.keyboard.press('Escape')
+
+  check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
+  console.log('\nTout est OK')
+} finally {
+  await browser.close()
+}

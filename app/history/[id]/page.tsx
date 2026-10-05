@@ -48,6 +48,8 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
     const lp = deckMap.get(p.id)
     return {
       ...p,
+      deck_name: lp?.deck_name ?? null,
+      deck_url: lp?.deck_has_cards ? `/decks/${lp.deck_id}` : null,
       moxfield_url: lp?.deck_moxfield_url ?? lp?.moxfield_url ?? null,
       commander_image_url: lp?.deck_commander_image_url ?? lp?.commander_image_url ?? null,
     }

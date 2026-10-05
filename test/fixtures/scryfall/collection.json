@@ -1,0 +1,61 @@
+{
+  "object": "list",
+  "not_found": [
+    {
+      "set": "xxx",
+      "collector_number": "1"
+    }
+  ],
+  "data": [
+    {
+      "object": "card",
+      "id": "sol-c21-en",
+      "oracle_id": "oracle-sol",
+      "lang": "en",
+      "name": "Sol Ring",
+      "set": "c21",
+      "collector_number": "263",
+      "released_at": "2021-04-23",
+      "layout": "normal",
+      "mana_cost": "{1}",
+      "cmc": 1.0,
+      "type_line": "Artifact",
+      "oracle_text": "{T}: Add {C}{C}.",
+      "colors": [],
+      "color_identity": [],
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/sol-c21-en.jpg",
+        "normal": "https://cards.scryfall.io/normal/front/sol-c21-en.jpg"
+      }
+    },
+    {
+      "object": "card",
+      "id": "kenrith-eld-en",
+      "oracle_id": "oracle-kenrith",
+      "lang": "en",
+      "name": "Kenrith, the Returned King",
+      "set": "eld",
+      "collector_number": "303",
+      "released_at": "2019-10-04",
+      "layout": "normal",
+      "mana_cost": "{4}{W}",
+      "cmc": 5.0,
+      "type_line": "Legendary Creature — Human Noble",
+      "oracle_text": "{R}: All creatures gain trample and haste until end of turn.",
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W"
+      ],
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/kenrith-eld-en.jpg",
+        "normal": "https://cards.scryfall.io/normal/front/kenrith-eld-en.jpg"
+      }
+    }
+  ]
+}

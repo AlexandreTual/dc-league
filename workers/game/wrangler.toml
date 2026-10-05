@@ -1,0 +1,24 @@
+# Worker de jeu en ligne : un Durable Object GameRoom par table.
+# Aucune adresse publique : seul le site Pages l'atteint, par sa liaison GAME.
+name = "dc-league-game"
+main = "index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[[durable_objects.bindings]]
+name = "GAME"
+class_name = "GameRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameRoom"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dc-league"
+database_id = "423d63e2-938a-4a68-a8be-c12eafa0eb13"
+migrations_dir = "../../migrations"
+
+[triggers]
+crons = ["17 3 * * *"]
