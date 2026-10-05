@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
+import { menuPosition, touchTarget } from './touch'
 
 export type MenuItem =
   | { kind: 'action'; label: string; onSelect: () => void }
@@ -9,16 +10,20 @@ export type MenuItem =
   | { kind: 'separator' }
   | { kind: 'title'; label: string }
 
-/** Menu contextuel positionné au pointeur, gardé dans l'écran, fermé au clic extérieur ou par Échap. */
+/**
+ * Menu contextuel positionné au pointeur, gardé dans l'écran (jamais au-dessus du bord haut, défilement
+ * interne s'il est plus haut que l'écran), fermé au clic extérieur ou par Échap.
+ */
 export default function CardMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: x, top: y })
+  const [pos, setPos] = useState<{ left: number; top: number; maxHeight?: number }>({ left: x, top: y })
 
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const { width, height } = el.getBoundingClientRect()
-    setPos({ left: Math.min(x, window.innerWidth - width - 8), top: Math.min(y, window.innerHeight - height - 8) })
+    // scrollHeight : hauteur complète du contenu, même quand le menu est déjà borné.
+    const size = { width: el.offsetWidth, height: el.scrollHeight }
+    setPos(menuPosition({ x, y }, size, { width: window.innerWidth, height: window.innerHeight }))
   }, [x, y])
 
   useEffect(() => {
@@ -38,7 +43,7 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
     <div
       ref={ref}
       role="menu"
-      className="fixed z-[60] w-60 bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm"
+      className="fixed z-[60] w-60 max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm"
       style={pos}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -49,9 +54,9 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
           return (
             <div key={i} className="flex items-center gap-2 px-3 py-1 text-dc-text">
               <span className="flex-1">{item.label}</span>
-              <button className="p-1 rounded hover:bg-dc-border" onClick={() => item.onChange(-1)} aria-label={`${item.label} moins`}><Minus className="w-3 h-3" /></button>
+              <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(-1)} aria-label={`${item.label} moins`}><Minus className="w-3 h-3" /></button>
               <span className="w-6 text-center">{item.value}</span>
-              <button className="p-1 rounded hover:bg-dc-border" onClick={() => item.onChange(1)} aria-label={`${item.label} plus`}><Plus className="w-3 h-3" /></button>
+              <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(1)} aria-label={`${item.label} plus`}><Plus className="w-3 h-3" /></button>
             </div>
           )
         }
@@ -59,7 +64,7 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
           <button
             key={i}
             role="menuitem"
-            className="w-full text-left px-3 py-1.5 rounded-lg text-dc-text hover:bg-dc-border/70"
+            className="w-full text-left px-3 py-1.5 [@media(pointer:coarse)]:min-h-8 rounded-lg text-dc-text hover:bg-dc-border/70"
             onClick={() => {
               item.onSelect()
               onClose()

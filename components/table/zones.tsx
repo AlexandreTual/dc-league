@@ -5,6 +5,7 @@ import { taxOf } from '@/lib/game/apply'
 import type { Catalog, CardView, PlayerView, PlayerZone, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack, type Lang } from './GameCard'
+import { longPressClass, menuGesture, type MenuPoint } from './touch'
 import { battlefieldStyle, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
 
 /** Identifiant de dépôt d'une zone : « joueur:zone ». */
@@ -14,7 +15,8 @@ export const topId = (player: string) => `top:${player}`
 
 export type CardHandlers = {
   onDoubleClick: (id: string, zone: ZoneRef) => void
-  onContextMenu: (id: string, zone: ZoneRef, e: React.MouseEvent) => void
+  /** Clic droit ou appui long sur une carte. */
+  onContextMenu: (id: string, zone: ZoneRef, at: MenuPoint) => void
   onHover: (id: string | null) => void
 }
 
@@ -51,11 +53,7 @@ function cardProps(id: string, zone: ZoneRef, props: ZoneProps) {
     disabled: !props.interactive,
     highlight: props.highlighted?.has(id) ?? false,
     onDoubleClick: () => handlers.onDoubleClick(id, zone),
-    onContextMenu: (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      handlers.onContextMenu(id, zone, e)
-    },
+    onContextMenu: (at: MenuPoint) => handlers.onContextMenu(id, zone, at),
     onHover: (h: boolean) => handlers.onHover(h ? id : null),
   }
 }
@@ -83,22 +81,19 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
 }
 
 /** Main : mes cartes face visible ; celle d'un autre en dos de carte (seulement leur nombre est connu). */
-export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEvent) => void }) {
+export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) => void }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'hand' }
   const { setNodeRef, highlight } = useZone(ref)
   const hand = view.players[player].zones.hand
+  const press = menuGesture(props.onZoneContextMenu)
   return (
     <div
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative h-[28%] flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
-      onContextMenu={(e) => {
-        if (!props.onZoneContextMenu) return
-        e.preventDefault()
-        props.onZoneContextMenu(e)
-      }}
+      className={`relative h-[28%] flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${highlight}`}
+      {...press}
     >
       <span className="absolute top-1 left-3 text-dc-muted text-xs pointer-events-none">Main ({hand.length})</span>
       {hand.map((card, i) =>
@@ -164,7 +159,7 @@ const PILE_LABELS: Record<PlayerZone, string> = {
 /**
  * Pile latérale. Bibliothèque : dos de carte, ou la carte du dessus face visible quand elle est connue ;
  * seul son propriétaire peut la glisser (identifiant `top:<joueur>`, résolu par le moteur avec moveTop).
- * Le clic droit y ouvre toujours le menu de la bibliothèque.
+ * Le clic droit (ou l'appui long) y ouvre toujours le menu de la bibliothèque.
  */
 export function ZonePile(props: ZoneProps & {
   zone: 'command' | 'library' | 'graveyard' | 'exile'
@@ -172,7 +167,7 @@ export function ZonePile(props: ZoneProps & {
   /** Pile réduite (plateau agrandi d'un adversaire, où la hauteur manque). */
   compact?: boolean
   onPileClick?: () => void
-  onPileContextMenu?: (e: React.MouseEvent) => void
+  onPileContextMenu?: (at: MenuPoint) => void
 }) {
   const { view, player, catalogs, lang, zone } = props
   const ref: ZoneRef = { player, zone }
@@ -188,18 +183,15 @@ export function ZonePile(props: ZoneProps & {
     ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
     : <CardBack className="h-full" />
   const hoverTop = top ? (h: boolean) => props.handlers.onHover(h ? top.id : null) : undefined
+  const press = menuGesture(props.onPileContextMenu)
   return (
     <div
       ref={setNodeRef}
       data-zone={zone}
       data-player={player}
-      className={`relative rounded-xl border border-dc-border bg-dc-surface/60 ${props.compact ? 'p-1 gap-0.5' : 'p-2 gap-1'} flex flex-col items-center min-h-0 ${highlight}`}
+      className={`relative rounded-xl border border-dc-border bg-dc-surface/60 ${props.compact ? 'p-1 gap-0.5' : 'p-2 gap-1'} flex flex-col items-center min-h-0 ${props.onPileContextMenu ? longPressClass : ''} ${highlight}`}
       onClick={props.onPileClick}
-      onContextMenu={(e) => {
-        if (!props.onPileContextMenu) return
-        e.preventDefault()
-        props.onPileContextMenu(e)
-      }}
+      {...press}
     >
       <span className={`text-dc-muted ${props.compact ? 'text-[10px] leading-tight truncate max-w-full' : 'text-xs'}`}>{PILE_LABELS[zone]} ({count})</span>
       <div className={`flex-1 min-h-0 w-full flex ${zone === 'command' ? 'gap-1' : ''} justify-center`}>

@@ -6,6 +6,7 @@ import { CARD_TYPES, countByType, filterPile, type CardType } from '@/lib/game/c
 import { placeAt, shiftCard, syncOrder } from '@/lib/game/pile-order'
 import type { Catalog, PlayerZone, Position, VisibleCard } from '@/lib/game/types'
 import GameCard, { type Lang } from './GameCard'
+import { touchTarget } from './touch'
 
 const TARGETS: { label: string; to: PlayerZone; position?: Position }[] = [
   { label: 'Main', to: 'hand' },
@@ -112,9 +113,9 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
               </div>
               {ordered && !readOnly && (
                 <div className="flex justify-between">
-                  <button className="p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30" aria-label="Vers le dessus"
+                  <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label="Vers le dessus"
                     disabled={index === 0} onClick={() => reorder(shiftCard(ordered, card.id, -1))}><ChevronLeft className="w-4 h-4" /></button>
-                  <button className="p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30" aria-label="Vers le dessous"
+                  <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label="Vers le dessous"
                     disabled={index === ordered.length - 1} onClick={() => reorder(shiftCard(ordered, card.id, 1))}><ChevronRight className="w-4 h-4" /></button>
                 </div>
               )}
@@ -122,7 +123,7 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
                 {TARGETS.filter((t) => !(t.to === zone && t.to !== 'library')).map((t) => (
                   <button
                     key={t.label}
-                    className="text-[10px] px-1 py-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50"
+                    className="text-[10px] px-1 py-0.5 [@media(pointer:coarse)]:min-h-8 rounded border border-dc-border text-dc-text hover:border-dc-gold/50"
                     onClick={() => {
                       onMove(card, t.to, t.position)
                       setMoved((prev) => new Set(prev).add(card.id))

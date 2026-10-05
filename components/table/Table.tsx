@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { Crown, Flag } from 'lucide-react'
@@ -28,6 +28,7 @@ import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
+import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
 
 const LANG_KEY = 'dc-card-lang'
@@ -152,8 +153,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       return e
     })
 
-  const openMenu = (entries: MenuEntry[], e: React.MouseEvent) => {
-    if (entries.length > 0) setMenu({ x: e.clientX, y: e.clientY, entries })
+  const openMenu = (entries: MenuEntry[], at: MenuPoint) => {
+    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries })
   }
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
@@ -174,10 +175,18 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     setPile(null)
   }, [pile, send, view])
 
+  // Souris : glisser dès 5 px. Doigt : appui de 200 ms sans bouger de plus de 8 px (sinon c'est un défilement ou un toucher).
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
+
+  // Au doigt, la carte « survolée » reste affichée (pas de mouseleave) : le toucher suivant masque l'aperçu.
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => { if (e.pointerType !== 'mouse') setHovered(null) }
+    window.addEventListener('pointerdown', onDown, true)
+    return () => window.removeEventListener('pointerdown', onDown, true)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -215,9 +224,9 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       if (zone.zone === 'battlefield') send({ type: 'tap', id })
       else if (zone.zone === 'hand' && zone.player === me) send({ type: 'move', id, to: { player: me, zone: 'battlefield' }, x: 50, y: 50 })
     },
-    onContextMenu: (id, zone, e) => {
+    onContextMenu: (id, zone, at) => {
       const card = cards.get(id)
-      if (card) openMenu(cardMenu(menuCtx, card, zone), e)
+      if (card) openMenu(cardMenu(menuCtx, card, zone), at)
     },
     onHover: (id) => setHovered(id),
   }
@@ -348,7 +357,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         <div className="px-3 py-2 text-sm bg-dc-gold/10 border-b border-dc-gold/30 text-dc-gold flex items-center gap-3" data-testid="mulligan-banner">
           <span>
             {mine.mulligans === 0 ? 'Main de départ' : `Mulligan n°${mine.mulligans}`}
-            {toBottom > 0 && ` : mets ${toBottom} carte(s) en dessous de ta bibliothèque (Maj + glisser sur la bibliothèque)`}
+            {toBottom > 0 && ` : mets ${toBottom} carte(s) en dessous de ta bibliothèque (menu de la carte : « Mettre au-dessous », ou Maj + glisser sur la bibliothèque)`}
           </span>
           <button className="px-3 py-1 rounded-lg bg-dc-gold/20 border border-dc-gold/40" onClick={() => send({ type: 'keep' })}>Garder</button>
           <button className="px-3 py-1 rounded-lg border border-dc-gold/40" onClick={() => send({ type: 'mulligan' })}>Mulligan</button>
@@ -367,14 +376,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
                     panel={panelFor(p, focus, true)}
                     onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
-                    onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, p), e)}
+                    onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
                   />
                 )}
                 renderBoard={(p) => (
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
                     panel={panelFor(p)}
-                    onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, p), e)}
+                    onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
                     onPile={(zone, title) => setPile({ title, player: p, zone, mode: 'browse' })}
                   />
                 )}
@@ -387,8 +396,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               player={me}
               me={me}
               panel={source.mode === 'online' ? panelFor(me) : undefined}
-              onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, me), e)}
-              onHandMenu={(e) => openMenu(handMenu(menuCtx), e)}
+              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
+              onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
             />
           )}

@@ -6,8 +6,9 @@ import type { ClientAction } from '@/lib/game/room'
 import { COMMANDER_DAMAGE_LETHAL, POISON_LETHAL, type Catalog, type PlayerView, type VisibleCard } from '@/lib/game/types'
 import type { Lang } from './GameCard'
 import ManaPool from './ManaPool'
+import { touchTarget } from './touch'
 
-const stepBtn = 'p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent'
+const stepBtn = `p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent ${touchTarget}`
 
 function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
   label: React.ReactNode

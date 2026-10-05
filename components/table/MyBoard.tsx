@@ -1,5 +1,6 @@
 'use client'
 
+import type { MenuPoint } from './touch'
 import { Battlefield, Hand, ZonePile, type ZoneProps } from './zones'
 
 /** Mon plateau : champ de bataille, colonne de piles, main. */
@@ -8,8 +9,8 @@ export default function MyBoard(props: Omit<ZoneProps, 'player'> & {
   me: string
   /** Mes compteurs (en ligne ; en mode test, la vie est dans la barre du haut). */
   panel?: React.ReactNode
-  onLibraryMenu: (e: React.MouseEvent) => void
-  onHandMenu: (e: React.MouseEvent) => void
+  onLibraryMenu: (at: MenuPoint) => void
+  onHandMenu: (at: MenuPoint) => void
   onPile: (zone: 'graveyard' | 'exile', title: string) => void
 }) {
   const { onLibraryMenu, onHandMenu, onPile, me, panel, ...zoneProps } = props
