@@ -5,6 +5,7 @@ import {
   EVERYONE,
   FIRST_PLAYER_DRAWS_FROM,
   HIDDEN_ZONES,
+  NO_MANA,
   OPENING_HAND,
   type CardFace,
   type CardInstance,
@@ -155,6 +156,13 @@ function untapAllOf(state: GameState, playerId: string): GameState {
 }
 
 /** Passe au joueur suivant non éliminé : il dégage ses permanents et pioche 1. */
+/** Fin de tour : les réserves de mana se vident, sauf celles des joueurs qui les gardent. */
+function emptyManaPools(state: GameState): GameState {
+  const players = { ...state.players }
+  for (const [id, p] of Object.entries(players)) if (!p.keepMana) players[id] = { ...p, mana: NO_MANA }
+  return { ...state, players }
+}
+
 function passTurn(state: GameState, actor: string | null, byHost = false): GameState {
   const order = state.turnOrder
   const current = order.indexOf(state.activePlayer)
@@ -164,7 +172,7 @@ function passTurn(state: GameState, actor: string | null, byHost = false): GameS
     if (state.players[next].eliminated) continue
     const turn = index <= current ? state.turn + 1 : state.turn
     let s: GameState = { ...state, activePlayer: next, turn, firstTurnDone: true }
-    s = draw(untapAllOf(s, next), next, 1)
+    s = draw(untapAllOf(emptyManaPools(s), next), next, 1)
     return log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
   }
   return state
@@ -383,6 +391,20 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'toggleTopRevealed': {
       const topRevealed = !state.players[action.actor].topRevealed
       return log(setPlayer(state, action.actor, { topRevealed }), action.actor, topRevealed ? 'joue avec la carte du dessus révélée' : 'cache la carte du dessus')
+    }
+
+    case 'mana': {
+      const pool = state.players[action.actor].mana
+      return setPlayer(state, action.actor, { mana: { ...pool, [action.color]: Math.max(0, pool[action.color] + action.delta) } })
+    }
+
+    case 'clearMana':
+      return setPlayer(state, action.actor, { mana: NO_MANA })
+
+    case 'toggleKeepMana': {
+      const keepMana = !state.players[action.actor].keepMana
+      return log(setPlayer(state, action.actor, { keepMana }), action.actor,
+        keepMana ? 'garde sa réserve de mana d’un tour à l’autre' : 'ne garde plus sa réserve de mana')
     }
 
     case 'togglePeekTop': {

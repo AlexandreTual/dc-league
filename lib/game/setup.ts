@@ -1,4 +1,4 @@
-import { FORMAT_RULES, type CardInstance, type GameSetup, type GameState, type PlayerState } from './types'
+import { FORMAT_RULES, NO_MANA, type CardInstance, type GameSetup, type GameState, type PlayerState } from './types'
 
 export function createInitialState(setup: GameSetup): GameState {
   const state: GameState = {
@@ -33,6 +33,8 @@ export function createInitialState(setup: GameSetup): GameState {
       mulligans: 0,
       topRevealed: false,
       peekTop: false,
+      mana: NO_MANA,
+      keepMana: false,
       zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
       stats: { drawn: 0, landsPlayed: 0 },
     }

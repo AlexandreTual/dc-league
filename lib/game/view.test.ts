@@ -4,7 +4,7 @@ import { createRng } from './random'
 import { applyAction } from './apply'
 import { canApply, isVisibleTo } from './rules'
 import { viewFor } from './view'
-import { PLAYER_ZONES, type GameAction, type GameState, type PlayerZone } from './types'
+import { MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type PlayerZone } from './types'
 
 const apply = (s: GameState, ...actions: GameAction[]) => actions.reduce((acc, a) => applyAction(acc, a), s)
 const sol = (p: string) => card(p, 2)
@@ -68,7 +68,7 @@ describe('anti-fuite', () => {
     const randomAction = (): GameAction => {
       const actor = pick(ids)
       const allCards = Object.keys(s.cards)
-      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop', 'reorder'])) {
+      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop', 'reorder', 'mana', 'clearMana', 'keepMana'])) {
         case 'draw':
           return { type: 'draw', actor, count: 1 }
         case 'move': {
@@ -95,6 +95,12 @@ describe('anti-fuite', () => {
           return { type: 'revealTop', actor }
         case 'peekTop':
           return { type: 'togglePeekTop', actor }
+        case 'mana':
+          return { type: 'mana', actor, color: pick(MANA_COLORS), delta: pick([1, 5, -1]) }
+        case 'clearMana':
+          return { type: 'clearMana', actor }
+        case 'keepMana':
+          return { type: 'toggleKeepMana', actor }
         case 'reorder': {
           // Ce que l'auteur voit en ce moment dans une bibliothèque qu'il regarde, dans un autre ordre.
           const target = pick(s.lookingAt[actor] ?? ids)
