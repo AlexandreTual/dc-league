@@ -57,10 +57,28 @@ describe('commitDeckList', () => {
     expect((await listDeckCards(db, 'd1')).data!.at(-1)).toMatchObject({ requested_name: 'Carte Inconnue', en: null })
   })
 
-  it('garde l’image existante sans commandant trouvé', async () => {
+  it('réimport sans commandant : efface l’ancienne image', async () => {
     await db.prepare("UPDATE decks SET commander_image_url = 'https://old.jpg' WHERE id = 'd1'").run()
-    await commitDeckList(db, 'd1', '1 Sol Ring (C21) 263')
-    expect(await deckImage()).toBe('https://old.jpg')
+    const r = await commitDeckList(db, 'd1', '1 Sol Ring (C21) 263')
+    expect(r.error).toBeNull()
+    expect(await deckImage()).toBeNull()
+  })
+
+  it('une erreur d’enregistrement de l’image est renvoyée', async () => {
+    const failing = new Proxy(db, {
+      get(target, prop) {
+        if (prop === 'prepare') {
+          return (sql: string) => {
+            if (sql.startsWith('UPDATE decks SET commander_image_url')) throw new Error('D1 en panne')
+            return target.prepare(sql)
+          }
+        }
+        const value = Reflect.get(target, prop)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    const r = await commitDeckList(failing, 'd1', fixture)
+    expect(r).toEqual({ data: null, error: 'D1 en panne' })
   })
 
   it('refuse une liste vide ou trop longue', async () => {
