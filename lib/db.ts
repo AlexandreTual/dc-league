@@ -517,9 +517,18 @@ export async function updatePlayoffScore(
       if (missing.length > 0) {
         const ids = missing.map(() => uuid())
         await db.batch(
+          // Insertion seulement si les demi-finales ont toujours les scores relus et la ligue est ouverte :
+          // une correction ou une remise à zéro simultanée ne laisse pas une finale aux mauvais joueurs.
           missing.map(([stage, p1, p2], i) =>
-            db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = ?)`)
-              .bind(ids[i], stage, p1, p2, leagueId, leagueId, stage),
+            db.prepare(
+              `${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = ?)
+               AND EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND is_completed = 1 AND score_p1 = ? AND score_p2 = ?)
+               AND EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND is_completed = 1 AND score_p1 = ? AND score_p2 = ?)
+               AND NOT EXISTS (SELECT 1 FROM leagues WHERE id = ? AND is_active = 0)`,
+            ).bind(
+              ids[i], stage, p1, p2, leagueId, leagueId, stage,
+              s1!.id, s1!.score_p1, s1!.score_p2, s2!.id, s2!.score_p1, s2!.score_p2, leagueId,
+            ),
           ),
         )
         touched.push(...ids)
