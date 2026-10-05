@@ -22,10 +22,6 @@ export const MIGRATIONS = [
 /** D1 refuse une requête qui lie plus de 100 paramètres. */
 export const MAX_BOUND_PARAMETERS = 100
 
-export function readMigration(file: string): string {
-  return readFileSync(path.join(__dirname, '..', 'migrations', file), 'utf8')
-}
-
 class Statement {
   constructor(
     private readonly sqlite: Sqlite,
@@ -79,13 +75,13 @@ function toValue(v: unknown): Value {
   return v as Value
 }
 
-/** `migrations` permet de s'arrêter avant une migration pour la tester sur des données existantes. */
-export function createTestDb(options: { migrations?: string[] } = {}): D1Database {
+export const readMigration = (file: string) => readFileSync(path.join(__dirname, '..', 'migrations', file), 'utf8')
+
+/** Base en mémoire ; `migrations` : sous-ensemble à appliquer (par défaut, toutes, dans l'ordre). */
+export function createTestDb(migrations: string[] = MIGRATIONS): D1Database {
   const sqlite = new DatabaseSync(':memory:')
   sqlite.exec('PRAGMA foreign_keys = ON')
-  for (const file of options.migrations ?? MIGRATIONS) {
-    sqlite.exec(readMigration(file))
-  }
+  for (const file of migrations) sqlite.exec(readMigration(file))
 
   const db = {
     prepare: (sql: string) => new Statement(sqlite, sql),

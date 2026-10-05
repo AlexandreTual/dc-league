@@ -5,7 +5,7 @@ const MIGRATION = '0007_ligue_index.sql'
 
 /** Base au niveau 0006, avec des données comme en production. */
 async function avantMigration(): Promise<D1Database> {
-  const db = createTestDb({ migrations: MIGRATIONS.slice(0, MIGRATIONS.indexOf(MIGRATION)) })
+  const db = createTestDb(MIGRATIONS.slice(0, MIGRATIONS.indexOf(MIGRATION)))
   await db.batch([
     db.prepare("INSERT INTO players (id, name) VALUES ('p1', 'Alex'), ('p2', 'Bob'), ('p3', 'Chloé')"),
     db.prepare("INSERT INTO decks (id, player_id, name) VALUES ('d1', 'p1', 'Kenrith'), ('d2', 'p2', 'Atraxa')"),
