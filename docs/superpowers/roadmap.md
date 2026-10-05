@@ -23,8 +23,8 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 | # | Sous-projet | Spec | Plan | État |
 |---|---|---|---|---|
-| 1 | Moteur multijoueur (propriétaire/contrôleur, compteurs, informations cachées, `viewFor`) | `specs/2026-10-04-multiplayer-engine-design.md` | `plans/2026-10-04-multiplayer-engine.md` | **terminé** (branche `ccr-c25fefc0-vailvt`, mode test migré) |
-| 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **terminé** (vérifié de bout en bout en local ; à déployer) |
+| 1 | Moteur multijoueur (propriétaire/contrôleur, compteurs, informations cachées, `viewFor`) | `specs/2026-10-04-multiplayer-engine-design.md` | `plans/2026-10-04-multiplayer-engine.md` | **terminé et déployé** (PR #6, mode test migré) |
+| 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **terminé et déployé** (PR #6 ; partie à plusieurs pas encore testée en vrai) |
 | 3 | Interface de table multijoueur | — | — | à faire |
 | 4 | Matchs de ligue en ligne (score proposé, confirmé) | — | — | à faire |
 
@@ -43,6 +43,12 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 - **Sous-projet 3** : action « déplacer la carte du dessus de sa bibliothèque » (en ligne, le client ne connaît pas l'identifiant de la carte du dessus ; le mode test solo, lui, le connaît localement).
 - **Sous-projet 3** : interface pensée pour ordinateur d'abord, adaptation tablette envisagée ensuite.
 
+## Retours de test (5 octobre)
+
+- Connexion, import d'un deck (cartes en français) et mode test : OK, interface fluide.
+- **À corriger — glisser-déposer** : pendant le déplacement, l'aperçu de la carte rétrécit (largeur fixe de 96 px) et la carte se pose décalée (position calculée sur le centre de la carte d'origine, pas sur l'aperçu). Concerne le mode test et la future table en ligne.
+- **À prévoir — jetons du deck** : proposer les jetons créés par les cartes du deck (données `all_parts` de Scryfall), en plus de la recherche actuelle.
+
 ## Idées pour plus tard
 
 - Analyse de deck par IA (courbe de mana, cohérence, suggestions).
@@ -52,6 +58,5 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 ## Vérifications à faire après déploiement (par l'utilisateur)
 
-- Migrations D1 0002 et 0003 appliquées sur la base distante.
-- Import réel depuis Scryfall (bloqué dans l'environnement de développement), recherche de jetons, vraies images de cartes.
-- Jeu en ligne : secrets GitHub `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`, premier déploiement du Worker, puis relance du déploiement Pages (`docs/deploiement-jeu-en-ligne.md`).
+- Recherche de jetons sur Scryfall (l'import et les images de cartes sont confirmés).
+- Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
