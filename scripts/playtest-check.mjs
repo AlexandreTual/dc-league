@@ -229,6 +229,24 @@ try {
   check((await handCount()) === handBefore, 'touche D pendant la saisie : pas de pioche')
   await page.keyboard.press('Escape')
 
+  // ── Réglages : quadrillage et couleur du fond, mémorisés sur l'appareil ──
+  const fieldStyle = () => page.locator('[data-zone="battlefield"]').evaluate((el) => ({ image: el.style.backgroundImage, color: el.style.backgroundColor }))
+  check((await fieldStyle()).image.includes('linear-gradient'), 'quadrillage affiché par défaut')
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByLabel('Quadrillage sur le champ de bataille').uncheck()
+  await page.getByLabel('Couleur du fond').fill('#1e3a2f')
+  await capture('reglages')
+  await page.keyboard.press('Escape')
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await page.waitForSelector('[data-zone="hand"] [data-card-id]')
+  const styled = await fieldStyle()
+  check(styled.image === '' && styled.color === 'rgb(30, 58, 47)', 'réglages gardés après rechargement : sans quadrillage, fond vert')
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByLabel('Quadrillage sur le champ de bataille').check()
+  await page.getByRole('button', { name: 'Par défaut' }).click()
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')
 } finally {
