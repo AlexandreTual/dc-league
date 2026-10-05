@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { isAdminAuthenticated } from '@/lib/auth'
-import { listPlayers, insertPlayer, deletePlayer, countMatches } from '@/lib/db'
+import { listPlayers, insertPlayer, deletePlayer, countMatches, PLAYER_ERR } from '@/lib/db'
 import { getActiveLeague, enrollLeaguePlayer } from '@/lib/db-leagues'
 
 export const runtime = 'edge'
@@ -50,6 +50,7 @@ export async function DELETE(req: NextRequest) {
 
   const { env } = getRequestContext<CloudflareEnv>()
   const { error } = await deletePlayer(env.DB, id)
+  if (error === PLAYER_ERR.LAST_ADMIN || error === PLAYER_ERR.HAS_HISTORY) return NextResponse.json({ error }, { status: 409 })
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

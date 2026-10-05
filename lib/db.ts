@@ -166,16 +166,33 @@ export async function getPlayerIdsWithHistory(db: D1Database): Promise<Result<st
   }
 }
 
+export const PLAYER_ERR = {
+  HAS_HISTORY: 'Ce joueur a participé à une league et ne peut pas être supprimé.',
+  LAST_ADMIN: "Ce joueur est le dernier admin : nomme un autre admin avant de le supprimer.",
+} as const
+
 export async function deletePlayer(db: D1Database, id: string): Promise<Result<true>> {
   try {
     const row = await db
       .prepare('SELECT COUNT(*) as n FROM league_players WHERE player_id = ?')
       .bind(id)
       .first<{ n: number }>()
-    if ((row?.n ?? 0) > 0) {
-      return err('Ce joueur a participé à une league et ne peut pas être supprimé.')
+    if ((row?.n ?? 0) > 0) return err(PLAYER_ERR.HAS_HISTORY)
+    // Suppression conditionnée en une seule requête : le compte lié (supprimé en cascade)
+    // ne doit pas être le dernier admin.
+    const r = await db
+      .prepare(
+        `DELETE FROM players WHERE id = ?1 AND NOT (
+           EXISTS (SELECT 1 FROM users WHERE player_id = ?1 AND is_admin = 1)
+           AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1
+         )`,
+      )
+      .bind(id)
+      .run()
+    if (r.meta.changes === 0) {
+      const lastAdmin = await db.prepare('SELECT 1 AS found FROM users WHERE player_id = ? AND is_admin = 1').bind(id).first()
+      if (lastAdmin) return err(PLAYER_ERR.LAST_ADMIN)
     }
-    await db.prepare('DELETE FROM players WHERE id = ?').bind(id).run()
     return ok(true)
   } catch (e) {
     return err((e as Error).message)

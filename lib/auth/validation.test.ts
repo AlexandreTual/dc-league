@@ -25,6 +25,13 @@ describe('safeRedirectPath', () => {
     ['//evil.com', '/profil'],
     ['https://evil.com', '/profil'],
     ['/\\evil.com', '/profil'],
+    ['/\t/evil.com', '/profil'],
+    ['/\n/evil.com', '/profil'],
+    ['/\r/evil.com', '/profil'],
+    ['/%09/evil.com', '/%09/evil.com'],
+    ['/a\\b', '/profil'],
+    ['/\u0000x', '/profil'],
+    ['/\u007f', '/profil'],
     ['/admin', '/admin'],
     ['/profil/decks?x=1', '/profil/decks?x=1'],
   ])('safeRedirectPath(%s) = %s', (input, expected) => {

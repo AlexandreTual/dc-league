@@ -50,7 +50,7 @@ describe('loginWithPassword', () => {
     await createAccount('p1', 'Alex')
     await loginWithPassword(db, { username: 'Alex', password: 'mauvais-mdp' }, now)
     await loginWithPassword(db, { username: 'Alex', password: PASSWORD }, now)
-    expect((await countRecentFailures(db, 'Alex', now)).data).toBe(0)
+    expect((await countRecentFailures(db, 'user:Alex', now)).data).toBe(0)
   })
 
   it('même erreur pour un pseudo inconnu et un mauvais mot de passe', async () => {
@@ -70,6 +70,38 @@ describe('loginWithPassword', () => {
       error: 'Trop de tentatives, réessaie dans 15 minutes',
     })
     expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD }, minutes(16))).ok).toBe(true)
+  })
+
+  it('compte les tentatives simultanées : 5 vérifications au plus', async () => {
+    await createAccount('p1', 'Alex')
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => loginWithPassword(db, { username: 'Alex', password: 'mauvais-mdp' }, now)),
+    )
+    expect(results.filter((r) => !r.ok && r.status === 401)).toHaveLength(5)
+    expect(results.filter((r) => !r.ok && r.status === 429)).toHaveLength(15)
+  })
+
+  it('bloque une IP après 20 tentatives, quel que soit le pseudo', async () => {
+    await createAccount('p1', 'Alex')
+    for (let i = 0; i < 20; i++) {
+      await loginWithPassword(db, { username: `inconnu${i}`, password: 'mauvais-mdp', ip: '203.0.113.7' }, now)
+    }
+    const blocked = await loginWithPassword(db, { username: 'Alex', password: PASSWORD, ip: '203.0.113.7' }, now)
+    expect(blocked).toEqual({ ok: false, status: 429, error: 'Trop de tentatives, réessaie dans 15 minutes' })
+    expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD, ip: '198.51.100.2' }, now)).ok).toBe(true)
+  })
+
+  it("une connexion réussie ne compte pas pour l'IP", async () => {
+    await createAccount('p1', 'Alex')
+    for (let i = 0; i < 25; i++) {
+      expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD, ip: '203.0.113.7' }, now)).ok).toBe(true)
+    }
+  })
+
+  it('tronque le pseudo saisi à 64 caractères', async () => {
+    await loginWithPassword(db, { username: 'x'.repeat(5000), password: 'mauvais-mdp' }, now)
+    const row = await db.prepare('SELECT MAX(LENGTH(username)) AS n FROM login_attempts').first<{ n: number }>()
+    expect(row!.n).toBeLessThanOrEqual(64 + 'user:'.length)
   })
 })
 

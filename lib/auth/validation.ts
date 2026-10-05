@@ -10,9 +10,22 @@ export function validatePassword(s: string): string | null {
   return null
 }
 
-/** Chemin de redirection interne uniquement, sinon /profil. */
+const REDIRECT_BASE = 'https://dc-league.invalid'
+
+/**
+ * Chemin de redirection interne uniquement, sinon /profil.
+ * Les navigateurs ignorent tabulations et retours à la ligne et lisent `\` comme `/` :
+ * on les refuse, puis on vérifie que le chemin reste sur la même origine.
+ */
 export function safeRedirectPath(from: string | null | undefined): string {
-  if (!from || !from.startsWith('/') || from.startsWith('//') || from.startsWith('/\\')) return '/profil'
+  if (!from || !from.startsWith('/') || from.startsWith('//')) return '/profil'
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f\\]/.test(from)) return '/profil'
+  try {
+    if (new URL(from, REDIRECT_BASE).origin !== REDIRECT_BASE) return '/profil'
+  } catch {
+    return '/profil'
+  }
   return from
 }
 
