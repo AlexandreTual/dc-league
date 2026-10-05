@@ -127,14 +127,15 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                 </div>
                 <button
                   onClick={() => setImportingId(importingId === deck.id ? null : deck.id)}
+                  aria-label={`Importer la liste de ${deck.name}`}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border/60 rounded-lg text-dc-muted hover:text-dc-gold hover:border-dc-gold/40"
                 >
                   <Upload className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Importer la liste</span>
                 </button>
-                <button onClick={() => setEditingId(deck.id)} className="p-2 text-dc-muted hover:text-dc-text" aria-label="Modifier">
+                <button onClick={() => setEditingId(deck.id)} className="p-2 text-dc-muted hover:text-dc-text" aria-label={`Modifier ${deck.name}`}>
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => remove(deck)} className="p-2 text-dc-muted hover:text-dc-red-light" aria-label="Supprimer">
+                <button onClick={() => remove(deck)} className="p-2 text-dc-muted hover:text-dc-red-light" aria-label={`Supprimer ${deck.name}`}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
