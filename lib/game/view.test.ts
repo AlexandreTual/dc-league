@@ -68,7 +68,7 @@ describe('anti-fuite', () => {
     const randomAction = (): GameAction => {
       const actor = pick(ids)
       const allCards = Object.keys(s.cards)
-      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop'])) {
+      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop', 'reorder'])) {
         case 'draw':
           return { type: 'draw', actor, count: 1 }
         case 'move': {
@@ -95,6 +95,12 @@ describe('anti-fuite', () => {
           return { type: 'revealTop', actor }
         case 'peekTop':
           return { type: 'togglePeekTop', actor }
+        case 'reorder': {
+          // Ce que l'auteur voit en ce moment dans une bibliothèque qu'il regarde, dans un autre ordre.
+          const target = pick(s.lookingAt[actor] ?? ids)
+          const seen = s.players[target].zones.library.filter((id) => isVisibleTo(s, id, actor)).slice(0, 3)
+          return { type: 'reorderTop', actor, target, ids: [...seen].reverse() }
+        }
         case 'toggleTop':
           return { type: 'toggleTopRevealed', actor }
         default:

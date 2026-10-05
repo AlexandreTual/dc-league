@@ -145,11 +145,33 @@ try {
   check((await page.locator('[data-pile-card]').count()) === 3, 'regarder les 3 du dessus')
   await capture('regarder-3')
   const looked = await page.locator('[data-pile-card]').first().getAttribute('data-pile-card')
-  await page.locator('[data-pile-card]').first().getByRole('button', { name: 'Dessous' }).click()
+  await page.locator('[data-pile-card]').first().getByRole('button', { name: 'Dessous', exact: true }).click()
   check((await page.locator('[data-pile-card]').count()) === 2, 'carte envoyée dessous : retirée de la liste')
   await page.getByRole('button', { name: 'Fermer' }).click()
   const libraryAfter = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
   check(libraryAfter === libraryBefore, `bibliothèque inchangée en taille (${libraryAfter}), ${looked} en dessous`)
+
+  // Regard : remettre les cartes regardées dans l'ordre de son choix (flèches, puis glisser-déposer).
+  const lookTop = async (n) => {
+    page.once('dialog', (d) => d.accept(String(n)))
+    await page.locator('[data-zone="library"]').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: /Regarder les X/ }).click()
+    await page.locator('[data-pile-card]').nth(n - 1).waitFor()
+  }
+  const pileIds = () => page.locator('[data-pile-card]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pile-card')))
+  await lookTop(3)
+  const [r1, r2, r3] = await pileIds()
+  check((await page.locator('[data-pile-card]').first().locator('[data-pile-top]').count()) === 1, 'regard : repère « Dessus » sur la première carte')
+  await page.locator(`[data-pile-card="${r1}"]`).getByRole('button', { name: 'Vers le dessous' }).click()
+  check((await pileIds()).join() === [r2, r1, r3].join(), 'flèche → : la carte du dessus passe en deuxième')
+  await page.locator(`[data-pile-card="${r3}"]`).dragTo(page.locator(`[data-pile-card="${r2}"]`))
+  check((await pileIds()).join() === [r3, r2, r1].join(), 'glisser-déposer : la troisième carte passe dessus')
+  await capture('regard-ordre')
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click()
+  await page.waitForTimeout(200)
+  await lookTop(3)
+  check((await pileIds()).join() === [r3, r2, r1].join(), 'regarder à nouveau : la bibliothèque a gardé l’ordre choisi')
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click()
 
   // Recherche filtrée par type : seules les créatures, puis « Tous » remet toute la bibliothèque.
   await page.locator('[data-zone="library"]').click({ button: 'right' })
@@ -213,7 +235,7 @@ try {
 
   await page.getByRole('button', { name: /Journal/ }).click()
   const log = await page.getByTestId('log').innerText()
-  check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1 (gratuit)'), 'journal en français')
+  check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1 (gratuit)') && log.includes('remet les 3 cartes du dessus de sa bibliothèque dans l’ordre de son choix'), 'journal en français (dont le regard)')
   await capture('journal')
   await page.getByRole('button', { name: 'Fermer le journal' }).click()
 

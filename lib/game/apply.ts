@@ -410,6 +410,18 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(log(s, action.actor, `regarde ${what} de ${of}`), action.actor, `Tu as vu : ${names}`, [action.actor])
     }
 
+    case 'reorderTop': {
+      // Les cartes échangent leurs places entre les positions qu'elles occupent déjà ; ce que chacun sait d'elles ne change pas.
+      const library = state.players[action.target].zones.library
+      const slots = action.ids.map((id) => library.indexOf(id)).sort((a, b) => a - b)
+      const next = [...library]
+      slots.forEach((slot, i) => { next[slot] = action.ids[i] })
+      const s = setZone(state, { player: action.target, zone: 'library' }, next)
+      const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
+      const what = action.ids.length === 1 ? 'la carte du dessus' : `les ${action.ids.length} cartes du dessus`
+      return log(s, action.actor, `remet ${what} de ${of} dans l’ordre de son choix`)
+    }
+
     case 'endLook': {
       const cards = { ...state.cards }
       for (const id of state.players[action.target].zones.library) {

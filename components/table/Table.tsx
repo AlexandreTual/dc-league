@@ -146,10 +146,23 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     if (entries.length > 0) setMenu({ x: e.clientX, y: e.clientY, entries })
   }
 
+  /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
+  const pileOrder = useRef<string[] | null>(null)
+
   const closePile = useCallback((shuffle: boolean) => {
-    if (pile?.zone === 'library' && pile.mode !== 'browse') send({ type: 'endLook', target: pile.player, shuffle })
+    if (pile?.zone === 'library' && pile.mode !== 'browse') {
+      // Seules comptent les cartes encore regardées (une carte mise dessous ou jouée n'y est plus).
+      const seen = view.players[pile.player].zones.library.visible.map((v) => v.card.id)
+      const order = (pileOrder.current ?? []).filter((id) => seen.includes(id))
+      const current = seen.filter((id) => order.includes(id))
+      if (pile.mode === 'look' && !shuffle && order.some((id, i) => id !== current[i])) {
+        send({ type: 'reorderTop', target: pile.player, ids: order })
+      }
+      send({ type: 'endLook', target: pile.player, shuffle })
+    }
+    pileOrder.current = null
     setPile(null)
-  }, [pile, send])
+  }, [pile, send, view])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -403,6 +416,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
             const to = { player: zone === 'battlefield' ? me! : card.owner, zone }
             send(position ? { type: 'move', id: card.id, to, position } : { type: 'move', id: card.id, to })
           }}
+          onReorder={pile.mode === 'look' ? (ids) => { pileOrder.current = ids } : undefined}
           onClose={closePile}
         />
       )}

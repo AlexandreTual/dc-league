@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { CARD_TYPES, countByType, filterPile, type CardType } from '@/lib/game/card-types'
+import { placeAt, shiftCard, syncOrder } from '@/lib/game/pile-order'
 import type { Catalog, PlayerZone, Position, VisibleCard } from '@/lib/game/types'
 import GameCard, { type Lang } from './GameCard'
 
@@ -19,9 +20,10 @@ const TYPE_LABEL = Object.fromEntries(CARD_TYPES.map((t) => [t.type, t.label])) 
 
 /**
  * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination.
- * Une carte déplacée disparaît de la liste.
+ * Une carte déplacée disparaît de la liste. Avec `onReorder` (regard), les cartes se réordonnent
+ * par glisser-déposer ou avec les flèches ; la première est le dessus de la bibliothèque.
  */
-export default function PileModal({ title, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onClose }: {
+export default function PileModal({ title, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onReorder, onClose }: {
   title: string
   zone: PlayerZone
   cards: VisibleCard[]
@@ -32,6 +34,8 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
   /** Consultation seule (spectateur, partie finie) : pas de boutons de destination. */
   readOnly?: boolean
   onMove: (card: VisibleCard, to: PlayerZone, position?: Position) => void
+  /** Ordre choisi des cartes encore affichées, à chaque changement. */
+  onReorder?: (ids: string[]) => void
   onClose: (shuffle: boolean) => void
 }) {
   const [moved, setMoved] = useState<Set<string>>(new Set())
@@ -39,7 +43,16 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
   const [types, setTypes] = useState<CardType[]>([])
   const [shuffle, setShuffle] = useState(shuffleDefault ?? false)
 
-  const remaining = cards.filter((card) => !moved.has(card.id))
+  const [order, setOrder] = useState<string[]>(() => cards.map((c) => c.id))
+  const [dragged, setDragged] = useState<string | null>(null)
+
+  const present = cards.filter((card) => !moved.has(card.id))
+  const ordered = onReorder ? syncOrder(order, present.map((c) => c.id)) : null
+  const remaining = ordered ? ordered.map((id) => present.find((c) => c.id === id)!) : present
+  const reorder = (next: string[]) => {
+    setOrder(next)
+    onReorder?.(next)
+  }
   const visible = filterPile(remaining, { text: filter, types }, catalogs)
   // Types présents dans la pile, plus ceux encore cochés dont la dernière carte vient de partir.
   const counts = countByType(remaining, catalogs)
@@ -76,9 +89,35 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
         )}
         <div className="min-h-0 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-4">
           {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">Aucune carte</p>}
-          {visible.map((card) => (
-            <div key={card.id} className="space-y-1.5" data-pile-card={card.id}>
-              <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
+          {visible.map((card, index) => (
+            <div
+              key={card.id}
+              className={`space-y-1.5 ${dragged === card.id ? 'opacity-40' : ''}`}
+              data-pile-card={card.id}
+              draggable={!!ordered && !readOnly}
+              onDragStart={() => setDragged(card.id)}
+              onDragEnd={() => setDragged(null)}
+              onDragOver={(e) => { if (dragged) e.preventDefault() }}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (dragged && ordered) reorder(placeAt(ordered, dragged, card.id))
+                setDragged(null)
+              }}
+            >
+              <div className="relative">
+                <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
+                {ordered && index === 0 && (
+                  <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold" data-pile-top>Dessus</span>
+                )}
+              </div>
+              {ordered && !readOnly && (
+                <div className="flex justify-between">
+                  <button className="p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30" aria-label="Vers le dessus"
+                    disabled={index === 0} onClick={() => reorder(shiftCard(ordered, card.id, -1))}><ChevronLeft className="w-4 h-4" /></button>
+                  <button className="p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30" aria-label="Vers le dessous"
+                    disabled={index === ordered.length - 1} onClick={() => reorder(shiftCard(ordered, card.id, 1))}><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              )}
               {!readOnly && <div className="grid grid-cols-3 gap-1">
                 {TARGETS.filter((t) => !(t.to === zone && t.to !== 'library')).map((t) => (
                   <button
