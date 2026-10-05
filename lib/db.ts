@@ -480,6 +480,8 @@ export async function updatePlayoffScore(
         const semiScored = 'EXISTS (SELECT 1 FROM playoffs WHERE id = ? AND score_p1 = ? AND score_p2 = ? AND is_completed = 1)'
         for (const [stage, p1, p2] of finalists(s1, s2)) {
           const existing = byStage.get(stage)
+          // Absente à la lecture : une saisie simultanée peut la créer (puis la jouer) avant notre écriture.
+          if (!existing) movesFinals = true
           if (existing && (existing.player1_id !== p1 || existing.player2_id !== p2)) {
             if (existing.is_completed) return err(ERREURS_LIGUE.finalScored)
             movesFinals = true
@@ -493,8 +495,8 @@ export async function updatePlayoffScore(
       }
     }
 
-    // Le score n'est écrit que si la ligue est ouverte et, quand la finale change de joueurs,
-    // si ni elle ni la petite finale n'ont reçu de score entre-temps.
+    // Le score n'est écrit que si la ligue est ouverte et, quand la finale change de joueurs ou
+    // n'existait pas encore, si ni elle ni la petite finale n'ont reçu de score entre-temps.
     const finalsUnscored = movesFinals
       ? " AND NOT EXISTS (SELECT 1 FROM playoffs x WHERE x.league_id = playoffs.league_id AND x.stage IN ('final', 'third_place') AND x.is_completed = 1)"
       : ''
