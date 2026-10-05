@@ -112,7 +112,7 @@ export type GameAction =
   | { type: 'flip'; actor: string; id: string }
   | { type: 'faceDown'; actor: string; id: string }
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
-  | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number }
+  | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number; copy?: boolean }
   | { type: 'life'; actor: string; target: string; delta: number }
   | { type: 'poison'; actor: string; target: string; delta: number }
   | { type: 'playerCounter'; actor: string; target: string; name: string; delta: number }

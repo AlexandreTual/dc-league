@@ -18,10 +18,10 @@
 
 **Fichiers :** `lib/game/types.ts`, `lib/game/apply.ts` (texte du journal), `lib/game/menus.ts`, `lib/game/menus.test.ts`, `lib/game/apply.test.ts` (ou fichier de test existant des jetons), `scripts/playtest-check.mjs`.
 
-- [ ] **Étape 1 : tests qui échouent**
+- [x] **Étape 1 : tests qui échouent**
   - `menus.test.ts` : carte à moi sur le champ de bataille → les deux entrées présentes ; « Créer un jeton copie » produit `createToken` avec `x = card.x + 4`, `y = card.y + 4`, `copy: true` et le nom/image de la carte ; carte d'un adversaire → entrées présentes, position (50, 50) ; carte face cachée → aucune des deux entrées ; spectateur / `readOnly` → menu vide (inchangé) ; carte transformée → nom et image de la face arrière ; jeton copié → même `TokenData` ; « Créer des jetons copies… » → commande `ask` dont `then(3)` renvoie 3 actions `createToken` décalées de 3 points ; `then(25)` est ramené à 20.
   - `apply` : `createToken` avec `copy: true` → journal « Crée un jeton Forêt (copie) ».
-- [ ] **Étape 2 :** `npx vitest run lib/game` → échec.
-- [ ] **Étape 3 :** implémenter.
-- [ ] **Étape 4 :** `npm test`, `npx tsc --noEmit`, build ; `scripts/playtest-check.mjs` : ajouter le contrôle « clic droit sur une carte du champ de bataille → Créer un jeton copie → un jeton de même nom apparaît » (33 vérifications attendues).
-- [ ] **Étape 5 : commit** `feat(table): jetons copies depuis les cartes en jeu`, PR qui ferme l'issue.
+- [x] **Étape 2 :** `npx vitest run lib/game` → échec.
+- [x] **Étape 3 :** implémenter.
+- [x] **Étape 4 :** `npm test`, `npx tsc --noEmit`, build ; `scripts/playtest-check.mjs` : ajouter le contrôle « clic droit sur une carte du champ de bataille → Créer un jeton copie → un jeton de même nom apparaît » (33 vérifications attendues).
+- [x] **Étape 5 : commit** `feat(table): jetons copies depuis les cartes en jeu`, PR qui ferme l'issue.

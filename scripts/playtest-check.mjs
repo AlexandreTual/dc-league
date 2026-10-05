@@ -129,6 +129,12 @@ try {
   check((await battlefieldCount()) === 2, 'jeton personnalisé créé')
   check((await page.locator('[data-zone="battlefield"]').innerText()).includes('Soldat'), 'jeton : nom affiché')
 
+  const copiedName = await onField.locator('[title]').first().getAttribute('title')
+  await onField.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Créer un jeton copie', exact: true }).click()
+  const sameName = await page.locator(`[data-zone="battlefield"] [data-card-id] [title="${copiedName}"]`).count()
+  check((await battlefieldCount()) === 3 && sameName === 2, `jeton copie : un second « ${copiedName} » sur le champ de bataille`)
+
   const libraryBefore = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
   page.once('dialog', (d) => d.accept('3'))
   await page.locator('[data-zone="library"]').click({ button: 'right' })

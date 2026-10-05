@@ -34,7 +34,7 @@ describe('cardMenu', () => {
     const entries = cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))
     expect(entries[0]).toEqual({ kind: 'title', label: 'Delver of Secrets // Insectile Aberration' })
     expect(labels(entries)).toEqual([
-      'Engager', 'Retourner', 'Face cachée', '+1/+1', '-1/-1', 'Compteur',
+      'Engager', 'Retourner', 'Face cachée', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…',
       'Donner le contrôle à Bob', 'Donner le contrôle à Chloé',
       'Main', 'Cimetière', 'Exil', 'Zone de commandement', 'Dessus de la bibliothèque', 'Dessous de la bibliothèque',
     ])
@@ -45,7 +45,7 @@ describe('cardMenu', () => {
   it('carte d’un adversaire sur son champ de bataille', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 2)), at('p2', 'battlefield'))
-    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil'])
+    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil'])
     expect(item(entries, 'Prendre le contrôle')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p1', 'battlefield') } }])
     expect(item(entries, 'Dans son cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p2', 'graveyard') } }])
   })
@@ -78,6 +78,66 @@ describe('cardMenu', () => {
     expect(cardMenu(ctx(s, 'p1', true), visible(s, card('p1', 2)), at('p1', 'battlefield'))).toEqual([])
     expect(libraryMenu(ctx(s, null), 'p2')).toEqual([])
     expect(handMenu(ctx(s, 'p1', true))).toEqual([])
+  })
+})
+
+describe('jetons copies', () => {
+  const copyOf = (entries: MenuEntry[]) => {
+    const [cmd] = item(entries, 'Créer un jeton copie')
+    if (cmd.kind !== 'action' || cmd.action.type !== 'createToken') throw new Error('createToken attendu')
+    return cmd.action
+  }
+  const moved = (s: GameState, id: string, patch: Partial<GameState['cards'][string]>): GameState =>
+    ({ ...s, cards: { ...s.cards, [id]: { ...s.cards[id], ...patch } } })
+
+  it('ma carte : jeton à côté de l’original, avec son nom, son type et son image', () => {
+    const s = moved(setup(), card('p1', 2), { x: 30, y: 40 })
+    const action = copyOf(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')))
+    expect(action).toEqual({
+      type: 'createToken', copy: true, x: 34, y: 44,
+      token: { name: 'Anneau solaire', typeLine: 'Artifact', image: 'https://cards.scryfall.io/normal/sol.jpg', power: null, toughness: null, colors: [] },
+    })
+  })
+
+  it('position bornée à 100', () => {
+    const s = moved(setup(), card('p1', 2), { x: 98, y: 99 })
+    expect(copyOf(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')))).toMatchObject({ x: 100, y: 100 })
+  })
+
+  it('carte d’un adversaire : jeton au centre de mon champ de bataille', () => {
+    const s = moved(setup(), card('p2', 2), { x: 30, y: 40 })
+    expect(copyOf(cardMenu(ctx(s), visible(s, card('p2', 2)), at('p2', 'battlefield')))).toMatchObject({ x: 50, y: 50, copy: true })
+  })
+
+  it('carte transformée : nom et image de la face arrière', () => {
+    const s = moved(setup(), card('p1', 4), { flipped: true })
+    expect(copyOf(cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))).token)
+      .toMatchObject({ name: 'Insectile Aberration', typeLine: 'Creature — Human Insect', image: 'back.jpg' })
+  })
+
+  it('copie d’un jeton : même TokenData', () => {
+    const soldier = { name: 'Soldat', typeLine: 'Token Creature — Soldier', power: '1', toughness: '1', colors: ['W'], image: 'soldat.jpg' }
+    const s = run(setupFor('commander', 2), start(1), { type: 'createToken', actor: 'p1', token: soldier, x: 10, y: 10 })
+    expect(copyOf(cardMenu(ctx(s), visible(s, 't1'), at('p1', 'battlefield'))).token).toEqual(soldier)
+  })
+
+  it('carte face cachée : pas de copie', () => {
+    const s = moved(setup(), card('p1', 2), { faceDown: true })
+    const entries = cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield'))
+    expect(labels(entries)).not.toContain('Créer un jeton copie')
+    expect(labels(entries)).not.toContain('Créer des jetons copies…')
+  })
+
+  it('plusieurs jetons : de 1 à 20, décalés de 3 points', () => {
+    const s = moved(setup(), card('p1', 2), { x: 30, y: 40 })
+    const [ask] = item(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')), 'Créer des jetons copies…')
+    if (ask.kind !== 'ask') throw new Error('ask attendu')
+    expect(ask.question).toBe('Combien de jetons ?')
+    expect(ask.fallback).toBe(2)
+    const positions = ask.then(3).map((c) => (c.kind === 'action' && c.action.type === 'createToken' ? [c.action.x, c.action.y] : null))
+    expect(positions).toEqual([[34, 44], [37, 47], [40, 50]])
+    expect(ask.then(25)).toHaveLength(20)
+    expect(ask.then(0)).toHaveLength(1)
   })
 })
 

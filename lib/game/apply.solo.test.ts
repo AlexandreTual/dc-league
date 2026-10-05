@@ -152,6 +152,12 @@ describe('cartes', () => {
     expect(texts(s).at(-1)).toBe('Crée un jeton Soldat')
   })
 
+  it('jeton copie : signalé dans le journal', () => {
+    const forest: TokenData = { name: 'Forêt', typeLine: 'Basic Land — Forest', power: null, toughness: null, colors: [], image: null }
+    const s = solo({ type: 'createToken', actor: P, token: forest, x: 0, y: 0, copy: true })
+    expect(texts(s).at(-1)).toBe('Crée un jeton Forêt (copie)')
+  })
+
   it.each(['hand', 'graveyard', 'library'] as const)('un jeton envoyé vers %s disparaît', (zone) => {
     const s = solo({ type: 'createToken', actor: P, token: soldier, x: 0, y: 0 }, mv('t1', zone))
     expect(s.cards.t1).toBeUndefined()

@@ -57,7 +57,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 
 1. Import par lien Moxfield / Archidekt — **fait** (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché).
 2. Mot de passe oublié et invitations par mail — spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md` ; tâche 1 faite, tâches 2 à 5 en issues (à enchaîner dans l'ordre).
-3. Jetons copies depuis les cartes en jeu — plan `plans/2026-10-05-token-copies.md` (indépendant, peut être fait en parallèle).
+3. Jetons copies depuis les cartes en jeu — **fait** (clic droit sur une carte visible du champ de bataille, la sienne ou celle d'un adversaire).
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
 
 ## Idées pour plus tard

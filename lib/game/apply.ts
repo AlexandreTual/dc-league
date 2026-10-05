@@ -293,7 +293,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       }
       let s: GameState = { ...state, cards: { ...state.cards, [id]: token }, nextTokenId: state.nextTokenId + 1 }
       s = setZone(s, { player: action.actor, zone: 'battlefield' }, [...s.players[action.actor].zones.battlefield, id])
-      return log(s, action.actor, `Crée un jeton ${action.token.name}`)
+      return log(s, action.actor, `Crée un jeton ${action.token.name}${action.copy ? ' (copie)' : ''}`)
     }
 
     case 'flip': {
