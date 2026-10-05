@@ -3,6 +3,8 @@ import { computeLeaderboard } from '@/lib/leaderboard'
 import { listPlayers, listCompletedMatches, countMatches } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import LeaderboardTable from '@/components/LeaderboardTable'
+import LoadError from '@/components/LoadError'
+import { loadFailed } from '@/lib/load'
 import { Sword, Trophy } from 'lucide-react'
 
 export const runtime = 'edge'
@@ -12,23 +14,24 @@ export default async function HomePage() {
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const [
-    { data: league },
-    { data: players },
-  ] = await Promise.all([
+  const [leagueRes, playersRes] = await Promise.all([
     getActiveLeague(db),
     listPlayers(db),
   ])
+  const league = leagueRes.data
+  const players = playersRes.data
 
-  const [
-    { data: completedMatches },
-    { data: totalMatchCount },
-    { data: leaguePlayers },
-  ] = await Promise.all([
+  const [completedRes, countRes, leaguePlayersRes] = await Promise.all([
     league ? listCompletedMatches(db, league.id) : Promise.resolve({ data: [] }),
     league ? countMatches(db, league.id) : Promise.resolve({ data: 0 }),
     league ? listLeaguePlayers(db, league.id) : Promise.resolve({ data: [] }),
   ])
+  if (loadFailed(leagueRes, playersRes, completedRes, countRes, leaguePlayersRes)) {
+    return <LoadError what="le classement" />
+  }
+  const completedMatches = completedRes.data
+  const totalMatchCount = countRes.data
+  const leaguePlayers = leaguePlayersRes.data
 
   const enrolledIds = new Set((leaguePlayers ?? []).map((lp) => lp.player_id))
   const enrolledPlayers = (players ?? []).filter((p) => enrolledIds.has(p.id))

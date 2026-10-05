@@ -7,6 +7,7 @@ import LeaderboardTable from '@/components/LeaderboardTable'
 import MatchCard from '@/components/MatchCard'
 import { Clock, Trophy, Award } from 'lucide-react'
 import type { Player, Match } from '@/lib/leaderboard'
+import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -29,11 +30,12 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const [{ data: detail }, { data: allPlayers }] = await Promise.all([
+  const [{ data: detail, error: detailError }, { data: allPlayers, error: playersError }] = await Promise.all([
     getLeagueDetail(db, id),
     listPlayers(db),
   ])
 
+  if (detailError || playersError) return <LoadError what="cette saison" />
   if (!detail) notFound()
 
   const { league, leaguePlayers, matches, playoffs } = detail

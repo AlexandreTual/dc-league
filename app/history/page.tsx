@@ -2,6 +2,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import Link from 'next/link'
 import { listArchivedLeagues } from '@/lib/db-leagues'
 import { Clock, Trophy } from 'lucide-react'
+import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -14,7 +15,8 @@ function formatDate(dt: string) {
 
 export default async function HistoryPage() {
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data: leagues } = await listArchivedLeagues(env.DB)
+  const { data: leagues, error } = await listArchivedLeagues(env.DB)
+  if (error) return <LoadError what="l'historique des saisons" />
 
   return (
     <div className="space-y-8">
