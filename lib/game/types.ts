@@ -183,7 +183,10 @@ export type PlayerView = {
   players: Record<string, PlayerViewState>
   commanderCasts: Record<string, number>
   lookingAt: string[]
+  /** Dernières lignes du journal visibles par ce joueur (au plus VIEW_LOG_LIMIT). */
   log: Omit<LogEntry, 'visibleTo'>[]
+  /** Rang, dans le journal complet visible par ce joueur, de la première ligne de `log`. */
+  logStart: number
   /** Renseigné par GameHistory / le serveur. */
   canUndo: boolean
 }

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction } from './apply'
 import { diffViews } from './activity'
-import { viewFor } from './view'
+import { VIEW_LOG_LIMIT, viewFor } from './view'
 import type { GameAction, GameState } from './types'
 
 const game = () => place(run(setupFor('commander', 2), start(1)), [{ id: card('p2', 2), player: 'p2', zone: 'battlefield' }])
@@ -50,5 +50,16 @@ describe('diffViews', () => {
     const s = game()
     const next = applyAction(s, { type: 'draw', actor: 'p1', count: 1 })
     expect(diffViews(viewFor(s, ''), viewFor(next, ''), null).lines).toHaveLength(1)
+  })
+
+  it('journal tronqué : les nouvelles lignes sont trouvées malgré une longueur constante', () => {
+    const line = (i: number) => ({ turn: 1, actor: 'p2', text: `ligne ${i}`, visibleTo: 'all' as const })
+    const long = { ...game(), log: Array.from({ length: VIEW_LOG_LIMIT + 5 }, (_, i) => line(i)) }
+    const next = { ...long, log: [...long.log, line(900), line(901)] }
+    const prev = viewFor(long, 'p1')
+    const after = viewFor(next, 'p1')
+    expect(after.log).toHaveLength(prev.log.length)
+    expect(diffViews(prev, after, 'p1').lines.map((l) => l.text)).toEqual(['ligne 900', 'ligne 901'])
+    expect(diffViews(after, prev, 'p1').lines).toEqual([])
   })
 })
