@@ -13,7 +13,7 @@ export function CardBack({ className = '' }: { className?: string }) {
   )
 }
 
-const badgeClass = 'px-1.5 rounded bg-black/80 text-dc-gold text-[9px] font-semibold uppercase tracking-wide whitespace-nowrap'
+const badgeClass = 'text-white text-[9px] font-semibold uppercase tracking-wide whitespace-nowrap [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]'
 
 /** Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe. */
 export default function GameCard({ card, catalog, lang, tax = 0, className = '' }: {
