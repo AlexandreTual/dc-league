@@ -134,6 +134,7 @@ export type GameAction =
   | { type: 'togglePeekTop'; actor: string }
   | { type: 'look'; actor: string; target: string; count: number }
   | { type: 'search'; actor: string; target: string }
+  | { type: 'reorderTop'; actor: string; target: string; ids: string[] }
   | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: number }
 
 export type VisibleCard = {
