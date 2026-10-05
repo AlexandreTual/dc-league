@@ -1,0 +1,141 @@
+// Menus clic droit de la table : quelles entrées pour quelle carte, selon qui regarde.
+// Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
+import { cardInfo, taxOf } from './apply'
+import type { ClientAction } from './room'
+import type { Catalog, PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from './types'
+
+export type MenuCommand =
+  | { kind: 'action'; action: ClientAction }
+  | { kind: 'ask'; question: string; fallback: number; then: (n: number) => MenuCommand[] }
+  | { kind: 'openPile'; player: string; zone: 'library' | 'graveyard' | 'exile'; mode: 'look' | 'search' | 'browse'; title: string }
+
+export type MenuEntry =
+  | { kind: 'title'; label: string }
+  | { kind: 'separator' }
+  | { kind: 'item'; label: string; commands: MenuCommand[] }
+  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand }
+
+export type MenuContext = {
+  me: string | null
+  view: PlayerView
+  catalogs: Record<string, Catalog>
+  lang: 'fr' | 'en'
+  /** Partie terminée : plus aucune action. */
+  readOnly: boolean
+}
+
+const DESTINATIONS: { label: string; zone: PlayerZone; position?: Position }[] = [
+  { label: 'Main', zone: 'hand' },
+  { label: 'Champ de bataille', zone: 'battlefield' },
+  { label: 'Cimetière', zone: 'graveyard' },
+  { label: 'Exil', zone: 'exile' },
+  { label: 'Zone de commandement', zone: 'command' },
+  { label: 'Dessus de la bibliothèque', zone: 'library', position: 'top' },
+  { label: 'Dessous de la bibliothèque', zone: 'library', position: 'bottom' },
+]
+
+const act = (action: ClientAction): MenuCommand => ({ kind: 'action', action })
+const item = (label: string, ...commands: MenuCommand[]): MenuEntry => ({ kind: 'item', label, commands })
+
+/** Les autres joueurs en lice, dans l'ordre des places (stable, contrairement à l'ordre du tour tiré au sort). */
+const others = (ctx: MenuContext, me: string) =>
+  Object.keys(ctx.view.players).filter((p) => p !== me && !ctx.view.players[p].eliminated)
+
+function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
+  const id = card.id
+  const counter = (label: string, kind: 'plus' | 'minus' | 'other', value: number): MenuEntry => ({
+    kind: 'stepper', label, value,
+    minus: act({ type: 'counter', id, kind, delta: -1 }),
+    plus: act({ type: 'counter', id, kind, delta: 1 }),
+  })
+  const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
+  if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
+  if (controller) entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })))
+  entries.push({ kind: 'separator' },
+    counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other))
+  return entries
+}
+
+/** Entrées pour une carte visible dans une zone donnée ; vide pour un spectateur ou une partie finie. */
+export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): MenuEntry[] {
+  const me = ctx.me
+  if (!me || ctx.readOnly) return []
+  const id = card.id
+  const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
+  const flippable = !card.token && (info.faces?.length ?? 0) > 1
+  const title: MenuEntry = { kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }
+  const name = (p: string) => ctx.view.players[p]?.name ?? '?'
+
+  if (zone.player !== me) {
+    // Chez un adversaire : on agit sur la carte, ou on la renvoie dans les zones de son propriétaire.
+    const toOwner = (label: string, z: PlayerZone) => item(label, act({ type: 'move', id, to: { player: card.owner, zone: z } }))
+    if (zone.zone === 'battlefield') {
+      return [title, ...battlefieldEntries(card, flippable, false), { kind: 'separator' },
+        item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
+        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile')]
+    }
+    if (zone.zone === 'graveyard' || zone.zone === 'exile') {
+      return [title, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
+        toOwner('Dans sa main', 'hand'),
+        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')])]
+    }
+    return []
+  }
+
+  const entries: MenuEntry[] = [title]
+  if (zone.zone === 'hand') {
+    entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))
+    for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
+  }
+  if (zone.zone === 'battlefield') {
+    entries.push(...battlefieldEntries(card, flippable, true))
+    entries.push({ kind: 'separator' })
+    for (const p of others(ctx, me)) entries.push(item(`Donner le contrôle à ${name(p)}`, act({ type: 'giveControl', id, to: p })))
+  }
+  if (card.isCommander && card.owner === me) {
+    entries.push({ kind: 'stepper', label: 'Taxe', value: `+${taxOf(ctx.view, id)}`,
+      minus: act({ type: 'commanderTax', id, delta: -1 }), plus: act({ type: 'commanderTax', id, delta: 1 }) })
+  }
+  entries.push({ kind: 'separator' }, { kind: 'title', label: 'Envoyer vers' })
+  for (const dest of DESTINATIONS) {
+    if (dest.zone === zone.zone && dest.zone !== 'library') continue
+    // Hors du champ de bataille, une carte va toujours chez son propriétaire.
+    const player = dest.zone === 'battlefield' ? me : card.owner
+    const action: ClientAction = { type: 'move', id, to: { player, zone: dest.zone } }
+    if (dest.position) action.position = dest.position
+    entries.push(item(dest.label, act(action)))
+  }
+  return entries
+}
+
+/** Menu de la pile de bibliothèque d'un joueur. */
+export function libraryMenu(ctx: MenuContext, player: string): MenuEntry[] {
+  const me = ctx.me
+  if (!me || ctx.readOnly) return []
+  const look: MenuEntry = item('Regarder les X du dessus…', {
+    kind: 'ask', question: 'Combien de cartes regarder ?', fallback: 3,
+    then: (n) => [act({ type: 'look', target: player, count: n }),
+      { kind: 'openPile', player, zone: 'library', mode: 'look', title: `Les ${n} cartes du dessus` }],
+  })
+  const search: MenuEntry = item('Chercher une carte…', act({ type: 'search', target: player }),
+    { kind: 'openPile', player, zone: 'library', mode: 'search', title: 'Chercher dans la bibliothèque' })
+  if (player !== me) return [{ kind: 'title', label: `Bibliothèque de ${ctx.view.players[player]?.name ?? '?'}` }, look, search]
+
+  const mine = ctx.view.players[me]
+  return [
+    { kind: 'title', label: `Bibliothèque (${mine.zones.library.count})` },
+    item('Piocher 1', act({ type: 'draw', count: 1 })),
+    item('Piocher N…', { kind: 'ask', question: 'Combien de cartes piocher ?', fallback: 2, then: (n) => [act({ type: 'draw', count: n })] }),
+    item('Mélanger', act({ type: 'shuffle' })),
+    look,
+    search,
+    item('Révéler la carte du dessus', act({ type: 'revealTop' })),
+    item(mine.topRevealed ? 'Cacher la carte du dessus' : 'Jouer avec la carte du dessus révélée', act({ type: 'toggleTopRevealed' })),
+  ]
+}
+
+/** Menu de ma main (clic droit sur la zone). */
+export function handMenu(ctx: MenuContext): MenuEntry[] {
+  if (!ctx.me || ctx.readOnly) return []
+  return [{ kind: 'title', label: 'Ma main' }, item('Révéler ma main', act({ type: 'reveal', ids: 'hand', to: 'all' }))]
+}

@@ -72,12 +72,12 @@ diffViews(prev: PlayerView | null, next: PlayerView, me: string | null): { chang
 ```ts
 type MenuCommand =
   | { kind: 'action'; action: ClientAction }
-  | { kind: 'ask'; question: string; fallback: number; build: (n: number) => ClientAction }  // « Regarder les X… »
-  | { kind: 'openPile'; player: string; zone: 'library' | 'graveyard' | 'exile'; mode: 'look' | 'search' | 'browse' }
+  | { kind: 'ask'; question: string; fallback: number; then: (n: number) => MenuCommand[] }  // « Regarder les X… »
+  | { kind: 'openPile'; player: string; zone: 'library' | 'graveyard' | 'exile'; mode: 'look' | 'search' | 'browse'; title: string }
 type MenuEntry = { kind: 'title'; label: string } | { kind: 'separator' }
-  | { kind: 'item'; label: string; command: MenuCommand }
+  | { kind: 'item'; label: string; commands: MenuCommand[] }
   | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand }
-type MenuContext = { me: string | null; view: PlayerView; format: Format; catalogs: Record<string, Catalog> }
+type MenuContext = { me: string | null; view: PlayerView; catalogs: Record<string, Catalog>; lang: 'fr' | 'en'; readOnly: boolean }
 cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): MenuEntry[]
 libraryMenu(ctx: MenuContext, player: string): MenuEntry[]
 handMenu(ctx: MenuContext): MenuEntry[]
