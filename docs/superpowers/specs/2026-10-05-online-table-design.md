@@ -1,7 +1,7 @@
 # Design — Interface de table multijoueur
 
 **Date :** 2026-10-05
-**Statut :** En relecture
+**Statut :** Validé
 **Projet :** multijoueur en ligne, sous-projet 3/4 (1. moteur → 2. serveur temps réel et salon → **3. interface de table** → 4. matchs de ligue en ligne)
 
 ---
