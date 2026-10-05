@@ -104,15 +104,18 @@ function onWindowMove(e: PointerEvent) {
   press?.move(e.clientX, e.clientY)
 }
 
+/** Fin de l'appui long : le glisser éventuel est annulé, puis le menu s'ouvre. */
+function firePress(x: number, y: number) {
+  const fire = pendingOpen
+  stopPress()
+  lastLongPress = Date.now()
+  cancelDrag()
+  swallowNextClick()
+  fire?.({ clientX: x, clientY: y })
+}
+
 function startPress(x: number, y: number, open: (at: MenuPoint) => void) {
-  press ??= createLongPress((px, py) => {
-    const fire = pendingOpen
-    stopPress()
-    lastLongPress = Date.now()
-    cancelDrag()
-    swallowNextClick()
-    fire?.({ clientX: px, clientY: py })
-  })
+  press ??= createLongPress(firePress)
   stopPress()
   pendingOpen = open
   press.start(x, y)
@@ -139,8 +142,10 @@ export function menuGesture(open?: (at: MenuPoint) => void) {
       e.preventDefault()
       if (claimed.has(e.nativeEvent)) return
       claimed.add(e.nativeEvent)
-      // Android émet aussi « contextmenu » à l'appui long : le menu est déjà ouvert.
+      // Android émet aussi « contextmenu » à l'appui long : après notre délai, le menu est déjà ouvert ;
+      // avant (délai système plus court), il termine l'appui long en cours, glisser compris.
       if (Date.now() - lastLongPress < SAME_GESTURE_MS) return
+      if (pendingOpen) return firePress(e.clientX, e.clientY)
       open({ clientX: e.clientX, clientY: e.clientY })
     },
   }

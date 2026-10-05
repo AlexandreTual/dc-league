@@ -74,25 +74,32 @@ try {
   await longPress(hand.first(), 120)
   check(!(await menu.isVisible()) && (await hand.count()) === 7, 'appui bref sur une carte : ni menu ni déplacement')
 
-  // ── Mulligan n°2 : une carte à mettre au-dessous, depuis le menu de la carte ──
-  await page.getByRole('button', { name: 'Mulligan', exact: true }).tap()
-  await page.getByRole('button', { name: 'Mulligan', exact: true }).tap()
+  // ── Mulligan n°3 : deux cartes à mettre au-dessous, une par une depuis le menu de la carte ──
+  const mulligan = page.getByRole('button', { name: 'Mulligan', exact: true })
+  for (let i = 0; i < 3; i++) {
+    await mulligan.tap()
+    await page.waitForTimeout(400) // deux touchers rapprochés feraient un double toucher
+  }
   const banner = page.getByTestId('mulligan-banner')
-  check((await banner.innerText()).includes('Mulligan n°2'), 'bandeau : Mulligan n°2')
+  check((await banner.innerText()).includes('Mulligan n°3') && (await banner.innerText()).includes('mets 2 carte'), 'bandeau : Mulligan n°3, 2 cartes à mettre dessous')
   check((await banner.innerText()).includes('Mettre au-dessous'), 'bandeau : indique « Mettre au-dessous »')
-  await capture('mulligan-2')
-  const bottomed = await hand.first().getAttribute('data-card-id')
-  await longPress(hand.first())
-  check(await menu.isVisible(), 'appui long sur une carte de la main : menu de la carte')
-  check(await page.getByTestId('drag-overlay').count() === 0, 'appui long : pas de glisser en cours')
-  check(await menuInScreen(), 'menu de la carte dans l’écran')
-  await capture('menu-mettre-au-dessous')
-  await menu.getByRole('menuitem', { name: 'Mettre au-dessous' }).tap()
-  await page.waitForTimeout(200)
-  check((await hand.count()) === 6, 'carte mise au-dessous : 6 cartes en main')
-  check(!(await page.locator(`[data-zone="hand"] [data-card-id="${bottomed}"]`).count()), 'la carte a quitté la main')
-  check((await libraryCount()) === libraryBefore + 1, `bibliothèque : une carte de plus (${libraryBefore + 1})`)
-  // En mode test, la première action après le mulligan garde la main (useLocalSource).
+  await capture('mulligan-3')
+  for (const [n, left] of [[1, 6], [2, 5]]) {
+    const bottomed = await hand.first().getAttribute('data-card-id')
+    await longPress(hand.first())
+    check(await menu.isVisible(), `carte ${n} : appui long sur une carte de la main, menu de la carte`)
+    check(await page.getByTestId('drag-overlay').count() === 0, `carte ${n} : pas de glisser en cours`)
+    check(await menuInScreen(), `carte ${n} : menu dans l’écran`)
+    if (n === 1) await capture('menu-mettre-au-dessous')
+    await menu.getByRole('menuitem', { name: 'Mettre au-dessous' }).tap()
+    await page.waitForTimeout(400)
+    check((await hand.count()) === left && !(await page.locator(`[data-zone="hand"] [data-card-id="${bottomed}"]`).count()),
+      `carte ${n} mise au-dessous : ${left} cartes en main`)
+    check(await banner.isVisible(), `carte ${n} : main pas encore gardée`)
+  }
+  check((await libraryCount()) === libraryBefore + 2, `bibliothèque : deux cartes de plus (${libraryBefore + 2})`)
+  await page.getByRole('button', { name: 'Garder' }).tap()
+  await page.waitForTimeout(400)
   check(!(await banner.isVisible()), 'mulligan terminé : main gardée')
   await page.getByRole('button', { name: /Journal/ }).tap()
   check((await page.getByTestId('log').innerText()).includes('Garde sa main'), 'journal : « Garde sa main »')
