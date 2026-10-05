@@ -110,6 +110,11 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
 
   const entries: MenuEntry[] = [title]
   if (zone.zone === 'hand') {
+    // Mulligan à payer : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone).
+    const mine = ctx.view.players[me]
+    if (!mine.kept && mine.mulligans > 1) {
+      entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
+    }
     entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))
     for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
   }
