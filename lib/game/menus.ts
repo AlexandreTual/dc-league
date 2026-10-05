@@ -2,7 +2,7 @@
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
 import type { ClientAction } from './room'
-import type { Catalog, PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from './types'
+import type { Catalog, PlayerView, PlayerZone, Position, TokenData, VisibleCard, ZoneRef } from './types'
 
 export type MenuCommand =
   | { kind: 'action'; action: ClientAction }
@@ -41,6 +41,32 @@ const item = (label: string, ...commands: MenuCommand[]): MenuEntry => ({ kind: 
 const others = (ctx: MenuContext, me: string) =>
   Object.keys(ctx.view.players).filter((p) => p !== me && !ctx.view.players[p].eliminated)
 
+const MAX_COPIES = 20
+const clampPct = (n: number) => Math.max(0, Math.min(100, n))
+
+/** Le jeton copie reprend la carte telle qu'elle est affichée ; un jeton copié recopie son TokenData. */
+function copyData(ctx: MenuContext, card: VisibleCard): TokenData {
+  if (card.token) return card.token
+  const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
+  const entry = card.ref === null ? undefined : ctx.catalogs[card.owner]?.entries.find((e) => e.ref === card.ref)
+  return { name: info.name, typeLine: info.typeLine, image: info.image, power: null, toughness: null, colors: entry?.en.colors ?? [] }
+}
+
+/** « Créer un jeton copie » et « Créer des jetons copies… » : sur mon champ de bataille, à côté de l'original ou au centre. */
+function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: string): MenuEntry[] {
+  if (card.faceDown) return []
+  const token = copyData(ctx, card)
+  const [x, y] = zone.player === me ? [clampPct(card.x + 4), clampPct(card.y + 4)] : [50, 50]
+  const copies = (n: number): MenuCommand[] =>
+    Array.from({ length: Math.max(1, Math.min(MAX_COPIES, Math.floor(n))) }, (_, k) =>
+      act({ type: 'createToken', token, x: clampPct(x + 3 * k), y: clampPct(y + 3 * k), copy: true }))
+  return [
+    { kind: 'separator' },
+    item('Créer un jeton copie', ...copies(1)),
+    item('Créer des jetons copies…', { kind: 'ask', question: 'Combien de jetons ?', fallback: 2, then: copies }),
+  ]
+}
+
 function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
   const id = card.id
   const counter = (label: string, kind: 'plus' | 'minus' | 'other', value: number): MenuEntry => ({
@@ -70,7 +96,7 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     // Chez un adversaire : on agit sur la carte, ou on la renvoie dans les zones de son propriétaire.
     const toOwner = (label: string, z: PlayerZone) => item(label, act({ type: 'move', id, to: { player: card.owner, zone: z } }))
     if (zone.zone === 'battlefield') {
-      return [title, ...battlefieldEntries(card, flippable, false), { kind: 'separator' },
+      return [title, ...battlefieldEntries(card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
         item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
         toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile')]
     }
@@ -88,7 +114,7 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
   }
   if (zone.zone === 'battlefield') {
-    entries.push(...battlefieldEntries(card, flippable, true))
+    entries.push(...battlefieldEntries(card, flippable, true), ...copyEntries(ctx, card, zone, me))
     entries.push({ kind: 'separator' })
     for (const p of others(ctx, me)) entries.push(item(`Donner le contrôle à ${name(p)}`, act({ type: 'giveControl', id, to: p })))
   }
