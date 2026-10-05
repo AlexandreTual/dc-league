@@ -1,6 +1,6 @@
 'use client'
 
-import { Battlefield, Hand, ZonePile, type ZoneProps } from './zones'
+import { Battlefield, OpponentHand, ZonePile, type ZoneProps } from './zones'
 
 /** Plateau réel d'un adversaire (vue agrandie) : ses zones acceptent le glisser-déposer. */
 export default function OpponentBoard(props: ZoneProps & {
@@ -23,7 +23,7 @@ export default function OpponentBoard(props: ZoneProps & {
           <ZonePile zone="exile" me={me} compact {...zoneProps} onPileClick={() => onPile('exile', `Exil de ${name}`)} />
         </div>
       </div>
-      <Hand {...zoneProps} heightClass="h-[22%]" />
+      <OpponentHand {...zoneProps} />
     </div>
   )
 }

@@ -24,6 +24,8 @@ import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
 import TopBar, { barButton } from './TopBar'
+import TableSettingsPanel from './TableSettings'
+import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import { libraryTop, type CardHandlers } from './zones'
 
@@ -75,6 +77,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
+  const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
@@ -91,6 +95,11 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const send = source.send
 
   useEffect(() => setLang(readLang()), [])
+  useEffect(() => setSettings(loadTableSettings()), [])
+  const changeSettings = (next: TableSettings) => {
+    setSettings(next)
+    saveTableSettings(next)
+  }
 
   // Repères d'activité : ce que les autres viennent de faire (rien à la connexion ni à la reconnexion).
   useEffect(() => {
@@ -165,6 +174,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         if (pile) closePile(false)
         setTokenOpen(false)
         setLogOpen(false)
+        setSettingsOpen(false)
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
@@ -236,7 +246,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
 
   const mine = me ? view.players[me] : null
   const toBottom = mine ? Math.max(0, mine.mulligans - 1) : 0
-  const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted }
+  const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
   /** Commandes de l'hôte : passer le tour du joueur actif (s'il n'est pas l'hôte), éliminer, clore. */
@@ -264,7 +274,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   )
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="relative h-full flex flex-col">
       <TopBar
         back={source.local ? { href: `/decks/${source.local.deckId}`, label: source.local.deckName } : { href: '/salon', label: 'Salon' }}
         turn={view.turn}
@@ -285,6 +295,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
+        onSettings={() => setSettingsOpen((open) => !open)}
         onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
         extra={source.online && me && !finished && (
           <>
@@ -409,6 +420,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       {tokenOpen && (
         <TokenModal onCreate={(token) => send({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
       )}
+      {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

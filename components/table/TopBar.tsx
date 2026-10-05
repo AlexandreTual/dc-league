@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, BookOpen, Heart, Layers, Minus, Plus, RotateCcw, SkipForward, Sparkles, Undo2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, Heart, Layers, Minus, Plus, RotateCcw, Settings, SkipForward, Sparkles, Undo2 } from 'lucide-react'
 import type { Lang } from './GameCard'
 
 export const barButton =
@@ -11,7 +11,7 @@ export const barButton =
  * Barre du haut de la table. En mode test : vie du joueur et « Nouvelle partie ».
  * En ligne : joueur actif, « Piocher », et les commandes passées dans `extra` (abandon, hôte).
  */
-export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, life, onNextTurn, onDraw, onLife, onLang, onUndo, onNewGame, onToken, onLog, extra }: {
+export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, life, onNextTurn, onDraw, onLife, onLang, onUndo, onNewGame, onToken, onLog, onSettings, extra }: {
   back: { href: string; label: string }
   turn: number
   activeName?: string
@@ -28,6 +28,7 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
   onNewGame?: () => void
   onToken: () => void
   onLog: () => void
+  onSettings: () => void
   extra?: React.ReactNode
 }) {
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
@@ -47,7 +48,7 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
           <button className={barButton} onClick={(e) => onLife(step(e))} aria-label="Gagner des points de vie"><Plus className="w-3.5 h-3.5" /></button>
         </div>
       )}
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex flex-wrap items-center gap-2 ml-auto">
         <button className={barButton} onClick={onLang} aria-label="Langue des cartes">
           <span className={lang === 'fr' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>FR</span>/
           <span className={lang === 'en' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>EN</span>
@@ -55,6 +56,7 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
         <button className={barButton} onClick={onUndo} disabled={!canUndo} title="Annuler (Ctrl+Z)"><Undo2 className="w-3.5 h-3.5" /> Annuler</button>
         <button className={barButton} onClick={onToken} disabled={!canAct}><Sparkles className="w-3.5 h-3.5" /> Jeton</button>
         <button className={barButton} onClick={onLog}><BookOpen className="w-3.5 h-3.5" /> Journal</button>
+        <button className={barButton} onClick={onSettings}><Settings className="w-3.5 h-3.5" /> Réglages</button>
         {onNewGame && <button className={barButton} onClick={onNewGame}><RotateCcw className="w-3.5 h-3.5" /> Nouvelle partie</button>}
         {extra}
       </div>

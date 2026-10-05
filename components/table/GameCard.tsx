@@ -5,10 +5,11 @@ import { cardInfo, tokenBadge } from '@/lib/game/apply'
 
 export type Lang = 'fr' | 'en'
 
-export function CardBack({ className = '' }: { className?: string }) {
+/** Dos de carte ; `bare` : sans le monogramme, pour les tout petits dos. */
+export function CardBack({ className = '', bare = false }: { className?: string; bare?: boolean }) {
   return (
     <div className={`aspect-[63/88] rounded-[6%] border border-dc-gold/40 bg-gradient-to-br from-dc-purple via-dc-surface to-dc-blue flex items-center justify-center ${className}`}>
-      <span className="font-fantasy text-dc-gold/70 text-xs">DC</span>
+      {!bare && <span className="font-fantasy text-dc-gold/70 text-xs">DC</span>}
     </div>
   )
 }

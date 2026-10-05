@@ -5,6 +5,7 @@ import { taxOf } from '@/lib/game/apply'
 import type { Catalog, CardView, PlayerView, PlayerZone, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack, type Lang } from './GameCard'
+import { battlefieldStyle, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
 
 /** Identifiant de dépôt d'une zone : « joueur:zone ». */
 export const dropId = (ref: ZoneRef) => `${ref.player}:${ref.zone}`
@@ -27,6 +28,8 @@ export type ZoneProps = {
   interactive: boolean
   /** Cartes à mettre en évidence (repères d'activité). */
   highlighted?: Set<string>
+  /** Réglages d'affichage (quadrillage, couleur du fond). */
+  settings?: TableSettings
 }
 
 const visible = (cards: CardView[]) => cards.filter((c): c is VisibleCard => !c.hidden)
@@ -62,7 +65,8 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
   const ref: ZoneRef = { player, zone: 'battlefield' }
   const { setNodeRef, highlight } = useZone(ref)
   return (
-    <div ref={setNodeRef} data-zone="battlefield" data-player={player} className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${highlight}`}>
+    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(props.settings ?? DEFAULT_TABLE_SETTINGS)}
+      className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${highlight}`}>
       <span className="absolute top-2 left-3 text-dc-muted text-xs pointer-events-none">{props.label ?? 'Champ de bataille'}</span>
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
@@ -79,7 +83,7 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
 }
 
 /** Main : mes cartes face visible ; celle d'un autre en dos de carte (seulement leur nombre est connu). */
-export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEvent) => void; heightClass?: string }) {
+export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEvent) => void }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'hand' }
   const { setNodeRef, highlight } = useZone(ref)
@@ -89,7 +93,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEve
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative ${props.heightClass ?? 'h-[28%]'} flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
+      className={`relative h-[28%] flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${highlight}`}
       onContextMenu={(e) => {
         if (!props.onZoneContextMenu) return
         e.preventDefault()
@@ -107,6 +111,43 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (e: React.MouseEve
           </Draggable>
         ),
       )}
+    </div>
+  )
+}
+
+/** Cartes affichées au plus dans la main compacte d'un adversaire. */
+const COMPACT_HAND_MAX = 10
+
+/**
+ * Main d'un adversaire en bande fine (vue agrandie, Duel) : son nombre et de petits dos qui se chevauchent.
+ * Reste une cible de dépôt (`data-zone="hand"`) ; une carte révélée s'y affiche face visible, avec son aperçu.
+ */
+export function OpponentHand(props: ZoneProps) {
+  const { view, player, catalogs, lang } = props
+  const ref: ZoneRef = { player, zone: 'hand' }
+  const { setNodeRef, highlight } = useZone(ref)
+  const hand = view.players[player].zones.hand
+  const shown = hand.slice(0, COMPACT_HAND_MAX)
+  return (
+    <div
+      ref={setNodeRef}
+      data-zone="hand"
+      data-player={player}
+      className={`h-7 shrink-0 flex items-center gap-2 px-3 rounded-lg border border-dc-border bg-dc-surface/60 ${highlight}`}
+    >
+      <span className="text-dc-muted text-xs shrink-0">Main : {hand.length}</span>
+      <div className="h-5 flex items-center">
+        {shown.map((card, i) =>
+          card.hidden ? (
+            <CardBack key={`h${i}`} bare className={`h-full ${i > 0 ? '-ml-1.5' : ''}`} />
+          ) : (
+            <Draggable key={card.id} {...cardProps(card.id, ref, props)} className={`h-full ${i > 0 ? '-ml-1.5' : ''}`}>
+              <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
+            </Draggable>
+          ),
+        )}
+      </div>
+      {hand.length > COMPACT_HAND_MAX && <span className="text-dc-muted text-xs">+{hand.length - COMPACT_HAND_MAX}</span>}
     </div>
   )
 }
