@@ -56,6 +56,7 @@ const MSG = {
   alreadyEliminated: 'Ce joueur est déjà éliminé',
   notLooking: 'Tu ne regardes pas cette bibliothèque',
   badCount: 'Nombre de cartes invalide',
+  emptyLibrary: 'Bibliothèque vide',
   oneFace: "Cette carte n'a qu'une face",
 }
 
@@ -106,6 +107,11 @@ export function canApply(state: GameState, action: GameAction): string | null {
 
     case 'move':
       return canMove(state, action)
+
+    case 'moveTop': {
+      const top = actor.zones.library[0]
+      return top ? canMove(state, { ...action, type: 'move', id: top }) : MSG.emptyLibrary
+    }
 
     case 'giveControl': {
       const where = zoneOf(state, action.id)

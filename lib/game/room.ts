@@ -101,7 +101,8 @@ const isSeated = (room: RoomState, playerId: string | null): playerId is string 
 
 /** Action complète : auteur imposé, graine tirée par le serveur quand l'action en utilise une. */
 function serverAction(action: ClientAction, actor: string, seed: () => number): GameAction {
-  const { actor: _a, seed: _s, ...rest } = action as ClientAction & { actor?: unknown; seed?: unknown }
+  // Champs que seul le serveur pose : auteur, graine, passage de tour par l'hôte.
+  const { actor: _a, seed: _s, byHost: _h, ...rest } = action as ClientAction & { actor?: unknown; seed?: unknown; byHost?: unknown }
   const full = { ...rest, actor } as GameAction
   if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook') return { ...full, seed: seed() } as GameAction
   return full
@@ -144,7 +145,7 @@ function hostCommand(room: RoomState, from: string, msg: Extract<ClientMessage, 
   if (msg.op === 'close') return finish(room, null)
   if (msg.op === 'eliminate') return play(room, { type: 'eliminate', actor: from, target: msg.target })
   if (room.history.state.activePlayer !== msg.target) return refused(MSG.notTheirTurn)
-  return play(room, { type: 'endTurn', actor: msg.target })
+  return play(room, { type: 'endTurn', actor: msg.target, byHost: true })
 }
 
 function dispatch(room: RoomState, from: string, msg: ClientMessage, ctx: RoomContext): Outcome {
