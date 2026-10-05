@@ -92,7 +92,7 @@ Libellés exacts du tableau de la spec (§3 « Menus clic droit ») et du mode t
 
 **Fichiers :** Créer `components/table/source.ts`, `components/table/useLocalSource.ts`, `components/table/Table.tsx`, `components/table/MyBoard.tsx` ; Déplacer `components/playtest/{GameCard,Draggable,CardMenu,PileModal,TokenModal,LogPanel,PreviewPane,TopBar,zones}.tsx` → `components/table/` ; Supprimer `components/playtest/Playtest.tsx` ; Modifier `app/decks/[id]/test/page.tsx`, `scripts/playtest-check.mjs` (sélecteurs seulement).
 
-**Interfaces — Produit :** `GameSource` (spec §2, champs exacts) ; `useLocalSource(catalog: Catalog, deckName: string): GameSource` ; `<Table source={GameSource} />`. Zones paramétrées par `player`, `interactive` ; dépôt `"<joueur>:<zone>"` ; menus construits par `cardMenu` / `libraryMenu` / `handMenu` ; glisser ma bibliothèque → `moveTop`.
+**Interfaces — Produit :** `GameSource` (spec §2 ; la reprise de partie est gérée par `LocalTable`, hors de la source) ; `useLocalSource(catalog, deckName): LocalPhase` (`loading` / `resume` / `playing` avec la source) ; `<LocalTable>` pour la page de test ; `<Table source={GameSource} />`. Zones paramétrées par `player`, `interactive` ; dépôt `"<joueur>:<zone>"` ; menus construits par `cardMenu` / `libraryMenu` / `handMenu` ; glisser ma bibliothèque → `moveTop`.
 
 - [ ] **Étape 1 :** extraire la logique de `Playtest.tsx` dans `useLocalSource` (historique, sauvegarde v2, reprise, graines, « Garder » implicite) et la mise en page dans `Table` + `MyBoard`, sans changer le rendu.
 - [ ] **Étape 2 : vérifier** `npm test`, `npx tsc --noEmit`, build ; `node scripts/playtest-check.mjs …` → les 32 contrôles ✓, aucune erreur JavaScript.

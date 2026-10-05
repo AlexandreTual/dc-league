@@ -19,15 +19,17 @@ const TARGETS: { label: string; to: PlayerZone; position?: Position }[] = [
  * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination.
  * Une carte déplacée disparaît de la liste.
  */
-export default function PileModal({ title, zone, cards, searchable, shuffleDefault, catalog, lang, onMove, onClose }: {
+export default function PileModal({ title, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onClose }: {
   title: string
   zone: PlayerZone
   cards: VisibleCard[]
   searchable: boolean
   shuffleDefault: boolean | null
-  catalog: Catalog
+  catalogs: Record<string, Catalog>
   lang: Lang
-  onMove: (id: string, to: PlayerZone, position?: Position) => void
+  /** Consultation seule (spectateur, partie finie) : pas de boutons de destination. */
+  readOnly?: boolean
+  onMove: (card: VisibleCard, to: PlayerZone, position?: Position) => void
   onClose: (shuffle: boolean) => void
 }) {
   const [moved, setMoved] = useState<Set<string>>(new Set())
@@ -37,7 +39,7 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
   const visible = cards.filter((card) => !moved.has(card.id)).filter((card) => {
     if (!filter.trim()) return true
     const q = filter.trim().toLowerCase()
-    return [cardInfo(catalog, card, 'fr').name, cardInfo(catalog, card, 'en').name].some((n) => n.toLowerCase().includes(q))
+    return [cardInfo(catalogs[card.owner], card, 'fr').name, cardInfo(catalogs[card.owner], card, 'en').name].some((n) => n.toLowerCase().includes(q))
   })
 
   return (
@@ -57,23 +59,23 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
         </div>
         <div className="overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-4">
           {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">Aucune carte.</p>}
-          {visible.map(({ id, ...card }) => (
-            <div key={id} className="space-y-1.5" data-pile-card={id}>
-              <GameCard card={{ id, ...card }} catalog={catalog} lang={lang} />
-              <div className="grid grid-cols-3 gap-1">
+          {visible.map((card) => (
+            <div key={card.id} className="space-y-1.5" data-pile-card={card.id}>
+              <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
+              {!readOnly && <div className="grid grid-cols-3 gap-1">
                 {TARGETS.filter((t) => !(t.to === zone && t.to !== 'library')).map((t) => (
                   <button
                     key={t.label}
                     className="text-[10px] px-1 py-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50"
                     onClick={() => {
-                      onMove(id, t.to, t.position)
-                      setMoved((prev) => new Set(prev).add(id))
+                      onMove(card, t.to, t.position)
+                      setMoved((prev) => new Set(prev).add(card.id))
                     }}
                   >
                     {t.label}
                   </button>
                 ))}
-              </div>
+              </div>}
             </div>
           ))}
         </div>
