@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, LogIn, Users } from 'lucide-react'
+import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, LogIn, Users, BarChart2 } from 'lucide-react'
 import type { CurrentUser } from '@/lib/auth/types'
 import UserMenu from './UserMenu'
 
@@ -10,6 +10,7 @@ const navLinks = [
   { href: '/', label: 'Classement', icon: Sword },
   { href: '/calendar', label: 'Calendrier', icon: Calendar },
   { href: '/playoffs', label: 'Playoffs', icon: Trophy },
+  { href: '/stats', label: 'Statistiques', icon: BarChart2 },
   { href: '/history', label: 'Historique', icon: Clock },
   { href: '/rules', label: 'Règles', icon: BookOpen },
 ]
