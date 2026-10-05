@@ -153,12 +153,13 @@ export default function AdminDashboard({
       if (error) return showToast(`Erreur : ${error}`)
       const deck = data as DbDeck
       setPlayerDecks((prev) => ({ ...prev, [playerId]: [...(prev[playerId] ?? []), deck] }))
-      if (!(await handleAssignDeck(playerId, deck.id, deck))) return
+      const assigned = await handleAssignDeck(playerId, deck.id, deck)
+      // Le deck existe désormais : on ferme le formulaire même si l'assignation échoue (pas de doublon en réessayant).
       setNewDeckName('')
       setNewDeckImage('')
       setNewDeckMoxfield('')
       setCreatingDeckForPlayerId(null)
-      showToast(`Deck "${deck.name}" créé !`)
+      showToast(assigned ? `Deck "${deck.name}" créé !` : `Deck "${deck.name}" créé mais non assigné : choisis-le dans la liste`)
     } finally {
       setDeckLoading(false)
     }
@@ -354,11 +355,12 @@ export default function AdminDashboard({
     router.refresh()
   }
 
-  /** Recharge la liste des joueurs ; en cas d'échec, garde l'ancienne et le signale. */
-  async function reloadPlayers() {
+  /** Recharge la liste des joueurs ; en cas d'échec, garde l'ancienne et renvoie de quoi compléter le toast. */
+  async function reloadPlayers(): Promise<string> {
     const { error, data } = await sendJson('/api/players', 'GET')
-    if (error) return showToast(`Liste des joueurs non rechargée : ${error}`)
+    if (error) return ` (liste des joueurs non rechargée : ${error})`
     setPlayers(data as Player[])
+    return ''
   }
 
   async function handleCreateLeague(e: React.FormEvent) {
@@ -369,11 +371,11 @@ export default function AdminDashboard({
       const { error, data } = await sendJson('/api/leagues', 'POST', { name: newLeagueName.trim() })
       if (error) return showToast(`Erreur : ${error}`)
       const created = data as DbLeague
-      await reloadPlayers()
+      const warning = await reloadPlayers()
       setLeague(created)
       setLeaguePlayers([])
       setNewLeagueName('')
-      showToast(`Saison "${created.name}" créée !`)
+      showToast(`Saison "${created.name}" créée !${warning}`)
       router.refresh()
     } finally {
       setCreateLeagueLoading(false)
@@ -387,12 +389,12 @@ export default function AdminDashboard({
     try {
       const { error } = await sendJson(`/api/leagues/${league.id}`, 'DELETE')
       if (error) return showToast(`Erreur : ${error}`)
-      await reloadPlayers()
+      const warning = await reloadPlayers()
       setLeague(null)
       setLeaguePlayers([])
       setMatches([])
       setPlayoffs([])
-      showToast('Saison supprimée')
+      showToast(`Saison supprimée${warning}`)
       router.refresh()
     } finally {
       setDeleteLoading(false)
