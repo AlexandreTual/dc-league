@@ -8,15 +8,17 @@ import { createRoom, restoreRoom, handleConnect, handleDisconnect, handleMessage
 import { PLAYER_ZONES, type GameAction, type PlayerZone } from './types'
 
 const ctx = (seed = 77, now = 0) => ({ now, seed: () => seed })
-const room = (n = 3, now = 0) => createRoom('t1', setupFor('commander', n), 'p1', 5, now)
+/** Graines successives g0, g1… : l'ordre du tour puis une par joueur. */
+const seeds = () => { let n = 0; return () => `g${n++}` }
+const room = (n = 3, now = 0) => createRoom('t1', setupFor('commander', n), 'p1', seeds(), now)
 const act = (r: RoomState, from: string | null, action: ClientAction, c = ctx()) => handleMessage(r, from, { type: 'action', action }, c)
 const keepAll = (r: RoomState) => r.seats.forEach((s) => act(r, s.playerId, { type: 'keep' }))
 const state = (r: RoomState) => r.history.state
 
 describe('createRoom', () => {
-  it('démarre la partie avec la graine donnée', () => {
+  it('démarre la partie avec une graine par joueur, tirées par le serveur', () => {
     const r = room()
-    expect(r.history.actions).toEqual([{ type: 'start', actor: 'server', seed: 5 }])
+    expect(r.history.actions).toEqual([{ type: 'start', actor: 'server', seed: 'g0', seeds: { p1: 'g1', p2: 'g2', p3: 'g3' } }])
     expect(r.seats.map((s) => s.name)).toEqual(['Alex', 'Bob', 'Chloé'])
     expect(r).toMatchObject({ hostId: 'p1', finished: false, winner: null })
   })
@@ -39,6 +41,33 @@ describe('actions', () => {
     act(r, 'p1', { type: 'search', target: 'p2' })
     act(r, 'p1', { type: 'endLook', target: 'p2', shuffle: true }, ctx(12))
     expect(r.history.actions.at(-1)).toEqual({ type: 'endLook', actor: 'p1', target: 'p2', shuffle: true, seed: 12 })
+  })
+
+  it('un joueur ne peut éliminer que lui-même ; l’hôte garde sa commande', () => {
+    const r = createRoom('t1', setupFor('duel', 2), 'p1', seeds(), 0)
+    keepAll(r)
+    expect(act(r, 'p2', { type: 'eliminate', target: 'p1' })).toEqual({ changed: false, error: 'Seul l’hôte peut éliminer un autre joueur', events: [] })
+    expect(state(r).players.p1.eliminated).toBe(false)
+    expect(r.finished).toBe(false)
+    expect(act(r, 'p2', { type: 'eliminate', target: 'p2' })).toMatchObject({ changed: true, error: null, events: [{ type: 'finished', winner: 'p1' }] })
+  })
+
+  it('valide les actions venues du navigateur, sans planter ni rien enregistrer', () => {
+    const r = room()
+    keepAll(r)
+    const before = r.history.actions.length
+    const bad = [
+      { type: 'life', target: 'p2', delta: '5' },
+      { type: 'draw', count: 'x' },
+      { type: 'createToken', token: { name: 'Pixel', power: null, toughness: null, colors: [], image: null }, x: 1, y: 1 },
+      { type: 'createToken', token: { name: 'Pixel', typeLine: 'Token', power: null, toughness: null, colors: [], image: 'https://pistage.example/p.gif' }, x: 1, y: 1 },
+    ]
+    for (const action of bad) {
+      expect(act(r, 'p1', action as unknown as ClientAction)).toMatchObject({ changed: false, error: expect.stringMatching(/^Action invalide/) })
+    }
+    expect(handleMessage(r, 'p1', { type: 'action' } as unknown as ClientMessage, ctx())).toEqual({ changed: false, error: 'Action invalide', events: [] })
+    expect(r.history.actions).toHaveLength(before)
+    expect(state(r).players.p2.life).toBe(40)
   })
 
   it('refuse les spectateurs', () => {

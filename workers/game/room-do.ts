@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
+import { randomSeed } from '../../lib/game/random'
 import type { Env } from './env'
 import { RoomRuntime, type InitBody, type SocketInfo } from './runtime'
 
@@ -16,7 +17,7 @@ export class GameRoom extends DurableObject<Env> {
     this.env.DB,
     () => this.ctx.getWebSockets().map((ws) => ({ socket: ws, info: ws.deserializeAttachment() as SocketInfo })),
     () => Date.now(),
-    () => crypto.getRandomValues(new Uint32Array(1))[0],
+    randomSeed,
   )
 
   async fetch(request: Request): Promise<Response> {

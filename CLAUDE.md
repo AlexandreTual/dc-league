@@ -55,3 +55,4 @@ Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-4` (Ana, Ba
 - Les messages d'erreur affichés sont en français.
 - Les migrations sont numérotées (`000N_nom.sql`) et ajoutées à `MIGRATIONS` dans `test/d1.ts` ; l'utilisateur les applique en production (`npm run db:migrate:remote`) : le signaler dans la PR.
 - Pas de nouveau secret ou service externe sans le documenter (`docs/`) avec les étapes pour l'utilisateur.
+- L'interface doit supporter un serveur de jeu plus ancien : l'aperçu d'une PR (et le site juste après une fusion) parle au Worker de jeu de production, redéployé seulement à la fusion sur `main`. Tout nouveau champ de l'état de partie (`PlayerView`, `ViewMessage`…) peut donc manquer côté navigateur : le traiter comme facultatif dans `components/` (ne rien afficher plutôt que planter). Pour vérifier : lancer `npm run game:dev` depuis un `git worktree` de `main` et ouvrir une partie en ligne avec le site de la branche.

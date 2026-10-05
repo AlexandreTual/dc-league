@@ -113,12 +113,19 @@ export type GameState = {
 
 export type Position = 'top' | 'bottom' | number
 
+/**
+ * Graine du hasard. Nombre : ancienne graine 32 bits (parties commencées avant le passage à 128 bits,
+ * rejouées à l'identique) ; texte : 128 bits tirés par `crypto.getRandomValues` (voir random.ts).
+ */
+export type Seed = number | string
+
 export type GameAction =
-  | { type: 'start'; actor: 'server'; seed: number }
-  | { type: 'mulligan'; actor: string; seed: number }
+  /** `seeds` : graine de la bibliothèque de chaque joueur ; absente des anciennes parties (graine + rang du joueur). */
+  | { type: 'start'; actor: 'server'; seed: Seed; seeds?: Record<string, Seed> }
+  | { type: 'mulligan'; actor: string; seed: Seed }
   | { type: 'keep'; actor: string }
   | { type: 'draw'; actor: string; count: number }
-  | { type: 'shuffle'; actor: string; seed: number }
+  | { type: 'shuffle'; actor: string; seed: Seed }
   | { type: 'endTurn'; actor: string; byHost?: boolean }
   | { type: 'move'; actor: string; id: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
   | { type: 'moveTop'; actor: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
@@ -147,7 +154,7 @@ export type GameAction =
   | { type: 'look'; actor: string; target: string; count: number }
   | { type: 'search'; actor: string; target: string }
   | { type: 'reorderTop'; actor: string; target: string; ids: string[] }
-  | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: number }
+  | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: Seed }
 
 export type VisibleCard = {
   hidden: false
@@ -185,8 +192,11 @@ export type PlayerView = {
   lookingAt: string[]
   /** Dernières lignes du journal visibles par ce joueur (au plus VIEW_LOG_LIMIT). */
   log: Omit<LogEntry, 'visibleTo'>[]
-  /** Rang, dans le journal complet visible par ce joueur, de la première ligne de `log`. */
-  logStart: number
+  /**
+   * Rang, dans le journal complet visible par ce joueur, de la première ligne de `log`.
+   * Absent avec un serveur de jeu plus ancien (journal non tronqué) : compter 0.
+   */
+  logStart?: number
   /** Renseigné par GameHistory / le serveur. */
   canUndo: boolean
 }

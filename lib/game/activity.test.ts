@@ -62,4 +62,11 @@ describe('diffViews', () => {
     expect(diffViews(prev, after, 'p1').lines.map((l) => l.text)).toEqual(['ligne 900', 'ligne 901'])
     expect(diffViews(after, prev, 'p1').lines).toEqual([])
   })
+
+  it('serveur de jeu plus ancien (vues sans logStart) : les nouvelles lignes sont trouvées', () => {
+    const s = game()
+    const next = applyAction(s, { type: 'draw', actor: 'p2', count: 1 })
+    const old = (v: ReturnType<typeof viewFor>) => ({ ...v, logStart: undefined })
+    expect(diffViews(old(viewFor(s, 'p1')), old(viewFor(next, 'p1')), 'p1').lines).toHaveLength(1)
+  })
 })
