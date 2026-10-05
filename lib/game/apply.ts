@@ -206,6 +206,8 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
   if (action.faceDown) patch.faceDown = true
   // Face cachée n'a de sens que sur le champ de bataille et en exil : ailleurs, la carte redevient normale.
   if (to.zone !== 'battlefield' && to.zone !== 'exile') patch.faceDown = false
+  // Une carte qui reste face cachée (exil → champ de bataille…) garde ceux qui la connaissaient.
+  else if (card.faceDown && from.zone !== 'battlefield' && !action.faceDown) patch.knownBy = card.knownBy
   if (to.zone === 'battlefield') {
     patch.x = clampPct(action.x ?? 50)
     patch.y = clampPct(action.y ?? 50)

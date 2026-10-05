@@ -35,6 +35,13 @@ describe('état face cachée', () => {
     expect(apply(game(), move('exile'), move('exile', true)).cards[sol].faceDown).toBe(true)
   })
 
+  it('exil face cachée → champ de bataille : reste face cachée et connue de qui la connaissait', () => {
+    const s = apply(game(), move('exile', true), move('battlefield'))
+    expect(s.cards[sol].faceDown).toBe(true)
+    expect(isVisibleTo(s, sol, 'p1')).toBe(true)
+    expect(isVisibleTo(s, sol, 'p2')).toBe(false)
+  })
+
   it('giveControl d’une carte face cachée : le nouveau contrôleur la connaît', () => {
     let s = applyAction(game(), { type: 'faceDown', actor: 'p1', id: sol })
     expect(isVisibleTo(s, sol, 'p2')).toBe(false)
