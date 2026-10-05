@@ -5,7 +5,7 @@ import {
   createRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, restoreRoom, viewMessageFor,
   type CardDataMap, type ClientMessage, type Outcome, type RoomState, type ServerMessage,
 } from '../../lib/game/room'
-import type { GameAction, GameSetup } from '../../lib/game/types'
+import type { GameAction, GameSetup, Seed } from '../../lib/game/types'
 
 /** Sous-ensemble de l'API de stockage clé-valeur d'un Durable Object. */
 export interface KvStorage {
@@ -47,7 +47,7 @@ export class RoomRuntime {
     private db: D1Database,
     private sockets: () => { socket: Socket; info: SocketInfo }[],
     private clock: () => number,
-    private seed: () => number,
+    private seed: () => Seed,
   ) {}
 
   state(): RoomState | null {
@@ -76,7 +76,7 @@ export class RoomRuntime {
   async init(body: InitBody): Promise<Response> {
     await this.load()
     if (this.room) return new Response('Partie déjà créée', { status: 409 })
-    const room = createRoom(body.tableId, body.setup, body.hostId, this.seed(), this.clock())
+    const room = createRoom(body.tableId, body.setup, body.hostId, this.seed, this.clock())
     const meta: Meta = { tableId: body.tableId, hostId: body.hostId, finished: false, winner: null }
     await this.storage.put('setup', body.setup)
     await this.storage.put(actionKey(0), room.history.actions[0])

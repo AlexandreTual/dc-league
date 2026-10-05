@@ -8,15 +8,17 @@ import { createRoom, handleConnect, handleDisconnect, handleMessage, mergeCards,
 import { PLAYER_ZONES, type GameAction, type PlayerZone } from './types'
 
 const ctx = (seed = 77, now = 0) => ({ now, seed: () => seed })
-const room = (n = 3, now = 0) => createRoom('t1', setupFor('commander', n), 'p1', 5, now)
+/** Graines successives g0, g1… : l'ordre du tour puis une par joueur. */
+const seeds = () => { let n = 0; return () => `g${n++}` }
+const room = (n = 3, now = 0) => createRoom('t1', setupFor('commander', n), 'p1', seeds(), now)
 const act = (r: RoomState, from: string | null, action: ClientAction, c = ctx()) => handleMessage(r, from, { type: 'action', action }, c)
 const keepAll = (r: RoomState) => r.seats.forEach((s) => act(r, s.playerId, { type: 'keep' }))
 const state = (r: RoomState) => r.history.state
 
 describe('createRoom', () => {
-  it('démarre la partie avec la graine donnée', () => {
+  it('démarre la partie avec une graine par joueur, tirées par le serveur', () => {
     const r = room()
-    expect(r.history.actions).toEqual([{ type: 'start', actor: 'server', seed: 5 }])
+    expect(r.history.actions).toEqual([{ type: 'start', actor: 'server', seed: 'g0', seeds: { p1: 'g1', p2: 'g2', p3: 'g3' } }])
     expect(r.seats.map((s) => s.name)).toEqual(['Alex', 'Bob', 'Chloé'])
     expect(r).toMatchObject({ hostId: 'p1', finished: false, winner: null })
   })

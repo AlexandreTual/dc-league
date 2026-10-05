@@ -1,8 +1,9 @@
 // Logique d'une table en ligne, sans Cloudflare : messages des joueurs → effets sur la partie.
 // Le runtime du Durable Object (workers/game) s'occupe des sockets, du stockage et de D1.
+import { startAction } from './random'
 import { GameHistory } from './replay'
 import { viewFor } from './view'
-import type { CatalogEntry, GameAction, GameSetup, PlayerView } from './types'
+import type { CatalogEntry, GameAction, GameSetup, PlayerView, Seed } from './types'
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -46,7 +47,7 @@ export type RoomEvent = { type: 'hostChanged'; hostId: string } | { type: 'finis
 
 export type Outcome = { changed: boolean; error: string | null; events: RoomEvent[] }
 
-export type RoomContext = { now: number; seed: () => number }
+export type RoomContext = { now: number; seed: () => Seed }
 
 /** Absence de l'hôte au-delà de laquelle son rôle passe à un autre joueur. */
 export const HOST_TIMEOUT_MS = 5 * 60_000
@@ -79,8 +80,9 @@ function baseRoom(tableId: string, setup: GameSetup, hostId: string, history: Ga
   }
 }
 
-export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: number, now: number): RoomState {
-  return baseRoom(tableId, setup, hostId, new GameHistory(setup, [{ type: 'start', actor: 'server', seed }]), now)
+export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: () => Seed, now: number): RoomState {
+  const start = startAction(setup.players.map((p) => p.id), seed)
+  return baseRoom(tableId, setup, hostId, new GameHistory(setup, [start]), now)
 }
 
 export function restoreRoom(
@@ -100,7 +102,7 @@ const isSeated = (room: RoomState, playerId: string | null): playerId is string 
   playerId !== null && room.seats.some((s) => s.playerId === playerId)
 
 /** Action complète : auteur imposé, graine tirée par le serveur quand l'action en utilise une. */
-function serverAction(action: ClientAction, actor: string, seed: () => number): GameAction {
+function serverAction(action: ClientAction, actor: string, seed: () => Seed): GameAction {
   // Champs que seul le serveur pose : auteur, graine, passage de tour par l'hôte.
   const { actor: _a, seed: _s, byHost: _h, ...rest } = action as ClientAction & { actor?: unknown; seed?: unknown; byHost?: unknown }
   const full = { ...rest, actor } as GameAction
