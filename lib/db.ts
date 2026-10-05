@@ -38,6 +38,23 @@ type Ok<T> = { data: T; error: null }
 type Err = { data: null; error: string }
 export type Result<T> = Ok<T> | Err
 
+/** Erreurs métier de la ligue, affichées telles quelles. */
+export const ERREURS_LIGUE = {
+  matchesExist: 'Les matchs ont déjà été générés.',
+  playoffsExist: 'Les playoffs ont déjà été générés.',
+} as const
+
+/** Statut HTTP d'une erreur renvoyée par les fonctions de ligue (500 si elle est inattendue). */
+export function statusForError(error: string): number {
+  switch (error) {
+    case ERREURS_LIGUE.matchesExist:
+    case ERREURS_LIGUE.playoffsExist:
+      return 409
+    default:
+      return 500
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function uuid() {
@@ -244,15 +261,21 @@ export async function insertMatches(
   leagueId: string
 ): Promise<Result<DbMatch[]>> {
   try {
-    const ids: string[] = []
-    const stmts = matches.map((m) => {
-      const id = uuid()
-      ids.push(id)
-      return db
-        .prepare('INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) VALUES (?, ?, ?, ?, ?)')
-        .bind(id, m.player1_id, m.player2_id, m.round_number, leagueId)
-    })
-    await db.batch(stmts)
+    if (matches.length === 0) return ok([])
+    const ids = matches.map(() => uuid())
+    // Garde atomique contre le double clic : le premier match n'est inséré que si la ligue n'en a
+    // aucun, les suivants seulement si le premier l'a été (le batch est une transaction).
+    const stmts = matches.map((m, i) =>
+      db
+        .prepare(
+          `INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE ${
+            i === 0 ? 'NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?)' : 'EXISTS (SELECT 1 FROM matches WHERE id = ?)'
+          }`,
+        )
+        .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, i === 0 ? leagueId : ids[0]),
+    )
+    const [first] = await db.batch(stmts)
+    if (!first.meta.changes) return err(ERREURS_LIGUE.matchesExist)
     const rows: Record<string, unknown>[] = []
     for (const part of chunks(ids)) {
       const { results } = await db
@@ -311,6 +334,9 @@ export async function resetMatchScore(db: D1Database, id: string): Promise<Resul
 
 const STAGE_ORDER: PlayoffStage[] = ['semi1', 'semi2', 'final', 'third_place']
 
+/** Insertion conditionnelle : la requête se complète par une clause WHERE. */
+const INSERT_PLAYOFF = 'INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) SELECT ?, ?, ?, ?, ?'
+
 export async function listPlayoffs(db: D1Database, leagueId: string): Promise<Result<DbPlayoff[]>> {
   try {
     const { results } = await db
@@ -349,12 +375,14 @@ export async function generateSemifinals(
   try {
     const id1 = uuid()
     const id2 = uuid()
-    await db.batch([
-      db.prepare('INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) VALUES (?, ?, ?, ?, ?)')
-        .bind(id1, 'semi1', rank1Id, rank4Id, leagueId),
-      db.prepare('INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) VALUES (?, ?, ?, ?, ?)')
-        .bind(id2, 'semi2', rank2Id, rank3Id, leagueId),
+    // Garde atomique contre le double clic, comme insertMatches.
+    const [first] = await db.batch([
+      db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ?)`)
+        .bind(id1, 'semi1', rank1Id, rank4Id, leagueId, leagueId),
+      db.prepare(`${INSERT_PLAYOFF} WHERE EXISTS (SELECT 1 FROM playoffs WHERE id = ?)`)
+        .bind(id2, 'semi2', rank2Id, rank3Id, leagueId, id1),
     ])
+    if (!first.meta.changes) return err(ERREURS_LIGUE.playoffsExist)
     const { results } = await db
       .prepare('SELECT * FROM playoffs WHERE id IN (?, ?)')
       .bind(id1, id2)
@@ -411,10 +439,10 @@ export async function updatePlayoffScore(
           const fId = uuid()
           const tId = uuid()
           await db.batch([
-            db.prepare('INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) VALUES (?, ?, ?, ?, ?)')
-              .bind(fId, 'final', winner1, winner2, leagueId),
-            db.prepare('INSERT INTO playoffs (id, stage, player1_id, player2_id, league_id) VALUES (?, ?, ?, ?, ?)')
-              .bind(tId, 'third_place', loser1, loser2, leagueId),
+            db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = 'final')`)
+              .bind(fId, 'final', winner1, winner2, leagueId, leagueId),
+            db.prepare(`${INSERT_PLAYOFF} WHERE NOT EXISTS (SELECT 1 FROM playoffs WHERE league_id = ? AND stage = 'third_place')`)
+              .bind(tId, 'third_place', loser1, loser2, leagueId, leagueId),
           ])
           const { results: genRows } = await db
             .prepare('SELECT * FROM playoffs WHERE id IN (?, ?)')

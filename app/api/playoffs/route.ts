@@ -3,7 +3,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import { isAdminAuthenticated } from '@/lib/auth'
 import {
   listPlayoffs, hasPlayoffs, generateSemifinals, deleteAllPlayoffs,
-  countMatches, countCompletedMatches, listPlayers, listCompletedMatches,
+  countMatches, countCompletedMatches, listPlayers, listCompletedMatches, statusForError,
 } from '@/lib/db'
 import { computeLeaderboard, Player, Match } from '@/lib/leaderboard'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
@@ -67,7 +67,7 @@ export async function POST() {
 
   const [rank1, rank2, rank3, rank4] = leaderboard
   const { data, error } = await generateSemifinals(db, league.id, rank1.id, rank2.id, rank3.id, rank4.id)
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) return NextResponse.json({ error }, { status: statusForError(error) })
   return NextResponse.json(data, { status: 201 })
 }
 
