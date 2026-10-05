@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { NextResponse } from 'next/server'
 import { handleApi, dbFailure, resultError, INTERNAL_ERROR, type ApiDeps } from './api-core'
 import type { CurrentUser } from './types'
+import { ERREURS_LIGUE, STATUTS_LIGUE } from '@/lib/db'
 
 const URL_API = 'https://league.example.com/api/players'
 const db = {} as D1Database
@@ -106,6 +107,19 @@ describe('resultError', () => {
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ error: INTERNAL_ERROR })
     log.mockRestore()
+  })
+
+  it('erreurs métier de la ligue : 404 ou 409 avec leur message, jamais la 500 générique', async () => {
+    const expected: [string, number][] = [
+      [ERREURS_LIGUE.matchNotFound, 404], [ERREURS_LIGUE.playoffNotFound, 404],
+      [ERREURS_LIGUE.matchesExist, 409], [ERREURS_LIGUE.playoffsExist, 409],
+      [ERREURS_LIGUE.leagueClosed, 409], [ERREURS_LIGUE.finalScored, 409],
+    ]
+    for (const [error, status] of expected) {
+      const res = resultError(error, STATUTS_LIGUE)
+      expect(res.status).toBe(status)
+      expect(await res.json()).toEqual({ error })
+    }
   })
 })
 

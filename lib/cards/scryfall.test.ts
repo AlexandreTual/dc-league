@@ -17,7 +17,9 @@ function fixture(name: string): unknown {
 type Call = { url: string; method: string; headers: Record<string, string>; body: unknown }
 
 /** fetch factice : renvoie les réponses dans l'ordre et enregistre les requêtes. */
-function fakeFetch(responses: { status?: number; body: unknown }[]) {
+type FakeResponse = { status?: number; body: unknown; headers?: Record<string, string> }
+
+function fakeFetch(responses: FakeResponse[]) {
   const calls: Call[] = []
   const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({
@@ -26,13 +28,13 @@ function fakeFetch(responses: { status?: number; body: unknown }[]) {
       headers: Object.fromEntries(new Headers(init?.headers).entries()),
       body: init?.body ? JSON.parse(String(init.body)) : undefined,
     })
-    const next = responses.shift() ?? { body: { object: 'list', data: [], not_found: [] } }
-    return new Response(JSON.stringify(next.body), { status: next.status ?? 200 })
+    const next: FakeResponse = responses.shift() ?? { body: { object: 'list', data: [], not_found: [] } }
+    return new Response(JSON.stringify(next.body), { status: next.status ?? 200, headers: next.headers })
   }) as typeof fetch
   return { fn, calls }
 }
 
-function client(responses: { status?: number; body: unknown }[]) {
+function client(responses: FakeResponse[]) {
   const f = fakeFetch(responses)
   const sleeps: number[] = []
   const c = createScryfallClient({ fetch: f.fn, sleep: async (ms) => { sleeps.push(ms) } })
@@ -69,25 +71,42 @@ describe('fetchCollection', () => {
 })
 
 describe('searchFrenchPrints', () => {
-  it('groupe par 10 et suit la pagination', async () => {
+  it('groupe par 20 et ne lit qu’une page', async () => {
     const { c, calls } = client([
-      { body: fixture('search-fr-page1.json') },
+      { body: { ...(fixture('search-fr-page1.json') as object), has_more: false } },
       { body: fixture('search-fr-page2.json') },
-      { body: { object: 'list', has_more: false, data: [] } },
     ])
-    const ids = Array.from({ length: 12 }, (_, i) => `o${i}`)
+    const ids = Array.from({ length: 22 }, (_, i) => `o${i}`)
     const cards = await c.searchFrenchPrints(ids)
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(2)
     const first = new URL(calls[0].url)
     expect(first.pathname).toBe('/cards/search')
-    expect(first.searchParams.get('q')).toBe(`(${ids.slice(0, 10).map((o) => `oracleid:${o}`).join(' or ')}) lang:fr`)
+    expect(first.searchParams.get('q')).toBe(`(${ids.slice(0, 20).map((o) => `oracleid:${o}`).join(' or ')}) lang:fr`)
     expect(first.searchParams.get('unique')).toBe('prints')
     expect(first.searchParams.get('order')).toBe('released')
     expect(first.searchParams.get('dir')).toBe('desc')
     expect(first.searchParams.get('include_extras')).toBe('true')
-    expect(calls[1].url).toBe('https://api.scryfall.com/cards/search?page=2&q=test')
-    expect(new URL(calls[2].url).searchParams.get('q')).toBe('(oracleid:o10 or oracleid:o11) lang:fr')
+    expect(new URL(calls[1].url).searchParams.get('q')).toBe('(oracleid:o20 or oracleid:o21) lang:fr')
     expect(cards.map((x) => x.id)).toEqual(['sol-c21-fr', 'sol-cmr-fr', 'kenrith-eld-fr'])
+  })
+
+  it('la requête reste sous les 1000 caractères acceptés par Scryfall', async () => {
+    const { c, calls } = client([])
+    await c.searchFrenchPrints(Array.from({ length: 20 }, () => crypto.randomUUID()))
+    expect(calls).toHaveLength(1)
+    expect(new URL(calls[0].url).searchParams.get('q')!.length).toBeLessThanOrEqual(1000)
+  })
+
+  it('page pleine : relance seulement les cartes absentes de la page, jamais la page suivante', async () => {
+    const forest = (i: number) => ({ id: `forest-${i}`, oracle_id: 'o-forest', lang: 'fr', name: 'Forest', set: 's', collector_number: `${i}` })
+    const { c, calls } = client([
+      { body: { object: 'list', has_more: true, next_page: 'https://api.scryfall.com/cards/search?page=2', data: [forest(1), forest(2)] } },
+      { body: { object: 'list', has_more: false, data: [{ id: 'sol-fr', oracle_id: 'o-sol', lang: 'fr', name: 'Sol Ring', set: 'c21', collector_number: '263' }] } },
+    ])
+    const cards = await c.searchFrenchPrints(['o-forest', 'o-sol', 'o-none'])
+    expect(calls).toHaveLength(2)
+    expect(new URL(calls[1].url).searchParams.get('q')).toBe('(oracleid:o-sol or oracleid:o-none) lang:fr')
+    expect(cards.map((x) => x.id)).toEqual(['forest-1', 'forest-2', 'sol-fr'])
   })
 
   it('renvoie [] sur un 404', async () => {
@@ -97,8 +116,34 @@ describe('searchFrenchPrints', () => {
 })
 
 describe('erreurs et rythme', () => {
-  it.each([429, 503])('%s → ScryfallUnavailableError', async (status) => {
-    const { c } = client([{ status, body: { object: 'error' } }])
+  it('429 : attend Retry-After puis réessaie une fois', async () => {
+    const { c, calls, sleeps } = client([
+      { status: 429, body: { object: 'error' }, headers: { 'Retry-After': '12' } },
+      { body: fixture('collection.json') },
+    ])
+    const r = await c.fetchCollection([{ name: 'Sol Ring' }])
+    expect(calls).toHaveLength(2)
+    expect(sleeps).toContain(12000)
+    expect(r.cards).toHaveLength(2)
+  })
+
+  it('429 sans Retry-After : attend 30 s', async () => {
+    const { c, sleeps } = client([{ status: 429, body: { object: 'error' } }, { body: fixture('collection.json') }])
+    await c.fetchCollection([{ name: 'Sol Ring' }])
+    expect(sleeps).toContain(30000)
+  })
+
+  it('deux 429 de suite → ScryfallUnavailableError', async () => {
+    const { c, calls } = client([
+      { status: 429, body: { object: 'error' } },
+      { status: 429, body: { object: 'error' } },
+    ])
+    await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
+    expect(calls).toHaveLength(2)
+  })
+
+  it('503 → ScryfallUnavailableError', async () => {
+    const { c } = client([{ status: 503, body: { object: 'error' } }])
     await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
   })
 
@@ -119,13 +164,34 @@ describe('erreurs et rythme', () => {
     await expect(c.searchFrenchPrints(['o1'])).rejects.toBeInstanceOf(ScryfallUnavailableError)
   })
 
-  it('attend entre deux appels', async () => {
+  it('délai d’attente : chaque appel porte un signal d’annulation de 10 s', async () => {
+    let signal: AbortSignal | null | undefined
+    const f = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      signal = init?.signal
+      return new Response(JSON.stringify({ data: [] }))
+    }) as typeof fetch
+    const timeouts: number[] = []
+    const c = createScryfallClient({ fetch: f, sleep: async () => {}, timeout: (ms) => { timeouts.push(ms); return AbortSignal.timeout(ms) } })
+    await c.fetchCollection([{ name: 'Sol Ring' }])
+    expect(signal).toBeInstanceOf(AbortSignal)
+    expect(timeouts).toEqual([10000])
+  })
+
+  it('délai dépassé → ScryfallUnavailableError', async () => {
+    const f = (async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError') }) as typeof fetch
+    const c = createScryfallClient({ fetch: f, sleep: async () => {} })
+    await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
+  })
+
+  it('attend 500 ms entre deux appels, y compris avant le premier', async () => {
     const { c, sleeps } = client([])
     await c.fetchCollection([{ name: 'A' }])
     await c.fetchCollection([{ name: 'B' }])
-    expect(sleeps).toHaveLength(1)
-    expect(sleeps[0]).toBeGreaterThan(0)
-    expect(sleeps[0]).toBeLessThanOrEqual(100)
+    expect(sleeps).toHaveLength(2)
+    for (const ms of sleeps) {
+      expect(ms).toBeGreaterThan(400)
+      expect(ms).toBeLessThanOrEqual(500)
+    }
   })
 })
 
@@ -150,6 +216,17 @@ describe('toCardRow', () => {
     expect(row.type_line).toBe('Creature — Human Wizard // Creature — Human Insect')
     expect(row.mana_cost).toBe('{U}')
     expect(row.colors).toEqual(['U'])
+    expect(row.printed_name).toBeNull()
+  })
+
+  it('nom français d’une carte recto-verso : noms imprimés des faces', () => {
+    const card = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
+    const fr: ScryfallCard = {
+      ...card,
+      lang: 'fr',
+      card_faces: card.card_faces!.map((f, i) => ({ ...f, printed_name: ['Sondeur de secrets', 'Aberration insectile'][i] })),
+    }
+    expect(toCardRow(fr).printed_name).toBe('Sondeur de secrets // Aberration insectile')
   })
 
   it('lit les champs imprimés d’une carte française', () => {

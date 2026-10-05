@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Layers, LogOut, User } from 'lucide-react'
 import type { CurrentUser } from '@/lib/auth/types'
+import { sendJson } from './formStyles'
 
 export default function UserMenu({ user }: { user: CurrentUser }) {
   const router = useRouter()
@@ -19,8 +20,12 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
+  const [error, setError] = useState('')
+
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
+    const { error } = await sendJson('/api/auth/logout', 'POST')
+    if (error) return setError(`Déconnexion impossible : ${error}`)
+    setError('')
     setOpen(false)
     router.push('/')
     router.refresh()
@@ -34,6 +39,7 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-dc-border/50 transition-colors"
         aria-expanded={open}
+        aria-label={`Menu du compte de ${user.playerName}`}
       >
         {user.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -62,6 +68,7 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
           <button onClick={logout} className={itemClass}>
             <LogOut className="w-4 h-4" /> Déconnexion
           </button>
+          {error && <p role="alert" className="px-3 py-2 text-xs text-dc-red-light">{error}</p>}
         </div>
       )}
     </div>

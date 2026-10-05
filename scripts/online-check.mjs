@@ -123,6 +123,8 @@ try {
   // ── Partie ──
   for (const who of [ana, bastien, chloe]) await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
   check(true, 'la table s’affiche chez les 3 joueurs')
+  const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
+  for (const who of [ana, bastien, chloe]) check(await coversSite(who.page), `${who.name} : table en plein écran`)
   for (const who of [ana, bastien, chloe]) {
     await myHand(who).first().waitFor()
     check((await myHand(who).count()) === 7, `${who.name} : main de 7 cartes`)

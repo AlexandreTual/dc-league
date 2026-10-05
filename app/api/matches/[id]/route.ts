@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
-import { updateMatchScore, resetMatchScore } from '@/lib/db'
+import { updateMatchScore, resetMatchScore, STATUTS_LIGUE } from '@/lib/db'
 
 export const runtime = 'edge'
 
@@ -18,7 +18,7 @@ export function PATCH(req: NextRequest, { params }: Params) {
 
     const { id } = await params
     const { data, error } = await updateMatchScore(db, id, score_p1 as number, score_p2 as number)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json(data)
   })
 }
@@ -27,7 +27,7 @@ export function DELETE(req: NextRequest, { params }: Params) {
   return apiRoute(req, 'admin', async ({ db }) => {
     const { id } = await params
     const { data, error } = await resetMatchScore(db, id)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json(data)
   })
 }

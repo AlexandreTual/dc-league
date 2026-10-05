@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { generateRoundRobinMatches } from '@/lib/leaderboard'
-import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs } from '@/lib/db'
+import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs, STATUTS_LIGUE } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 
 export const runtime = 'edge'
@@ -22,7 +22,7 @@ export function POST(req: NextRequest) {
 
     const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
     const { data, error } = await insertMatches(db, matchDefs, league.id)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json({ ok: true, count: data.length, matches: data }, { status: 201 })
   })
 }

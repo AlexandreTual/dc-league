@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { randomSeed, startAction } from '@/lib/game/random'
 import { GameHistory } from '@/lib/game/replay'
 import type { ClientAction } from '@/lib/game/room'
 import { clearGame, loadGame, saveGame } from '@/lib/game/storage'
@@ -13,10 +14,6 @@ export const SOLO = 'solo'
 
 function soloSetup(catalog: Catalog): GameSetup {
   return { format: 'commander', players: [{ id: SOLO, name: 'Moi', catalog }], options: { eliminatedSeeAll: false } }
-}
-
-export function randomSeed(): number {
-  return crypto.getRandomValues(new Uint32Array(1))[0]
 }
 
 /** Action complète du joueur solo : auteur et graine ajoutés ici (le serveur le fait en ligne). */
@@ -43,7 +40,7 @@ export function useLocalSource(catalog: Catalog, deckName: string): LocalPhase {
 
   const startGame = useCallback((actions: GameAction[] | null) => {
     if (!actions) clearGame(catalog.deckId)
-    history.current = new GameHistory(setup, actions ?? [{ type: 'start', actor: 'server', seed: randomSeed() }])
+    history.current = new GameHistory(setup, actions ?? [startAction([SOLO])])
     saveGame(catalog, history.current.actions)
     setSaved('none')
   }, [catalog, setup])

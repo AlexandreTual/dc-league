@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
-import { updatePlayoffScore, resetPlayoffScore } from '@/lib/db'
+import { updatePlayoffScore, resetPlayoffScore, STATUTS_LIGUE } from '@/lib/db'
 
 export const runtime = 'edge'
 
@@ -21,7 +21,7 @@ export function PATCH(req: NextRequest, { params }: Params) {
 
     const { id } = await params
     const { data, error } = await updatePlayoffScore(db, id, score_p1 as number, score_p2 as number)
-    if (error !== null) return resultError(error, { 'Playoff introuvable': 404 })
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json(data)
   })
 }
@@ -30,7 +30,7 @@ export function DELETE(req: NextRequest, { params }: Params) {
   return apiRoute(req, 'admin', async ({ db }) => {
     const { id } = await params
     const { data, error } = await resetPlayoffScore(db, id)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json(data)
   })
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import {
   listPlayoffs, hasPlayoffs, generateSemifinals, deleteAllPlayoffs,
-  countMatches, countCompletedMatches, listPlayers, listCompletedMatches,
+  countMatches, countCompletedMatches, listPlayers, listCompletedMatches, STATUTS_LIGUE,
 } from '@/lib/db'
 import { computeLeaderboard, Player, Match } from '@/lib/leaderboard'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
@@ -58,7 +58,7 @@ export function POST(req: NextRequest) {
 
     const [rank1, rank2, rank3, rank4] = leaderboard
     const { data, error } = await generateSemifinals(db, league.id, rank1.id, rank2.id, rank3.id, rank4.id)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json(data, { status: 201 })
   })
 }
