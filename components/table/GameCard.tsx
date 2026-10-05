@@ -1,7 +1,7 @@
 'use client'
 
 import type { Catalog, CardView } from '@/lib/game/types'
-import { cardInfo } from '@/lib/game/apply'
+import { cardInfo, tokenBadge } from '@/lib/game/apply'
 
 export type Lang = 'fr' | 'en'
 
@@ -28,6 +28,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '' 
 
   const { plus, minus, other } = card.counters
   const net = plus - minus
+  const badge = tokenBadge(card)
 
   return (
     <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}>
@@ -51,6 +52,9 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '' 
         )}
         {other > 0 && <span className="px-1 rounded text-[10px] font-bold bg-dc-gold text-black">{other}</span>}
       </div>
+      {badge && (
+        <span className="absolute top-1 right-1 px-1 rounded bg-black/75 text-dc-gold text-[9px] font-semibold uppercase tracking-wide" data-token-badge>{badge}</span>
+      )}
       {tax > 0 && (
         <span className="absolute bottom-1 inset-x-1 text-center rounded bg-black/75 text-dc-gold text-[10px] font-semibold">Taxe +{tax}</span>
       )}
