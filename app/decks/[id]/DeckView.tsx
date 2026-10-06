@@ -7,27 +7,10 @@ import { BookOpen, Crown, ExternalLink, Play, RefreshCw, Sparkles, X } from 'luc
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
+import { readLang, saveLang } from '@/lib/cards/lang'
 import { sendJson } from '@/components/formStyles'
 import OracleModal from '@/components/OracleModal'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
-
-const LANG_KEY = 'dc-card-lang'
-
-function readLang(): Lang {
-  try {
-    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'fr'
-  } catch {
-    return 'fr'
-  }
-}
-
-function saveLang(lang: Lang) {
-  try {
-    localStorage.setItem(LANG_KEY, lang)
-  } catch {
-    // stockage indisponible : la préférence ne sera simplement pas mémorisée
-  }
-}
 
 export default function DeckView({ deck, playerName, cards, canEdit }: {
   deck: DbDeck
