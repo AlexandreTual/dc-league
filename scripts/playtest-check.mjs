@@ -141,6 +141,16 @@ try {
   check((await battlefieldCount()) === 3 && sameName === 2 && (await badges()).includes('Copie'),
     `jeton copie : un second « ${copiedName} » marqué « Copie » sur le champ de bataille`)
 
+  // Jetons du deck (issue #41) : onglet « Du deck » ouvert par défaut, avec la carte qui crée chaque jeton.
+  await page.getByRole('button', { name: 'Jeton', exact: true }).click()
+  const tokenDialog = page.getByRole('dialog', { name: 'Créer un jeton' })
+  await tokenDialog.waitFor()
+  check((await tokenDialog.innerText()).includes('Plante') && (await tokenDialog.innerText()).includes('Pour : Avenger of Zendikar'),
+    'onglet « Du deck » : jetons du deck et carte qui les crée')
+  await capture('jetons-du-deck')
+  await tokenDialog.getByRole('button', { name: /Plante/ }).click()
+  check((await battlefieldCount()) === 4 && (await page.locator('[data-zone="battlefield"]').innerText()).includes('Plante'), 'jeton du deck créé')
+
   const libraryBefore = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
   page.once('dialog', (d) => d.accept('3'))
   await page.locator('[data-zone="library"]').click({ button: 'right' })
@@ -185,7 +195,7 @@ try {
   const creatures = Number((await creatureButton.innerText()).match(/\((\d+)\)/)[1])
   await creatureButton.click()
   const shownTypes = await page.locator('[data-pile-card] [title]').evaluateAll((els) => els.map((e) => e.getAttribute('title')))
-  check(creatures > 0 && shownTypes.length === creatures && shownTypes.every((n) => n === 'Llanowar Elves'),
+  check(creatures > 0 && shownTypes.length === creatures && shownTypes.every((n) => ['Llanowar Elves', 'Avenger of Zendikar'].includes(n)),
     `filtre « Créature » : ${creatures} créatures seulement`)
   await page.getByRole('button', { name: 'Tous', exact: true }).click()
   check((await page.locator('[data-pile-card]').count()) === libraryAfter, `filtre « Tous » : toute la bibliothèque (${libraryAfter})`)

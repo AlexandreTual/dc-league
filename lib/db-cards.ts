@@ -1,5 +1,6 @@
 import type { Result } from './db'
-import type { CardLookup, CardRow, DeckCardView, Section, StoredCardLookup } from './cards/types'
+import type { CardLookup, CardRow, DeckCardView, DeckTokenRow, Section, StoredCardLookup } from './cards/types'
+import type { DeckToken } from './game/types'
 
 type Ok<T> = { data: T; error: null }
 type Err = { data: null; error: string }
@@ -231,6 +232,51 @@ export async function setDeckCommanderImage(db: D1Database, deckId: string, url:
   try {
     await db.prepare('UPDATE decks SET commander_image_url = ? WHERE id = ?').bind(url, deckId).run()
     return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Jetons des decks ──────────────────────────────────────────────────────────
+
+/** Remplace la liste des jetons d'un deck. */
+export async function replaceDeckTokens(db: D1Database, deckId: string, tokens: DeckTokenRow[]): Promise<Result<true>> {
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM deck_tokens WHERE deck_id = ?').bind(deckId),
+      ...tokens.map((t) =>
+        db
+          .prepare(
+            `INSERT OR REPLACE INTO deck_tokens (deck_id, token_scryfall_id, name, type_line, power, toughness, colors, image, source_names)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(deckId, t.id, t.name, t.typeLine, t.power, t.toughness, JSON.stringify(t.colors), t.image, JSON.stringify(t.sources)),
+      ),
+    ])
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Jetons d'un deck, triés par nom. */
+export async function listDeckTokens(db: D1Database, deckId: string): Promise<Result<DeckToken[]>> {
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM deck_tokens WHERE deck_id = ? ORDER BY name COLLATE NOCASE ASC')
+      .bind(deckId)
+      .all<Record<string, unknown>>()
+    return ok(
+      results.map((r) => ({
+        name: r.name as string,
+        typeLine: r.type_line as string,
+        power: (r.power as string) ?? null,
+        toughness: (r.toughness as string) ?? null,
+        colors: parseJson<string[]>(r.colors, []),
+        image: (r.image as string) ?? null,
+        sources: parseJson<string[]>(r.source_names, []),
+      })),
+    )
   } catch (e) {
     return err((e as Error).message)
   }

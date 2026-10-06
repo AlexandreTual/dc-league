@@ -3,13 +3,48 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { customToken, searchTokens } from '@/lib/game/tokens'
-import type { TokenData } from '@/lib/game/types'
+import type { DeckToken, TokenData } from '@/lib/game/types'
 
 const COLORS: [string, string][] = [['W', 'Blanc'], ['U', 'Bleu'], ['B', 'Noir'], ['R', 'Rouge'], ['G', 'Vert']]
 const input = 'bg-dc-bg border border-dc-border rounded-lg px-3 py-1.5 text-sm text-dc-text'
 
-export default function TokenModal({ onCreate, onClose }: { onCreate: (token: TokenData) => void; onClose: () => void }) {
-  const [tab, setTab] = useState<'search' | 'custom'>('search')
+type Tab = 'deck' | 'search' | 'custom'
+const TAB_LABELS: Record<Tab, string> = { deck: 'Du deck', search: 'Scryfall', custom: 'Personnalisé' }
+
+/** Grille de jetons (image, nom, force/endurance), avec en petit les cartes du deck qui les créent. */
+function TokenGrid({ tokens, onPick }: { tokens: (TokenData & { sources?: string[] })[]; onPick: (token: TokenData) => void }) {
+  return (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-3">
+      {tokens.map((t, i) => (
+        <button key={`${t.name}-${i}`} onClick={() => onPick(t)} className="text-left space-y-1" title={t.typeLine}>
+          {t.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={t.image} alt={t.name} className="w-full rounded-lg" />
+          ) : (
+            <div className="aspect-[63/88] rounded-lg border border-dc-border" />
+          )}
+          <span className="block text-xs text-dc-text">{t.name}{t.power != null && ` ${t.power}/${t.toughness}`}</span>
+          {t.sources && t.sources.length > 0 && <span className="block text-[10px] leading-tight text-dc-muted">Pour : {t.sources.join(', ')}</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Jeton à créer, sans les informations propres à l'onglet « Du deck ». */
+function asToken({ name, typeLine, power, toughness, colors, image }: TokenData): TokenData {
+  return { name, typeLine, power, toughness, colors, image }
+}
+
+export default function TokenModal({ deckTokens, onCreate, onClose }: {
+  /** Jetons du deck du joueur ; absent (ancien serveur, chargement) ou vide : pas d'onglet « Du deck ». */
+  deckTokens?: DeckToken[]
+  onCreate: (token: TokenData) => void
+  onClose: () => void
+}) {
+  const hasDeckTokens = (deckTokens?.length ?? 0) > 0
+  const [tab, setTab] = useState<Tab>(hasDeckTokens ? 'deck' : 'search')
+  const tabs: Tab[] = hasDeckTokens ? ['deck', 'search', 'custom'] : ['search', 'custom']
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TokenData[]>([])
   const [status, setStatus] = useState('')
@@ -32,7 +67,7 @@ export default function TokenModal({ onCreate, onClose }: { onCreate: (token: To
   }, [query, tab])
 
   const create = (token: TokenData) => {
-    onCreate(token)
+    onCreate(asToken(token))
     onClose()
   }
 
@@ -40,31 +75,23 @@ export default function TokenModal({ onCreate, onClose }: { onCreate: (token: To
     <div className="fixed inset-0 z-[55] bg-black/70 flex items-center justify-center p-6" onClick={onClose}>
       <div className="bg-dc-surface border border-dc-border rounded-2xl w-full max-w-3xl max-h-full flex flex-col" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Créer un jeton">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-dc-border">
-          {(['search', 'custom'] as const).map((t) => (
+          {tabs.map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`text-sm px-3 py-1 rounded-lg ${tab === t ? 'bg-dc-gold/20 text-dc-gold' : 'text-dc-muted'}`}>
-              {t === 'search' ? 'Scryfall' : 'Personnalisé'}
+              {TAB_LABELS[t]}
             </button>
           ))}
           <button onClick={onClose} className="ml-auto text-dc-muted hover:text-dc-text" aria-label="Fermer"><X className="w-5 h-5" /></button>
         </div>
 
-        {tab === 'search' ? (
+        {tab === 'deck' && hasDeckTokens ? (
+          <div className="p-4 overflow-y-auto">
+            <TokenGrid tokens={deckTokens!} onPick={create} />
+          </div>
+        ) : tab === 'search' ? (
           <div className="p-4 space-y-3 overflow-y-auto">
             <input autoFocus className={`${input} w-full`} placeholder="Soldat, Treasure, Zombie… (en anglais)" value={query} onChange={(e) => setQuery(e.target.value)} />
             {status && <p className="text-dc-muted text-sm">{status}</p>}
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-3">
-              {results.map((t, i) => (
-                <button key={`${t.name}-${i}`} onClick={() => create(t)} className="text-left space-y-1" title={t.typeLine}>
-                  {t.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={t.image} alt={t.name} className="w-full rounded-lg" />
-                  ) : (
-                    <div className="aspect-[63/88] rounded-lg border border-dc-border" />
-                  )}
-                  <span className="text-xs text-dc-text">{t.name}{t.power != null && ` ${t.power}/${t.toughness}`}</span>
-                </button>
-              ))}
-            </div>
+            <TokenGrid tokens={results} onPick={create} />
           </div>
         ) : (
           <form
