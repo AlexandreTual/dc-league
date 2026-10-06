@@ -6,7 +6,7 @@ import type { Catalog, CardView, PlayerView, VisibleCard, ZoneRef } from '@/lib/
 import Draggable from './Draggable'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
-import { battlefieldStyle, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
+import { battlefieldStyle, cardSize, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
 
 /** Identifiant de dépôt d'une zone : « joueur:zone ». */
 export const dropId = (ref: ZoneRef) => `${ref.player}:${ref.zone}`
@@ -30,7 +30,7 @@ export type ZoneProps = {
   interactive: boolean
   /** Cartes à mettre en évidence (repères d'activité). */
   highlighted?: Set<string>
-  /** Réglages d'affichage (quadrillage, couleur du fond). */
+  /** Réglages d'affichage (quadrillage, couleur du fond, taille des cartes). */
   settings?: TableSettings
 }
 
@@ -62,16 +62,18 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'battlefield' }
   const { setNodeRef, highlight } = useZone(ref)
+  const settings = props.settings ?? DEFAULT_TABLE_SETTINGS
+  const size = cardSize(settings.cardScale)
   return (
-    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(props.settings ?? DEFAULT_TABLE_SETTINGS)}
+    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(settings)}
       className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${highlight}`}>
       <span className="absolute top-2 left-3 text-dc-muted text-xs pointer-events-none">{props.label ?? 'Champ de bataille'}</span>
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
           key={card.id}
           {...cardProps(card.id, ref, props)}
-          className="absolute w-[7%] min-w-[72px]"
-          style={{ left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${card.tapped ? 90 : 0}deg)`, transition: 'transform 150ms' }}
+          className="absolute"
+          style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${card.tapped ? 90 : 0}deg)`, transition: 'transform 150ms' }}
         >
           <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
         </Draggable>

@@ -317,6 +317,20 @@ try {
   await page.getByRole('button', { name: 'Par défaut' }).click()
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
 
+  // Taille des cartes : 150 % agrandit les cartes du champ de bataille, 100 % revient à la taille automatique.
+  const fieldCard = page.locator('[data-zone="battlefield"] [data-card-id]').first()
+  const widthBefore = (await fieldCard.boundingBox()).width
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByLabel('Taille des cartes').selectOption('1.5')
+  const widthAfter = (await fieldCard.boundingBox()).width
+  check(Math.abs(widthAfter / widthBefore - 1.5) < 0.05, `taille des cartes 150 % (${Math.round(widthBefore)} → ${Math.round(widthAfter)} px)`)
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  await capture('taille-150')
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByLabel('Taille des cartes').selectOption('1')
+  check(Math.abs((await fieldCard.boundingBox()).width - widthBefore) < 1, 'taille des cartes 100 % : taille d’origine')
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+
   // ── Réserve de mana : 2 verts, puis vidée au tour suivant ──
   await page.getByRole('button', { name: 'Réserve de mana' }).click()
   await page.getByRole('button', { name: 'Vert plus' }).click()

@@ -485,7 +485,7 @@ Le titre passé à `onPile` reste « Cimetière » / « Exil » (titre de la fen
 **Interfaces :**
 - `TableSettings` gagne `cardScale: number` ; `CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]` ; `cardSize(scale: number): { width: string; minWidth: string }`.
 
-- [ ] **Étape 1 : tests qui échouent.** `lib/table-settings.test.ts` : partout où un objet de réglages est écrit, ajouter `cardScale: 1` (ex. `battlefieldStyle({ grid: false, background: null, cardScale: 1 })`) et `DEFAULT_TABLE_SETTINGS` attendu `{ grid: true, background: null, cardScale: 1 }`. Ajouter :
+- [x] **Étape 1 : tests qui échouent.** `lib/table-settings.test.ts` : partout où un objet de réglages est écrit, ajouter `cardScale: 1` (ex. `battlefieldStyle({ grid: false, background: null, cardScale: 1 })`) et `DEFAULT_TABLE_SETTINGS` attendu `{ grid: true, background: null, cardScale: 1 }`. Ajouter :
 
 ```ts
 describe('taille des cartes', () => {
@@ -507,9 +507,9 @@ describe('taille des cartes', () => {
 })
 ```
 
-- [ ] **Étape 2 :** `npx vitest run lib/table-settings.test.ts` → échec.
+- [x] **Étape 2 :** `npx vitest run lib/table-settings.test.ts` → échec.
 
-- [ ] **Étape 3 : implémenter** dans `lib/table-settings.ts` :
+- [x] **Étape 3 : implémenter** dans `lib/table-settings.ts` :
 
 ```ts
 export type TableSettings = {
@@ -541,9 +541,9 @@ export function cardSize(scale: number): { width: string; minWidth: string } {
 }
 ```
 
-- [ ] **Étape 4 :** `npx vitest run lib/table-settings.test.ts` → vert.
+- [x] **Étape 4 :** `npx vitest run lib/table-settings.test.ts` → vert.
 
-- [ ] **Étape 5 : interface.** `Battlefield` (`zones.tsx`) : retirer `w-[7%] min-w-[72px]` de la classe de la carte et ajouter `...cardSize((props.settings ?? DEFAULT_TABLE_SETTINGS).cardScale)` à son `style`. `TableSettings.tsx`, avant « Mémorisé sur cet appareil » :
+- [x] **Étape 5 : interface.** `Battlefield` (`zones.tsx`) : retirer `w-[7%] min-w-[72px]` de la classe de la carte et ajouter `...cardSize((props.settings ?? DEFAULT_TABLE_SETTINGS).cardScale)` à son `style`. `TableSettings.tsx`, avant « Mémorisé sur cet appareil » :
 
 ```tsx
         <label className="flex items-center gap-2 text-sm text-dc-text">
@@ -555,7 +555,7 @@ export function cardSize(scale: number): { width: string; minWidth: string } {
         </label>
 ```
 
-- [ ] **Étape 6 : `playtest-check`.** Dans la section « Réglages » :
+- [x] **Étape 6 : `playtest-check`.** Dans la section « Réglages » :
 
 ```js
   const fieldCard = page.locator('[data-zone="battlefield"] [data-card-id]').first()
@@ -568,5 +568,5 @@ export function cardSize(scale: number): { width: string; minWidth: string } {
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
 ```
 
-- [ ] **Étape 7 :** vérifications complètes ; captures à 100 % et 150 %.
-- [ ] **Étape 8 : commit** `feat(table): réglage de la taille des cartes`. Mettre à jour `docs/superpowers/roadmap.md` (chantier « mise en page de la table » terminé) et fermer l'issue #22 dans cette PR.
+- [x] **Étape 7 :** vérifications complètes ; captures à 100 % et 150 %.
+- [x] **Étape 8 : commit** `feat(table): réglage de la taille des cartes`. Mettre à jour `docs/superpowers/roadmap.md` (chantier « mise en page de la table » terminé) et fermer l'issue #22 dans cette PR.
