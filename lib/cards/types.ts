@@ -1,3 +1,5 @@
+import type { DeckToken } from '@/lib/game/types'
+
 export type Section = 'commander' | 'main'
 
 export type ParsedLine = {
@@ -68,3 +70,6 @@ export type ImportSummary = {
 
 /** Règle officielle (« ruling ») d'une carte, en anglais. */
 export type Ruling = { date: string; source: 'wotc' | 'scryfall'; text: string }
+
+/** Jeton d'un deck tel qu'enregistré : identifiant Scryfall de l'impression retenue en plus. */
+export type DeckTokenRow = DeckToken & { id: string }

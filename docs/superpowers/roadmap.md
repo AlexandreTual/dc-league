@@ -47,7 +47,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 - Connexion, import d'un deck (cartes en français) et mode test : OK, interface fluide.
 - **Corrigé — glisser-déposer** : l'aperçu garde la taille de la carte d'origine et la carte se pose au centre de l'aperçu (contrôles ajoutés à `scripts/playtest-check.mjs`).
-- **À prévoir — jetons du deck** : proposer les jetons créés par les cartes du deck (données `all_parts` de Scryfall), en plus de la recherche actuelle.
+- **Fait — jetons du deck** (issue #41) : les jetons créés par les cartes (`all_parts` de Scryfall, en français si possible) sont enregistrés à l'import et proposés dans l'onglet « Du deck » de « Créer un jeton » (mode test et partie en ligne, chacun ne voit que les siens). Decks déjà importés : bouton « Mettre à jour les jetons » sur la page du deck.
 
 ## Organisation du travail (depuis le 5 octobre)
 
@@ -59,7 +59,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 2. Mot de passe oublié et invitations par mail — spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md` ; tâche 1 faite, tâches 2 à 5 en issues (à enchaîner dans l'ordre).
 3. Jetons copies depuis les cartes en jeu — **fait** (clic droit sur une carte visible du champ de bataille, la sienne ou celle d'un adversaire).
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
-5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0008), rafraîchies après 7 jours.
+5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
 
 ## Idées pour plus tard
 

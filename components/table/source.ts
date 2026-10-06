@@ -1,5 +1,5 @@
 import type { CardDataMap, ClientAction } from '@/lib/game/room'
-import type { Catalog, PlayerView } from '@/lib/game/types'
+import type { Catalog, DeckToken, PlayerView } from '@/lib/game/types'
 
 /** Ce que la table consomme, qu'elle soit locale (mode test) ou en ligne. */
 export type GameSource = {
@@ -24,6 +24,8 @@ export type GameSource = {
     hostCommands?: { passTurn(target: string): void; eliminate(target: string): void; close(): void }
   }
   local?: { deckId: string; deckName: string; newGame(): void }
+  /** Jetons de mon deck, pour « Créer un jeton » ; absents tant qu'ils ne sont pas chargés. */
+  deckTokens?: DeckToken[]
 }
 
 /** Catalogues reconstitués à partir des données de cartes reçues du serveur. */

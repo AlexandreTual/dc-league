@@ -46,7 +46,9 @@ function fakeClient() {
             ? id.name.includes(' // ')
               ? undefined
               : EN.find((c) => plain(c.name) === plain(id.name) || plain(c.name.split(' // ')[0]) === plain(id.name))
-            : EN.find((c) => c.set === id.set && c.collector_number === id.collector_number)
+            : 'set' in id
+              ? EN.find((c) => c.set === id.set && c.collector_number === id.collector_number)
+              : undefined
         if (found) cards.push(found)
         else notFound.push(id)
       }

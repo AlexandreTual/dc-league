@@ -25,7 +25,10 @@ export type ScryfallDeps = {
   /** Signal d'annulation après `ms` (injectable pour les tests). */
   timeout?: (ms: number) => AbortSignal
 }
-export type Identifier = { set: string; collector_number: string } | { name: string }
+export type Identifier = { set: string; collector_number: string } | { name: string } | { id: string }
+
+/** Carte liée (jeton, emblème, pièce de combo…) listée dans `all_parts`. */
+export type RelatedCard = { id: string; component: string; name: string; type_line?: string }
 
 type ImageUris = { small?: string; normal?: string }
 
@@ -38,6 +41,8 @@ type ScryfallFace = {
   oracle_text?: string
   printed_text?: string
   colors?: string[]
+  power?: string
+  toughness?: string
   image_uris?: ImageUris
   oracle_id?: string
 }
@@ -59,8 +64,11 @@ export type ScryfallCard = {
   printed_text?: string
   colors?: string[]
   color_identity?: string[]
+  power?: string
+  toughness?: string
   image_uris?: ImageUris
   card_faces?: ScryfallFace[]
+  all_parts?: RelatedCard[]
 }
 
 type ScryfallRuling = { source?: string; published_at?: string; comment?: string }

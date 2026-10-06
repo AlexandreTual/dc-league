@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Crown, ExternalLink, Play, RefreshCw, X } from 'lucide-react'
+import { BookOpen, Crown, ExternalLink, Play, RefreshCw, Sparkles, X } from 'lucide-react'
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
@@ -41,6 +41,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const [selected, setSelected] = useState<DeckCardView | null>(null)
   const [oracle, setOracle] = useState<DeckCardView | null>(null)
   const [error, setError] = useState('')
+  const [tokensStatus, setTokensStatus] = useState('')
 
   useEffect(() => setLang(readLang()), [])
   useEffect(() => {
@@ -61,6 +62,18 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     if (error) return setError(error)
     setSelected(null)
     router.refresh()
+  }
+
+  async function updateTokens() {
+    setError('')
+    setTokensStatus('Recherche des jetons…')
+    const { data, error } = await sendJson(`/api/decks/${deck.id}/tokens`, 'POST', {})
+    if (error) {
+      setTokensStatus('')
+      return setError(error)
+    }
+    const count = (data as { count?: number } | null)?.count ?? 0
+    setTokensStatus(count === 0 ? 'Aucun jeton dans ce deck' : `${count} jeton${count > 1 ? 's' : ''} enregistré${count > 1 ? 's' : ''}`)
   }
 
   const total = cards.reduce((n, c) => n + c.quantity, 0)
@@ -99,6 +112,11 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               <RefreshCw className="w-3.5 h-3.5" /> Réimporter
             </Link>
           )}
+          {canEdit && cards.length > 0 && (
+            <button onClick={updateTokens} disabled={tokensStatus === 'Recherche des jetons…'} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50">
+              <Sparkles className="w-3.5 h-3.5" /> Mettre à jour les jetons
+            </button>
+          )}
           {cards.length > 0 && (
             <Link href={`/decks/${deck.id}/test`} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-gold/40 rounded-lg text-dc-gold hover:bg-dc-gold/10">
               <Play className="w-3.5 h-3.5" /> Tester le deck
@@ -108,6 +126,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
       </div>
 
       {error && <p className="text-dc-red-light text-sm">{error}</p>}
+      {tokensStatus && <p className="text-dc-muted text-sm" role="status">{tokensStatus}</p>}
 
       {cards.length === 0 ? (
         <p className="text-dc-muted text-sm">Ce deck n&apos;a pas encore de liste importée.</p>

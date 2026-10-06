@@ -1,14 +1,21 @@
 'use client'
 
-import { useState } from 'react'
-import type { Catalog } from '@/lib/game/types'
+import { useMemo, useState } from 'react'
+import type { Catalog, DeckToken } from '@/lib/game/types'
 import Table from './Table'
 import { useLocalSource } from './useLocalSource'
 
 /** Mode test : la table alimentée par une partie locale à un joueur. */
-export default function LocalTable({ catalog, excluded, deckName }: { catalog: Catalog; excluded: string[]; deckName: string }) {
+export default function LocalTable({ catalog, excluded, deckName, deckTokens }: {
+  catalog: Catalog
+  excluded: string[]
+  deckName: string
+  deckTokens: DeckToken[]
+}) {
   const phase = useLocalSource(catalog, deckName)
   const [showExcluded, setShowExcluded] = useState(excluded.length > 0)
+  const playing = phase.step === 'playing' ? phase.source : null
+  const source = useMemo(() => playing && { ...playing, deckTokens }, [playing, deckTokens])
 
   if (phase.step === 'loading') return null
 
@@ -33,7 +40,7 @@ export default function LocalTable({ catalog, excluded, deckName }: { catalog: C
 
   return (
     <Table
-      source={phase.source}
+      source={source!}
       notice={showExcluded && (
         <div className="px-3 py-1.5 text-xs bg-dc-red/20 text-dc-red-light flex justify-between">
           <span>Cartes introuvables exclues du test : {excluded.join(', ')}</span>

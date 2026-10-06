@@ -83,7 +83,7 @@ describe('loadRulings', () => {
 
 describe('loadRulings sans la table card_rulings (migration pas encore appliquée)', () => {
   it('les règles viennent quand même de Scryfall', async () => {
-    const old = createTestDb(MIGRATIONS.filter((f) => f < '0008'))
+    const old = createTestDb(MIGRATIONS.filter((f) => f < '0009'))
     await upsertCards(old, [cardRow({ id: 'kenrith-en', oracle_id: ORACLE, lang: 'en' })], now)
     const { client, calls } = fakeClient([R1])
     expect(await loadRulings(old, client, ORACLE, now)).toEqual({ status: 'ok', rulings: [R1] })

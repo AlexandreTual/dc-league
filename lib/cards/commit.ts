@@ -1,10 +1,15 @@
 import type { Result } from '@/lib/db'
-import { getCards, getLookups, replaceDeckCards, setDeckCommanderImage, type DeckCardInsert } from '@/lib/db-cards'
+import { getCards, getLookups, replaceDeckCards, replaceDeckTokens, setDeckCommanderImage, type DeckCardInsert } from '@/lib/db-cards'
 import { lookupKey, parseDeckList } from './parse'
+import type { ScryfallClient } from './scryfall'
+import { refreshDeckTokens } from './tokens'
 import type { ImportSummary } from './types'
 
-/** Réécrit le contenu d'un deck à partir du texte, en n'utilisant que le cache serveur. */
-export async function commitDeckList(db: D1Database, deckId: string, text: string): Promise<Result<ImportSummary>> {
+/**
+ * Réécrit le contenu d'un deck à partir du texte, en n'utilisant que le cache serveur pour les cartes,
+ * puis recalcule ses jetons auprès de Scryfall.
+ */
+export async function commitDeckList(db: D1Database, deckId: string, text: string, scryfall: ScryfallClient): Promise<Result<ImportSummary>> {
   const parsed = parseDeckList(text)
   if (parsed.lines.length === 0) return { data: null, error: 'EMPTY' }
   if (parsed.tooLong) return { data: null, error: 'TOO_LONG' }
@@ -47,6 +52,15 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
   }
   const saved = await setDeckCommanderImage(db, deckId, image)
   if (saved.error !== null) return { data: null, error: saved.error }
+
+  // Les jetons ne bloquent jamais l'import : en cas d'échec, le deck reste sans jetons.
+  try {
+    const tokens = await refreshDeckTokens(db, scryfall, deckId)
+    if (tokens.error !== null) throw new Error(tokens.error)
+  } catch (e) {
+    console.error('[jetons]', e)
+    await replaceDeckTokens(db, deckId, [])
+  }
 
   return { data: summary, error: null }
 }

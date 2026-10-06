@@ -3,9 +3,13 @@ import { createTestDb } from '@/test/d1'
 import { cardRow, seedCache } from '@/test/factories'
 import { commitDeckList } from '@/lib/cards/commit'
 import { lookupKey, parseDeckList } from '@/lib/cards/parse'
+import { createScryfallClient } from '@/lib/cards/scryfall'
 import { chooseDeck, createTable, getTable, joinTable } from '@/lib/db-games'
 import type { GameSetup } from '@/lib/game/types'
 import { startTable, type GameInit } from './start'
+
+// Scryfall factice : aucune carte, donc aucun jeton.
+const noTokens = createScryfallClient({ fetch: (async () => new Response('{"data":[]}')) as unknown as typeof fetch, sleep: async () => {} })
 
 let db: D1Database
 let tableId: string
@@ -24,7 +28,7 @@ beforeEach(async () => {
   for (const [id, name] of [['p1', 'Alex'], ['p2', 'Bob']]) {
     await db.prepare('INSERT INTO players (id, name) VALUES (?, ?)').bind(id, name).run()
     await db.prepare('INSERT INTO decks (id, player_id, name) VALUES (?, ?, ?)').bind(`d-${id}`, id, `Deck de ${name}`).run()
-    await commitDeckList(db, `d-${id}`, list)
+    await commitDeckList(db, `d-${id}`, list, noTokens)
   }
   tableId = (await createTable(db, { hostPlayerId: 'p1', format: 'commander', seats: 3, eliminatedSeeAll: true })).data!.id
   await joinTable(db, tableId, 'p2')

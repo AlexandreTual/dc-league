@@ -16,6 +16,9 @@ export type TokenData = {
   copy?: boolean
 }
 
+/** Jeton créé par une ou plusieurs cartes du deck (onglet « Du deck » de « Créer un jeton »). */
+export type DeckToken = TokenData & { sources: string[] }
+
 export type Format = 'commander' | 'duel'
 
 export const FORMAT_RULES: Record<Format, { life: number; commanderDamage: boolean }> = {
