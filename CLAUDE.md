@@ -39,7 +39,7 @@ node scripts/online-check.mjs http://localhost:8788 <dossier>              # par
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
 ```
 
-Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-4` (Ana, Bastien, Chloé, Damien), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`.
+Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`.
 
 ## Architecture (repères)
 

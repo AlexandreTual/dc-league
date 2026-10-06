@@ -152,10 +152,17 @@ try {
   }
   check(true, 'chacun garde sa main')
   check((await ana.page.locator('[data-opponents="all"] [data-strip]').count()) === 2, 'Ana voit ses 2 adversaires en bandeaux')
-  // Bandeau compact : la pastille et une ligne fine, puis les rangées sur toute la largeur du bandeau.
+  // Bandeau : la colonne compacte à gauche, puis les rangées sur toute la hauteur du bandeau.
   const strip = await ana.page.locator(`[data-strip="${BASTIEN.id}"]`).boundingBox()
   const rows = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="battlefield"]`).boundingBox()
-  check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
+  const stripColumn = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-header]`).boundingBox()
+  check(stripColumn.x + stripColumn.width <= rows.x && rows.height >= strip.height - 24, 'bandeau : colonne à gauche, rangées sur toute la hauteur')
+  const chloeStrip = await ana.page.locator(`[data-strip="${CHLOE.id}"]`).boundingBox()
+  check(Math.abs(chloeStrip.y - strip.y) <= 2 && chloeStrip.x > strip.x + strip.width - 2, 'bandeaux côte à côte, sur une seule rangée')
+  const stripLife = ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-panel="${BASTIEN.id}"] [data-testid="player-life"]`).first()
+  check(parseFloat(await stripLife.evaluate((el) => getComputedStyle(el).fontSize)) >= 36, 'bandeau : vie de Bastien en gros chiffres')
+  check((await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="library"][data-count]`).count()) === 1
+    && (await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="exile"][data-count]`).count()) === 1, 'bandeau : cases Bib. et Exil chiffrées')
 
   // ── Pioche et carte jouée par Bastien, vues par Ana ──
   const before = await handCount(ana, BASTIEN.id)
@@ -185,9 +192,15 @@ try {
   await drag(ana, myHand(ana).first(), board(ana, ANA.id).locator('[data-zone="graveyard"]'))
   await board(ana, ANA.id).locator(`[data-zone="graveyard"] [data-card-id="${dumped}"]`).waitFor()
   check(true, 'Ana glisse une carte de sa main dans son cimetière')
+  await bastien.page.locator(`[data-strip="${ANA.id}"] [data-zone="graveyard"] [data-card-id="${dumped}"]`).waitFor()
+  check(true, 'bandeau d’Ana chez Bastien : la dernière carte de son cimetière est affichée')
   await bastien.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()
   await board(bastien, ANA.id).waitFor()
   check(true, 'Bastien agrandit le plateau d’Ana')
+  const anaColumn = await board(bastien, ANA.id).locator(`[data-column="${ANA.id}"]`).boundingBox()
+  const anaField = await board(bastien, ANA.id).locator('[data-zone="battlefield"]').boundingBox()
+  check(anaColumn.x + anaColumn.width <= anaField.x && (await board(bastien, ANA.id).locator('[data-zone="exile"][data-count]').count()) === 1,
+    'vue agrandie : colonne d’Ana (portrait, cases) à gauche de son champ de bataille')
   await capture(bastien, 'vue-agrandie')
   await drag(bastien, board(bastien, ANA.id).locator(`[data-zone="graveyard"] [data-card-id="${dumped}"]`), board(bastien, BASTIEN.id).locator('[data-zone="battlefield"]'))
   await board(bastien, BASTIEN.id).locator(`[data-zone="battlefield"] [data-card-id="${dumped}"]`).waitFor()
