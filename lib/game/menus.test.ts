@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
-import { cardMenu, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
+import { cardMenu, cardsToBottom, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
 import { applyAction } from './apply'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
@@ -65,6 +65,41 @@ describe('cardMenu', () => {
     expect(item(entries, 'Révéler à Bob')).toEqual([{ kind: 'action', action: { type: 'reveal', ids: [id], to: ['p2'] } }])
     expect(labels(entries)).toContain('Champ de bataille')
     expect(labels(entries)).not.toContain('Main')
+  })
+
+  it('mulligan à payer : « Mettre au-dessous » en tête du menu d’une carte de ma main', () => {
+    const mull = (st: GameState, seed: number) => applyAction(st, { type: 'mulligan', actor: 'p1', seed })
+    const s = mull(mull(setup(), 1), 2)
+    const id = s.players.p1.zones.hand[0]
+    const entries = cardMenu(ctx(s), visible(s, id), at('p1', 'hand'))
+    expect(labels(entries)[0]).toBe('Mettre au-dessous')
+    expect(item(entries, 'Mettre au-dessous')).toEqual([{ kind: 'action', action: { type: 'move', id, to: at('p1', 'library'), position: 'bottom' } }])
+  })
+
+  it('« Mettre au-dessous » disparaît une fois les cartes dues mises dessous', () => {
+    const mull = (st: GameState, seed: number) => applyAction(st, { type: 'mulligan', actor: 'p1', seed })
+    const s = mull(mull(setup(), 1), 2)
+    expect(cardsToBottom(viewFor(s, 'p1'), 'p1')).toBe(1)
+    const first = s.players.p1.zones.hand[0]
+    const after = applyAction(s, { type: 'move', actor: 'p1', id: first, to: at('p1', 'library'), position: 'bottom' })
+    expect(cardsToBottom(viewFor(after, 'p1'), 'p1')).toBe(0)
+    const entries = cardMenu(ctx(after), visible(after, after.players.p1.zones.hand[0]), at('p1', 'hand'))
+    expect(labels(entries)).not.toContain('Mettre au-dessous')
+  })
+
+  it('carte piochée avant de garder (en ligne) : rien à mettre dessous sans mulligan payant', () => {
+    let s = setup()
+    while (s.players.p1.zones.hand.length < 8) s = applyAction(s, { type: 'draw', actor: 'p1', count: 1 })
+    expect(cardsToBottom(viewFor(s, 'p1'), 'p1')).toBe(0)
+  })
+
+  it('pas de « Mettre au-dessous » sans carte à mettre dessous, ni une fois la main gardée', () => {
+    const once = applyAction(setup(), { type: 'mulligan', actor: 'p1', seed: 1 })
+    const free = cardMenu(ctx(once), visible(once, once.players.p1.zones.hand[0]), at('p1', 'hand'))
+    expect(labels(free)).not.toContain('Mettre au-dessous')
+    const kept = applyAction(applyAction(once, { type: 'mulligan', actor: 'p1', seed: 2 }), { type: 'keep', actor: 'p1' })
+    const after = cardMenu(ctx(kept), visible(kept, kept.players.p1.zones.hand[0]), at('p1', 'hand'))
+    expect(labels(after)).not.toContain('Mettre au-dessous')
   })
 
   it('carte volée sur mon champ de bataille : retourne chez son propriétaire', () => {

@@ -6,11 +6,23 @@ import { GameHistory } from '@/lib/game/replay'
 import type { ClientAction } from '@/lib/game/room'
 import { clearGame, loadGame, saveGame } from '@/lib/game/storage'
 import { viewFor } from '@/lib/game/view'
-import type { Catalog, GameAction, GameSetup } from '@/lib/game/types'
+import { cardsToBottom } from '@/lib/game/menus'
+import type { Catalog, GameAction, GameSetup, GameState } from '@/lib/game/types'
 import { ERROR_VISIBLE_MS, type GameSource } from './source'
 
 /** Le mode test est une partie à un seul joueur. */
 export const SOLO = 'solo'
+
+/**
+ * Toute action garde implicitement la main de départ, sauf le mulligan lui-même, « Garder » et la mise
+ * au-dessous d'une carte de la main tant que le mulligan en doit (cartes payées une par une).
+ */
+export function keepsHand(action: ClientAction, state: GameState, player: string): boolean {
+  if (action.type === 'mulligan' || action.type === 'keep') return false
+  const paying = action.type === 'move' && action.to.zone === 'library' && action.position === 'bottom'
+    && state.players[player].zones.hand.includes(action.id) && cardsToBottom(viewFor(state, player), player) > 0
+  return !paying
+}
 
 function soloSetup(catalog: Catalog): GameSetup {
   return { format: 'commander', players: [{ id: SOLO, name: 'Moi', catalog }], options: { eliminatedSeeAll: false } }
@@ -56,8 +68,7 @@ export function useLocalSource(catalog: Catalog, deckName: string): LocalPhase {
   const send = useCallback((action: ClientAction) => {
     const h = history.current
     if (!h) return
-    // Toute action autre qu'un mulligan garde implicitement la main de départ.
-    if (!h.state.players[SOLO].kept && action.type !== 'mulligan' && action.type !== 'keep') h.push({ type: 'keep', actor: SOLO })
+    if (!h.state.players[SOLO].kept && keepsHand(action, h.state, SOLO)) h.push({ type: 'keep', actor: SOLO })
     const refused = h.push(withActorAndSeed(action))
     if (refused) {
       setError(refused)

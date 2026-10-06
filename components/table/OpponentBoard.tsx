@@ -1,12 +1,13 @@
 'use client'
 
+import type { MenuPoint } from './touch'
 import { Battlefield, OpponentHand, ZonePile, type ZoneProps } from './zones'
 
 /** Plateau réel d'un adversaire (vue agrandie) : ses zones acceptent le glisser-déposer. */
 export default function OpponentBoard(props: ZoneProps & {
   me: string | null
   panel: React.ReactNode
-  onLibraryMenu: (e: React.MouseEvent) => void
+  onLibraryMenu: (at: MenuPoint) => void
   onPile: (zone: 'graveyard' | 'exile', title: string) => void
 }) {
   const { panel, onLibraryMenu, onPile, me, ...zoneProps } = props

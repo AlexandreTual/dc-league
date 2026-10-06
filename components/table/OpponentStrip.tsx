@@ -4,6 +4,7 @@ import { cardInfo } from '@/lib/game/apply'
 import { groupBattlefield, type Stack } from '@/lib/game/battlefield'
 import type { Catalog, PlayerView, VisibleCard } from '@/lib/game/types'
 import GameCard, { CardBack, type Lang } from './GameCard'
+import { longPressClass, menuGesture, type MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
 
 const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terrains']] as const
@@ -18,7 +19,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   highlighted?: Set<string>
   panel: React.ReactNode
   onPile: (zone: 'graveyard' | 'exile', title: string) => void
-  onLibraryMenu: (e: React.MouseEvent) => void
+  onLibraryMenu: (at: MenuPoint) => void
 }) {
   const zones = view.players[player].zones
   const rows = groupBattlefield(zones.battlefield, catalogs)
@@ -30,14 +31,11 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
     <div
       key={card.id}
       data-strip-card={card.id}
-      className={`relative h-10 shrink-0 ${highlighted?.has(card.id) ? 'ring-2 ring-dc-gold rounded-[6%]' : ''}`}
+      className={`relative h-10 shrink-0 ${longPressClass} ${highlighted?.has(card.id) ? 'ring-2 ring-dc-gold rounded-[6%]' : ''}`}
       style={{ transform: card.tapped ? 'rotate(90deg)' : undefined, margin: card.tapped ? '0 7px' : undefined }}
       title={cardInfo(catalogs[card.owner], card, lang).name}
       onDoubleClick={() => zone === 'battlefield' && handlers.onDoubleClick(card.id, battlefield)}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        handlers.onContextMenu(card.id, { player, zone }, e)
-      }}
+      {...menuGesture((at) => handlers.onContextMenu(card.id, { player, zone }, at))}
       onMouseEnter={() => handlers.onHover(card.id)}
       onMouseLeave={() => handlers.onHover(null)}
     >
@@ -63,7 +61,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       <div className="flex-1 min-h-0 flex gap-2">
         <div className="w-28 shrink-0 flex flex-col gap-0.5 overflow-hidden text-[11px] text-dc-muted">
           <span data-zone="hand" data-player={player}>Main : <span className="text-dc-text" data-testid="hand-count">{zones.hand.length}</span></span>
-          <span data-zone="library" data-player={player} className="flex items-center gap-1 cursor-context-menu" onContextMenu={(e) => { e.preventDefault(); onLibraryMenu(e) }}>
+          <span data-zone="library" data-player={player} className={`flex items-center gap-1 cursor-context-menu ${longPressClass}`} {...menuGesture(onLibraryMenu)}>
             {top && (
               <span className="h-6 shrink-0" onMouseEnter={() => handlers.onHover(top.id)} onMouseLeave={() => handlers.onHover(null)}>
                 <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
@@ -75,8 +73,8 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
           {visible(zones.command).length > 0 && (
             <div className="flex items-center gap-1" data-zone="command" data-player={player}>
               {visible(zones.command).map((c) => (
-                <div key={c.id} className="h-6" title={cardInfo(catalogs[c.owner], c, lang).name}
-                  onContextMenu={(e) => { e.preventDefault(); handlers.onContextMenu(c.id, { player, zone: 'command' }, e) }}
+                <div key={c.id} className={`h-6 ${longPressClass}`} title={cardInfo(catalogs[c.owner], c, lang).name}
+                  {...menuGesture((at) => handlers.onContextMenu(c.id, { player, zone: 'command' }, at))}
                   onMouseEnter={() => handlers.onHover(c.id)} onMouseLeave={() => handlers.onHover(null)}>
                   <GameCard card={c} catalog={catalogs[c.owner]} lang={lang} className="h-full" />
                 </div>
