@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
@@ -38,7 +39,9 @@ export default function LoginForm({ target, showBootstrap }: { target: string; s
         <button type="submit" disabled={!username || !password || loading} className={primaryButtonClass}>
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
-        <p className="text-dc-muted text-xs text-center">Mot de passe oublié ? Demande un lien de réinitialisation à l&apos;admin.</p>
+        <p className="text-xs text-center">
+          <Link href="/mot-de-passe-oublie" className="text-dc-muted hover:text-dc-gold underline">Mot de passe oublié ?</Link>
+        </p>
       </form>
 
       {showBootstrap && (
