@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createLongPress, LONG_PRESS_MS, menuPosition, previewBox } from './touch'
+import type { Catalog, VisibleCard } from '@/lib/game/types'
+import { cardRow } from '@/test/factories'
+import { createLongPress, LONG_PRESS_MS, menuGesture, menuPosition, menuPreview, previewBox } from './touch'
 
 describe('createLongPress', () => {
   beforeEach(() => { vi.useFakeTimers() })
@@ -96,5 +98,57 @@ describe('previewBox', () => {
     const box = previewBox({ width: 812, height: 375 })!
     expect(box.height).toBe(375 - 32)
     expect(box.left).toBeCloseTo((812 - box.width) / 2)
+  })
+})
+
+describe('menuGesture : menu ouvert au doigt', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Pas de navigateur dans les tests : fenêtre et document réduits aux écouteurs d'événements.
+    vi.stubGlobal('window', new EventTarget())
+    vi.stubGlobal('document', new EventTarget())
+    vi.stubGlobal('KeyboardEvent', class extends Event {})
+  })
+  afterEach(() => {
+    vi.runAllTimers()
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('appui long : le point porte touch', () => {
+    const open = vi.fn()
+    const down = { pointerType: 'touch', nativeEvent: new Event('pointerdown'), clientX: 10, clientY: 20 }
+    menuGesture(open).onPointerDown!(down as unknown as React.PointerEvent)
+    vi.advanceTimersByTime(LONG_PRESS_MS)
+    expect(open).toHaveBeenCalledWith({ clientX: 10, clientY: 20, touch: true })
+  })
+
+  it('clic droit à la souris : pas de touch', () => {
+    const open = vi.fn()
+    vi.advanceTimersByTime(2000) // loin de l'appui long du test précédent (contextmenu d'Android ignoré)
+    const click = { preventDefault: () => {}, nativeEvent: new Event('contextmenu'), clientX: 30, clientY: 40 }
+    menuGesture(open).onContextMenu!(click as unknown as React.MouseEvent)
+    expect(open).toHaveBeenCalledWith({ clientX: 30, clientY: 40 })
+  })
+})
+
+describe('menuPreview', () => {
+  const catalog: Catalog = { deckId: 'd', fingerprint: 'f', entries: [{ ref: 1, en: cardRow(), fr: null, quantity: 1, isCommander: false }] }
+  const visible = (over: Partial<VisibleCard> = {}): VisibleCard => ({
+    hidden: false, id: 'c1', owner: 'p1', ref: 1, token: null, tapped: false, flipped: false, faceDown: false,
+    x: 0, y: 0, counters: { plus: 0, minus: 0, other: 0 }, isCommander: false, ...over,
+  })
+
+  it('image de la carte visible', () => {
+    expect(menuPreview(visible(), catalog, 'en')).toEqual({
+      name: 'Sol Ring', image: 'https://cards.scryfall.io/normal/sol.jpg', imageLarge: 'https://cards.scryfall.io/large/sol.jpg',
+    })
+  })
+
+  it('jamais pour une carte cachée, face cachée, absente ou sans image', () => {
+    expect(menuPreview({ hidden: true }, catalog, 'en')).toBeNull()
+    expect(menuPreview(visible({ faceDown: true }), catalog, 'en')).toBeNull()
+    expect(menuPreview(undefined, catalog, 'en')).toBeNull()
+    expect(menuPreview(visible({ ref: 99 }), catalog, 'en')).toBeNull()
   })
 })

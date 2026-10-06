@@ -31,7 +31,7 @@ import OracleModal from '@/components/OracleModal'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
-import type { MenuPoint } from './touch'
+import { menuPreview, type MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
@@ -77,7 +77,11 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef } } | null>(null)
+  const [menu, setMenu] = useState<{
+    x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef }
+    /** Image de la carte (menu ouvert au doigt). */
+    preview?: ReturnType<typeof menuPreview>
+  } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
@@ -247,7 +251,9 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     onContextMenu: (id, zone, at) => {
       const card = cards.get(id)
       const entries = card ? cardMenu(menuCtx, card, zone) : []
-      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone } })
+      // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
+      const preview = at.touch ? menuPreview(card, catalogs[card?.owner ?? ''], lang) : null
+      if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, preview })
     },
     onHover: (id) => setHovered(id),
   }
@@ -445,7 +451,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} preview={menu.preview} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}
@@ -471,6 +477,10 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       )}
       {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
+      {/* Tablette en portrait : la table ne tient qu'en paysage ; la partie continue derrière. */}
+      <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
+        Tourne ta tablette en paysage pour jouer.
+      </div>
     </div>
   )
 }

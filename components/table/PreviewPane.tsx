@@ -8,7 +8,7 @@ import { PREVIEW_WIDTH, previewBox } from './touch'
 
 /**
  * Grande image de la carte survolée, jamais pour une carte cachée. Sur petit écran, centrée et bornée
- * à l'écran ; au doigt, la table la masque au toucher suivant.
+ * à l'écran ; au doigt, la table la masque au toucher suivant. Jamais sur tablette : l'image est dans le menu de la carte.
  */
 export default function PreviewPane({ card, catalog, lang }: { card: CardView | null; catalog: Catalog; lang: Lang }) {
   if (!card || card.hidden) return null
@@ -23,7 +23,7 @@ export default function PreviewPane({ card, catalog, lang }: { card: CardView | 
       srcSet={cardSrcSet(data.image, data.imageLarge)}
       sizes={`${small?.width ?? PREVIEW_WIDTH}px`}
       alt={data.name}
-      className={`pointer-events-none fixed z-50 rounded-2xl shadow-card ${small ? '' : 'bottom-4 right-44 w-72'}`}
+      className={`pointer-events-none fixed z-50 rounded-2xl shadow-card tablet:hidden ${small ? '' : 'bottom-4 right-44 w-72'}`}
       style={small ?? undefined}
       data-testid="preview"
     />

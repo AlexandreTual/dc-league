@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
-import { menuPosition, touchTarget } from './touch'
+import { Minus, Plus, X } from 'lucide-react'
+import { cardSrcSet } from '@/lib/cards/images'
+import { menuPosition, touchTarget, type menuPreview } from './touch'
 
 export type MenuItem =
   | { kind: 'action'; label: string; onSelect: () => void }
@@ -10,11 +11,22 @@ export type MenuItem =
   | { kind: 'separator' }
   | { kind: 'title'; label: string }
 
+/** Largeur de l'image d'une carte dans son menu (au doigt). */
+const PREVIEW_PX = 224
+
 /**
  * Menu contextuel positionné au pointeur, gardé dans l'écran (jamais au-dessus du bord haut, défilement
  * interne s'il est plus haut que l'écran), fermé au clic extérieur ou par Échap.
+ * `preview` (appui long au doigt) : grande image de la carte à gauche des entrées (au-dessus si la largeur
+ * manque) et bouton « Fermer ».
  */
-export default function CardMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+export default function CardMenu({ x, y, items, preview, onClose }: {
+  x: number
+  y: number
+  items: MenuItem[]
+  preview?: ReturnType<typeof menuPreview>
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number; maxHeight?: number }>({ left: x, top: y })
 
@@ -47,10 +59,30 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
     <div
       ref={ref}
       role="menu"
-      className="fixed z-[60] w-60 max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm"
+      className={`fixed z-[60] ${preview ? 'w-max flex flex-wrap gap-2' : 'w-60'} max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm`}
       style={pos}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {preview && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview.image} srcSet={cardSrcSet(preview.image, preview.imageLarge)} sizes={`${PREVIEW_PX}px`} alt={preview.name}
+          className="rounded-xl shadow-card shrink-0" style={{ width: PREVIEW_PX }} data-testid="menu-preview" />
+      )}
+      {preview ? (
+        <div className="w-60 flex flex-col">
+          <button className="self-end h-11 px-3 flex items-center gap-1.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onClose}>
+            <X className="w-4 h-4" /> Fermer
+          </button>
+          {menuItems(items, onClose)}
+        </div>
+      ) : menuItems(items, onClose)}
+    </div>
+  )
+}
+
+function menuItems(items: MenuItem[], onClose: () => void) {
+  return (
+    <>
       {items.map((item, i) => {
         if (item.kind === 'separator') return <div key={i} className="my-1 border-t border-dc-border" />
         if (item.kind === 'title') return <div key={i} className="px-3 py-1 text-xs text-dc-muted">{item.label}</div>
@@ -80,7 +112,7 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
           </button>
         )
       })}
-    </div>
+    </>
   )
 }
 

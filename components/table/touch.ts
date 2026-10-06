@@ -1,12 +1,15 @@
 // Table sur écran tactile : appui long (équivalent du clic droit), position du menu et de l'aperçu.
 // Les fonctions de calcul sont pures ; menuGesture les branche sur les événements du navigateur.
 
+import { cardInfo } from '@/lib/game/apply'
+import type { Catalog, CardView } from '@/lib/game/types'
+
 /** Durée d'un appui long, et déplacement du doigt au-delà duquel il est annulé. */
 export const LONG_PRESS_MS = 450
 export const LONG_PRESS_TOLERANCE = 8
 
-/** Point où ouvrir un menu (clic droit ou appui long). */
-export type MenuPoint = { clientX: number; clientY: number }
+/** Point où ouvrir un menu (clic droit ou appui long) ; `touch` : ouvert par un appui long au doigt. */
+export type MenuPoint = { clientX: number; clientY: number; touch?: boolean }
 
 /** Minuterie d'appui long : déclenchée après `delay` si le doigt n'a pas bougé de plus de `tolerance` px. */
 export function createLongPress(onFire: (x: number, y: number) => void, delay = LONG_PRESS_MS, tolerance = LONG_PRESS_TOLERANCE) {
@@ -62,6 +65,17 @@ export function previewBox(screen: Size): { left: number; top: number; width: nu
   const width = Math.min(PREVIEW_WIDTH, screen.width - 2 * PREVIEW_MARGIN, (screen.height - 2 * PREVIEW_MARGIN) * CARD_RATIO)
   const height = width / CARD_RATIO
   return { left: (screen.width - width) / 2, top: (screen.height - height) / 2, width, height }
+}
+
+/**
+ * Image d'une carte dans son menu ouvert au doigt (sur tablette, l'aperçu au survol n'existe pas) :
+ * null pour une carte absente, cachée, face cachée ou sans image.
+ */
+export function menuPreview(card: CardView | undefined, catalog: Catalog | undefined, lang: 'fr' | 'en') {
+  if (!card || card.hidden) return null
+  const data = cardInfo(catalog, card, lang)
+  if (data.hidden || !data.image) return null
+  return { name: data.name, image: data.image, imageLarge: data.imageLarge }
 }
 
 /** Événements déjà pris en charge par un élément intérieur (une carte dans la main, par exemple). */
@@ -122,7 +136,7 @@ function firePress(x: number, y: number) {
   lastLongPress = Date.now()
   cancelDrag()
   swallowNextClick()
-  fire?.({ clientX: x, clientY: y })
+  fire?.({ clientX: x, clientY: y, touch: true })
 }
 
 function startPress(x: number, y: number, open: (at: MenuPoint) => void) {
