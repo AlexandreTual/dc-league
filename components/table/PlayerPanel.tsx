@@ -9,7 +9,7 @@ import ManaPool from './ManaPool'
 
 const stepBtn = 'p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent'
 
-function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
+export function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
   label: React.ReactNode
   value: number
   alert?: boolean
@@ -29,7 +29,7 @@ function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
 }
 
 /** Commandants des autres joueurs, connus par les cartes visibles (les commandants sont publics). */
-function opposingCommanders(view: PlayerView, player: string): VisibleCard[] {
+export function opposingCommanders(view: PlayerView, player: string): VisibleCard[] {
   const out = new Map<string, VisibleCard>()
   for (const p of Object.values(view.players)) {
     const { library: _, ...zones } = p.zones

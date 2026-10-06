@@ -20,6 +20,7 @@ import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
 import PlayerPanel from './PlayerPanel'
+import PlayerPill from './PlayerPill'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
@@ -279,13 +280,11 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     return items
   }
 
-  const panelFor = (player: string, onTitleClick?: () => void, compact = false) => (
-    <PlayerPanel
-      view={view} player={player} catalogs={catalogs} lang={lang}
-      host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} onTitleClick={onTitleClick} compact={compact}
-    />
-  )
+  /** Pastille (moi, plateau agrandi) ou panneau compact (bandeau, jusqu'à la tâche 4). */
+  const panelFor = (player: string, onTitleClick?: () => void, kind: 'pill' | 'pill-up' | 'compact' = 'pill') => {
+    const common = { view, player, catalogs, lang, host: source.online?.host, online: source.online?.players, canAct, send, onTitleClick }
+    return kind === 'compact' ? <PlayerPanel {...common} compact /> : <PlayerPill {...common} up={kind === 'pill-up'} />
+  }
 
   return (
     <div className="relative h-full flex flex-col">
@@ -365,7 +364,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 renderStrip={(p, focus) => (
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
-                    panel={panelFor(p, focus, true)}
+                    panel={panelFor(p, focus, 'compact')}
                     onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
                     onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, p), e)}
                   />
@@ -386,7 +385,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              panel={source.mode === 'online' ? panelFor(me) : undefined}
+              panel={source.mode === 'online' ? panelFor(me, undefined, 'pill-up') : undefined}
               onLibraryMenu={(e) => openMenu(libraryMenu(menuCtx, me), e)}
               onHandMenu={(e) => openMenu(handMenu(menuCtx), e)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}

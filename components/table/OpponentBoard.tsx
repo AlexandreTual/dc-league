@@ -13,7 +13,7 @@ export default function OpponentBoard(props: ZoneProps & {
   const name = zoneProps.view.players[zoneProps.player].name
   return (
     <div className="h-full min-h-0 flex flex-col gap-1.5" data-board={zoneProps.player}>
-      {panel}
+      <div className="shrink-0 flex items-center">{panel}</div>
       <div className="flex-1 min-h-0 flex gap-2">
         <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} />
         <div className="w-44 shrink-0 grid grid-cols-2 grid-rows-2 gap-1.5 min-h-0">
