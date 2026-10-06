@@ -31,7 +31,7 @@ npm install                 # applique aussi les correctifs de scripts/patch-nex
 npm run db:migrate:local    # crée la base D1 locale
 ```
 
-Variables locales dans `.dev.vars` (non versionné) : `ADMIN_PASSWORD`, mot de passe de démarrage utilisé tant qu'aucun compte admin n'existe.
+Variables locales dans `.dev.vars` (non versionné) : `ADMIN_PASSWORD`, mot de passe de démarrage utilisé tant qu'aucun compte admin n'existe ; `MAIL_TEST=1` pour lire les mails dans la boîte de test (voir « Comptes joueurs »).
 
 Lancer le site comme en production (build Cloudflare puis serveur local) :
 
@@ -48,6 +48,17 @@ Données de test (joueurs `e2e-1`…`e2e-4`, cookie `dc_session` = `jeton-de-tes
 ```bash
 node scripts/seed-online.mjs > /tmp/seed.sql && npx wrangler d1 execute dc-league --local --file /tmp/seed.sql
 ```
+
+---
+
+## Comptes joueurs
+
+- Les comptes se créent sur invitation : l'admin clique « Inviter » dans **Comptes joueurs** et obtient un lien valable 7 jours. Avec une adresse mail saisie à côté (facultatif), le lien part aussi par mail.
+- « Lien de réinitialisation » (admin) : lien de 7 jours, envoyé par mail si le compte a une adresse.
+- « **Mot de passe oublié ?** » (page de connexion) : par pseudo ou adresse, lien d'une heure envoyé à l'adresse du compte, 3 demandes par heure au plus ; la réponse est la même que le compte existe ou non.
+- Chaque joueur saisit son adresse dans **Mon profil** ; elle n'est visible que par lui et les admins.
+- Envoi par Brevo (ou Resend plus tard) : configuration pas à pas dans [docs/mails.md](docs/mails.md). Sans configuration, l'admin copie le lien comme avant.
+- En local, `MAIL_TEST=1` dans `.dev.vars` : les mails sont lisibles sur `/api/test/mails` au lieu de partir.
 
 ---
 
@@ -69,6 +80,7 @@ Vérifications dans un navigateur (playwright-core + Chromium, site et serveur d
 node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
+node scripts/mail-check.mjs http://localhost:8788 <dossier>                # mails (MAIL_TEST=1 dans .dev.vars)
 ```
 
 ---
