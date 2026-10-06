@@ -40,12 +40,13 @@ const visible = (cards: CardView[]) => cards.filter((c): c is VisibleCard => !c.
 export const libraryTop = (view: PlayerView, player: string): VisibleCard | null =>
   view.players[player]?.zones.library.visible.find((v) => v.index === 0)?.card ?? null
 
-function useZone(ref: ZoneRef) {
-  const { setNodeRef, isOver } = useDroppable({ id: dropId(ref), data: ref })
+/** Cible de dépôt d'une zone ; `key` : seconde cible pour la même zone (case Cim. de la colonne). */
+export function useZone(ref: ZoneRef, key?: string) {
+  const { setNodeRef, isOver } = useDroppable({ id: key ? `${dropId(ref)}:${key}` : dropId(ref), data: ref })
   return { setNodeRef, highlight: isOver ? 'ring-2 ring-dc-gold/60' : '' }
 }
 
-function cardProps(id: string, zone: ZoneRef, props: ZoneProps) {
+export function cardProps(id: string, zone: ZoneRef, props: ZoneProps) {
   const { handlers } = props
   return {
     id,

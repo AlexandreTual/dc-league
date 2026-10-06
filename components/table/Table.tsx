@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
-  type DragEndEvent, type DragStartEvent,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { Crown, Flag } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
@@ -20,6 +20,7 @@ import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
 import PlayerPill from './PlayerPill'
+import PlayerPortrait from './PlayerPortrait'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
@@ -52,6 +53,15 @@ function visibleCards(view: PlayerView): Map<string, VisibleCard> {
     for (const { card } of library.visible) map.set(card.id, card)
   }
   return map
+}
+
+/**
+ * Zone visée : celle sous le pointeur ; à défaut (pointeur entre deux zones), celle que la carte recouvre le plus.
+ * Une grande carte lâchée sur une petite zone de la colonne (commandement) ne tombe pas dans sa voisine.
+ */
+const collision: CollisionDetection = (args) => {
+  const under = pointerWithin(args)
+  return under.length > 0 ? under : rectIntersection(args)
 }
 
 /** Durées des repères d'activité. */
@@ -299,10 +309,16 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     return items
   }
 
-  /** Pastille d'un joueur (bandeau, plateau agrandi, ma ligne du bas) ; `up` : bulle ouverte vers le haut. */
-  const panelFor = (player: string, onTitleClick?: () => void, up = false) => (
+  /** Pastille d'un adversaire (bandeau, plateau agrandi). */
+  const panelFor = (player: string, onTitleClick?: () => void) => (
     <PlayerPill view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} onTitleClick={onTitleClick} up={up} />
+      canAct={canAct} send={send} onTitleClick={onTitleClick} />
+  )
+
+  /** Ligne portrait de ma colonne (vie en gros) ; bulle ouverte vers le haut. */
+  const portraitFor = (player: string) => (
+    <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
+      canAct={canAct} send={send} size="column" up />
   )
 
   return (
@@ -315,10 +331,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         canAct={canAct}
         canUndo={canAct && source.canUndo}
         canEndTurn={canAct && (source.mode === 'local' || view.activePlayer === me)}
-        life={source.mode === 'local' ? mine?.life : undefined}
         onNextTurn={() => send({ type: 'endTurn' })}
         onDraw={source.mode === 'online' && me ? () => send({ type: 'draw', count: 1 }) : undefined}
-        onLife={(delta) => me && send({ type: 'life', target: me, delta })}
         onLang={() => {
           const next = lang === 'fr' ? 'en' : 'fr'
           setLang(next)
@@ -374,7 +388,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       )}
 
       <div className="relative flex-1 min-h-0 flex flex-col">
-        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
+        <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {opponents.length > 0 && (
             <div className={`${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[38%]'} shrink-0` : 'flex-1'} min-h-0 px-2 pt-2`}>
               <OpponentsArea
@@ -404,7 +418,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              panel={source.mode === 'online' ? panelFor(me, undefined, true) : undefined}
+              portrait={portraitFor(me)}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
