@@ -212,11 +212,12 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
 - Modifier : `components/table/OpponentBoard.tsx`, `components/table/Table.tsx`
 - Modifier : `scripts/online-check.mjs` (contrôle Duel), ou un script Duel si `online-check` ne joue qu'à 3 et 4
 
-- [ ] **Étape 1 : contrôle qui échoue.** Partie à 2 (Ana contre Bastien, comptes `e2e-1` et `e2e-2`) : chez Ana, `[data-board="<Bastien>"] [data-column="<Bastien>"]` existe, son bord gauche est aligné (± 2 px) sur celui de `[data-column="<Ana>"]`, et la vie de Bastien (`player-life`) est dans cette colonne. Si `online-check` ne lance pas de Duel, ajouter une courte séquence Duel dans le même script (nouvelle table créée avec deux joueurs).
-- [ ] **Étape 2 :** lancer le contrôle → échec.
-- [ ] **Étape 3 : implémenter.** `OpponentBoard` prend `layout: 'column' | 'header'`. `column` (Duel) : `flex-row` → `PlayerColumn` (sans `up`), puis `flex-1 min-w-0 flex flex-col` avec `OpponentHand` et son `Battlefield`. `header` : inchangé à cette tâche (ligne fine actuelle). `Table.tsx` passe `layout={opponents.length === 1 ? 'column' : 'header'}`.
-- [ ] **Étape 4 :** vérifications complètes, captures du Duel en 1600 × 1000 et 1280 × 720 (la colonne de l'adversaire doit montrer au moins 4 noms de la cascade en 1280 × 720).
-- [ ] **Étape 5 : commit** `feat(table): colonne de l'adversaire en Duel`.
+- [x] **Étape 1 : contrôle qui échoue.** Partie à 2 (Ana contre Bastien, comptes `e2e-1` et `e2e-2`) : chez Ana, `[data-board="<Bastien>"] [data-column="<Bastien>"]` existe, son bord gauche est aligné (± 2 px) sur celui de `[data-column="<Ana>"]`, et la vie de Bastien (`player-life`) est dans cette colonne. Si `online-check` ne lance pas de Duel, ajouter une courte séquence Duel dans le même script (nouvelle table créée avec deux joueurs).
+- [x] **Étape 2 :** lancer le contrôle → échec.
+- [x] **Étape 3 : implémenter.** `OpponentBoard` prend `layout: 'column' | 'header'`. `column` (Duel) : `flex-row` → `PlayerColumn` (sans `up`), puis `flex-1 min-w-0 flex flex-col` avec `OpponentHand` et son `Battlefield`. `header` : inchangé à cette tâche (ligne fine actuelle). `Table.tsx` passe `layout={opponents.length === 1 ? 'column' : 'header'}`.
+- [x] **Étape 4 :** vérifications complètes, captures du Duel en 1600 × 1000 et 1280 × 720 (la colonne de l'adversaire doit montrer au moins 4 noms de la cascade en 1280 × 720).
+- [x] **Ajout hors plan :** en 1280 × 720, la cascade adverse ne montrait aucun nom. Pour tenir au moins 4 noms : plus de titre « Cimetière » dans la cascade (le nombre est dans la case Cim. ; « Cimetière vide » quand il n'y a rien), lignes de 18 px, bloc commandant de 32 px, écarts de la colonne à 4 px. Nouveau contrôle `online-check` : « Duel en 1280 × 720 : au moins 4 noms entiers ».
+- [x] **Étape 5 : commit** `feat(table): colonne de l'adversaire en Duel`.
 
 ---
 

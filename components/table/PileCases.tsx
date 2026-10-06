@@ -112,8 +112,8 @@ export function CommandBlock(props: ZoneProps) {
 
   return (
     <div ref={setNodeRef} data-zone="command" data-player={player} data-count={view.players[player].zones.command.length}
-      className={`flex items-center gap-2 rounded-md border border-dc-border bg-dc-bg/60 p-1 ${highlight}`}>
-      <div className="relative h-[47px] shrink-0" style={{ aspectRatio: `${63 * span} / 88` }}>
+      className={`flex items-center gap-2 rounded-md border border-dc-border bg-dc-bg/60 p-0.5 ${highlight}`}>
+      <div className="relative h-8 shrink-0" style={{ aspectRatio: `${63 * span} / 88` }}>
         {inZone.length === 0 && <div className="h-full aspect-[63/88] rounded-[6%] border border-dashed border-dc-border" />}
         {inZone.map((card, i) => (
           <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="absolute top-0 h-full" style={{ left: `${(i * COMMANDER_SHIFT * 100) / span}%` }}>
@@ -149,15 +149,14 @@ export function GraveyardCascade(props: ZoneProps & { onOpen: () => void; classN
   const tail = graveyardTail(all)
   return (
     <div ref={setNodeRef} data-zone="graveyard" data-player={player} data-count={all.length}
-      className={`min-h-0 flex flex-col rounded-md border border-dc-border bg-dc-bg/60 p-1.5 cursor-pointer ${highlight} ${props.className ?? ''}`}
-      onClick={props.onOpen} title="Voir tout le cimetière">
-      <div className="shrink-0 flex justify-between text-[11px] text-dc-muted mb-1">
-        <span>Cimetière</span><span className="text-dc-text font-semibold tabular-nums">{all.length}</span>
-      </div>
+      className={`min-h-0 flex flex-col rounded-md border border-dc-border bg-dc-bg/60 p-1 cursor-pointer ${highlight} ${props.className ?? ''}`}
+      onClick={props.onOpen} title="Voir tout le cimetière" aria-label={`Cimetière : ${all.length} carte${all.length > 1 ? 's' : ''}`}>
+      {/* Pas de titre : le nombre est déjà dans la case Cim., la place va aux noms. */}
+      {tail.length === 0 && <span className="text-[11px] text-dc-muted">Cimetière vide</span>}
       <div className="flex-1 min-h-0 flex flex-col justify-end overflow-hidden">
         {tail.map((card) => (
           <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="shrink-0 -mt-0.5 first:mt-0">
-            <div className="truncate rounded-t px-1.5 py-0.5 border-2 border-b-0 bg-[#f3efe2] text-[11px] font-semibold text-black shadow-[0_-2px_4px_rgba(0,0,0,0.5)]"
+            <div className="truncate rounded-t px-1.5 py-px border-2 border-b-0 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black shadow-[0_-2px_4px_rgba(0,0,0,0.5)]"
               style={{ borderColor: frameColor(catalogs[card.owner], card) }}>
               {cardInfo(catalogs[card.owner], card, lang).name}
             </div>

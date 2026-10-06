@@ -315,10 +315,10 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       canAct={canAct} send={send} onTitleClick={onTitleClick} />
   )
 
-  /** Ligne portrait de ma colonne (vie en gros) ; bulle ouverte vers le haut. */
-  const portraitFor = (player: string) => (
+  /** Ligne portrait d'une colonne (vie en gros) ; `up` : bulle ouverte vers le haut (ma colonne, en bas de l'écran). */
+  const portraitFor = (player: string, up = false) => (
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} size="column" up />
+      canAct={canAct} send={send} size="column" up={up} />
   )
 
   return (
@@ -405,7 +405,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 renderBoard={(p) => (
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
-                    panel={panelFor(p)}
+                    layout={opponents.length === 1 ? 'column' : 'header'}
+                    panel={opponents.length === 1 ? portraitFor(p) : panelFor(p)}
                     onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
                     onPile={(zone, title) => setPile({ title, player: p, zone, mode: 'browse' })}
                   />
@@ -418,7 +419,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              portrait={portraitFor(me)}
+              portrait={portraitFor(me, true)}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
