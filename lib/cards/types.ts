@@ -20,6 +20,8 @@ export type CardFace = {
   oracle_text: string | null
   printed_text: string | null
   image_normal: string | null
+  /** Image « large » (672 px) ; absente des cartes enregistrées avant son ajout. */
+  image_large?: string | null
   image_small: string | null
 }
 
@@ -41,6 +43,8 @@ export type CardRow = {
   colors: string[]
   color_identity: string[]
   image_normal: string | null
+  /** Image « large » (672 px) ; absente des catalogues d'un serveur de jeu plus ancien. */
+  image_large?: string | null
   image_small: string | null
   faces: CardFace[] | null
 }

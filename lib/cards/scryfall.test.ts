@@ -203,9 +203,23 @@ describe('toCardRow', () => {
     expect(toCardRow(collection.data[0])).toEqual(
       cardRow({
         image_normal: 'https://cards.scryfall.io/normal/front/sol-c21-en.jpg',
+        image_large: null,
         image_small: 'https://cards.scryfall.io/small/front/sol-c21-en.jpg',
       }),
     )
+  })
+
+  it('image large (672 px) de la carte et de chaque face', () => {
+    const card = collection.data[0]
+    const large = 'https://cards.scryfall.io/large/front/sol.jpg'
+    expect(toCardRow({ ...card, image_uris: { ...card.image_uris, large } }).image_large).toBe(large)
+    const dfc = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
+    const row = toCardRow({
+      ...dfc,
+      card_faces: dfc.card_faces!.map((f, i) => ({ ...f, image_uris: { ...f.image_uris, large: `l${i}.jpg` } })),
+    })
+    expect(row.faces!.map((f) => f.image_large)).toEqual(['l0.jpg', 'l1.jpg'])
+    expect(row.image_large).toBe('l0.jpg')
   })
 
   it('convertit une carte double face', () => {
@@ -243,8 +257,9 @@ describe('toCardRow', () => {
   it('image provisoire (« Localized Image Not Available ») ou absente : aucune image retenue', () => {
     const card = collection.data[0]
     for (const image_status of ['placeholder', 'missing']) {
-      const row = toCardRow({ ...card, lang: 'fr', image_status })
+      const row = toCardRow({ ...card, lang: 'fr', image_status, image_uris: { ...card.image_uris, large: 'l.jpg' } })
       expect(row.image_normal).toBeNull()
+      expect(row.image_large).toBeNull()
       expect(row.image_small).toBeNull()
     }
     const dfc = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
