@@ -20,9 +20,9 @@
 
 ---
 
-## Tâche 1 : ma colonne
+## Tâche 1 : ma colonne (#83)
 
-**Prérequis :** réponse dans #80 sur la vie en mode test (spec §5). Sans réponse, garder la vie aussi dans la barre du haut et le signaler dans la PR.
+**Prérequis :** réponse dans #83 sur la vie en mode test (spec §5). Sans réponse, garder la vie aussi dans la barre du haut et le signaler dans la PR.
 
 **Fichiers :**
 - Créer : `lib/game/player-summary.ts`, `lib/game/player-summary.test.ts`
@@ -205,7 +205,7 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
 
 ---
 
-## Tâche 2 : l'adversaire en Duel
+## Tâche 2 : l'adversaire en Duel (#84)
 
 **Fichiers :**
 - Modifier : `components/table/OpponentBoard.tsx`, `components/table/Table.tsx`
@@ -219,7 +219,7 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
 
 ---
 
-## Tâche 3 : en-têtes à 3 à 5 joueurs
+## Tâche 3 : en-têtes à 3 à 5 joueurs (#85)
 
 **Fichiers :**
 - Créer : `components/table/PlayerHeader.tsx`

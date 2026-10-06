@@ -100,7 +100,7 @@ Chaque case : un gros chiffre en gras (police du site, chiffres à chasse fixe `
 
 ## 5. Mode test
 
-Comme en ligne, ma colonne affiche ma vie avec − et +. **Proposé, à valider dans l'issue avant la tâche 1** : la vie disparaît alors de la barre du haut, pour n'être qu'à un seul endroit. La réserve de mana reste dans la barre du haut.
+Comme en ligne, ma colonne affiche ma vie avec − et +. **Proposé, à valider dans #83 avant la tâche 1** : la vie disparaît alors de la barre du haut, pour n'être qu'à un seul endroit. La réserve de mana reste dans la barre du haut.
 
 ## 6. Vérifications
 
@@ -114,6 +114,6 @@ Comme en ligne, ma colonne affiche ma vie avec − et +. **Proposé, à valider 
 
 Une issue par tâche, dans cet ordre (mêmes fichiers de la table) :
 
-1. **Ma colonne** : module pur, composants de la colonne et des cases, ma colonne dans mon plateau (mode test et en ligne), fin de ma pastille et de mes vignettes de piles.
-2. **Adversaire en Duel** : sa colonne à gauche de son plateau.
-3. **En-têtes à 3 à 5 joueurs** : en-tête des bandeaux et de l'adversaire agrandi, bandeaux sur une rangée, fin de la pastille ; feuille de route.
+1. **Ma colonne** (#83) : module pur, composants de la colonne et des cases, ma colonne dans mon plateau (mode test et en ligne), fin de ma pastille et de mes vignettes de piles.
+2. **Adversaire en Duel** (#84) : sa colonne à gauche de son plateau.
+3. **En-têtes à 3 à 5 joueurs** (#85) : en-tête des bandeaux et de l'adversaire agrandi, bandeaux sur une rangée, fin de la pastille ; feuille de route.
