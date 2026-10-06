@@ -25,6 +25,7 @@ On s'inspire de MTGO : un bloc par joueur sur le bord gauche, avec la vie en gro
 | Vie basse | le chiffre passe en rouge à **10 ou moins** |
 | Cimetière | cascade des **6 dernières cartes** (5 si la hauteur manque) ; un clic ouvre tout le cimetière avec ses filtres |
 | 3 à 5 joueurs | option 2 : ma colonne comme en Duel ; chaque bandeau adverse commence par sa propre ligne portrait |
+| Mode test | la vie n'est que dans ma colonne, plus dans la barre du haut |
 | Adversaire agrandi (3 à 5) | sa ligne portrait et ses cases au-dessus de son plateau, comme dans son bandeau |
 | 5 joueurs | les quatre bandeaux côte à côte, sur une seule rangée |
 
@@ -100,7 +101,7 @@ Chaque case : un gros chiffre en gras (police du site, chiffres à chasse fixe `
 
 ## 5. Mode test
 
-Comme en ligne, ma colonne affiche ma vie avec − et +. **Proposé, à valider dans #83 avant la tâche 1** : la vie disparaît alors de la barre du haut, pour n'être qu'à un seul endroit. La réserve de mana reste dans la barre du haut.
+Comme en ligne, ma colonne affiche ma vie avec − et +. **Décidé dans #83 : la vie n'est plus que dans la colonne** ; elle disparaît de la barre du haut. La réserve de mana reste dans la barre du haut.
 
 ## 6. Vérifications
 

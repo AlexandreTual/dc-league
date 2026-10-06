@@ -22,7 +22,7 @@
 
 ## Tâche 1 : ma colonne (#83)
 
-**Prérequis :** réponse dans #83 sur la vie en mode test (spec §5). Sans réponse, garder la vie aussi dans la barre du haut et le signaler dans la PR.
+**Décidé (#83) :** en mode test, la vie n'est que dans ma colonne (spec §5).
 
 **Fichiers :**
 - Créer : `lib/game/player-summary.ts`, `lib/game/player-summary.test.ts`
@@ -30,7 +30,7 @@
 - Créer : `components/table/PileCases.tsx` (`PileCases`, `CommandBlock`, `GraveyardCascade`, `GraveyardLast`)
 - Créer : `components/table/PlayerColumn.tsx`
 - Modifier : `components/table/zones.tsx` (exporter `useZone` avec une clé facultative, et `cardProps`)
-- Modifier : `components/table/MyBoard.tsx`, `components/table/Table.tsx`, `components/table/TopBar.tsx` (selon la réponse sur le mode test)
+- Modifier : `components/table/MyBoard.tsx`, `components/table/Table.tsx`, `components/table/TopBar.tsx` (la vie quitte la barre)
 - Modifier : `scripts/playtest-check.mjs`, `scripts/online-check.mjs`
 
 **Interfaces produites :**
@@ -182,7 +182,7 @@ Ordre de recherche : le commandement d'abord, puis les autres zones de chaque jo
 - [ ] **Étape 8 : `PlayerColumn.tsx` et `MyBoard.tsx`.**
   - `PlayerColumn` : `w-[216px] shrink-0 flex flex-col gap-1.5 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5`, `data-column={player}` ; `PlayerPortrait size="column"`, badges, `PileCases`, `CommandBlock`, `GraveyardCascade` (`flex-1 min-h-0`). Sous 640 px : `max-sm:w-full max-sm:flex-row`, `CommandBlock` et cascade masqués.
   - `MyBoard` : `flex flex-col sm:flex-row gap-2` → `PlayerColumn` (`up`), puis une colonne `flex-1 min-w-0` avec le champ de bataille et la main (`h-[25%]`, toute la largeur). Les quatre `ZonePile` et le `panel` disparaissent.
-  - `Table.tsx` : plus de `panelFor(me…)` dans `MyBoard` ; mode test selon la réponse à la spec §5 (`life` de `TopBar` à `undefined` en mode test si la vie quitte la barre).
+  - `Table.tsx` : plus de `panelFor(me…)` dans `MyBoard` ; la vie quitte la barre du haut en mode test : retirer les props `life` et `onLife` de `TopBar` (plus utilisées) et leur affichage (`data-testid="life"`, que les scripts n'utilisent pas). En mode test, `PlayerColumn` reçoit `canAct` et `send` comme en ligne : − et + envoient l'action `life` sur moi.
 
 - [ ] **Étape 9 : contrôles navigateur.**
   - `playtest-check.mjs` : remplacer le contrôle « piles en vignettes à droite de la main » par :
