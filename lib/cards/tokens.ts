@@ -3,6 +3,9 @@ import { listDeckCards, replaceDeckTokens } from '@/lib/db-cards'
 import { pickFrenchPrint, toCardRow, type ScryfallCard, type ScryfallClient } from './scryfall'
 import type { CardRow, DeckTokenRow } from './types'
 
+/** Table deck_tokens absente : la migration 0008 n'est appliquée qu'à la fusion sur main (aperçu d'une PR). */
+export const TOKENS_NOT_READY = 'Les jetons ne sont pas encore activés sur ce site : la base sera mise à jour à la prochaine mise en ligne'
+
 /** Carte du deck dont on cherche les jetons : identifiant Scryfall anglais et nom affiché. */
 export type TokenSource = { id: string; name: string }
 

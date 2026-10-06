@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { INTERNAL_ERROR, loadEditableDeck } from '@/lib/cards/deck-access'
 import { createScryfallClient, ScryfallUnavailableError } from '@/lib/cards/scryfall'
-import { refreshDeckTokens } from '@/lib/cards/tokens'
+import { refreshDeckTokens, TOKENS_NOT_READY } from '@/lib/cards/tokens'
 
 export const runtime = 'edge'
 
@@ -13,7 +13,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const client = createScryfallClient({ fetch, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) })
   try {
     const { data, error } = await refreshDeckTokens(ctx.db, client, ctx.deck.id)
-    if (error !== null) return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
+    if (error !== null) {
+      if (error.includes('no such table')) return NextResponse.json({ error: TOKENS_NOT_READY }, { status: 503 })
+      console.error('[jetons]', error)
+      return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
+    }
     return NextResponse.json({ count: data.length })
   } catch (e) {
     if (e instanceof ScryfallUnavailableError) {

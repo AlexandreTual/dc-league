@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { listDeckTokens, replaceDeckTokens } from '@/lib/db-cards'
 import type { CurrentUser } from '@/lib/auth/types'
+import { TOKENS_NOT_READY } from '@/lib/cards/tokens'
 
 const ctx = vi.hoisted(() => ({ db: null as unknown as D1Database, user: null as CurrentUser | null }))
 
@@ -48,5 +49,12 @@ describe('POST /api/decks/[id]/tokens', () => {
   it('refuse un visiteur non connecté', async () => {
     ctx.user = null
     expect((await post()).status).toBe(401)
+  })
+  it('base pas encore migrée (aperçu d’une PR) : message clair', async () => {
+    ctx.user = user('p1')
+    await ctx.db.prepare('DROP TABLE deck_tokens').run()
+    const res = await post()
+    expect(res.status).toBe(503)
+    expect(((await res.json()) as { error: string }).error).toBe(TOKENS_NOT_READY)
   })
 })
