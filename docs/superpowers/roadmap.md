@@ -33,7 +33,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 - Joueurs de confiance : pas de contrôle de légalité des actions au-delà des droits du moteur ; on vise surtout à ne pas fuiter d'information cachée.
 - Commander : 40 PV, blessures de commandant (alerte à 21). Duel Commander : 20 PV, pas de blessures de commandant. Poison mortel à 10.
-- Règle 103.8 : à 3 joueurs ou plus, le premier joueur pioche en gardant sa main ; premier mulligan gratuit.
+- Règle 103.8 : à 3 joueurs ou plus, le premier joueur pioche en gardant sa main. Le mulligan est géré par les joueurs : le jeu compte les mulligans mais n'impose aucune carte à mettre au-dessous (décision du 6 octobre, issue #72).
 - Une carte d'un adversaire peut être réanimée ou volée ; elle retourne toujours chez son propriétaire en mourant.
 - Les identifiants des commandants sont publics (clés de la taxe et des blessures).
 
