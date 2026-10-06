@@ -8,7 +8,7 @@ import {
 import { Crown, Flag } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
-import { cardMenu, cardsToBottom, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -281,7 +281,6 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
 
   const mine = me ? view.players[me] : null
   const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
-  const toBottom = me ? cardsToBottom(view, me) : 0
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
@@ -368,7 +367,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         <div className="px-3 py-2 text-sm bg-dc-gold/10 border-b border-dc-gold/30 text-dc-gold flex items-center gap-3" data-testid="mulligan-banner">
           <span>
             {mine.mulligans === 0 ? 'Main de départ' : `Mulligan n°${mine.mulligans}`}
-            {toBottom > 0 && ` : mets ${toBottom} carte(s) en dessous de ta bibliothèque (menu de la carte : « Mettre au-dessous », ou Maj + glisser sur la bibliothèque)`}
+            {mine.mulligans > 0 && ' : mets au-dessous les cartes convenues (menu de la carte : « Mettre au-dessous », ou Maj + glisser), puis Garder'}
           </span>
           <button className="px-3 py-1 rounded-lg bg-dc-gold/20 border border-dc-gold/40" onClick={() => send({ type: 'keep' })}>Garder</button>
           <button className="px-3 py-1 rounded-lg border border-dc-gold/40" onClick={() => send({ type: 'mulligan' })}>Mulligan</button>

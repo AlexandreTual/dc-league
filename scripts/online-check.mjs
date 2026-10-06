@@ -129,6 +129,23 @@ try {
     await myHand(who).first().waitFor()
     check((await myHand(who).count()) === 7, `${who.name} : main de 7 cartes`)
   }
+  // ── Mulligan de Chloé : deux cartes mises au-dessous (nombre choisi par les joueurs), puis « Garder » ──
+  await chloe.page.getByRole('button', { name: 'Mulligan', exact: true }).click()
+  const chloeBanner = chloe.page.getByTestId('mulligan-banner')
+  await chloe.page.waitForFunction(() => document.querySelector('[data-testid="mulligan-banner"]')?.textContent.includes('Mulligan n°1'))
+  check((await chloeBanner.innerText()).includes('cartes convenues') && !/\d carte/.test(await chloeBanner.innerText()),
+    'Chloé : bandeau « Mulligan n°1 », sans nombre de cartes imposé')
+  for (const left of [6, 5]) {
+    await myHand(chloe).first().click({ button: 'right' })
+    await chloe.page.getByRole('menuitem', { name: 'Mettre au-dessous' }).click()
+    await chloe.page.waitForFunction(([id, n]) =>
+      document.querySelectorAll(`[data-board="${id}"] [data-zone="hand"] [data-card-id]`).length === n, [CHLOE.id, left])
+    check(await chloeBanner.isVisible(), `Chloé : carte mise au-dessous, ${left} en main, main pas encore gardée`)
+  }
+  await ana.page.waitForFunction(
+    ([id, n]) => Number(document.querySelector(`[data-strip="${id}"] [data-testid="hand-count"]`)?.textContent) === n, [CHLOE.id, 5])
+  check(true, 'Ana voit la main de Chloé passer à 5 cartes')
+  await capture(chloe, 'mulligan-dessous')
   for (const who of [ana, bastien, chloe]) {
     await who.page.getByRole('button', { name: 'Garder' }).click()
     await who.page.getByRole('button', { name: 'Garder' }).waitFor({ state: 'detached' })
@@ -342,6 +359,9 @@ try {
   await ana.page.getByRole('button', { name: 'Journal' }).click()
   await ana.page.getByTestId('log').getByText('(passé par l’hôte)').waitFor()
   check(true, `Ana (hôte) passe le tour de Chloé → ${await activeName(ana)}, « (passé par l’hôte) » au journal`)
+  const journal = await ana.page.getByTestId('log').innerText()
+  check(journal.includes('Mulligan n°1') && !journal.includes('gratuit') && !journal.includes('carte(s) en dessous'),
+    'journal : « Mulligan n°1 », sans nombre de cartes ni « gratuit »')
   await capture(ana, 'journal')
   await ana.page.getByRole('button', { name: 'Fermer le journal' }).click()
 
