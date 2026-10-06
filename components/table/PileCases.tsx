@@ -21,7 +21,7 @@ function frameColor(catalog: Catalog | undefined, card: VisibleCard): string {
   return entry ? FRAMES[frameOf(entry.en.colors, entry.en.type_line)] : FRAMES.colorless
 }
 
-const caseClass = 'min-w-0 flex flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1 text-dc-text'
+const caseClass = 'min-w-0 tablet:min-h-11 flex flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1 text-dc-text'
 const number = 'text-lg font-bold tabular-nums leading-none'
 const label = 'text-[10px] leading-none text-dc-muted'
 
@@ -31,7 +31,7 @@ type PileProps = ZoneProps & {
   onPile: (zone: 'graveyard' | 'exile') => void
   /** Pose `data-zone="hand"` sur la case Main (bandeau : aucune autre main affichée). */
   handZone?: boolean
-  /** 2 : cases sur deux rangées (colonne étroite d'un bandeau). */
+  /** 2 : cases sur deux rangées (colonne étroite d'un bandeau) ; toujours sur tablette. */
   cols?: 2 | 4
 }
 
@@ -54,7 +54,7 @@ export function PileCases(props: PileProps) {
     : top ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" /> : <CardBack className="h-full" bare />
 
   return (
-    <div className={`grid ${props.cols === 2 ? 'grid-cols-2' : 'grid-cols-4'} gap-1`}>
+    <div className={`grid ${props.cols === 2 ? 'grid-cols-2' : 'grid-cols-4 tablet:grid-cols-2'} gap-1`}>
       <div className={`${caseClass} border-dc-border bg-dc-bg/60`} {...(props.handZone ? { 'data-zone': 'hand', 'data-player': player } : {})}>
         <span className={number} data-testid="hand-count">{zones.hand.length}</span>
         <span className={label}>Main</span>
