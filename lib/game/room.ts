@@ -119,7 +119,7 @@ function serverAction(raw: unknown, actor: string, seed: () => Seed): GameAction
   // Éliminer un autre joueur passe par la commande de l'hôte ; un joueur ne peut que concéder.
   if (action.type === 'eliminate' && action.target !== actor) return MSG.eliminateOther
   const full = { ...action, actor } as GameAction
-  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook') return { ...full, seed: seed() } as GameAction
+  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook' || full.type === 'roll') return { ...full, seed: seed() } as GameAction
   return full
 }
 

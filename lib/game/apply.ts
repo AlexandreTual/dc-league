@@ -1,3 +1,4 @@
+import { rollDice, rollText } from './dice'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
@@ -270,6 +271,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const n = Math.min(action.count, state.players[action.actor].zones.library.length)
       return log(draw(state, action.actor, n), action.actor, `Pioche ${plural(n, 'carte')}`)
     }
+
+    case 'roll':
+      return { ...state, log: [...state.log, { turn: state.turn, actor: action.actor, text: rollText(action.sides, rollDice(action.sides, action.count, action.seed)), visibleTo: 'all', roll: true }] }
 
     case 'shuffle':
       return log(shuffleLibrary(state, action.actor, action.seed), action.actor, 'Mélange sa bibliothèque')

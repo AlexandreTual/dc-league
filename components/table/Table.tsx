@@ -13,6 +13,7 @@ import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
+import DiceModal from './DiceModal'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
@@ -80,6 +81,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef } } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
+  const [diceOpen, setDiceOpen] = useState(false)
+  const [diceCount, setDiceCount] = useState(1)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
@@ -121,7 +124,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       clearTimeout(highlightTimer.current)
       highlightTimer.current = setTimeout(() => setHighlighted(new Set()), HIGHLIGHT_MS)
     }
-    const fresh = added.map((l) => ({ key: ++lineKey.current, author: view.players[l.actor]?.name ?? '', text: l.text }))
+    const fresh = added.map((l) => ({ key: ++lineKey.current, author: l.actor === me ? '' : view.players[l.actor]?.name ?? '', text: l.text, roll: l.roll }))
     setLines((current) => [...current, ...fresh].slice(-MAX_LINES))
     const keys = new Set(fresh.map((l) => l.key))
     setTimeout(() => setLines((current) => current.filter((l) => !keys.has(l.key))), LINE_MS)
@@ -215,13 +218,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         setMenu(null)
         if (pile) closePile(false)
         setTokenOpen(false)
+        setDiceOpen(false)
         setOracle(null)
         setLogOpen(false)
         setSettingsOpen(false)
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || oracle || menu || !canAct) return
+      if (pile || tokenOpen || diceOpen || oracle || menu || !canAct) return
       e.preventDefault()
       if (shortcut === 'undo') return source.undo()
       const actions = {
@@ -235,7 +239,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, oracle, menu, canAct])
+  }, [send, source, closePile, pile, tokenOpen, diceOpen, oracle, menu, canAct])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -339,6 +343,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         }}
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
+        onDice={() => setDiceOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
         mana={source.mode === 'local' && mine ? <ManaPool pool={mine.mana} keep={mine.keepMana} editable={canAct} send={send} /> : undefined}
@@ -468,6 +473,9 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       )}
       {tokenOpen && (
         <TokenModal deckTokens={source.deckTokens} onCreate={(token) => send({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
+      )}
+      {diceOpen && (
+        <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}
       {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}

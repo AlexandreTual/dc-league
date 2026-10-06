@@ -93,7 +93,8 @@ export type CardInstance = {
   knownBy: string[]
 }
 
-export type LogEntry = { turn: number; actor: string | null; text: string; visibleTo: string[] | 'all' }
+/** `roll` : lancer de dés, affiché aussi à son auteur (absent avec un serveur de jeu plus ancien). */
+export type LogEntry = { turn: number; actor: string | null; text: string; visibleTo: string[] | 'all'; roll?: true }
 
 export type GameState = {
   format: Format
@@ -158,6 +159,8 @@ export type GameAction =
   | { type: 'search'; actor: string; target: string }
   | { type: 'reorderTop'; actor: string; target: string; ids: string[] }
   | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: Seed }
+  /** `sides` : 2 (pile ou face), 4, 6, 8, 10, 12 ou 20 ; `count` : nombre de dés lancés ensemble. */
+  | { type: 'roll'; actor: string; sides: number; count: number; seed: Seed }
 
 export type VisibleCard = {
   hidden: false
