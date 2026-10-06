@@ -152,10 +152,11 @@ try {
   }
   check(true, 'chacun garde sa main')
   check((await ana.page.locator('[data-opponents="all"] [data-strip]').count()) === 2, 'Ana voit ses 2 adversaires en bandeaux')
-  // Bandeau compact : la pastille et une ligne fine, puis les rangées sur toute la largeur du bandeau.
+  // Bandeau : la colonne compacte à gauche, puis les rangées sur toute la hauteur du bandeau.
   const strip = await ana.page.locator(`[data-strip="${BASTIEN.id}"]`).boundingBox()
   const rows = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="battlefield"]`).boundingBox()
-  check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
+  const stripColumn = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-header]`).boundingBox()
+  check(stripColumn.x + stripColumn.width <= rows.x && rows.height >= strip.height - 24, 'bandeau : colonne à gauche, rangées sur toute la hauteur')
   const chloeStrip = await ana.page.locator(`[data-strip="${CHLOE.id}"]`).boundingBox()
   check(Math.abs(chloeStrip.y - strip.y) <= 2 && chloeStrip.x > strip.x + strip.width - 2, 'bandeaux côte à côte, sur une seule rangée')
   const stripLife = ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-panel="${BASTIEN.id}"] [data-testid="player-life"]`).first()
@@ -196,10 +197,10 @@ try {
   await bastien.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()
   await board(bastien, ANA.id).waitFor()
   check(true, 'Bastien agrandit le plateau d’Ana')
-  const header = await board(bastien, ANA.id).locator(`[data-panel="${ANA.id}"]`).first().boundingBox()
+  const anaColumn = await board(bastien, ANA.id).locator(`[data-column="${ANA.id}"]`).boundingBox()
   const anaField = await board(bastien, ANA.id).locator('[data-zone="battlefield"]').boundingBox()
-  check(header.y + header.height <= anaField.y && (await board(bastien, ANA.id).locator('[data-zone="exile"][data-count]').count()) === 1,
-    'vue agrandie : en-tête d’Ana (portrait, cases) au-dessus de son champ de bataille')
+  check(anaColumn.x + anaColumn.width <= anaField.x && (await board(bastien, ANA.id).locator('[data-zone="exile"][data-count]').count()) === 1,
+    'vue agrandie : colonne d’Ana (portrait, cases) à gauche de son champ de bataille')
   await capture(bastien, 'vue-agrandie')
   await drag(bastien, board(bastien, ANA.id).locator(`[data-zone="graveyard"] [data-card-id="${dumped}"]`), board(bastien, BASTIEN.id).locator('[data-zone="battlefield"]'))
   await board(bastien, BASTIEN.id).locator(`[data-zone="battlefield"] [data-card-id="${dumped}"]`).waitFor()

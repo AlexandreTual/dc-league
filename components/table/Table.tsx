@@ -396,6 +396,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 renderStrip={(p, focus) => (
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
+                    stacked={opponents.length >= 3}
                     header={(
                       <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus)}
                         onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />
@@ -405,8 +406,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 renderBoard={(p) => (
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
-                    layout={opponents.length === 1 ? 'column' : 'header'}
-                    portrait={portraitFor(p, opponents.length === 1 ? 'column' : 'header')}
+                    portrait={portraitFor(p)}
                     onLibraryMenu={libraryMenuOf(p)}
                     onPile={pileOf(p)}
                   />

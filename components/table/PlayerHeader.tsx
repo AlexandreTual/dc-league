@@ -5,33 +5,32 @@ import { CommandBlock, GraveyardLast, PileCases } from './PileCases'
 import type { ZoneProps } from './zones'
 
 /**
- * En-tête d'un adversaire (bandeau « Tous » et vue agrandie, 3 à 5 joueurs) : ligne portrait compacte,
- * cases chiffrées et vignette de commandement, puis la dernière carte arrivée au cimetière.
+ * Colonne compacte d'un adversaire, à gauche de son bandeau (vue « Tous », 3 à 5 joueurs) : ligne portrait,
+ * cases chiffrées sur deux rangées, vignette de commandement et dernière carte arrivée au cimetière.
+ * Les rangées de son champ de bataille gardent ainsi toute la hauteur du bandeau.
  */
 export default function PlayerHeader(props: ZoneProps & {
   me: string | null
   /** Ligne portrait (`PlayerPortrait size="header"`), construite par la table. */
   portrait: React.ReactNode
-  /** Bandeau : la case Main porte `data-zone="hand"` (pas d'autre main affichée). */
+  /** La case Main porte `data-zone="hand"` (le bandeau n'affiche pas d'autre main). */
   handZone?: boolean
-  /** Vue agrandie : tout sur une ligne, pour laisser la hauteur au champ de bataille. */
-  wide?: boolean
   onLibraryMenu: (at: MenuPoint) => void
   onPile: (zone: 'graveyard' | 'exile', title: string) => void
 }) {
-  const { portrait, handZone, wide, onPile, onLibraryMenu, ...zoneProps } = props
+  const { portrait, handZone, onPile, onLibraryMenu, ...zoneProps } = props
   const name = zoneProps.view.players[zoneProps.player].name
   const titles = { graveyard: `Cimetière de ${name}`, exile: `Exil de ${name}` }
   return (
-    <div className={`shrink-0 flex gap-1 ${wide ? 'flex-row flex-wrap items-center' : 'flex-col'}`} data-header={zoneProps.player}>
-      <div className={wide ? 'w-72 shrink-0' : ''}>{portrait}</div>
-      <div className={`flex items-stretch gap-1 ${wide ? 'w-72 shrink-0' : ''}`}>
-        <div className="flex-1 min-w-0">
-          <PileCases {...zoneProps} handZone={handZone} onLibraryMenu={onLibraryMenu} onPile={(zone) => onPile(zone, titles[zone])} />
-        </div>
+    <div className="w-[184px] shrink-0 min-h-0 flex flex-col gap-1" data-header={zoneProps.player}>
+      {portrait}
+      <PileCases {...zoneProps} cols={2} handZone={handZone} onLibraryMenu={onLibraryMenu} onPile={(zone) => onPile(zone, titles[zone])} />
+      <div className="flex items-center gap-1 min-w-0">
         <CommandBlock {...zoneProps} mini />
+        <div className="flex-1 min-w-0">
+          <GraveyardLast {...zoneProps} onOpen={() => onPile('graveyard', titles.graveyard)} />
+        </div>
       </div>
-      <GraveyardLast {...zoneProps} onOpen={() => onPile('graveyard', titles.graveyard)} />
     </div>
   )
 }
