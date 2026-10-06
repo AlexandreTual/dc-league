@@ -5,6 +5,7 @@ import { cardInfo } from '@/lib/game/apply'
 import type { ClientAction } from '@/lib/game/room'
 import { COMMANDER_DAMAGE_LETHAL, POISON_LETHAL, type Catalog, type PlayerView, type VisibleCard } from '@/lib/game/types'
 import type { Lang } from './GameCard'
+import ManaPool from './ManaPool'
 
 const stepBtn = 'p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent'
 
@@ -20,9 +21,9 @@ export function Stepper({ label, value, alert = false, disabled, onChange, testI
   return (
     <span className={`inline-flex items-center gap-0.5 ${alert ? 'text-dc-red-light font-semibold' : ''}`}>
       {label}
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label="moins"><Minus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label={`moins : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Minus className="w-3 h-3" /></button>
       <span className="min-w-[1.75rem] text-center" data-testid={testId}>{value}</span>
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label="plus"><Plus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={`plus : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Plus className="w-3 h-3" /></button>
     </span>
   )
 }
@@ -78,7 +79,9 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
         {compact && commanders.some((c) => (p.commanderDamage[c.id] ?? 0) > 0) && (
           <span className="text-dc-red-light" title="Blessures de commandant (maximum)">⚔ {Math.max(...commanders.map((c) => p.commanderDamage[c.id] ?? 0))}</span>
         )}
-        <span className="ml-auto flex items-center gap-1 text-sm">
+        <span className="ml-auto flex items-center gap-2 text-sm">
+          {/* Ma réserve est en bas à droite de l'écran : son détail s'ouvre vers le haut, aligné à droite. */}
+          <span className="text-xs"><ManaPool pool={p.mana} keep={p.keepMana} editable={canAct && player === view.me} send={send} openUp={player === view.me} alignRight /></span>
           <Stepper
             label={<Heart className="w-3.5 h-3.5 text-dc-red-light" />}
             value={p.life}

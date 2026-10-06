@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { isAdminAuthenticated } from '@/lib/auth'
+import { apiRoute, resultError } from '@/lib/auth/api'
 import { deleteLeague } from '@/lib/db-leagues'
 
 export const runtime = 'edge'
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!await isAdminAuthenticated()) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
-  const { env } = getRequestContext<CloudflareEnv>()
-  const { id } = await params
-  const { error } = await deleteLeague(env.DB, id)
-  if (error) return NextResponse.json({ error }, { status: 400 })
-  return NextResponse.json({ ok: true })
+export function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return apiRoute(req, 'admin', async ({ db }) => {
+    const { id } = await params
+    const { error } = await deleteLeague(db, id)
+    if (error !== null) return resultError(error, { 'Ligue introuvable.': 404 })
+    return NextResponse.json({ ok: true })
+  })
 }

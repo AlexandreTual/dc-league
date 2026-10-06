@@ -1,4 +1,4 @@
-import { EVERYONE, FORMAT_RULES, HIDDEN_ZONES, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
+import { EVERYONE, FORMAT_RULES, HIDDEN_ZONES, MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
 
 // ── Lecture ───────────────────────────────────────────────────────────────────
 
@@ -58,6 +58,7 @@ const MSG = {
   badCount: 'Nombre de cartes invalide',
   emptyLibrary: 'Bibliothèque vide',
   oneFace: "Cette carte n'a qu'une face",
+  badMana: 'Mana invalide',
 }
 
 const isPlayer = (state: GameState, id: string | null) => id !== null && id in state.players
@@ -90,6 +91,9 @@ export function canApply(state: GameState, action: GameAction): string | null {
   if (actor.eliminated) return MSG.eliminated
 
   switch (action.type) {
+    case 'mana':
+      return MANA_COLORS.includes(action.color) && Number.isInteger(action.delta) ? null : MSG.badMana
+
     case 'mulligan':
     case 'keep':
       return actor.kept ? MSG.alreadyKept : null
@@ -99,6 +103,8 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'untapAll':
     case 'toggleTopRevealed':
     case 'togglePeekTop':
+    case 'clearMana':
+    case 'toggleKeepMana':
     case 'revealTop':
     case 'createToken':
       return null
@@ -187,10 +193,10 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'reorderTop': {
       if (!(state.lookingAt[action.actor] ?? []).includes(action.target)) return MSG.notLooking
       if (action.ids.length === 0) return MSG.badCount
+      // Visibilité testée d'abord, où que soit la carte : sinon le message trahirait si une carte cachée est dans la bibliothèque.
+      if (!action.ids.every((id) => isVisibleTo(state, id, action.actor))) return MSG.hidden
       const library = state.players[action.target].zones.library
-      if (new Set(action.ids).size !== action.ids.length || !action.ids.every((id) => library.includes(id))) return MSG.unknownCard
-      const where = { player: action.target, zone: 'library' as const }
-      return action.ids.every((id) => isVisibleAt(state, id, where, action.actor)) ? null : MSG.hidden
+      return new Set(action.ids).size === action.ids.length && action.ids.every((id) => library.includes(id)) ? null : MSG.unknownCard
     }
   }
 }

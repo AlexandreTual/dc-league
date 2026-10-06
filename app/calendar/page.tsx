@@ -5,6 +5,7 @@ import { getActiveLeague } from '@/lib/db-leagues'
 import { Match, Player } from '@/lib/leaderboard'
 import MatchCard from '@/components/MatchCard'
 import { Calendar, CheckCircle, Clock } from 'lucide-react'
+import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -13,14 +14,16 @@ export default async function CalendarPage() {
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const [{ data: players }, { data: activeLeague }] = await Promise.all([
+  const [{ data: players, error: playersError }, { data: activeLeague, error: leagueError }] = await Promise.all([
     listPlayers(db),
     getActiveLeague(db),
   ])
 
-  const { data: matches } = activeLeague
+  const { data: matches, error: matchesError } = activeLeague
     ? await listMatches(db, activeLeague.id, true)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (playersError || leagueError || matchesError) return <LoadError what="le calendrier" />
 
   if (!matches || matches.length === 0) {
     return (

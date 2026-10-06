@@ -1,26 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { assertSameOrigin, setSessionCookie } from '@/lib/auth/session'
+import { apiRoute } from '@/lib/auth/api'
+import { setSessionCookie } from '@/lib/auth/session'
 import { loginBootstrap, loginWithPassword, openSession } from '@/lib/auth/service'
 
 export const runtime = 'edge'
 
-export async function POST(req: NextRequest) {
-  const refused = assertSameOrigin(req)
-  if (refused) return refused
+const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
-  const body = (await req.json().catch(() => ({}))) as { username?: string; password?: string; adminPassword?: string }
-  const { env } = getRequestContext<CloudflareEnv>()
-  const now = new Date()
+export function POST(req: NextRequest) {
+  return apiRoute(req, 'public', async ({ db, env, body }) => {
+    const now = new Date()
+    // Adresse du client fournie par Cloudflare (absente en local) : limite des tentatives par IP.
+    const ip = req.headers.get('CF-Connecting-IP')
 
-  const result =
-    typeof body.adminPassword === 'string'
-      ? await loginBootstrap(env.DB, { adminPassword: body.adminPassword }, env.ADMIN_PASSWORD, now)
-      : await loginWithPassword(env.DB, { username: body.username ?? '', password: body.password ?? '' }, now)
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    const result =
+      typeof body.adminPassword === 'string'
+        ? await loginBootstrap(db, { adminPassword: body.adminPassword, ip }, env.ADMIN_PASSWORD, now)
+        : await loginWithPassword(db, { username: text(body.username), password: text(body.password), ip }, now)
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
 
-  const { token, expiresAt } = await openSession(env.DB, result.value.userId, now)
-  const res = NextResponse.json({ ok: true })
-  setSessionCookie(res, token, expiresAt)
-  return res
+    // openSession peut lever une erreur : apiRoute la transforme en 500 en français.
+    const { token, expiresAt } = await openSession(db, result.value.userId, now)
+    const res = NextResponse.json({ ok: true })
+    setSessionCookie(res, token, expiresAt)
+    return res
+  })
 }

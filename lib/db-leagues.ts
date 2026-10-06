@@ -105,13 +105,16 @@ export async function getActiveLeague(db: D1Database): Promise<Result<DbLeague |
 
 export async function createLeague(db: D1Database, name: string): Promise<Result<DbLeague>> {
   try {
-    const existing = await db.prepare('SELECT id FROM leagues WHERE is_active = 1').first()
-    if (existing) return err('Une ligue est déjà active.')
     const id = uuid()
-    await db
-      .prepare(`INSERT INTO leagues (id, name, started_at, is_active) VALUES (?, ?, datetime('now'), 1)`)
+    // Vérification et insertion dans la même requête : un double clic ne crée pas deux ligues actives.
+    const { meta } = await db
+      .prepare(
+        `INSERT INTO leagues (id, name, started_at, is_active) SELECT ?, ?, datetime('now'), 1
+         WHERE NOT EXISTS (SELECT 1 FROM leagues WHERE is_active = 1)`,
+      )
       .bind(id, name)
       .run()
+    if (!meta.changes) return err('Une ligue est déjà active.')
     const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').bind(id).first<Record<string, unknown>>()
     return ok(normalizeLeague(row!))
   } catch (e) {

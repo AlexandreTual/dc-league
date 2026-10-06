@@ -3,8 +3,8 @@ import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { createRng } from './random'
 import { applyAction } from './apply'
 import { canApply, isVisibleTo } from './rules'
-import { viewFor } from './view'
-import { PLAYER_ZONES, type GameAction, type GameState, type PlayerZone } from './types'
+import { VIEW_LOG_LIMIT, viewFor } from './view'
+import { MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type PlayerZone } from './types'
 
 const apply = (s: GameState, ...actions: GameAction[]) => actions.reduce((acc, a) => applyAction(acc, a), s)
 const sol = (p: string) => card(p, 2)
@@ -55,6 +55,20 @@ describe('viewFor', () => {
     expect(viewFor(s, 'p2').log.some((l) => l.text.startsWith('Tu as vu'))).toBe(false)
     expect(viewFor(s, 'p2').log.at(-1)).toEqual({ turn: s.turn, actor: 'p1', text: 'regarde les 3 cartes du dessus de la bibliothèque de Bob' })
   })
+
+  it('journal tronqué aux 200 dernières lignes visibles ; logStart donne le rang de la première', () => {
+    const short = game()
+    expect(viewFor(short, 'p1')).toMatchObject({ logStart: 0, log: { length: short.log.length } })
+    const s = { ...short, log: Array.from({ length: VIEW_LOG_LIMIT + 50 }, (_, i) => ({ turn: 1, actor: 'p1', text: `ligne ${i}`, visibleTo: i % 2 ? ['p1'] : 'all' as const })) }
+    const mine = viewFor(s, 'p1')
+    expect(mine.log).toHaveLength(VIEW_LOG_LIMIT)
+    expect(mine.logStart).toBe(50)
+    expect(mine.log.at(-1)?.text).toBe(`ligne ${VIEW_LOG_LIMIT + 49}`)
+    const theirs = viewFor(s, 'p2')
+    expect(theirs.logStart).toBe(0)
+    expect(theirs.log).toHaveLength(125)
+    expect(s.log).toHaveLength(VIEW_LOG_LIMIT + 50)
+  })
 })
 
 describe('anti-fuite', () => {
@@ -68,7 +82,7 @@ describe('anti-fuite', () => {
     const randomAction = (): GameAction => {
       const actor = pick(ids)
       const allCards = Object.keys(s.cards)
-      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop', 'reorder'])) {
+      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'createToken', 'search', 'toggleTop', 'revealTop', 'peekTop', 'reorder', 'mana', 'clearMana', 'keepMana'])) {
         case 'draw':
           return { type: 'draw', actor, count: 1 }
         case 'move': {
@@ -95,6 +109,12 @@ describe('anti-fuite', () => {
           return { type: 'revealTop', actor }
         case 'peekTop':
           return { type: 'togglePeekTop', actor }
+        case 'mana':
+          return { type: 'mana', actor, color: pick(MANA_COLORS), delta: pick([1, 5, -1]) }
+        case 'clearMana':
+          return { type: 'clearMana', actor }
+        case 'keepMana':
+          return { type: 'toggleKeepMana', actor }
         case 'reorder': {
           // Ce que l'auteur voit en ce moment dans une bibliothèque qu'il regarde, dans un autre ordre.
           const target = pick(s.lookingAt[actor] ?? ids)

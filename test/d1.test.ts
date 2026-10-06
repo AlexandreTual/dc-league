@@ -44,3 +44,20 @@ describe('batch avec lecture', () => {
     expect(select.results).toEqual([{ id: 'p1' }])
   })
 })
+
+describe('limite de paramètres liés', () => {
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`)
+  const sql = (n: number) => `SELECT id FROM players WHERE id IN (${ids(n).map(() => '?').join(', ')})`
+
+  it('accepte 100 paramètres', async () => {
+    const db = createTestDb()
+    await expect(db.prepare(sql(100)).bind(...ids(100)).all()).resolves.toMatchObject({ results: [] })
+  })
+
+  it('refuse plus de 100 paramètres comme D1', async () => {
+    const db = createTestDb()
+    await expect(db.prepare(sql(101)).bind(...ids(101)).all()).rejects.toThrow(/too many SQL variables/)
+    await expect(db.prepare(sql(101)).bind(...ids(101)).first()).rejects.toThrow()
+    await expect(db.batch([db.prepare(sql(101)).bind(...ids(101))])).rejects.toThrow()
+  })
+})

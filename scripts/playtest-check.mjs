@@ -273,6 +273,18 @@ try {
   await page.getByRole('button', { name: 'Par défaut' }).click()
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
 
+  // ── Réserve de mana : 2 verts, puis vidée au tour suivant ──
+  await page.getByRole('button', { name: 'Réserve de mana' }).click()
+  await page.getByRole('button', { name: 'Vert plus' }).click()
+  await page.getByRole('button', { name: 'Vert plus' }).click()
+  const pool = page.getByTestId('mana-pool')
+  check((await pool.locator('[data-mana="G"]').getAttribute('title')) === 'Vert : 2' && (await pool.locator('[data-mana]').count()) === 1, 'réserve : 2 verts affichés')
+  await capture('mana')
+  await page.keyboard.press('Escape')
+  check(!(await page.getByRole('dialog', { name: 'Réserve de mana' }).isVisible()), 'Échap ferme le détail de la réserve')
+  await page.getByRole('button', { name: /Tour suivant/ }).click()
+  check((await pool.innerText()).includes('Mana : 0'), 'tour suivant : réserve vidée')
+
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')
 } finally {

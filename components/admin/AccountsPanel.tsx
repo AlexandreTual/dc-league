@@ -48,8 +48,12 @@ export default function AccountsPanel({ players, statuses, currentUserId, isBoot
   }
 
   async function copy(url: string) {
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+    } catch {
+      onToast('Copie impossible : sélectionne le lien et copie-le à la main')
+    }
   }
 
   const buttonClass =
@@ -127,7 +131,7 @@ export default function AccountsPanel({ players, statuses, currentUserId, isBoot
                     valable jusqu&apos;au {dateFormat.format(new Date(link.expiresAt))} :
                   </p>
                   <div className="flex items-center gap-2">
-                    <input readOnly value={link.url} className="flex-1 bg-dc-surface border border-dc-border rounded-lg px-3 py-1.5 text-xs text-dc-text" onFocus={(e) => e.target.select()} />
+                    <input readOnly aria-label="Lien à envoyer" value={link.url} className="flex-1 bg-dc-surface border border-dc-border rounded-lg px-3 py-1.5 text-xs text-dc-text" onFocus={(e) => e.target.select()} />
                     <button className={buttonClass} onClick={() => copy(link.url)}>
                       {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? 'Copié' : 'Copier'}
                     </button>

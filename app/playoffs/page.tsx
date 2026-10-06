@@ -3,6 +3,7 @@ import { listPlayoffs, listPlayers, DbPlayoff, DbPlayer } from '@/lib/db'
 import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
 import { Trophy } from 'lucide-react'
 import PlayoffBracket from './PlayoffBracket'
+import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -11,17 +12,18 @@ export default async function PlayoffsPage() {
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const { data: activeLeague } = await getActiveLeague(db)
+  const { data: activeLeague, error: leagueError } = await getActiveLeague(db)
 
   const [
-    { data: playoffs },
-    { data: players },
-    { data: leaguePlayers },
+    { data: playoffs, error: playoffsError },
+    { data: players, error: playersError },
+    { data: leaguePlayers, error: leaguePlayersError },
   ] = await Promise.all([
-    activeLeague ? listPlayoffs(db, activeLeague.id) : Promise.resolve({ data: [] }),
+    activeLeague ? listPlayoffs(db, activeLeague.id) : Promise.resolve({ data: [], error: null }),
     listPlayers(db),
-    activeLeague ? listLeaguePlayers(db, activeLeague.id) : Promise.resolve({ data: [] }),
+    activeLeague ? listLeaguePlayers(db, activeLeague.id) : Promise.resolve({ data: [], error: null }),
   ])
+  if (leagueError || playoffsError || playersError || leaguePlayersError) return <LoadError what="les playoffs" />
 
   const playerMap: Record<string, DbPlayer> = {}
   for (const p of players ?? []) playerMap[p.id] = p

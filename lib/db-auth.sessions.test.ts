@@ -11,7 +11,8 @@ import {
   extendSession,
   getSessionWithUser,
   insertSession,
-  recordFailure,
+  forgetAttempt,
+  recordAttempt,
 } from './db-auth'
 
 const now = new Date('2026-10-03T12:00:00Z')
@@ -74,21 +75,39 @@ describe('sessions', () => {
 })
 
 describe('tentatives de connexion', () => {
-  it('compte les échecs sur 15 minutes', async () => {
-    for (let i = 0; i < 5; i++) await recordFailure(db, 'alex', now)
+  it('compte les tentatives sur 15 minutes', async () => {
+    for (let i = 0; i < 5; i++) await recordAttempt(db, ['alex'], now)
     expect((await countRecentFailures(db, 'ALEX', now)).data).toBe(5)
     expect((await countRecentFailures(db, 'alex', minutes(16))).data).toBe(0)
   })
 
+  it('recordAttempt enregistre puis renvoie le total de chaque clé, tentative comprise', async () => {
+    await recordAttempt(db, ['user:alex', 'ip:1.2.3.4'], now)
+    await recordAttempt(db, ['user:bob', 'ip:1.2.3.4'], now)
+    expect(await recordAttempt(db, ['user:ALEX', 'ip:1.2.3.4'], now)).toEqual({ data: [2, 3], error: null })
+  })
+
+  it('les tentatives simultanées sont toutes comptées', async () => {
+    const results = await Promise.all(Array.from({ length: 10 }, () => recordAttempt(db, ['alex'], now)))
+    expect(results.map((r) => r.data![0]).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+  })
+
   it('clearFailures ignore la casse', async () => {
-    await recordFailure(db, 'alex', now)
+    await recordAttempt(db, ['alex'], now)
     await clearFailures(db, 'ALEX')
     expect((await countRecentFailures(db, 'alex', now)).data).toBe(0)
   })
 
-  it('recordFailure purge les lignes de plus de 15 minutes', async () => {
-    await recordFailure(db, 'bob', now)
-    await recordFailure(db, 'alex', minutes(20))
+  it("forgetAttempt n'efface qu'une tentative", async () => {
+    await recordAttempt(db, ['ip:1.2.3.4'], now)
+    await recordAttempt(db, ['ip:1.2.3.4'], now)
+    await forgetAttempt(db, 'ip:1.2.3.4', now)
+    expect((await countRecentFailures(db, 'ip:1.2.3.4', now)).data).toBe(1)
+  })
+
+  it('recordAttempt purge les lignes de plus de 15 minutes', async () => {
+    await recordAttempt(db, ['bob'], now)
+    await recordAttempt(db, ['alex'], minutes(20))
     const row = await db.prepare('SELECT COUNT(*) AS n FROM login_attempts').first<{ n: number }>()
     expect(row?.n).toBe(1)
   })
