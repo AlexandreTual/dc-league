@@ -85,7 +85,8 @@ function canMove(state: GameState, action: Extract<GameAction, { type: 'move' }>
 /** null si l'action est permise, sinon un message en français. */
 export function canApply(state: GameState, action: GameAction): string | null {
   if (action.type === 'start') {
-    return action.actor === 'server' && !state.started ? null : 'Seul le serveur démarre la partie, une seule fois'
+    if (action.actor !== 'server' || state.started) return 'Seul le serveur démarre la partie, une seule fois'
+    return action.first === undefined || isPlayer(state, action.first) ? null : MSG.unknownPlayer
   }
   const actor = state.players[action.actor]
   if (!actor) return MSG.unknownPlayer

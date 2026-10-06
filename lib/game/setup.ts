@@ -11,6 +11,7 @@ export function createInitialState(setup: GameSetup): GameState {
     turn: 1,
     started: false,
     firstTurnDone: false,
+    firstChosen: false,
     monarch: null,
     initiative: null,
     cards: {},

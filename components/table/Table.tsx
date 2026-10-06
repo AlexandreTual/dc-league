@@ -24,6 +24,7 @@ import PlayerHeader from './PlayerHeader'
 import PlayerPortrait from './PlayerPortrait'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
+import StartDraw from './StartDraw'
 import TokenModal from './TokenModal'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
@@ -83,6 +84,9 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [tokenOpen, setTokenOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
   const [diceCount, setDiceCount] = useState(1)
+  // En ligne, à l'ouverture d'une partie qui commence (tour 1, ma main pas encore gardée) : qui commence.
+  const [startDraw, setStartDraw] = useState(() => source.mode === 'online' && me !== null && Object.keys(view.players).length > 1
+    && view.turn === 1 && view.players[me]?.kept === false && (view.turnOrder?.length ?? 0) > 0)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
@@ -219,13 +223,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         if (pile) closePile(false)
         setTokenOpen(false)
         setDiceOpen(false)
+        setStartDraw(false)
         setOracle(null)
         setLogOpen(false)
         setSettingsOpen(false)
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || diceOpen || oracle || menu || !canAct) return
+      if (pile || tokenOpen || diceOpen || startDraw || oracle || menu || !canAct) return
       e.preventDefault()
       if (shortcut === 'undo') return source.undo()
       const actions = {
@@ -239,7 +244,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, diceOpen, oracle, menu, canAct])
+  }, [send, source, closePile, pile, tokenOpen, diceOpen, startDraw, oracle, menu, canAct])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -474,6 +479,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       {tokenOpen && (
         <TokenModal deckTokens={source.deckTokens} onCreate={(token) => send({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
       )}
+      {startDraw && <StartDraw view={view} onClose={() => setStartDraw(false)} />}
       {diceOpen && (
         <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}
