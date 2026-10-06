@@ -7,6 +7,7 @@ import {
   pickFrenchPrint,
   ScryfallUnavailableError,
   toCardRow,
+  toFrenchPrint,
   type ScryfallCard,
 } from './scryfall'
 
@@ -202,9 +203,23 @@ describe('toCardRow', () => {
     expect(toCardRow(collection.data[0])).toEqual(
       cardRow({
         image_normal: 'https://cards.scryfall.io/normal/front/sol-c21-en.jpg',
+        image_large: null,
         image_small: 'https://cards.scryfall.io/small/front/sol-c21-en.jpg',
       }),
     )
+  })
+
+  it('image large (672 px) de la carte et de chaque face', () => {
+    const card = collection.data[0]
+    const large = 'https://cards.scryfall.io/large/front/sol.jpg'
+    expect(toCardRow({ ...card, image_uris: { ...card.image_uris, large } }).image_large).toBe(large)
+    const dfc = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
+    const row = toCardRow({
+      ...dfc,
+      card_faces: dfc.card_faces!.map((f, i) => ({ ...f, image_uris: { ...f.image_uris, large: `l${i}.jpg` } })),
+    })
+    expect(row.faces!.map((f) => f.image_large)).toEqual(['l0.jpg', 'l1.jpg'])
+    expect(row.image_large).toBe('l0.jpg')
   })
 
   it('convertit une carte double face', () => {
@@ -238,12 +253,59 @@ describe('toCardRow', () => {
       printed_text: "{R} : Les créatures acquièrent le piétinement et la célérité jusqu'à la fin du tour.",
     })
   })
+
+  it('image provisoire (« Localized Image Not Available ») ou absente : aucune image retenue', () => {
+    const card = collection.data[0]
+    for (const image_status of ['placeholder', 'missing']) {
+      const row = toCardRow({ ...card, lang: 'fr', image_status, image_uris: { ...card.image_uris, large: 'l.jpg' } })
+      expect(row.image_normal).toBeNull()
+      expect(row.image_large).toBeNull()
+      expect(row.image_small).toBeNull()
+    }
+    const dfc = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
+    const row = toCardRow({ ...dfc, lang: 'fr', image_status: 'placeholder' })
+    expect(row.faces!.map((f) => f.image_normal)).toEqual([null, null])
+    expect(row.image_normal).toBeNull()
+  })
+
+  it('vraie image (basse ou haute définition) : conservée', () => {
+    const card = collection.data[0]
+    expect(toCardRow({ ...card, image_status: 'lowres' }).image_normal).toBe('https://cards.scryfall.io/normal/front/sol-c21-en.jpg')
+    expect(toCardRow({ ...card, image_status: 'highres_scan' }).image_normal).toBe('https://cards.scryfall.io/normal/front/sol-c21-en.jpg')
+  })
+
+  it('toFrenchPrint : marque les scans en haute définition', () => {
+    const card = collection.data[0]
+    expect(toFrenchPrint({ ...card, image_status: 'highres_scan' }).highres).toBe(true)
+    expect(toFrenchPrint({ ...card, image_status: 'lowres' }).highres).toBe(false)
+    expect(toFrenchPrint(card).highres).toBe(false)
+  })
+
+  it('toFrenchPrint : classique sauf foil seul, sans bordure, showcase, illustration étendue, gravée, promo', () => {
+    const card = collection.data[0]
+    expect(toFrenchPrint({ ...card, finishes: ['nonfoil', 'foil'], border_color: 'black' }).classic).toBe(true)
+    expect(toFrenchPrint(card).classic).toBe(true)
+    expect(toFrenchPrint({ ...card, finishes: ['foil'] }).classic).toBe(false)
+    expect(toFrenchPrint({ ...card, finishes: ['etched'] }).classic).toBe(false)
+    expect(toFrenchPrint({ ...card, border_color: 'borderless' }).classic).toBe(false)
+    expect(toFrenchPrint({ ...card, frame_effects: ['showcase'] }).classic).toBe(false)
+    expect(toFrenchPrint({ ...card, frame_effects: ['extendedart'] }).classic).toBe(false)
+    expect(toFrenchPrint({ ...card, frame_effects: ['legendary'] }).classic).toBe(true)
+    expect(toFrenchPrint({ ...card, full_art: true }).classic).toBe(false)
+    expect(toFrenchPrint({ ...card, promo: true }).classic).toBe(false)
+  })
 })
 
 describe('pickFrenchPrint', () => {
-  const c21 = cardRow({ id: 'a', set_code: 'c21', collector_number: '263', lang: 'fr' })
-  const c21other = cardRow({ id: 'b', set_code: 'c21', collector_number: '999', lang: 'fr' })
-  const cmr = cardRow({ id: 'c', set_code: 'cmr', collector_number: '472', lang: 'fr' })
+  // Impressions triées de la plus récente à la plus ancienne, comme la recherche Scryfall.
+  const print = (id: string, set: string, cn: string, opts: { highres?: boolean; image?: boolean; classic?: boolean } = {}) => ({
+    ...cardRow({ id, set_code: set, collector_number: cn, lang: 'fr', image_normal: opts.image === false ? null : `https://img/${id}.jpg` }),
+    highres: opts.highres ?? false,
+    classic: opts.classic ?? true,
+  })
+  const c21 = print('a', 'c21', '263')
+  const c21other = print('b', 'c21', '999')
+  const cmr = print('c', 'cmr', '472')
 
   it('préfère même édition et même numéro', () => {
     expect(pickFrenchPrint([cmr, c21other, c21], { set: 'C21', number: '263' })?.id).toBe('a')
@@ -257,6 +319,40 @@ describe('pickFrenchPrint', () => {
   })
   it('null sans impression', () => {
     expect(pickFrenchPrint([], { set: null, number: null })).toBeNull()
+  })
+
+  it('image nette : la plus récente en haute définition plutôt que l’édition demandée en basse définition', () => {
+    const recent = print('r', 'fin', '309', { highres: true })
+    const old = print('o', 'tsr', '410')
+    expect(pickFrenchPrint([recent, old], { set: 'tsr', number: '410' })?.id).toBe('r')
+  })
+  it('édition demandée en haute définition : gardée', () => {
+    const recent = print('r', 'fin', '309', { highres: true })
+    const asked = print('o', 'tsr', '410', { highres: true })
+    expect(pickFrenchPrint([recent, asked], { set: 'tsr', number: '410' })?.id).toBe('o')
+  })
+  it('sans haute définition : écarte les impressions sans vraie image', () => {
+    const recent = print('r', 'eoc', '191')
+    const placeholder = print('p', 'tsp', '269', { image: false })
+    expect(pickFrenchPrint([recent, placeholder], { set: 'tsp', number: '269' })?.id).toBe('r')
+  })
+  it('jamais une version foil ou spéciale choisie à la place de celle demandée', () => {
+    const foil = print('f', 'fin', '500', { highres: true, classic: false })
+    const recent = print('r', 'eoc', '191', { highres: true })
+    const asked = print('o', 'tsr', '410')
+    expect(pickFrenchPrint([foil, recent, asked], { set: 'tsr', number: '410' })?.id).toBe('r')
+    expect(pickFrenchPrint([foil, asked], { set: 'tsr', number: '410' })?.id).toBe('o')
+    expect(pickFrenchPrint([foil], { set: null, number: null })?.image_normal ?? null).toBeNull()
+  })
+  it('version spéciale demandée explicitement : gardée', () => {
+    const asked = print('f', 'fin', '500', { highres: true, classic: false })
+    const recent = print('r', 'eoc', '191', { highres: true })
+    expect(pickFrenchPrint([recent, asked], { set: 'fin', number: '500' })?.id).toBe('f')
+  })
+  it('aucune vraie image : l’impression demandée quand même (texte français, image anglaise ajoutée plus tard)', () => {
+    const other = print('x', '9ed', '317', { image: false })
+    const asked = print('p', 'tsp', '269', { image: false })
+    expect(pickFrenchPrint([other, asked], { set: 'tsp', number: '269' })?.id).toBe('p')
   })
 })
 

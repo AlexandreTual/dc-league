@@ -1,3 +1,4 @@
+import { rollDice, rollText } from './dice'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
@@ -64,9 +65,10 @@ export function tokenBadge(card: Pick<CardInstance, 'token'>): 'Jeton' | 'Copie'
   return card.token.copy ? 'Copie' : 'Jeton'
 }
 
-export type CardInfo = { name: string; image: string | null; typeLine: string; faces: CardFace[] | null; hidden: boolean }
+/** `imageLarge` : image 672 px pour les grands affichages (aperçu), null si inconnue. */
+export type CardInfo = { name: string; image: string | null; imageLarge: string | null; typeLine: string; faces: CardFace[] | null; hidden: boolean }
 
-const UNKNOWN: CardInfo = { name: 'une carte', image: null, typeLine: '', faces: null, hidden: true }
+const UNKNOWN: CardInfo = { name: 'une carte', image: null, imageLarge: null, typeLine: '', faces: null, hidden: true }
 
 /** Nom, image et type affichés d'une carte, à partir du catalogue de son propriétaire. */
 export function cardInfo(
@@ -74,7 +76,7 @@ export function cardInfo(
   card: Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown'>,
   lang: 'fr' | 'en',
 ): CardInfo {
-  if (card.token) return { name: card.token.name, image: card.token.image, typeLine: card.token.typeLine, faces: null, hidden: false }
+  if (card.token) return { name: card.token.name, image: card.token.image, imageLarge: null, typeLine: card.token.typeLine, faces: null, hidden: false }
   const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
   const shown = (lang === 'fr' ? entry?.fr : null) ?? entry?.en
   if (!shown) return UNKNOWN
@@ -83,6 +85,8 @@ export function cardInfo(
   return {
     name: face ? (face.printed_name ?? face.name) : (shown.printed_name ?? shown.name),
     image: face?.image_normal ?? shown.image_normal,
+    // Facultative : un catalogue venu d'un serveur de jeu plus ancien n'a pas l'image large.
+    imageLarge: (face ? face.image_large : shown.image_large) ?? null,
     typeLine: face?.type_line ?? shown.type_line,
     faces,
     hidden: card.faceDown,
@@ -267,6 +271,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const n = Math.min(action.count, state.players[action.actor].zones.library.length)
       return log(draw(state, action.actor, n), action.actor, `Pioche ${plural(n, 'carte')}`)
     }
+
+    case 'roll':
+      return { ...state, log: [...state.log, { turn: state.turn, actor: action.actor, text: rollText(action.sides, rollDice(action.sides, action.count, action.seed)), visibleTo: 'all', roll: true }] }
 
     case 'shuffle':
       return log(shuffleLibrary(state, action.actor, action.seed), action.actor, 'Mélange sa bibliothèque')

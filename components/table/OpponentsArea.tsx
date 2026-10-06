@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Heart, LayoutGrid } from 'lucide-react'
 import type { PlayerView } from '@/lib/game/types'
 
+const COLUMNS = ['grid-cols-1', 'grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-5']
+
 /**
  * Moitié haute de la table : les adversaires en bandeaux (vue « Tous ») ou l'un d'eux agrandi,
  * les autres en onglets. Un seul adversaire (Duel) : agrandi d'office.
@@ -43,9 +45,10 @@ export default function OpponentsArea({ view, players, renderStrip, renderBoard 
     )
   }
 
-  const columns = players.length >= 3 ? 'grid-cols-2' : 'grid-cols-1'
+  // Tous les bandeaux côte à côte, sur une seule rangée (4 adversaires à 5 joueurs, 5 bandeaux pour un spectateur).
+  const columns = COLUMNS[Math.min(players.length, 5)]
   return (
-    <div className={`h-full min-h-0 grid ${columns} auto-rows-fr gap-1.5`} data-opponents="all">
+    <div className={`h-full min-h-0 grid ${columns} grid-rows-1 gap-1.5`} data-opponents="all">
       {players.map((p) => <div key={p} className="min-h-0">{renderStrip(p, () => setFocus(p))}</div>)}
     </div>
   )

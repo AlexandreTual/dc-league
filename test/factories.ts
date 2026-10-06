@@ -19,6 +19,7 @@ export function cardRow(overrides: Partial<CardRow> = {}): CardRow {
     colors: [],
     color_identity: [],
     image_normal: 'https://cards.scryfall.io/normal/sol.jpg',
+    image_large: 'https://cards.scryfall.io/large/sol.jpg',
     image_small: 'https://cards.scryfall.io/small/sol.jpg',
     faces: null,
     ...overrides,

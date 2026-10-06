@@ -1,6 +1,6 @@
 import type { Result } from '@/lib/db'
 import { listDeckCards, replaceDeckTokens } from '@/lib/db-cards'
-import { pickFrenchPrint, toCardRow, type ScryfallCard, type ScryfallClient } from './scryfall'
+import { pickFrenchPrint, toCardRow, toFrenchPrint, type FrenchPrint, type ScryfallCard, type ScryfallClient } from './scryfall'
 import type { CardRow, DeckTokenRow } from './types'
 
 /** Table deck_tokens absente : la migration 0008 n'est appliquée qu'à la fusion sur main (aperçu d'une PR). */
@@ -48,9 +48,9 @@ export async function fetchDeckTokens(client: ScryfallClient, sources: TokenSour
   }
   if (byOracle.size === 0) return []
 
-  const frenchByOracle = new Map<string, CardRow[]>()
+  const frenchByOracle = new Map<string, FrenchPrint[]>()
   for (const card of await client.searchFrenchPrints([...byOracle.keys()])) {
-    const row = toCardRow(card)
+    const row = toFrenchPrint(card)
     frenchByOracle.set(row.oracle_id, [...(frenchByOracle.get(row.oracle_id) ?? []), row])
   }
 

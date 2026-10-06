@@ -1,4 +1,4 @@
-// Données locales pour scripts/online-check.mjs : 4 joueurs, une session chacun (jeton connu), un deck importé chacun.
+// Données locales pour scripts/online-check.mjs : 5 joueurs (le 5e pour les parties à 5), une session chacun (jeton connu), un deck importé chacun.
 // Usage : node scripts/seed-online.mjs > /tmp/seed-online.sql && npx wrangler d1 execute dc-league --local --file /tmp/seed-online.sql
 import { createHash } from 'node:crypto'
 
@@ -7,6 +7,7 @@ export const PLAYERS = [
   { id: 'e2e-2', name: 'Bastien' },
   { id: 'e2e-3', name: 'Chloé' },
   { id: 'e2e-4', name: 'Damien' },
+  { id: 'e2e-5', name: 'Émilie' },
 ]
 export const tokenOf = (id) => `jeton-de-test-${id}`
 

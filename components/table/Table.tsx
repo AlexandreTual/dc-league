@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
-  type DragEndEvent, type DragStartEvent,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { Crown, Flag } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
@@ -13,13 +13,15 @@ import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
+import DiceModal from './DiceModal'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
 import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
-import PlayerPill from './PlayerPill'
+import PlayerHeader from './PlayerHeader'
+import PlayerPortrait from './PlayerPortrait'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
@@ -54,6 +56,15 @@ function visibleCards(view: PlayerView): Map<string, VisibleCard> {
   return map
 }
 
+/**
+ * Zone visée : celle sous le pointeur ; à défaut (pointeur entre deux zones), celle que la carte recouvre le plus.
+ * Une grande carte lâchée sur une petite zone de la colonne (commandement) ne tombe pas dans sa voisine.
+ */
+const collision: CollisionDetection = (args) => {
+  const under = pointerWithin(args)
+  return under.length > 0 ? under : rectIntersection(args)
+}
+
 /** Durées des repères d'activité. */
 const HIGHLIGHT_MS = 1500
 const LINE_MS = 4000
@@ -70,6 +81,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef } } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
+  const [diceOpen, setDiceOpen] = useState(false)
+  const [diceCount, setDiceCount] = useState(1)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
@@ -111,7 +124,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       clearTimeout(highlightTimer.current)
       highlightTimer.current = setTimeout(() => setHighlighted(new Set()), HIGHLIGHT_MS)
     }
-    const fresh = added.map((l) => ({ key: ++lineKey.current, author: view.players[l.actor]?.name ?? '', text: l.text }))
+    const fresh = added.map((l) => ({ key: ++lineKey.current, author: l.actor === me ? '' : view.players[l.actor]?.name ?? '', text: l.text, roll: l.roll }))
     setLines((current) => [...current, ...fresh].slice(-MAX_LINES))
     const keys = new Set(fresh.map((l) => l.key))
     setTimeout(() => setLines((current) => current.filter((l) => !keys.has(l.key))), LINE_MS)
@@ -205,13 +218,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         setMenu(null)
         if (pile) closePile(false)
         setTokenOpen(false)
+        setDiceOpen(false)
         setOracle(null)
         setLogOpen(false)
         setSettingsOpen(false)
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || oracle || menu || !canAct) return
+      if (pile || tokenOpen || diceOpen || oracle || menu || !canAct) return
       e.preventDefault()
       if (shortcut === 'undo') return source.undo()
       const actions = {
@@ -225,7 +239,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, oracle, menu, canAct])
+  }, [send, source, closePile, pile, tokenOpen, diceOpen, oracle, menu, canAct])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -299,11 +313,16 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     return items
   }
 
-  /** Pastille d'un joueur (bandeau, plateau agrandi, ma ligne du bas) ; `up` : bulle ouverte vers le haut. */
-  const panelFor = (player: string, onTitleClick?: () => void, up = false) => (
-    <PlayerPill view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} onTitleClick={onTitleClick} up={up} />
+  /**
+   * Ligne portrait (vie en gros) : `column` pour une colonne, `header` pour l'en-tête d'un adversaire ;
+   * `up` : bulle ouverte vers le haut (ma colonne, en bas de l'écran) ; `onTitleClick` : agrandir (bandeau).
+   */
+  const portraitFor = (player: string, size: 'column' | 'header' = 'column', up = false, onTitleClick?: () => void) => (
+    <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
+      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} />
   )
+  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at)
+  const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
   return (
     <div className="relative h-full flex flex-col">
@@ -315,10 +334,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         canAct={canAct}
         canUndo={canAct && source.canUndo}
         canEndTurn={canAct && (source.mode === 'local' || view.activePlayer === me)}
-        life={source.mode === 'local' ? mine?.life : undefined}
         onNextTurn={() => send({ type: 'endTurn' })}
         onDraw={source.mode === 'online' && me ? () => send({ type: 'draw', count: 1 }) : undefined}
-        onLife={(delta) => me && send({ type: 'life', target: me, delta })}
         onLang={() => {
           const next = lang === 'fr' ? 'en' : 'fr'
           setLang(next)
@@ -326,6 +343,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         }}
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
+        onDice={() => setDiceOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
         mana={source.mode === 'local' && mine ? <ManaPool pool={mine.mana} keep={mine.keepMana} editable={canAct} send={send} /> : undefined}
@@ -374,7 +392,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       )}
 
       <div className="relative flex-1 min-h-0 flex flex-col">
-        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
+        <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {opponents.length > 0 && (
             <div className={`${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[38%]'} shrink-0` : 'flex-1'} min-h-0 px-2 pt-2`}>
               <OpponentsArea
@@ -383,17 +401,19 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 renderStrip={(p, focus) => (
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
-                    panel={panelFor(p, focus)}
-                    onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
-                    onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
+                    stacked={opponents.length >= 3}
+                    header={(
+                      <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus)}
+                        onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />
+                    )}
                   />
                 )}
                 renderBoard={(p) => (
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
-                    panel={panelFor(p)}
-                    onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
-                    onPile={(zone, title) => setPile({ title, player: p, zone, mode: 'browse' })}
+                    portrait={portraitFor(p)}
+                    onLibraryMenu={libraryMenuOf(p)}
+                    onPile={pileOf(p)}
                   />
                 )}
               />
@@ -404,7 +424,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              panel={source.mode === 'online' ? panelFor(me, undefined, true) : undefined}
+              portrait={portraitFor(me, 'column', true)}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
@@ -453,6 +473,9 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       )}
       {tokenOpen && (
         <TokenModal deckTokens={source.deckTokens} onCreate={(token) => send({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
+      )}
+      {diceOpen && (
+        <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}
       {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}

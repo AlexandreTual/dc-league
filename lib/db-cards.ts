@@ -48,6 +48,7 @@ function normalizeCard(row: Record<string, unknown>): CardRow {
     colors: parseJson<string[]>(row.colors, []),
     color_identity: parseJson<string[]>(row.color_identity, []),
     image_normal: (row.image_normal as string) ?? null,
+    image_large: (row.image_large as string) ?? null,
     image_small: (row.image_small as string) ?? null,
     faces: parseJson<CardRow['faces']>(row.faces, null),
   }
@@ -55,31 +56,45 @@ function normalizeCard(row: Record<string, unknown>): CardRow {
 
 // ── Cache de cartes ───────────────────────────────────────────────────────────
 
-const CARD_COLUMNS = [
-  'id', 'oracle_id', 'lang', 'name', 'printed_name', 'set_code', 'collector_number', 'released_at',
-  'mana_cost', 'cmc', 'type_line', 'printed_type_line', 'oracle_text', 'printed_text',
-  'colors', 'color_identity', 'image_normal', 'image_small', 'faces', 'fetched_at',
-] as const
+function cardValues(c: CardRow, now: Date): Record<string, unknown> {
+  return {
+    id: c.id, oracle_id: c.oracle_id, lang: c.lang, name: c.name, printed_name: c.printed_name,
+    set_code: c.set_code, collector_number: c.collector_number, released_at: c.released_at,
+    mana_cost: c.mana_cost, cmc: c.cmc, type_line: c.type_line, printed_type_line: c.printed_type_line,
+    oracle_text: c.oracle_text, printed_text: c.printed_text,
+    colors: JSON.stringify(c.colors), color_identity: JSON.stringify(c.color_identity),
+    image_normal: c.image_normal, image_large: c.image_large ?? null, image_small: c.image_small,
+    faces: c.faces ? JSON.stringify(c.faces) : null, fetched_at: now.toISOString(),
+  }
+}
+
+/** Colonne ajoutée par une migration récente : le site peut tourner une ou deux minutes avant elle. */
+const RECENT_COLUMNS = ['image_large']
+
+async function writeCards(db: D1Database, cards: CardRow[], now: Date, columns: string[]) {
+  const updates = columns.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')
+  const sql = `INSERT INTO cards (${columns.join(', ')}) VALUES (${placeholders(columns.length)})
+               ON CONFLICT(id) DO UPDATE SET ${updates}`
+  await db.batch(cards.map((c) => {
+    const values = cardValues(c, now)
+    return db.prepare(sql).bind(...columns.map((col) => values[col]))
+  }))
+}
 
 export async function upsertCards(db: D1Database, cards: CardRow[], now: Date): Promise<Result<true>> {
   if (cards.length === 0) return ok(true)
-  try {
-    const updates = CARD_COLUMNS.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')
-    const sql = `INSERT INTO cards (${CARD_COLUMNS.join(', ')}) VALUES (${placeholders(CARD_COLUMNS.length)})
-                 ON CONFLICT(id) DO UPDATE SET ${updates}`
-    await db.batch(
-      cards.map((c) =>
-        db.prepare(sql).bind(
-          c.id, c.oracle_id, c.lang, c.name, c.printed_name, c.set_code, c.collector_number, c.released_at,
-          c.mana_cost, c.cmc, c.type_line, c.printed_type_line, c.oracle_text, c.printed_text,
-          JSON.stringify(c.colors), JSON.stringify(c.color_identity), c.image_normal, c.image_small,
-          c.faces ? JSON.stringify(c.faces) : null, now.toISOString(),
-        ),
-      ),
-    )
-    return ok(true)
-  } catch (e) {
-    return err((e as Error).message)
+  let columns = Object.keys(cardValues(cards[0], now))
+  for (;;) {
+    try {
+      await writeCards(db, cards, now, columns)
+      return ok(true)
+    } catch (e) {
+      const message = (e as Error).message
+      // Base pas encore migrée : on enregistre sans la colonne absente plutôt que de faire échouer l'import.
+      const missing = RECENT_COLUMNS.find((c) => columns.includes(c) && message.includes(c))
+      if (!missing) return err(message)
+      columns = columns.filter((c) => c !== missing)
+    }
   }
 }
 

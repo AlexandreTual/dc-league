@@ -18,7 +18,7 @@ const [ANA] = PLAYERS
 const ANA_USER = `e2e-${ANA.name}`
 const OLD_PASSWORD = 'ancien-mot-de-passe'
 const NEW_PASSWORD = 'nouveau-mot-de-passe'
-const EMILE = { id: 'e2e-5', name: 'Émile' }
+const EMILE = { id: 'e2e-mail', name: 'Émile' } // hors des joueurs de seed-online (e2e-1…e2e-5)
 
 function check(condition, message) {
   if (!condition) throw new Error(`ÉCHEC : ${message}`)

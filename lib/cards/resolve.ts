@@ -1,7 +1,7 @@
 import { getLookups, saveLookups, upsertCards } from '@/lib/db-cards'
 import { lookupKey } from './parse'
-import { pickFrenchPrint, ScryfallUnavailableError, toCardRow, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
-import type { CardLookup, CardRow, ParsedLine, StoredCardLookup } from './types'
+import { pickFrenchPrint, ScryfallUnavailableError, toCardRow, toFrenchPrint, type FrenchPrint, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
+import type { CardFace, CardLookup, CardRow, ParsedLine, StoredCardLookup } from './types'
 
 export { MAX_BATCH_LINES } from './parse'
 
@@ -45,6 +45,18 @@ function identifier(w: Wanted, byName: boolean): Identifier {
     : { name: frontFace(w.name).trim() }
 }
 
+/** Version française sans vraie image : nom et texte français, image de la version anglaise. */
+function withEnglishImages(fr: FrenchPrint, en: CardRow): CardRow {
+  const { highres: _h, classic: _c, ...row } = fr
+  if (row.image_normal) return row
+  const images = (from: CardFace | CardRow | undefined) => ({
+    image_normal: from?.image_normal ?? null,
+    image_large: from?.image_large ?? null,
+    image_small: from?.image_small ?? null,
+  })
+  return { ...row, ...images(en), faces: row.faces?.map((f, i) => ({ ...f, ...images(en.faces?.[i]) })) ?? null }
+}
+
 /** Ce que l'import utilise du client Scryfall. */
 export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenchPrints'>
 
@@ -69,10 +81,10 @@ async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
   // 2. Impressions françaises, recherchées par oracle_id en une fois.
   const englishRows = new Map([...english].map(([key, card]) => [key, toCardRow(card)]))
   const oracleIds = [...new Set([...englishRows.values()].map((r) => r.oracle_id))]
-  const frenchByOracle = new Map<string, CardRow[]>()
+  const frenchByOracle = new Map<string, FrenchPrint[]>()
   if (oracleIds.length > 0) {
     for (const card of await client.searchFrenchPrints(oracleIds)) {
-      const row = toCardRow(card)
+      const row = toFrenchPrint(card)
       frenchByOracle.set(row.oracle_id, [...(frenchByOracle.get(row.oracle_id) ?? []), row])
     }
   }
@@ -114,7 +126,8 @@ export async function resolveLines(
       const newLookups: CardLookup[] = missing.map((w) => {
         const en = englishRows.get(w.key)
         if (!en) return { key: w.key, en_card_id: null, fr_card_id: null }
-        const fr = pickFrenchPrint(frenchByOracle.get(en.oracle_id) ?? [], { set: w.set, number: w.number })
+        const picked = pickFrenchPrint(frenchByOracle.get(en.oracle_id) ?? [], { set: w.set, number: w.number })
+        const fr = picked && withEnglishImages(picked, en)
         rows.set(en.id, en)
         if (fr) rows.set(fr.id, fr)
         return { key: w.key, en_card_id: en.id, fr_card_id: fr?.id ?? null }

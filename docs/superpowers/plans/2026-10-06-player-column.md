@@ -43,7 +43,7 @@
 - `<PlayerPortrait size="column" | "header" up? … />` : mêmes props que `PlayerPill` plus `size` ; pose `data-panel`, `player-name`, `player-life`
 - `<PlayerColumn {...zoneProps} player me up onLibraryMenu onPile />`
 
-- [ ] **Étape 1 : tests qui échouent.** `lib/game/player-summary.test.ts` :
+- [x] **Étape 1 : tests qui échouent.** `lib/game/player-summary.test.ts` :
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -110,9 +110,9 @@ describe('frameOf', () => {
 
 Le deck de test (`test/factories.ts`) place Kenrith en zone de commandement au départ (`lib/game/setup.ts`). Les deux formats (`'commander' | 'duel'`) ont des commandants.
 
-- [ ] **Étape 2 :** `npx vitest run lib/game/player-summary.test.ts` → échec (module absent).
+- [x] **Étape 2 :** `npx vitest run lib/game/player-summary.test.ts` → échec (module absent).
 
-- [ ] **Étape 3 : implémenter `lib/game/player-summary.ts`.**
+- [x] **Étape 3 : implémenter `lib/game/player-summary.ts`.**
 
 ```ts
 // Règles d'affichage de la colonne joueur : vie basse, cascade du cimetière, portrait, emplacement d'un commandant.
@@ -161,30 +161,30 @@ export function frameOf(colors: string[], typeLine: string): 'W' | 'U' | 'B' | '
 
 Ordre de recherche : le commandement d'abord, puis les autres zones de chaque joueur (un commandant volé peut être sur le champ de bataille d'un autre).
 
-- [ ] **Étape 4 :** les tests passent.
+- [x] **Étape 4 :** les tests passent.
 
-- [ ] **Étape 5 : `zones.tsx`.** Exporter `cardProps`, et `useZone(ref, key?)` : l'identifiant de dépôt devient `dropId(ref) + (key ? ':' + key : '')`, `data` reste `ref`. `onDragEnd` lit `e.over.data.current` : rien à changer dans `Table.tsx`. `ZonePile` reste en place (bandeaux et adversaire agrandi l'utilisent encore jusqu'aux tâches 2 et 3).
+- [x] **Étape 5 : `zones.tsx`.** Exporter `cardProps`, et `useZone(ref, key?)` : l'identifiant de dépôt devient `dropId(ref) + (key ? ':' + key : '')`, `data` reste `ref`. `onDragEnd` lit `e.over.data.current` : rien à changer dans `Table.tsx`. `ZonePile` reste en place (bandeaux et adversaire agrandi l'utilisent encore jusqu'aux tâches 2 et 3).
 
-- [ ] **Étape 6 : `PlayerPortrait.tsx`.** Reprendre `PlayerPill.tsx` (bulle, Échap, clic à côté, badges) avec :
+- [x] **Étape 6 : `PlayerPortrait.tsx`.** Reprendre `PlayerPill.tsx` (bulle, Échap, clic à côté, badges) avec :
   - portrait : `portraitCard` → `<img>` de `cardInfo(...).image`, `object-cover` avec `object-position: 50% 22%` et une légère mise à l'échelle pour cadrer l'illustration ; sinon l'initiale du nom ; 44 px (`column`) ou 32 px (`header`) ;
   - vie : `data-testid="player-life"`, `text-[52px]` (`column`) ou `text-[40px]` (`header`), `leading-none font-bold tabular-nums`, `text-dc-red-light` si `lifeLevel(life) === 'low'` ;
   - − et + : deux boutons à `aria-label` « moins : points de vie » et « plus : points de vie », Maj = ±5, désactivés si `!canAct` ;
   - cadre `border-dc-gold/70` pour le joueur actif, `opacity-50` et nom barré s'il est éliminé ;
   - bulle : `up` comme aujourd'hui ; `w-[24rem] max-w-[90vw]`, `z-[58]`.
 
-- [ ] **Étape 7 : `PileCases.tsx`.**
+- [x] **Étape 7 : `PileCases.tsx`.**
   - `PileCases` : grille de 4 cases (`grid-cols-4 gap-1`), chiffres `text-xl font-bold tabular-nums`, nom `text-[10px] text-dc-muted`. Bib. : `useZone({player, zone:'library'})`, `data-zone="library" data-player data-count`, mini-vignette de 24 px de haut (dos, ou `libraryTop`) ; même `Draggable` `topId(player)` et même `onDoubleClick` que `ZonePile` ; `menuGesture(onLibraryMenu)`. Cim. : `useZone({player, zone:'graveyard'}, 'case')`, bordure dorée, `onClick` → `onPile('graveyard')`. Exil : `useZone({player, zone:'exile'})`, `data-zone="exile" data-player data-count`, `onClick` → `onPile('exile')`. Main : `data-testid="hand-count"` ; prop `handZone` pour poser `data-zone="hand" data-player` (bandeau seulement).
   - `CommandBlock` : `useZone({player, zone:'command'})`, `data-zone="command" data-player data-count`, vignette 34 × 47 px avec les commandants décalés (`COMMANDER_SHIFT`), chacun en `Draggable` avec `tax={taxOf(view, id)}` ; à côté, pour chaque commandant du joueur (`isCommander && owner === player`, toutes zones visibles) : nom, `commanderPlace`, « Taxe : +N ». Sans commandant visible : la vignette vide seule, toujours cible de dépôt.
   - `GraveyardCascade` : `useZone({player, zone:'graveyard'})`, `data-zone="graveyard" data-player data-count`, `flex flex-col justify-end overflow-hidden` (les plus anciennes sortent par le haut), titre « Cimetière » + nombre ; chaque carte de `graveyardTail` en `Draggable` (`cardProps`) : nom (`cardInfo`) sur un liseré `border-2` de la couleur `frameOf`, `-mt-0.5`, ombre portée vers le haut. Clic sur le bloc (hors glisser) → `onPile('graveyard')`.
   - `GraveyardLast` : même zone et mêmes repères que la cascade, une seule ligne : « Cim. : » puis la dernière carte, ou « vide ».
   - Couleurs des liserés, en constantes dans le fichier : W `#d8d2bd`, U `#3a6ea5`, B `#3a3540`, R `#c4553b`, G `#3f7a4a`, multi `#c9a84c`, land `#8b6f4e`, colorless `#8a8a8a`.
 
-- [ ] **Étape 8 : `PlayerColumn.tsx` et `MyBoard.tsx`.**
+- [x] **Étape 8 : `PlayerColumn.tsx` et `MyBoard.tsx`.**
   - `PlayerColumn` : `w-[216px] shrink-0 flex flex-col gap-1.5 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5`, `data-column={player}` ; `PlayerPortrait size="column"`, badges, `PileCases`, `CommandBlock`, `GraveyardCascade` (`flex-1 min-h-0`). Sous 640 px : `max-sm:w-full max-sm:flex-row`, `CommandBlock` et cascade masqués.
   - `MyBoard` : `flex flex-col sm:flex-row gap-2` → `PlayerColumn` (`up`), puis une colonne `flex-1 min-w-0` avec le champ de bataille et la main (`h-[25%]`, toute la largeur). Les quatre `ZonePile` et le `panel` disparaissent.
   - `Table.tsx` : plus de `panelFor(me…)` dans `MyBoard` ; la vie quitte la barre du haut en mode test : retirer les props `life` et `onLife` de `TopBar` (plus utilisées) et leur affichage (`data-testid="life"`, que les scripts n'utilisent pas). En mode test, `PlayerColumn` reçoit `canAct` et `send` comme en ligne : − et + envoient l'action `life` sur moi.
 
-- [ ] **Étape 9 : contrôles navigateur.**
+- [x] **Étape 9 : contrôles navigateur.**
   - `playtest-check.mjs` : remplacer le contrôle « piles en vignettes à droite de la main » par :
 
 ```js
@@ -200,8 +200,9 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
   - Vie basse : retirer 10 points avec Maj + « moins » (deux clics), vérifier que `[data-testid="player-life"]` a la classe `text-dc-red-light`, puis remettre la vie.
   - `online-check.mjs` : les lignes 239-248 cherchent ma pastille dans `board(chloe, ANA.id)` ; elles restent valides si la ligne portrait garde `data-panel` dans le plateau d'Ana. Mettre à jour les commentaires « pastille » → « ligne portrait ».
 
-- [ ] **Étape 10 :** vérifications complètes, captures (dont une avec 6 cartes ou plus au cimetière et la vie à 10 ou moins).
-- [ ] **Étape 11 : commit** `feat(table): colonne joueur, vie et cimetière bien visibles`.
+- [x] **Ajout hors plan :** `Table.tsx` retient la zone sous le pointeur (`pointerWithin`, puis `rectIntersection` à défaut). Sans cela, un commandant lâché sur la petite zone de commandement tombait dans la cascade du cimetière voisine (contrôle « retour en zone de commandement » de `playtest-check`).
+- [x] **Étape 10 :** vérifications complètes, captures (dont une avec 6 cartes ou plus au cimetière et la vie à 10 ou moins).
+- [x] **Étape 11 : commit** `feat(table): colonne joueur, vie et cimetière bien visibles`.
 
 ---
 
@@ -211,11 +212,12 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
 - Modifier : `components/table/OpponentBoard.tsx`, `components/table/Table.tsx`
 - Modifier : `scripts/online-check.mjs` (contrôle Duel), ou un script Duel si `online-check` ne joue qu'à 3 et 4
 
-- [ ] **Étape 1 : contrôle qui échoue.** Partie à 2 (Ana contre Bastien, comptes `e2e-1` et `e2e-2`) : chez Ana, `[data-board="<Bastien>"] [data-column="<Bastien>"]` existe, son bord gauche est aligné (± 2 px) sur celui de `[data-column="<Ana>"]`, et la vie de Bastien (`player-life`) est dans cette colonne. Si `online-check` ne lance pas de Duel, ajouter une courte séquence Duel dans le même script (nouvelle table créée avec deux joueurs).
-- [ ] **Étape 2 :** lancer le contrôle → échec.
-- [ ] **Étape 3 : implémenter.** `OpponentBoard` prend `layout: 'column' | 'header'`. `column` (Duel) : `flex-row` → `PlayerColumn` (sans `up`), puis `flex-1 min-w-0 flex flex-col` avec `OpponentHand` et son `Battlefield`. `header` : inchangé à cette tâche (ligne fine actuelle). `Table.tsx` passe `layout={opponents.length === 1 ? 'column' : 'header'}`.
-- [ ] **Étape 4 :** vérifications complètes, captures du Duel en 1600 × 1000 et 1280 × 720 (la colonne de l'adversaire doit montrer au moins 4 noms de la cascade en 1280 × 720).
-- [ ] **Étape 5 : commit** `feat(table): colonne de l'adversaire en Duel`.
+- [x] **Étape 1 : contrôle qui échoue.** Partie à 2 (Ana contre Bastien, comptes `e2e-1` et `e2e-2`) : chez Ana, `[data-board="<Bastien>"] [data-column="<Bastien>"]` existe, son bord gauche est aligné (± 2 px) sur celui de `[data-column="<Ana>"]`, et la vie de Bastien (`player-life`) est dans cette colonne. Si `online-check` ne lance pas de Duel, ajouter une courte séquence Duel dans le même script (nouvelle table créée avec deux joueurs).
+- [x] **Étape 2 :** lancer le contrôle → échec.
+- [x] **Étape 3 : implémenter.** `OpponentBoard` prend `layout: 'column' | 'header'`. `column` (Duel) : `flex-row` → `PlayerColumn` (sans `up`), puis `flex-1 min-w-0 flex flex-col` avec `OpponentHand` et son `Battlefield`. `header` : inchangé à cette tâche (ligne fine actuelle). `Table.tsx` passe `layout={opponents.length === 1 ? 'column' : 'header'}`.
+- [x] **Étape 4 :** vérifications complètes, captures du Duel en 1600 × 1000 et 1280 × 720 (la colonne de l'adversaire doit montrer au moins 4 noms de la cascade en 1280 × 720).
+- [x] **Ajout hors plan :** en 1280 × 720, la cascade adverse ne montrait aucun nom. Pour tenir au moins 4 noms : plus de titre « Cimetière » dans la cascade (le nombre est dans la case Cim. ; « Cimetière vide » quand il n'y a rien), lignes de 18 px, bloc commandant de 32 px, écarts de la colonne à 4 px. Nouveau contrôle `online-check` : « Duel en 1280 × 720 : au moins 4 noms entiers ».
+- [x] **Étape 5 : commit** `feat(table): colonne de l'adversaire en Duel`.
 
 ---
 
@@ -228,18 +230,20 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
 - Modifier : `scripts/online-check.mjs`
 - Modifier : `docs/superpowers/roadmap.md`
 
-- [ ] **Étape 1 : contrôles qui échouent** (`online-check`, partie à 4) :
+- [x] **Étape 1 : contrôles qui échouent** (`online-check`, partie à 4) :
   - chez Ana, les 3 bandeaux ont le même `y` (± 2 px) : une seule rangée ;
   - `[data-strip="<Bastien>"] [data-panel="<Bastien>"] [data-testid="player-life"]` existe ;
   - `[data-strip="<Bastien>"] [data-zone="graveyard"]` contient la dernière carte qu'il a mise au cimetière ;
   - adversaire agrandi : `[data-board="<Bastien>"] [data-panel="<Bastien>"]` est au-dessus de son `[data-zone="battlefield"]`.
-- [ ] **Étape 2 :** lancer `online-check` → échecs.
-- [ ] **Étape 3 : `PlayerHeader`.** `PlayerPortrait size="header"`, badges sous le nom, puis une ligne `PileCases` (+ `handZone` dans un bandeau) et la petite vignette de commandement (`CommandBlock` en version mini, sans le texte), puis `GraveyardLast`. Le clic sur le nom garde `onTitleClick` (agrandir).
-- [ ] **Étape 4 : bandeau et vue agrandie.**
+- [x] **Étape 2 :** lancer `online-check` → échecs.
+- [x] **Étape 3 : `PlayerHeader`.** `PlayerPortrait size="header"`, badges sous le nom, puis une ligne `PileCases` (+ `handZone` dans un bandeau) et la petite vignette de commandement (`CommandBlock` en version mini, sans le texte), puis `GraveyardLast`. Le clic sur le nom garde `onTitleClick` (agrandir).
+- [x] **Étape 4 : bandeau et vue agrandie.**
   - `OpponentStrip` : remplacer la pastille et la ligne fine par `PlayerHeader` ; garder `data-strip`, `data-row`, `data-strip-card` et les trois rangées. Cadre `border-dc-gold/70` pour le joueur actif.
   - `OpponentBoard` `layout="header"` : `PlayerHeader`, puis `OpponentHand`, puis son `Battlefield`.
   - `OpponentsArea` : `grid-cols-2`, `grid-cols-3` ou `grid-cols-4` selon le nombre d'adversaires, une seule rangée (`grid-rows-1`).
   - Supprimer `PlayerPill` et ce qui ne sert plus dans `zones.tsx`.
-- [ ] **Étape 5 :** vérifications complètes ; captures à 4 joueurs (1600 × 1000, 1280 × 720) et à 5 joueurs en 1280 × 720 (seed avec `e2e-5` si `scripts/seed-online.mjs` ne prévoit que 4 joueurs : l'ajouter dans la même PR). Si les bandeaux sont illisibles à 5 joueurs en 1280 × 720, le signaler dans #80 plutôt que de changer la mise en page.
-- [ ] **Étape 6 : feuille de route.** `docs/superpowers/roadmap.md` : ajouter « Colonne joueur façon MTGO (#80) — **terminé** », et rappeler que la tablette (#81) et les fenêtres séparées (#82) suivent.
-- [ ] **Étape 7 : commit** `feat(table): en-têtes des adversaires et bandeaux sur une rangée`.
+- [x] **Étape 5 :** vérifications complètes ; captures à 4 joueurs (1600 × 1000, 1280 × 720) et à 5 joueurs en 1280 × 720 (seed avec `e2e-5` si `scripts/seed-online.mjs` ne prévoit que 4 joueurs : l'ajouter dans la même PR). Si les bandeaux sont illisibles à 5 joueurs en 1280 × 720, le signaler dans #80 plutôt que de changer la mise en page.
+- [x] **Notes de réalisation :** le contrôle de la partie en ligne se joue à 3 (Ana voit 2 bandeaux), d'où la vérification « une seule rangée » sur 2 bandeaux ; captures à 4 et 5 joueurs prises par un script temporaire. Vue agrandie : l'en-tête tient sur une ligne (`PlayerHeader wide`) pour laisser la hauteur au champ de bataille. Spectateur : jusqu'à 5 bandeaux côte à côte. `e2e-5` (Émilie) ajouté au seed et à `CLAUDE.md`.
+- [x] **Retour de l'utilisateur après essai (6 octobre) :** champ de bataille des adversaires peu lisible. `PlayerHeader` devient une colonne compacte (184 px) à gauche de chaque bandeau, cases sur deux rangées ; rangées sur toute la hauteur (l'une sous l'autre à partir de 3 adversaires) ; cartes de 80 px (2 adversaires) ou 56 px (3 et plus) au lieu de 40 px. Adversaire agrandi : même colonne qu'en Duel (`OpponentBoard` n'a plus de disposition `header`). Contrôles `online-check` adaptés : « bandeau : colonne à gauche, rangées sur toute la hauteur », « vue agrandie : colonne d'Ana à gauche de son champ de bataille ».
+- [x] **Étape 6 : feuille de route.** `docs/superpowers/roadmap.md` : ajouter « Colonne joueur façon MTGO (#80) — **terminé** », et rappeler que la tablette (#81) et les fenêtres séparées (#82) suivent.
+- [x] **Étape 7 : commit** `feat(table): en-têtes des adversaires et bandeaux sur une rangée`.

@@ -10,7 +10,7 @@ const now = new Date('2026-10-04T12:00:00Z')
 function sc(id: string, oracle: string, name: string, set: string, cn: string, lang = 'en'): ScryfallCard {
   return {
     id, oracle_id: oracle, lang, name, set, collector_number: cn, cmc: 1, type_line: 'Artifact',
-    colors: [], color_identity: [], image_uris: { normal: `https://img/${id}.jpg`, small: `https://img/s/${id}.jpg` },
+    colors: [], color_identity: [], image_uris: { normal: `https://img/${id}.jpg`, large: `https://img/l/${id}.jpg`, small: `https://img/s/${id}.jpg` },
     ...(lang === 'fr' ? { printed_name: `${name} (FR)` } : {}),
   }
 }
@@ -21,6 +21,7 @@ const EN = [
   sc('sol-cmr', 'o-sol', 'Sol Ring', 'cmr', '472'),
   sc('signet', 'o-signet', 'Arcane Signet', 'c21', '236'),
   sc('remora', 'o-remora', 'Mystic Remora', 'ice', '87'),
+  sc('ruins', 'o-ruins', 'Academy Ruins', 'tsp', '269'),
   sc('limdul', 'o-limdul', 'Lim-Dûl the Necromancer', 'hml', '12'),
   sc('fire-ice', 'o-fire-ice', 'Fire // Ice', 'mh2', '290'),
 ]
@@ -28,6 +29,8 @@ const FR = [
   sc('sol-cmr-fr', 'o-sol', 'Sol Ring', 'cmr', '472', 'fr'),
   sc('sol-c21-fr', 'o-sol', 'Sol Ring', 'c21', '263', 'fr'),
   sc('signet-fr', 'o-signet', 'Arcane Signet', 'c21', '236', 'fr'),
+  // Seule version française d'Academy Ruins : texte sans scan (image provisoire de Scryfall).
+  { ...sc('ruins-fr', 'o-ruins', 'Academy Ruins', 'tsp', '269', 'fr'), image_status: 'placeholder' },
 ]
 
 function fakeClient() {
@@ -72,6 +75,18 @@ beforeEach(() => {
 })
 
 describe('resolveLines', () => {
+  it('version française sans vraie image : nom français, image anglaise', async () => {
+    const { client } = fakeClient()
+    await resolveLines(db, client, [line('Academy Ruins', 'TSP', '269')], now)
+    const lookup = (await getLookups(db, ['academy ruins|tsp|269'])).data!['academy ruins|tsp|269']
+    expect(lookup.fr_card_id).toBe('ruins-fr')
+    const fr = (await getCards(db, ['ruins-fr'])).data!['ruins-fr']
+    expect(fr.printed_name).toBe('Academy Ruins (FR)')
+    expect(fr.image_normal).toBe('https://img/ruins.jpg')
+    expect(fr.image_small).toBe('https://img/s/ruins.jpg')
+    expect(fr.image_large).toBe('https://img/l/ruins.jpg')
+  })
+
   it('résout une carte avec édition, en français de la même édition', async () => {
     const { client } = fakeClient()
     const r = await resolveLines(db, client, [line('Sol Ring', 'C21', '263')], now)
