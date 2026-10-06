@@ -1,5 +1,5 @@
 // Vérifie l'affichage à 375 px de large (téléphone) : pas de défilement horizontal, menu repliable,
-// confirmations de l'admin avec texte, bouton « Réinitialiser le score » visible.
+// confirmations de l'admin avec texte (une seule « Supprimer la saison ? » à la fois), bouton « Réinitialiser le score » visible.
 // Usage : node scripts/mobile-check.mjs http://localhost:8788 <dossier-captures> [inscriptions]
 // Prérequis : seed-online.mjs appliqué, u-e2e-1 admin et une saison active avec au moins un match joué.
 // Avec « inscriptions » : saison active sans match, au moins un joueur inscrit (section Participants) ;
@@ -101,6 +101,8 @@ await page.screenshot({ path: `${out}/admin-confirmation-ligue.png` })
 await page.getByRole('button', { name: 'Non' }).first().click()
 await page.getByRole('button', { name: 'Supprimer la saison' }).first().click()
 check(await page.getByText('Supprimer la saison ?').first().isVisible(), 'admin : texte « Supprimer la saison ? » visible')
+const deleteConfirmations = await page.getByText('Supprimer la saison ?').count()
+check(deleteConfirmations === 1, `admin : une seule confirmation « Supprimer la saison ? » ouverte (${deleteConfirmations})`)
 check((await overflow()) <= 0, 'admin, confirmation ouverte : pas de défilement horizontal')
 await page.screenshot({ path: `${out}/admin-confirmation-saison.png` })
 

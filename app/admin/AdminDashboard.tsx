@@ -857,28 +857,10 @@ export default function AdminDashboard({
       {/* Section 3: Match management */}
       {leagueStarted && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-fantasy font-bold text-dc-text text-lg flex items-center gap-2">
-              <Zap className="w-5 h-5 text-dc-gold" />
-              Matchs — {completedCount}/{matches.length} joués
-            </h2>
-            {confirmDelete ? (
-              <div className="flex items-center gap-2">
-                <span className="text-dc-red-light text-xs">Supprimer la saison ?</span>
-                <button onClick={handleDeleteLeague} disabled={deleteLoading} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all disabled:opacity-40">
-                  {deleteLoading ? '…' : 'Oui'}
-                </button>
-                <button onClick={() => setConfirmDelete(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">
-                  Non
-                </button>
-              </div>
-            ) : (
-              <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-1.5 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30">
-                <Trash2 className="w-3.5 h-3.5" />
-                Supprimer la saison
-              </button>
-            )}
-          </div>
+          <h2 className="font-fantasy font-bold text-dc-text text-lg flex items-center gap-2">
+            <Zap className="w-5 h-5 text-dc-gold" />
+            Matchs — {completedCount}/{matches.length} joués
+          </h2>
 
           {Object.entries(rounds)
             .sort(([a], [b]) => Number(a) - Number(b))
