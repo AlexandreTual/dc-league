@@ -2,7 +2,7 @@
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
 import type { ClientAction } from './room'
-import { OPENING_HAND, type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
+import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
 
 export type MenuCommand =
   | { kind: 'action'; action: ClientAction }
@@ -15,7 +15,8 @@ export type MenuEntry =
   | { kind: 'title'; label: string }
   | { kind: 'separator' }
   | { kind: 'item'; label: string; commands: MenuCommand[] }
-  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand }
+  /** `set` : valeur tapée directement (facultatif), traduite en commandes ; vide si rien ne change. */
+  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand; set?: (n: number) => MenuCommand[] }
 
 export type MenuContext = {
   me: string | null
@@ -44,6 +45,7 @@ const others = (ctx: MenuContext, me: string) =>
   Object.keys(ctx.view.players).filter((p) => p !== me && !ctx.view.players[p].eliminated)
 
 const MAX_COPIES = 20
+const MAX_COUNTERS = 999
 const clampPct = (n: number) => Math.max(0, Math.min(100, n))
 
 /** Le jeton copie reprend la carte telle qu'elle est affichée ; un jeton copié recopie son TokenData. */
@@ -85,6 +87,12 @@ function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: b
     kind: 'stepper', label, value,
     minus: act({ type: 'counter', id, kind, delta: -1 }),
     plus: act({ type: 'counter', id, kind, delta: 1 }),
+    // Un écart plutôt qu'une valeur absolue : le serveur de jeu en production comprend déjà cette action.
+    set: (n) => {
+      if (!Number.isFinite(n)) return []
+      const delta = Math.max(0, Math.min(MAX_COUNTERS, Math.floor(n))) - value
+      return delta === 0 ? [] : [act({ type: 'counter', id, kind, delta })]
+    },
   })
   const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
@@ -95,16 +103,12 @@ function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: b
 }
 
 /**
- * Cartes encore à mettre au-dessous après un mulligan, main pas encore gardée : la main doit
- * redescendre à 7 moins une carte par mulligan au-delà du premier (gratuit). Le moteur ne compte pas
- * les cartes déjà mises dessous : on part de la taille de la main, bornée par la dette du mulligan
- * (une carte piochée avant de garder, en ligne, ne crée pas de dette).
+ * Mulligan en cours (au moins un mulligan, main pas encore gardée) : le joueur peut mettre au-dessous
+ * autant de cartes de sa main qu'il le veut. Les joueurs gèrent eux-mêmes le nombre (mulligans gratuits
+ * entre amis) : le jeu ne le calcule ni ne l'impose.
  */
-export function cardsToBottom(view: PlayerView, player: string): number {
-  const p = view.players[player]
-  if (!p || p.kept) return 0
-  const owed = Math.max(0, p.mulligans - 1)
-  return Math.min(owed, Math.max(0, p.zones.hand.length - (OPENING_HAND - owed)))
+export function inMulligan(player: { kept: boolean; mulligans: number } | undefined): boolean {
+  return !!player && !player.kept && player.mulligans > 0
 }
 
 /** Entrées pour une carte visible dans une zone donnée ; vide pour un spectateur ou une partie finie. */
@@ -137,8 +141,8 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
 
   const entries: MenuEntry[] = [title]
   if (zone.zone === 'hand') {
-    // Mulligan à payer : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone).
-    if (cardsToBottom(ctx.view, me) > 0) {
+    // Mulligan en cours : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone).
+    if (inMulligan(ctx.view.players[me])) {
       entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
     }
     entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))

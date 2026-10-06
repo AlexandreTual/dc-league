@@ -9,7 +9,10 @@ import { libraryTop, type CardHandlers } from './zones'
 
 const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terrains']] as const
 
-/** Bandeau compact d'un adversaire : compteurs, main et bibliothèque en nombre, piles, champ de bataille trié en trois colonnes. */
+/**
+ * Bandeau compact d'un adversaire (vue « Tous ») : sa pastille et une ligne fine (main et bibliothèque en nombre,
+ * commandant, cimetière, exil), puis son champ de bataille trié en trois rangées sur toute la largeur.
+ */
 export default function OpponentStrip({ view, player, catalogs, lang, handlers, highlighted, panel, onPile, onLibraryMenu }: {
   view: PlayerView
   player: string
@@ -44,58 +47,57 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
     </div>
   )
 
-  const pile = (zone: 'graveyard' | 'exile', title: string) => {
+  /** Cimetière ou exil : mini-vignette de la dernière carte arrivée, libellé court ; `title` nomme la fenêtre ouverte au clic. */
+  const pile = (zone: 'graveyard' | 'exile', label: string, title: string) => {
     const cards = visible(zones[zone])
     const top = cards.at(-1)
     return (
-      <button className="flex items-center gap-1 text-[11px] text-dc-muted hover:text-dc-text" data-zone={zone} data-player={player} onClick={() => onPile(zone, title)}>
+      <button className="flex items-center gap-1 hover:text-dc-text" data-zone={zone} data-player={player} data-count={zones[zone].length} onClick={() => onPile(zone, title)}>
         {top ? <div className="h-6"><GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" /></div> : <div className="h-6 aspect-[63/88] rounded border border-dashed border-dc-border" />}
-        {title} ({zones[zone].length})
+        {label} <span className="text-dc-text">{zones[zone].length}</span>
       </button>
     )
   }
 
+  // Pas d'overflow-hidden ici : la bulle de la pastille déborde sous le bandeau.
   return (
-    <div className="h-full min-h-0 flex flex-col gap-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/30 p-1.5" data-strip={player}>
-      {panel}
-      <div className="flex-1 min-h-0 flex gap-2">
-        <div className="w-28 shrink-0 flex flex-col gap-0.5 overflow-hidden text-[11px] text-dc-muted">
-          <span data-zone="hand" data-player={player}>Main : <span className="text-dc-text" data-testid="hand-count">{zones.hand.length}</span></span>
-          <span data-zone="library" data-player={player} className={`flex items-center gap-1 cursor-context-menu ${longPressClass}`} {...menuGesture(onLibraryMenu)}>
-            {top && (
-              <span className="h-6 shrink-0" onMouseEnter={() => handlers.onHover(top.id)} onMouseLeave={() => handlers.onHover(null)}>
-                <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
-              </span>
-            )}
-            <span>Bibliothèque : <span className="text-dc-text">{zones.library.count}</span></span>
-          </span>
-
-          {visible(zones.command).length > 0 && (
-            <div className="flex items-center gap-1" data-zone="command" data-player={player}>
-              {visible(zones.command).map((c) => (
-                <div key={c.id} className={`h-6 ${longPressClass}`} title={cardInfo(catalogs[c.owner], c, lang).name}
-                  {...menuGesture((at) => handlers.onContextMenu(c.id, { player, zone: 'command' }, at))}
-                  onMouseEnter={() => handlers.onHover(c.id)} onMouseLeave={() => handlers.onHover(null)}>
-                  <GameCard card={c} catalog={catalogs[c.owner]} lang={lang} className="h-full" />
-                </div>
-              ))}
-              Commandement
-            </div>
+    <div className="h-full min-h-0 flex flex-col gap-1 rounded-xl border border-dc-border bg-dc-surface/30 p-1.5" data-strip={player}>
+      <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-dc-muted">
+        {panel}
+        <span data-zone="hand" data-player={player}>Main : <span className="text-dc-text" data-testid="hand-count">{zones.hand.length}</span></span>
+        <span data-zone="library" data-player={player} data-count={zones.library.count} className={`flex items-center gap-1 cursor-context-menu ${longPressClass}`} {...menuGesture(onLibraryMenu)}>
+          {top && (
+            <span className="h-6 shrink-0" onMouseEnter={() => handlers.onHover(top.id)} onMouseLeave={() => handlers.onHover(null)}>
+              <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
+            </span>
           )}
-          {pile('graveyard', 'Cimetière')}
-          {pile('exile', 'Exil')}
-        </div>
-        <div className="flex-1 min-w-0 grid grid-cols-[2fr_1fr_1fr] gap-2 overflow-y-auto" data-zone="battlefield" data-player={player}>
-          {ROWS.map(([key, label]) => (
-            <div key={key} className="min-w-0 flex flex-col gap-0.5" data-row={key}>
-              <span className="text-[10px] text-dc-muted">{label}</span>
-              <div className="flex flex-wrap content-start items-center gap-1.5">
-                {rows[key].map((stack: Stack) => mini(stack.cards[0], 'battlefield', stack.count))}
-                {key === 'others' && rows.hidden > 0 && Array.from({ length: rows.hidden }, (_, i) => <CardBack key={`x${i}`} className="h-10" />)}
-              </div>
+          Bib. <span className="text-dc-text">{zones.library.count}</span>
+        </span>
+        {visible(zones.command).length > 0 && (
+          <span className="flex items-center gap-1" data-zone="command" data-player={player}>
+            {visible(zones.command).map((c) => (
+              <span key={c.id} className={`h-6 ${longPressClass}`} title={cardInfo(catalogs[c.owner], c, lang).name}
+                {...menuGesture((at) => handlers.onContextMenu(c.id, { player, zone: 'command' }, at))}
+                onMouseEnter={() => handlers.onHover(c.id)} onMouseLeave={() => handlers.onHover(null)}>
+                <GameCard card={c} catalog={catalogs[c.owner]} lang={lang} className="h-full" />
+              </span>
+            ))}
+            Cmd
+          </span>
+        )}
+        {pile('graveyard', 'Cim.', 'Cimetière')}
+        {pile('exile', 'Exil', 'Exil')}
+      </div>
+      <div className="flex-1 min-h-0 grid grid-cols-[2fr_1fr_1fr] gap-2 overflow-y-auto" data-zone="battlefield" data-player={player}>
+        {ROWS.map(([key, label]) => (
+          <div key={key} className="min-w-0 flex flex-col gap-0.5" data-row={key}>
+            <span className="text-[10px] text-dc-muted">{label}</span>
+            <div className="flex flex-wrap content-start items-center gap-1.5">
+              {rows[key].map((stack: Stack) => mini(stack.cards[0], 'battlefield', stack.count))}
+              {key === 'others' && rows.hidden > 0 && Array.from({ length: rows.hidden }, (_, i) => <CardBack key={`x${i}`} className="h-10" />)}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   )

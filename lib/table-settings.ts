@@ -1,13 +1,17 @@
-// Réglages d'affichage de la table (quadrillage, couleur du fond), mémorisés sur l'appareil.
+// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes), mémorisés sur l'appareil.
 
 export type TableSettings = {
   /** Quadrillage discret sur les champs de bataille. */
   grid: boolean
   /** Couleur du fond des champs de bataille (#rrggbb), ou null pour le fond par défaut. */
   background: string | null
+  /** Taille des cartes des grands champs de bataille (1 = taille automatique). */
+  cardScale: number
 }
 
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null }
+/** Tailles proposées dans Réglages (80 % à 150 %). */
+export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1 }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -19,7 +23,9 @@ export function parseTableSettings(raw: string | null): TableSettings {
     if (typeof data !== 'object' || data === null || Array.isArray(data)) return DEFAULT_TABLE_SETTINGS
     if (typeof data.grid !== 'boolean') return DEFAULT_TABLE_SETTINGS
     if (data.background !== null && !(typeof data.background === 'string' && HEX.test(data.background))) return DEFAULT_TABLE_SETTINGS
-    return { grid: data.grid, background: data.background?.toLowerCase() ?? null }
+    // Taille absente (sauvegarde d'avant) ou hors liste : 100 %, sans perdre les autres réglages.
+    const cardScale = CARD_SCALES.includes(data.cardScale) ? data.cardScale : 1
+    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale }
   } catch {
     return DEFAULT_TABLE_SETTINGS
   }
@@ -57,4 +63,9 @@ export function battlefieldStyle(settings: TableSettings): { backgroundColor?: s
     style.backgroundSize = `${GRID_SIZE}px ${GRID_SIZE}px`
   }
   return style
+}
+
+/** Largeur d'une carte sur un grand champ de bataille : 7 % de sa largeur, au moins 72 px, multipliés par le réglage. */
+export function cardSize(scale: number): { width: string; minWidth: string } {
+  return { width: `${Math.round(7 * scale * 10) / 10}%`, minWidth: `${Math.round(72 * scale)}px` }
 }

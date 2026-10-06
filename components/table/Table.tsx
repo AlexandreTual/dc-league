@@ -8,7 +8,7 @@ import {
 import { Crown, Flag } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
-import { cardMenu, cardsToBottom, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -19,7 +19,6 @@ import MyBoard from './MyBoard'
 import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
-import PlayerPanel from './PlayerPanel'
 import PlayerPill from './PlayerPill'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
@@ -28,12 +27,11 @@ import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
 import OracleModal from '@/components/OracleModal'
+import { readLang, saveLang } from '@/lib/cards/lang'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
-
-const LANG_KEY = 'dc-card-lang'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
 const CARD_RATIO = 63 / 88
@@ -43,14 +41,6 @@ type PileState = {
   player: string
   zone: 'library' | 'graveyard' | 'exile'
   mode: 'look' | 'search' | 'browse'
-}
-
-function readLang(): Lang {
-  try {
-    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'fr'
-  } catch {
-    return 'fr'
-  }
 }
 
 /** Toutes les cartes visibles de la vue, par identifiant (y compris celles regardées en bibliothèque). */
@@ -77,7 +67,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[] } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef } } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
@@ -153,9 +143,24 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const toItems = (entries: MenuEntry[]): MenuItem[] =>
     entries.map((e) => {
       if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands) }
-      if (e.kind === 'stepper') return { kind: 'stepper', label: e.label, value: e.value, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]) }
+      if (e.kind === 'stepper') {
+        const set = e.set
+        return { kind: 'stepper', label: e.label, value: e.value, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
+          onSet: set && ((n: number) => run(set(n))) }
+      }
       return e
     })
+
+  /** Menu d'une carte reconstruit à chaque rendu : les marqueurs affichés (et l'écart d'une valeur tapée) suivent la partie. */
+  const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef } }): MenuEntry[] => {
+    const { id, zone } = m.card ?? {}
+    if (!id || !zone || zone.zone === 'library') return m.entries
+    const card = cards.get(id)
+    const z = zone.zone
+    if (!card || !view.players[zone.player]?.zones[z].some((c) => !c.hidden && c.id === id)) return m.entries
+    const fresh = cardMenu(menuCtx, card, zone)
+    return fresh.length > 0 ? fresh : m.entries
+  }
 
   const openMenu = (entries: MenuEntry[], at: MenuPoint) => {
     if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries })
@@ -231,7 +236,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     },
     onContextMenu: (id, zone, at) => {
       const card = cards.get(id)
-      if (card) openMenu(cardMenu(menuCtx, card, zone), at)
+      const entries = card ? cardMenu(menuCtx, card, zone) : []
+      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone } })
     },
     onHover: (id) => setHovered(id),
   }
@@ -274,7 +280,6 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
 
   const mine = me ? view.players[me] : null
   const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
-  const toBottom = me ? cardsToBottom(view, me) : 0
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
@@ -294,11 +299,11 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     return items
   }
 
-  /** Pastille (moi, plateau agrandi) ou panneau compact (bandeau, jusqu'à la tâche 4). */
-  const panelFor = (player: string, onTitleClick?: () => void, kind: 'pill' | 'pill-up' | 'compact' = 'pill') => {
-    const common = { view, player, catalogs, lang, host: source.online?.host, online: source.online?.players, canAct, send, onTitleClick }
-    return kind === 'compact' ? <PlayerPanel {...common} compact /> : <PlayerPill {...common} up={kind === 'pill-up'} />
-  }
+  /** Pastille d'un joueur (bandeau, plateau agrandi, ma ligne du bas) ; `up` : bulle ouverte vers le haut. */
+  const panelFor = (player: string, onTitleClick?: () => void, up = false) => (
+    <PlayerPill view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
+      canAct={canAct} send={send} onTitleClick={onTitleClick} up={up} />
+  )
 
   return (
     <div className="relative h-full flex flex-col">
@@ -317,7 +322,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         onLang={() => {
           const next = lang === 'fr' ? 'en' : 'fr'
           setLang(next)
-          try { localStorage.setItem(LANG_KEY, next) } catch { /* préférence non mémorisée */ }
+          saveLang(next)
         }}
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
@@ -361,7 +366,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         <div className="px-3 py-2 text-sm bg-dc-gold/10 border-b border-dc-gold/30 text-dc-gold flex items-center gap-3" data-testid="mulligan-banner">
           <span>
             {mine.mulligans === 0 ? 'Main de départ' : `Mulligan n°${mine.mulligans}`}
-            {toBottom > 0 && ` : mets ${toBottom} carte(s) en dessous de ta bibliothèque (menu de la carte : « Mettre au-dessous », ou Maj + glisser sur la bibliothèque)`}
+            {mine.mulligans > 0 && ' : mets au-dessous les cartes convenues (menu de la carte : « Mettre au-dessous », ou Maj + glisser), puis Garder'}
           </span>
           <button className="px-3 py-1 rounded-lg bg-dc-gold/20 border border-dc-gold/40" onClick={() => send({ type: 'keep' })}>Garder</button>
           <button className="px-3 py-1 rounded-lg border border-dc-gold/40" onClick={() => send({ type: 'mulligan' })}>Mulligan</button>
@@ -371,14 +376,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       <div className="relative flex-1 min-h-0 flex flex-col">
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {opponents.length > 0 && (
-            <div className={`${me ? 'h-[42%] shrink-0' : 'flex-1'} min-h-0 px-2 pt-2`}>
+            <div className={`${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[38%]'} shrink-0` : 'flex-1'} min-h-0 px-2 pt-2`}>
               <OpponentsArea
                 view={view}
                 players={opponents}
                 renderStrip={(p, focus) => (
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
-                    panel={panelFor(p, focus, 'compact')}
+                    panel={panelFor(p, focus)}
                     onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
                     onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
                   />
@@ -399,7 +404,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              panel={source.mode === 'online' ? panelFor(me, undefined, 'pill-up') : undefined}
+              panel={source.mode === 'online' ? panelFor(me, undefined, true) : undefined}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
@@ -425,7 +430,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(menu.entries)} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}

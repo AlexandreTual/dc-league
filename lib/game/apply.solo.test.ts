@@ -1,7 +1,7 @@
 // Cas repris de l'ancien moteur solo, joués à un seul joueur sur le nouveau moteur.
 import { describe, it, expect } from 'vitest'
 import { card, run, setupFor, start } from '@/test/game-fixtures'
-import { applyAction, bottomCount, cardData, tokenBadge } from './apply'
+import { applyAction, cardData, tokenBadge } from './apply'
 import { zoneOf } from './rules'
 import type { GameAction, GameState, TokenData } from './types'
 
@@ -41,13 +41,13 @@ describe('start et pioche', () => {
     expect(texts(s).at(-1)).toBe('Bibliothèque vide')
   })
 
-  it('second mulligan : une carte en dessous', () => {
+  it('mulligans comptés, sans nombre de cartes à mettre dessous dans le journal', () => {
     const first = solo({ type: 'mulligan', actor: P, seed: 9 })
     expect(total(first)).toBe(total(solo()))
-    expect(bottomCount(first, P)).toBe(0)
+    expect(texts(first).at(-1)).toBe('Mulligan n°1')
     const second = applyAction(first, { type: 'mulligan', actor: P, seed: 10 })
-    expect(bottomCount(second, P)).toBe(1)
-    expect(texts(second).at(-1)).toBe('Mulligan n°2 : met 1 carte(s) en dessous')
+    expect(second.players[P].mulligans).toBe(2)
+    expect(texts(second).at(-1)).toBe('Mulligan n°2')
   })
 
   it('endTurn en solo : tour suivant, dégagement et pioche', () => {

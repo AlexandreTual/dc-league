@@ -1,7 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
-import type { TableSettings } from '@/lib/table-settings'
+import { CARD_SCALES, type TableSettings } from '@/lib/table-settings'
 
 /** Couleur proposée par le sélecteur quand le fond par défaut est utilisé (proche du fond actuel). */
 const DEFAULT_PICKER = '#0e0e14'
@@ -43,6 +43,13 @@ export default function TableSettingsPanel({ settings, onChange, onClose }: {
             Par défaut
           </button>
         </div>
+        <label className="flex items-center gap-2 text-sm text-dc-text">
+          Taille des cartes
+          <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.cardScale}
+            onChange={(e) => onChange({ ...settings, cardScale: Number(e.target.value) })} aria-label="Taille des cartes">
+            {CARD_SCALES.map((s) => <option key={s} value={s}>{Math.round(s * 100)} %</option>)}
+          </select>
+        </label>
         <p className="text-xs text-dc-muted">Mémorisé sur cet appareil.</p>
       </div>
     </>

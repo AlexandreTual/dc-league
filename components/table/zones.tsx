@@ -2,11 +2,11 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import { taxOf } from '@/lib/game/apply'
-import type { Catalog, CardView, PlayerView, PlayerZone, VisibleCard, ZoneRef } from '@/lib/game/types'
+import type { Catalog, CardView, PlayerView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
-import { battlefieldStyle, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
+import { battlefieldStyle, cardSize, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
 
 /** Identifiant de dépôt d'une zone : « joueur:zone ». */
 export const dropId = (ref: ZoneRef) => `${ref.player}:${ref.zone}`
@@ -30,7 +30,7 @@ export type ZoneProps = {
   interactive: boolean
   /** Cartes à mettre en évidence (repères d'activité). */
   highlighted?: Set<string>
-  /** Réglages d'affichage (quadrillage, couleur du fond). */
+  /** Réglages d'affichage (quadrillage, couleur du fond, taille des cartes). */
   settings?: TableSettings
 }
 
@@ -62,16 +62,18 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'battlefield' }
   const { setNodeRef, highlight } = useZone(ref)
+  const settings = props.settings ?? DEFAULT_TABLE_SETTINGS
+  const size = cardSize(settings.cardScale)
   return (
-    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(props.settings ?? DEFAULT_TABLE_SETTINGS)}
+    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(settings)}
       className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${highlight}`}>
       <span className="absolute top-2 left-3 text-dc-muted text-xs pointer-events-none">{props.label ?? 'Champ de bataille'}</span>
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
           key={card.id}
           {...cardProps(card.id, ref, props)}
-          className="absolute w-[7%] min-w-[72px]"
-          style={{ left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${card.tapped ? 90 : 0}deg)`, transition: 'transform 150ms' }}
+          className="absolute"
+          style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${card.tapped ? 90 : 0}deg)`, transition: 'transform 150ms' }}
         >
           <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
         </Draggable>
@@ -92,7 +94,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative flex-1 min-w-0 h-full flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${highlight}`}
+      className={`relative flex-1 min-w-0 min-h-0 flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${highlight}`}
       {...press}
     >
       <span className="absolute top-1 left-3 text-dc-muted text-xs pointer-events-none">Main ({hand.length})</span>
@@ -147,25 +149,24 @@ export function OpponentHand(props: ZoneProps) {
   )
 }
 
-const PILE_LABELS: Record<PlayerZone, string> = {
-  command: 'Commandement',
-  library: 'Bibliothèque',
-  graveyard: 'Cimetière',
-  exile: 'Exil',
-  hand: 'Main',
-  battlefield: 'Champ de bataille',
+/** Nom court affiché sous une pile, suivi du nombre de cartes. */
+const PILE_LABELS: Record<'command' | 'library' | 'graveyard' | 'exile', string> = {
+  command: 'Cmd', library: 'Bib.', graveyard: 'Cim.', exile: 'Exil',
 }
 
+/** Décalage d'un commandant sur le précédent, en largeur de carte (deux commandants légèrement décalés). */
+const COMMANDER_SHIFT = 0.4
+
 /**
- * Pile latérale. Bibliothèque : dos de carte, ou la carte du dessus face visible quand elle est connue ;
+ * Pile en vignette au format carte (à droite de ma main ; `mini` sur la ligne fine d'un adversaire agrandi).
+ * Bibliothèque : dos de carte, ou la carte du dessus face visible quand elle est connue ;
  * seul son propriétaire peut la glisser (identifiant `top:<joueur>`, résolu par le moteur avec moveTop).
  * Le clic droit (ou l'appui long) y ouvre toujours le menu de la bibliothèque.
  */
 export function ZonePile(props: ZoneProps & {
   zone: 'command' | 'library' | 'graveyard' | 'exile'
   me: string | null
-  /** Pile réduite (plateau agrandi d'un adversaire, où la hauteur manque). */
-  compact?: boolean
+  size: 'tile' | 'mini'
   onPileClick?: () => void
   onPileContextMenu?: (at: MenuPoint) => void
 }) {
@@ -181,21 +182,25 @@ export function ZonePile(props: ZoneProps & {
   const top = zone === 'library' ? libraryTop(view, player) : null
   const topFace = top
     ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
-    : <CardBack className="h-full" />
+    : <CardBack className="h-full" bare={props.size === 'mini'} />
   const hoverTop = top ? (h: boolean) => props.handlers.onHover(h ? top.id : null) : undefined
   const press = menuGesture(props.onPileContextMenu)
+  // Plusieurs commandants : la vignette s'élargit pour les montrer décalés.
+  const span = 1 + COMMANDER_SHIFT * Math.max(0, cards.length - 1)
+  const mini = props.size === 'mini'
   return (
     <div
       ref={setNodeRef}
       data-zone={zone}
       data-player={player}
-      className={`relative rounded-xl border border-dc-border bg-dc-surface/60 ${props.compact ? 'p-1 gap-0.5' : 'p-2 gap-1'} flex flex-col items-center min-h-0 ${props.onPileContextMenu ? longPressClass : ''} ${highlight}`}
+      data-count={count}
+      className={`relative h-full shrink-0 flex flex-col items-center gap-0.5 rounded-lg ${props.onPileClick ? 'cursor-pointer' : ''} ${props.onPileContextMenu ? longPressClass : ''} ${highlight}`}
+      title={mini ? undefined : `${PILE_LABELS[zone]} ${count}`}
       onClick={props.onPileClick}
       {...press}
     >
-      <span className={`text-dc-muted ${props.compact ? 'text-[10px] leading-tight truncate max-w-full' : 'text-xs'}`}>{PILE_LABELS[zone]} ({count})</span>
-      <div className={`flex-1 min-h-0 w-full flex ${zone === 'command' ? 'gap-1' : ''} justify-center`}>
-        {empty && <div className="aspect-[63/88] h-full rounded-[6%] border border-dashed border-dc-border" />}
+      <div className={`relative ${mini ? 'h-[calc(100%-12px)]' : 'h-[calc(100%-14px)]'}`} style={{ aspectRatio: `${63 * span} / 88` }}>
+        {empty && <div className="h-full aspect-[63/88] rounded-[6%] border border-dashed border-dc-border" />}
         {zone === 'library' && !empty && (
           canDrawTop ? (
             <Draggable id={topId(player)} from={ref} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), ref)} onHover={hoverTop}>
@@ -207,12 +212,13 @@ export function ZonePile(props: ZoneProps & {
             </div>
           )
         )}
-        {cards.map((card) => (
-          <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="h-full">
+        {cards.map((card, i) => (
+          <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="absolute top-0 h-full" style={{ left: `${(i * COMMANDER_SHIFT * 100) / span}%` }}>
             <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} tax={zone === 'command' ? taxOf(view, card.id) : 0} className="h-full" />
           </Draggable>
         ))}
       </div>
+      <span className={`${mini ? 'text-[9px]' : 'text-[10px]'} leading-none text-dc-muted whitespace-nowrap`}>{PILE_LABELS[zone]} {count}</span>
     </div>
   )
 }

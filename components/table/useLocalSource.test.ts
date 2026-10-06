@@ -15,12 +15,16 @@ describe('keepsHand (mode test)', () => {
     expect(keepsHand({ type: 'keep' }, fresh, 'p1')).toBe(false)
   })
 
-  it('carte de la main mise au-dessous alors qu’elle est due : la main n’est pas encore gardée', () => {
-    const s = mull(mull(fresh, 1), 2)
-    expect(keepsHand(bottom(s.players.p1.zones.hand[0]), s, 'p1')).toBe(false)
+  it('après un mulligan, carte de la main mise au-dessous : la main n’est pas gardée implicitement', () => {
+    let s = mull(fresh, 1)
+    for (let i = 0; i < 7; i++) {
+      const id = s.players.p1.zones.hand[0]
+      expect(keepsHand(bottom(id), s, 'p1')).toBe(false)
+      s = applyAction(s, { ...bottom(id), actor: 'p1' })
+    }
   })
 
-  it('mise au-dessous sans dette (main de départ) : garde la main comme toute autre action', () => {
+  it('mise au-dessous avant tout mulligan (main de départ) : garde la main comme toute autre action', () => {
     expect(keepsHand(bottom(fresh.players.p1.zones.hand[0]), fresh, 'p1')).toBe(true)
   })
 

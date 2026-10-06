@@ -39,7 +39,7 @@ async function longPress(locator, ms = 700) {
 
 const hand = page.locator('[data-zone="hand"] [data-card-id]')
 const library = page.locator('[data-board] [data-zone="library"]').first()
-const libraryCount = async () => Number((await library.innerText()).match(/\((\d+)\)/)[1])
+const libraryCount = async () => Number(await library.getAttribute('data-count'))
 const menu = page.getByRole('menu')
 
 /** Le menu tient dans l'écran (jamais au-dessus du bord haut). */
@@ -91,14 +91,15 @@ try {
   await longPress(hand.first(), 120)
   check(!(await menu.isVisible()) && (await hand.count()) === 7, 'appui bref sur une carte : ni menu ni déplacement')
 
-  // ── Mulligan n°3 : deux cartes à mettre au-dessous, une par une depuis le menu de la carte ──
+  // ── Mulligan n°3 : les joueurs choisissent combien de cartes mettre au-dessous (ici deux), une par une ──
   const mulligan = page.getByRole('button', { name: 'Mulligan', exact: true })
   for (let i = 0; i < 3; i++) {
     await mulligan.tap()
     await page.waitForTimeout(400) // deux touchers rapprochés feraient un double toucher
   }
   const banner = page.getByTestId('mulligan-banner')
-  check((await banner.innerText()).includes('Mulligan n°3') && (await banner.innerText()).includes('mets 2 carte'), 'bandeau : Mulligan n°3, 2 cartes à mettre dessous')
+  check((await banner.innerText()).includes('Mulligan n°3') && (await banner.innerText()).includes('cartes convenues')
+    && !/\d carte/.test(await banner.innerText()), 'bandeau : Mulligan n°3, sans nombre de cartes imposé')
   check((await banner.innerText()).includes('Mettre au-dessous'), 'bandeau : indique « Mettre au-dessous »')
   await capture('mulligan-3')
   for (const [n, left] of [[1, 6], [2, 5]]) {
@@ -115,6 +116,10 @@ try {
     check(await banner.isVisible(), `carte ${n} : main pas encore gardée`)
   }
   check((await libraryCount()) === libraryBefore + 2, `bibliothèque : deux cartes de plus (${libraryBefore + 2})`)
+  await longPress(hand.first())
+  check(await menu.getByRole('menuitem', { name: 'Mettre au-dessous' }).isVisible(), 'encore « Mettre au-dessous » : le jeu n’impose pas de nombre')
+  await page.touchscreen.tap(360, 120)
+  await page.waitForTimeout(150)
   await page.getByRole('button', { name: 'Garder' }).tap()
   await page.waitForTimeout(400)
   check(!(await banner.isVisible()), 'mulligan terminé : main gardée')

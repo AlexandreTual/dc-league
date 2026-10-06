@@ -45,7 +45,7 @@ export function opposingCommanders(view: PlayerView, player: string): VisibleCar
  * Compteurs d'un joueur : vie, poison, blessures de commandant (Commander), compteurs libres,
  * monarque et initiative. N'importe quel joueur peut les modifier, comme le permet le moteur.
  */
-export default function PlayerPanel({ view, player, catalogs, lang, host, online, canAct, send, compact = false, onTitleClick }: {
+export default function PlayerPanel({ view, player, catalogs, lang, host, online, canAct, send, onTitleClick }: {
   view: PlayerView
   player: string
   catalogs: Record<string, Catalog>
@@ -54,7 +54,6 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
   online?: string[]
   canAct: boolean
   send: (action: ClientAction) => void
-  compact?: boolean
   onTitleClick?: () => void
 }) {
   const p = view.players[player]
@@ -76,10 +75,6 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
         {view.initiative === player && <Flag className="w-3.5 h-3.5 text-dc-gold" aria-label="initiative" />}
         {p.eliminated && <span className="text-dc-red-light flex items-center gap-0.5"><Skull className="w-3 h-3" /> éliminé</span>}
         {!p.kept && !p.eliminated && <span className="text-dc-muted italic">choisit sa main…</span>}
-        {compact && p.poison > 0 && <span className="text-dc-green-light" title="Poison">☠ {p.poison}</span>}
-        {compact && commanders.some((c) => (p.commanderDamage[c.id] ?? 0) > 0) && (
-          <span className="text-dc-red-light" title="Blessures de commandant (maximum)">⚔ {Math.max(...commanders.map((c) => p.commanderDamage[c.id] ?? 0))}</span>
-        )}
         <span className="ml-auto flex items-center gap-2 text-sm">
           {/* Ma réserve est en bas à droite de l'écran : son détail s'ouvre vers le haut, aligné à droite. */}
           <span className="text-xs"><ManaPool pool={p.mana} keep={p.keepMana} editable={canAct && player === view.me} send={send} openUp={player === view.me} alignRight /></span>
@@ -93,40 +88,38 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
           />
         </span>
       </div>
-      {!compact && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Stepper label="Poison" value={p.poison} alert={p.poison >= POISON_LETHAL} disabled={disabled}
-            onChange={(delta) => send({ type: 'poison', target: player, delta })} />
-          {commanders.map((c) => {
-            const value = p.commanderDamage[c.id] ?? 0
-            return (
-              <Stepper key={c.id}
-                label={<span className="truncate max-w-[7rem]" title={cardInfo(catalogs[c.owner], c, lang).name}>⚔ {view.players[c.owner]?.name}</span>}
-                value={value} alert={value >= COMMANDER_DAMAGE_LETHAL} disabled={disabled}
-                onChange={(delta) => send({ type: 'commanderDamage', target: player, commander: c.id, delta })}
-                testId={`commander-damage-${c.owner}`} />
-            )
-          })}
-          {extraCounters.map(([name, value]) => (
-            <Stepper key={name} label={name} value={value} disabled={disabled}
-              onChange={(delta) => send({ type: 'playerCounter', target: player, name, delta })} />
-          ))}
-          {canAct && (
-            <span className="flex items-center gap-1 text-dc-muted">
-              <button className="hover:text-dc-text" onClick={() => {
-                const name = prompt('Nom du compteur (énergie, expérience…) ?')?.trim()
-                if (name) send({ type: 'playerCounter', target: player, name, delta: 1 })
-              }}>+ compteur</button>
-              <button className="hover:text-dc-text" onClick={() => send({ type: 'setMonarch', to: view.monarch === player ? null : player })}>
-                {view.monarch === player ? 'Retirer monarque' : 'Monarque'}
-              </button>
-              <button className="hover:text-dc-text" onClick={() => send({ type: 'setInitiative', to: view.initiative === player ? null : player })}>
-                {view.initiative === player ? 'Retirer initiative' : 'Initiative'}
-              </button>
-            </span>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Stepper label="Poison" value={p.poison} alert={p.poison >= POISON_LETHAL} disabled={disabled}
+          onChange={(delta) => send({ type: 'poison', target: player, delta })} />
+        {commanders.map((c) => {
+          const value = p.commanderDamage[c.id] ?? 0
+          return (
+            <Stepper key={c.id}
+              label={<span className="truncate max-w-[7rem]" title={cardInfo(catalogs[c.owner], c, lang).name}>⚔ {view.players[c.owner]?.name}</span>}
+              value={value} alert={value >= COMMANDER_DAMAGE_LETHAL} disabled={disabled}
+              onChange={(delta) => send({ type: 'commanderDamage', target: player, commander: c.id, delta })}
+              testId={`commander-damage-${c.owner}`} />
+          )
+        })}
+        {extraCounters.map(([name, value]) => (
+          <Stepper key={name} label={name} value={value} disabled={disabled}
+            onChange={(delta) => send({ type: 'playerCounter', target: player, name, delta })} />
+        ))}
+        {canAct && (
+          <span className="flex items-center gap-1 text-dc-muted">
+            <button className="hover:text-dc-text" onClick={() => {
+              const name = prompt('Nom du compteur (énergie, expérience…) ?')?.trim()
+              if (name) send({ type: 'playerCounter', target: player, name, delta: 1 })
+            }}>+ compteur</button>
+            <button className="hover:text-dc-text" onClick={() => send({ type: 'setMonarch', to: view.monarch === player ? null : player })}>
+              {view.monarch === player ? 'Retirer monarque' : 'Monarque'}
+            </button>
+            <button className="hover:text-dc-text" onClick={() => send({ type: 'setInitiative', to: view.initiative === player ? null : player })}>
+              {view.initiative === player ? 'Retirer initiative' : 'Initiative'}
+            </button>
+          </span>
+        )}
+      </div>
     </div>
   )
 }

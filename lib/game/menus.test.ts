@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
-import { cardMenu, cardsToBottom, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
+import { cardMenu, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
 import { applyAction } from './apply'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
@@ -52,6 +52,26 @@ describe('cardMenu', () => {
     expect(item(entries, 'Dans son cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p2', 'graveyard') } }])
   })
 
+  it('marqueurs : nombre tapé directement, envoyé comme écart (compatible avec un serveur plus ancien)', () => {
+    const s = setup()
+    const id = card('p1', 2)
+    const withCounters = { ...visible(s, id), counters: { plus: 3, minus: 0, other: 0 } }
+    const entries = cardMenu(ctx(s), withCounters, at('p1', 'battlefield'))
+    const stepper = (label: string) => {
+      const e = entries.find((x) => x.kind === 'stepper' && x.label === label)
+      if (!e || e.kind !== 'stepper' || !e.set) throw new Error(`saisie absente : ${label}`)
+      return e.set
+    }
+    expect(stepper('+1/+1')(10)).toEqual([{ kind: 'action', action: { type: 'counter', id, kind: 'plus', delta: 7 } }])
+    expect(stepper('+1/+1')(0)).toEqual([{ kind: 'action', action: { type: 'counter', id, kind: 'plus', delta: -3 } }])
+    expect(stepper('+1/+1')(3)).toEqual([])
+    expect(stepper('-1/-1')(-5)).toEqual([])
+    expect(stepper('Compteur')(2.7)).toEqual([{ kind: 'action', action: { type: 'counter', id, kind: 'other', delta: 2 } }])
+    expect(stepper('Compteur')(NaN)).toEqual([])
+    const tax = entries.find((x) => x.kind === 'stepper' && x.label === 'Taxe')
+    expect(tax === undefined || (tax.kind === 'stepper' && tax.set === undefined)).toBe(true)
+  })
+
   it('carte du cimetière d’un adversaire', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 4)), at('p2', 'graveyard'))
@@ -68,37 +88,30 @@ describe('cardMenu', () => {
     expect(labels(entries)).not.toContain('Main')
   })
 
-  it('mulligan à payer : « Mettre au-dessous » en tête du menu d’une carte de ma main', () => {
-    const mull = (st: GameState, seed: number) => applyAction(st, { type: 'mulligan', actor: 'p1', seed })
-    const s = mull(mull(setup(), 1), 2)
+  it('après un mulligan : « Mettre au-dessous » en tête du menu d’une carte de ma main', () => {
+    const s = applyAction(setup(), { type: 'mulligan', actor: 'p1', seed: 1 })
     const id = s.players.p1.zones.hand[0]
     const entries = cardMenu(ctx(s), visible(s, id), at('p1', 'hand'))
     expect(labels(entries)[0]).toBe('Mettre au-dessous')
     expect(item(entries, 'Mettre au-dessous')).toEqual([{ kind: 'action', action: { type: 'move', id, to: at('p1', 'library'), position: 'bottom' } }])
   })
 
-  it('« Mettre au-dessous » disparaît une fois les cartes dues mises dessous', () => {
-    const mull = (st: GameState, seed: number) => applyAction(st, { type: 'mulligan', actor: 'p1', seed })
-    const s = mull(mull(setup(), 1), 2)
-    expect(cardsToBottom(viewFor(s, 'p1'), 'p1')).toBe(1)
-    const first = s.players.p1.zones.hand[0]
-    const after = applyAction(s, { type: 'move', actor: 'p1', id: first, to: at('p1', 'library'), position: 'bottom' })
-    expect(cardsToBottom(viewFor(after, 'p1'), 'p1')).toBe(0)
-    const entries = cardMenu(ctx(after), visible(after, after.players.p1.zones.hand[0]), at('p1', 'hand'))
-    expect(labels(entries)).not.toContain('Mettre au-dessous')
+  it('après un mulligan : « Mettre au-dessous » quelle que soit la taille de la main', () => {
+    const bottomOf = (st: GameState) => cardMenu(ctx(st), visible(st, st.players.p1.zones.hand[0]), at('p1', 'hand'))
+    let s = applyAction(setup(), { type: 'mulligan', actor: 'p1', seed: 1 })
+    for (let i = 0; i < 6; i++) {
+      s = applyAction(s, { type: 'move', actor: 'p1', id: s.players.p1.zones.hand[0], to: at('p1', 'library'), position: 'bottom' })
+      expect(labels(bottomOf(s))).toContain('Mettre au-dessous')
+    }
+    let big = applyAction(setup(), { type: 'mulligan', actor: 'p1', seed: 2 })
+    big = applyAction(big, { type: 'draw', actor: 'p1', count: 1 })
+    expect(labels(bottomOf(big))).toContain('Mettre au-dessous')
   })
 
-  it('carte piochée avant de garder (en ligne) : rien à mettre dessous sans mulligan payant', () => {
-    let s = setup()
-    while (s.players.p1.zones.hand.length < 8) s = applyAction(s, { type: 'draw', actor: 'p1', count: 1 })
-    expect(cardsToBottom(viewFor(s, 'p1'), 'p1')).toBe(0)
-  })
-
-  it('pas de « Mettre au-dessous » sans carte à mettre dessous, ni une fois la main gardée', () => {
-    const once = applyAction(setup(), { type: 'mulligan', actor: 'p1', seed: 1 })
-    const free = cardMenu(ctx(once), visible(once, once.players.p1.zones.hand[0]), at('p1', 'hand'))
-    expect(labels(free)).not.toContain('Mettre au-dessous')
-    const kept = applyAction(applyAction(once, { type: 'mulligan', actor: 'p1', seed: 2 }), { type: 'keep', actor: 'p1' })
+  it('pas de « Mettre au-dessous » avant tout mulligan, ni une fois la main gardée', () => {
+    const fresh = setup()
+    expect(labels(cardMenu(ctx(fresh), visible(fresh, fresh.players.p1.zones.hand[0]), at('p1', 'hand')))).not.toContain('Mettre au-dessous')
+    const kept = applyAction(applyAction(fresh, { type: 'mulligan', actor: 'p1', seed: 1 }), { type: 'keep', actor: 'p1' })
     const after = cardMenu(ctx(kept), visible(kept, kept.players.p1.zones.hand[0]), at('p1', 'hand'))
     expect(labels(after)).not.toContain('Mettre au-dessous')
   })

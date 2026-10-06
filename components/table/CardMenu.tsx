@@ -6,7 +6,7 @@ import { menuPosition, touchTarget } from './touch'
 
 export type MenuItem =
   | { kind: 'action'; label: string; onSelect: () => void }
-  | { kind: 'stepper'; label: string; value: number | string; onChange: (delta: number) => void }
+  | { kind: 'stepper'; label: string; value: number | string; onChange: (delta: number) => void; onSet?: (value: number) => void }
   | { kind: 'separator' }
   | { kind: 'title'; label: string }
 
@@ -28,7 +28,11 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      if (!ref.current || ref.current.contains(e.target as Node)) return
+      // Un nombre en cours de saisie est appliqué avant la fermeture (le menu disparaît avant le blur).
+      const active = document.activeElement
+      if (active instanceof HTMLElement && ref.current.contains(active)) active.blur()
+      onClose()
     }
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('pointerdown', onDown)
@@ -55,7 +59,9 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
             <div key={i} className="flex items-center gap-2 px-3 py-1 text-dc-text">
               <span className="flex-1">{item.label}</span>
               <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(-1)} aria-label={`${item.label} moins`}><Minus className="w-3 h-3" /></button>
-              <span className="w-6 text-center">{item.value}</span>
+              {item.onSet
+                ? <NumberField key={`${item.label}:${item.value}`} label={item.label} value={item.value} onSet={item.onSet} />
+                : <span className="w-6 text-center">{item.value}</span>}
               <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(1)} aria-label={`${item.label} plus`}><Plus className="w-3 h-3" /></button>
             </div>
           )
@@ -75,5 +81,37 @@ export default function CardMenu({ x, y, items, onClose }: { x: number; y: numbe
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Valeur d'un compteur modifiable au clavier : sélectionnée au focus, appliquée par Entrée ou en quittant
+ * le champ, annulée par Échap (qui ferme le menu). Pavé numérique sur téléphone.
+ */
+function NumberField({ label, value, onSet }: { label: string; value: number | string; onSet: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value))
+  const commit = () => {
+    const n = Number.parseInt(draft, 10)
+    if (Number.isFinite(n) && String(n) !== String(value)) onSet(n)
+    else setDraft(String(value))
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      aria-label={`${label} : nombre`}
+      className="w-9 rounded bg-dc-bg border border-dc-border text-center text-dc-text focus:outline-none focus:border-dc-gold [@media(pointer:coarse)]:min-h-8"
+      value={draft}
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
+      }}
+    />
   )
 }

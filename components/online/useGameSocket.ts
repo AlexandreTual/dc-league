@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { mergeCards, type CardDataMap, type ClientMessage, type ServerMessage, type ViewMessage } from '@/lib/game/room'
+import { ERROR_VISIBLE_MS } from '@/components/table/source'
 import { SOCKET_MSG, nextStep } from './reconnect'
-
-const ERROR_VISIBLE_MS = 4000
 
 /** `closed` : reconnexions abandonnées (voir `closedReason`) ; `retry()` relance. */
 export type SocketStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'

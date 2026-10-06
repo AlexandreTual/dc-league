@@ -319,7 +319,7 @@ Ajouter ensuite : `check(await chloe.page.locator('[data-bubble]').count() === 0
 **Interfaces :**
 - `ZonePile` : la prop `compact?: boolean` est remplacée par `size: 'tile' | 'mini'` ; la pile pose `data-count={count}` (les scripts lisent le nombre de cartes ici, plus dans le texte).
 
-- [ ] **Étape 1 : contrôles qui échouent.** `playtest-check.mjs` : remplacer les deux lectures `Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])` (et la fonction `libraryCount`) par :
+- [x] **Étape 1 : contrôles qui échouent.** `playtest-check.mjs` : remplacer les deux lectures `Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])` (et la fonction `libraryCount`) par :
 
 ```js
 const libraryCount = async () => Number(await page.locator('[data-zone="library"]').getAttribute('data-count'))
@@ -335,9 +335,9 @@ check(libraryBox.x >= handBox.x + handBox.width && libraryBox.y >= handBox.y - 2
   'piles en vignettes à droite de la main')
 ```
 
-- [ ] **Étape 2 :** `playtest-check` → `ÉCHEC : piles en vignettes à droite de la main`.
+- [x] **Étape 2 :** `playtest-check` → `ÉCHEC : piles en vignettes à droite de la main`.
 
-- [ ] **Étape 3 : `ZonePile`.** Libellés courts et mise en page en vignette (le reste du composant — bibliothèque, carte du dessus connue, glisser, double-clic, clic droit — ne change pas) :
+- [x] **Étape 3 : `ZonePile`.** Libellés courts et mise en page en vignette (le reste du composant — bibliothèque, carte du dessus connue, glisser, double-clic, clic droit — ne change pas) :
 
 ```tsx
 const PILE_LABELS: Record<'command' | 'library' | 'graveyard' | 'exile', string> = {
@@ -367,7 +367,7 @@ Conteneur de la pile :
 
 Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
 
-- [ ] **Étape 4 : `MyBoard`.**
+- [x] **Étape 4 : `MyBoard`.**
 
 ```tsx
     <div className="flex-1 min-h-0 flex flex-col gap-2 p-2" data-board={zoneProps.player}>
@@ -385,7 +385,7 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
     </div>
 ```
 
-- [ ] **Étape 5 : `OpponentBoard`.** Une ligne fine au-dessus de son champ :
+- [x] **Étape 5 : `OpponentBoard`.** Une ligne fine au-dessus de son champ :
 
 ```tsx
     <div className="h-full min-h-0 flex flex-col gap-1.5" data-board={zoneProps.player}>
@@ -403,10 +403,10 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
     </div>
 ```
 
-- [ ] **Étape 6 : hauteurs du Duel.** `Table.tsx`, zone des adversaires : `${me ? 'h-[42%] shrink-0' : 'flex-1'}` devient `${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[42%]'} shrink-0` : 'flex-1'}`.
+- [x] **Étape 6 : hauteurs du Duel.** `Table.tsx`, zone des adversaires : `${me ? 'h-[42%] shrink-0' : 'flex-1'}` devient `${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[42%]'} shrink-0` : 'flex-1'}`.
 
-- [ ] **Étape 7 :** vérifications complètes ; contrôler dans `online-check` que les glisser-déposer vers le cimetière d'Ana et depuis son plateau agrandi passent toujours ; captures.
-- [ ] **Étape 8 : commit** `feat(table): piles en vignettes à côté de la main`.
+- [x] **Étape 7 :** vérifications complètes ; contrôler dans `online-check` que les glisser-déposer vers le cimetière d'Ana et depuis son plateau agrandi passent toujours ; captures.
+- [x] **Étape 8 : commit** `feat(table): piles en vignettes à côté de la main`.
 
 ---
 
@@ -418,7 +418,7 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
 - Modifier : `components/table/PlayerPanel.tsx` (retirer le mode `compact`, devenu inutile)
 - Modifier : `scripts/online-check.mjs` si un sélecteur bouge
 
-- [ ] **Étape 1 : contrôle qui échoue.** `online-check.mjs`, après « Ana voit ses 2 adversaires en bandeaux » :
+- [x] **Étape 1 : contrôle qui échoue.** `online-check.mjs`, après « Ana voit ses 2 adversaires en bandeaux » :
 
 ```js
 // Bandeau compact : la pastille et une ligne fine, puis les rangées sur toute la largeur du bandeau.
@@ -427,9 +427,9 @@ const rows = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="ba
 check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
 ```
 
-- [ ] **Étape 2 :** `online-check` → échec (aujourd'hui une colonne de 112 px est à gauche des rangées).
+- [x] **Étape 2 :** `online-check` → échec (aujourd'hui une colonne de 112 px est à gauche des rangées).
 
-- [ ] **Étape 3 : `OpponentStrip`.** Garder `mini` et `pile` ; remplacer le `return` par :
+- [x] **Étape 3 : `OpponentStrip`.** Garder `mini` et `pile` ; remplacer le `return` par :
 
 ```tsx
   return (
@@ -468,10 +468,10 @@ check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
 
 Le titre passé à `onPile` reste « Cimetière » / « Exil » (titre de la fenêtre) : `pile` reçoit le libellé court pour l'affichage et garde le titre long pour `onPile`.
 
-- [ ] **Étape 4 : `Table.tsx`.** Bandeau : `panelFor(p, focus)` (pastille, plus `'compact'`). Hauteur multijoueur : `h-[42%]` devient `h-[38%]` (le Duel garde `h-[40%]`). `PlayerPanel.tsx` : retirer la prop `compact` et ses deux branches ; le type `'compact'` de `panelFor` disparaît.
+- [x] **Étape 4 : `Table.tsx`.** Bandeau : `panelFor(p, focus)` (pastille, plus `'compact'`). Hauteur multijoueur : `h-[42%]` devient `h-[38%]` (le Duel garde `h-[40%]`). `PlayerPanel.tsx` : retirer la prop `compact` et ses deux branches ; le type `'compact'` de `panelFor` disparaît.
 
-- [ ] **Étape 5 :** vérifications complètes ; captures à 4 joueurs.
-- [ ] **Étape 6 : commit** `feat(table): bandeaux d'adversaires compacts`.
+- [x] **Étape 5 :** vérifications complètes ; captures à 4 joueurs.
+- [x] **Étape 6 : commit** `feat(table): bandeaux d'adversaires compacts`.
 
 ---
 
@@ -485,7 +485,7 @@ Le titre passé à `onPile` reste « Cimetière » / « Exil » (titre de la fen
 **Interfaces :**
 - `TableSettings` gagne `cardScale: number` ; `CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]` ; `cardSize(scale: number): { width: string; minWidth: string }`.
 
-- [ ] **Étape 1 : tests qui échouent.** `lib/table-settings.test.ts` : partout où un objet de réglages est écrit, ajouter `cardScale: 1` (ex. `battlefieldStyle({ grid: false, background: null, cardScale: 1 })`) et `DEFAULT_TABLE_SETTINGS` attendu `{ grid: true, background: null, cardScale: 1 }`. Ajouter :
+- [x] **Étape 1 : tests qui échouent.** `lib/table-settings.test.ts` : partout où un objet de réglages est écrit, ajouter `cardScale: 1` (ex. `battlefieldStyle({ grid: false, background: null, cardScale: 1 })`) et `DEFAULT_TABLE_SETTINGS` attendu `{ grid: true, background: null, cardScale: 1 }`. Ajouter :
 
 ```ts
 describe('taille des cartes', () => {
@@ -507,9 +507,9 @@ describe('taille des cartes', () => {
 })
 ```
 
-- [ ] **Étape 2 :** `npx vitest run lib/table-settings.test.ts` → échec.
+- [x] **Étape 2 :** `npx vitest run lib/table-settings.test.ts` → échec.
 
-- [ ] **Étape 3 : implémenter** dans `lib/table-settings.ts` :
+- [x] **Étape 3 : implémenter** dans `lib/table-settings.ts` :
 
 ```ts
 export type TableSettings = {
@@ -541,9 +541,9 @@ export function cardSize(scale: number): { width: string; minWidth: string } {
 }
 ```
 
-- [ ] **Étape 4 :** `npx vitest run lib/table-settings.test.ts` → vert.
+- [x] **Étape 4 :** `npx vitest run lib/table-settings.test.ts` → vert.
 
-- [ ] **Étape 5 : interface.** `Battlefield` (`zones.tsx`) : retirer `w-[7%] min-w-[72px]` de la classe de la carte et ajouter `...cardSize((props.settings ?? DEFAULT_TABLE_SETTINGS).cardScale)` à son `style`. `TableSettings.tsx`, avant « Mémorisé sur cet appareil » :
+- [x] **Étape 5 : interface.** `Battlefield` (`zones.tsx`) : retirer `w-[7%] min-w-[72px]` de la classe de la carte et ajouter `...cardSize((props.settings ?? DEFAULT_TABLE_SETTINGS).cardScale)` à son `style`. `TableSettings.tsx`, avant « Mémorisé sur cet appareil » :
 
 ```tsx
         <label className="flex items-center gap-2 text-sm text-dc-text">
@@ -555,7 +555,7 @@ export function cardSize(scale: number): { width: string; minWidth: string } {
         </label>
 ```
 
-- [ ] **Étape 6 : `playtest-check`.** Dans la section « Réglages » :
+- [x] **Étape 6 : `playtest-check`.** Dans la section « Réglages » :
 
 ```js
   const fieldCard = page.locator('[data-zone="battlefield"] [data-card-id]').first()
@@ -568,5 +568,5 @@ export function cardSize(scale: number): { width: string; minWidth: string } {
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
 ```
 
-- [ ] **Étape 7 :** vérifications complètes ; captures à 100 % et 150 %.
-- [ ] **Étape 8 : commit** `feat(table): réglage de la taille des cartes`. Mettre à jour `docs/superpowers/roadmap.md` (chantier « mise en page de la table » terminé) et fermer l'issue #22 dans cette PR.
+- [x] **Étape 7 :** vérifications complètes ; captures à 100 % et 150 %.
+- [x] **Étape 8 : commit** `feat(table): réglage de la taille des cartes`. Mettre à jour `docs/superpowers/roadmap.md` (chantier « mise en page de la table » terminé) et fermer l'issue #22 dans cette PR.
