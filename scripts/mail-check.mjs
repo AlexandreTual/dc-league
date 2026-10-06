@@ -18,7 +18,7 @@ const [ANA] = PLAYERS
 const ANA_USER = `e2e-${ANA.name}`
 const OLD_PASSWORD = 'ancien-mot-de-passe'
 const NEW_PASSWORD = 'nouveau-mot-de-passe'
-const EMILE = { id: 'e2e-mail', name: 'Émile' } // hors des joueurs de seed-online (e2e-1…e2e-5)
+const EMILE = { id: 'e2e-mail', name: 'Émile Mailcheck' } // hors des joueurs de seed-online (e2e-1…e2e-5)
 
 function check(condition, message) {
   if (!condition) throw new Error(`ÉCHEC : ${message}`)
@@ -45,11 +45,12 @@ sql([
   `UPDATE users SET email = NULL WHERE player_id LIKE 'e2e-%';`,
   `UPDATE users SET is_admin = 1, password_hash = '${hashPassword(OLD_PASSWORD)}' WHERE id = 'u-${ANA.id}';`,
   `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE player_id = '${EMILE.id}');`,
-  `DELETE FROM users WHERE player_id = '${EMILE.id}';`,
+  `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE username = 'e2e-emile');`,
+  `DELETE FROM users WHERE player_id = '${EMILE.id}' OR username = 'e2e-emile';`,
   `DELETE FROM invitations WHERE player_id LIKE 'e2e-%';`,
   `DELETE FROM password_requests;`,
   `DELETE FROM login_attempts;`,
-  `INSERT OR IGNORE INTO players (id, name) VALUES ('${EMILE.id}', '${EMILE.name}');`,
+  `INSERT INTO players (id, name) VALUES ('${EMILE.id}', '${EMILE.name}') ON CONFLICT(id) DO UPDATE SET name = excluded.name;`,
   `DELETE FROM test_mails;`,
   restoreAnaSession,
 ])
@@ -160,7 +161,9 @@ try {
   const status = page.getByTestId('invite-mail-status')
   await status.waitFor()
   check((await status.innerText()).trim() === 'Invitation envoyée à e…@example.test', `admin : « ${(await status.innerText()).trim()} »`)
-  check(await row.getByText('Invitation en attente').isVisible(), 'invitation en attente affichée')
+  // Le statut vient du serveur (rafraîchissement de la page après l'invitation) : on l'attend.
+  await row.getByText('Invitation en attente').first().waitFor({ timeout: 10_000 })
+  check(true, 'invitation en attente affichée')
   await row.screenshot({ path: `${outDir}/mail-admin-mobile.png` })
   console.log(`📸 ${outDir}/mail-admin-mobile.png`)
   await visitor.close()
