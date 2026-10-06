@@ -29,7 +29,8 @@
           ],
           "image_uris": {
             "small": "https://cards.scryfall.io/small/front/delver-front.jpg",
-            "normal": "https://cards.scryfall.io/normal/front/delver-front.jpg"
+            "normal": "https://cards.scryfall.io/normal/front/delver-front.jpg",
+            "large": "https://cards.scryfall.io/large/front/delver-front.jpg"
           }
         },
         {
@@ -43,7 +44,8 @@
           ],
           "image_uris": {
             "small": "https://cards.scryfall.io/small/back/delver.jpg",
-            "normal": "https://cards.scryfall.io/normal/back/delver.jpg"
+            "normal": "https://cards.scryfall.io/normal/back/delver.jpg",
+            "large": "https://cards.scryfall.io/large/back/delver.jpg"
           }
         }
       ]

@@ -25,7 +25,8 @@
       "color_identity": [],
       "image_uris": {
         "small": "https://cards.scryfall.io/small/front/sol-c21-en.jpg",
-        "normal": "https://cards.scryfall.io/normal/front/sol-c21-en.jpg"
+        "normal": "https://cards.scryfall.io/normal/front/sol-c21-en.jpg",
+        "large": "https://cards.scryfall.io/large/front/sol-c21-en.jpg"
       }
     },
     {
@@ -54,7 +55,8 @@
       ],
       "image_uris": {
         "small": "https://cards.scryfall.io/small/front/kenrith-eld-en.jpg",
-        "normal": "https://cards.scryfall.io/normal/front/kenrith-eld-en.jpg"
+        "normal": "https://cards.scryfall.io/normal/front/kenrith-eld-en.jpg",
+        "large": "https://cards.scryfall.io/large/front/kenrith-eld-en.jpg"
       }
     }
   ]

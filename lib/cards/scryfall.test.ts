@@ -202,6 +202,7 @@ describe('toCardRow', () => {
     expect(toCardRow(collection.data[0])).toEqual(
       cardRow({
         image_normal: 'https://cards.scryfall.io/normal/front/sol-c21-en.jpg',
+        image_large: 'https://cards.scryfall.io/large/front/sol-c21-en.jpg',
         image_small: 'https://cards.scryfall.io/small/front/sol-c21-en.jpg',
       }),
     )
@@ -213,6 +214,8 @@ describe('toCardRow', () => {
     expect(row.image_normal).toBe('https://cards.scryfall.io/normal/front/delver-front.jpg')
     expect(row.image_normal).toBe(row.faces![0].image_normal)
     expect(row.faces![1].image_normal).toBe('https://cards.scryfall.io/normal/back/delver.jpg')
+    expect(row.image_large).toBe('https://cards.scryfall.io/large/front/delver-front.jpg')
+    expect(row.faces![1].image_large).toBe('https://cards.scryfall.io/large/back/delver.jpg')
     expect(row.type_line).toBe('Creature — Human Wizard // Creature — Human Insect')
     expect(row.mana_cost).toBe('{U}')
     expect(row.colors).toEqual(['U'])

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestDb } from '@/test/d1'
+import { createTestDb, MIGRATIONS } from '@/test/d1'
 import { cardRow } from '@/test/factories'
 import { getCards, getLookups, saveLookups, upsertCards } from './db-cards'
 
@@ -40,6 +40,12 @@ describe('cache de cartes', () => {
     expect((await getLookups(db, ['sol ring||'])).data).toEqual({
       'sol ring||': { key: 'sol ring||', en_card_id: 'sol-c21-en', fr_card_id: null, fetched_at: now.toISOString() },
     })
+  })
+
+  it('base pas encore migrée (sans image_large) : la carte est enregistrée quand même, sans image large', async () => {
+    const old = createTestDb(MIGRATIONS.filter((f) => f < '0010'))
+    expect((await upsertCards(old, [cardRow()], now)).error).toBeNull()
+    expect((await getCards(old, ['sol-c21-en'])).data!['sol-c21-en']).toEqual(cardRow({ image_large: null }))
   })
 
   it('getLookups ignore les clés inconnues et getCards([]) renvoie {}', async () => {
