@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getDeck } from '@/lib/db-decks'
-import { listDeckCards } from '@/lib/db-cards'
+import { listDeckCards, listDeckTokens } from '@/lib/db-cards'
 import { buildCatalog } from '@/lib/game/catalog'
 import LocalTable from '@/components/table/LocalTable'
 
@@ -13,7 +13,7 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
   const { env } = getRequestContext<CloudflareEnv>()
   const { data: deck } = await getDeck(env.DB, id)
   if (!deck) notFound()
-  const { data: cards } = await listDeckCards(env.DB, deck.id)
+  const [{ data: cards }, { data: tokens }] = await Promise.all([listDeckCards(env.DB, deck.id), listDeckTokens(env.DB, deck.id)])
   const { catalog, excluded } = buildCatalog(deck.id, cards ?? [])
 
   if (catalog.entries.length === 0) {
@@ -28,7 +28,7 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
   // Le plateau couvre toute la fenêtre, barre du site comprise ; « ← nom du deck » ramène au site.
   return (
     <div className="fixed inset-0 z-[60] bg-dc-bg" data-table-root>
-      <LocalTable catalog={catalog} excluded={excluded} deckName={deck.name} />
+      <LocalTable catalog={catalog} excluded={excluded} deckName={deck.name} deckTokens={tokens ?? []} />
     </div>
   )
 }

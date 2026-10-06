@@ -47,7 +47,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 
 - Connexion, import d'un deck (cartes en français) et mode test : OK, interface fluide.
 - **Corrigé — glisser-déposer** : l'aperçu garde la taille de la carte d'origine et la carte se pose au centre de l'aperçu (contrôles ajoutés à `scripts/playtest-check.mjs`).
-- **À prévoir — jetons du deck** : proposer les jetons créés par les cartes du deck (données `all_parts` de Scryfall), en plus de la recherche actuelle.
+- **Fait — jetons du deck** (issue #41) : les jetons créés par les cartes (`all_parts` de Scryfall, en français si possible) sont enregistrés à l'import et proposés dans l'onglet « Du deck » de « Créer un jeton » (mode test et partie en ligne, chacun ne voit que les siens). Decks déjà importés : bouton « Mettre à jour les jetons » sur la page du deck.
 
 ## Organisation du travail (depuis le 5 octobre)
 

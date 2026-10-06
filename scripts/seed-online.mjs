@@ -14,7 +14,13 @@ const CARDS = [
   { id: 'e2e-ken', name: 'Kenrith, the Returned King', type: 'Legendary Creature — Human Noble', qty: 1, section: 'commander' },
   { id: 'e2e-sol', name: 'Sol Ring', fr: 'Anneau solaire', type: 'Artifact', qty: 1, section: 'main' },
   { id: 'e2e-elf', name: 'Llanowar Elves', type: 'Creature — Elf Druid', qty: 4, section: 'main' },
-  { id: 'e2e-forest', name: 'Forest', fr: 'Forêt', type: 'Basic Land — Forest', qty: 30, section: 'main' },
+  { id: 'e2e-avenger', name: 'Avenger of Zendikar', type: 'Creature — Elemental', qty: 1, section: 'main' },
+  { id: 'e2e-forest', name: 'Forest', fr: 'Forêt', type: 'Basic Land — Forest', qty: 29, section: 'main' },
+]
+
+// Jetons du deck (issue #41) : ceux que créent les cartes ci-dessus, comme après un import.
+const TOKENS = [
+  { id: 'e2e-plant', name: 'Plante', type: 'Token Creature — Plant', power: '0', toughness: '1', colors: ['G'], sources: ['Avenger of Zendikar'] },
 ]
 
 const q = (v) => (v === null ? 'NULL' : `'${String(v).replaceAll("'", "''")}'`)
@@ -43,7 +49,13 @@ for (const p of PLAYERS) {
     `INSERT OR REPLACE INTO sessions (id, user_id, expires_at) VALUES (${q(hash)}, ${q(`u-${p.id}`)}, ${q(expires)});`,
     `INSERT OR IGNORE INTO decks (id, player_id, name) VALUES (${q(`deck-${p.id}`)}, ${q(p.id)}, ${q(`Kenrith de ${p.name}`)});`,
     `DELETE FROM deck_cards WHERE deck_id = ${q(`deck-${p.id}`)};`,
+    `DELETE FROM deck_tokens WHERE deck_id = ${q(`deck-${p.id}`)};`,
   )
+  for (const t of TOKENS) {
+    lines.push(
+      `INSERT INTO deck_tokens (deck_id, token_scryfall_id, name, type_line, power, toughness, colors, image, source_names) VALUES (${[`deck-${p.id}`, t.id, t.name, t.type, t.power, t.toughness, JSON.stringify(t.colors), null, JSON.stringify(t.sources)].map(q).join(', ')});`,
+    )
+  }
   CARDS.forEach((c, i) =>
     lines.push(
       `INSERT INTO deck_cards (deck_id, position, quantity, section, requested_name, en_card_id, fr_card_id) VALUES (${[`deck-${p.id}`, i + 1, c.qty, c.section, c.name, `${c.id}-en`, c.fr ? `${c.id}-fr` : null].map(q).join(', ')});`,

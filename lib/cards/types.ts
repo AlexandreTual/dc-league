@@ -1,3 +1,5 @@
+import type { DeckToken } from '@/lib/game/types'
+
 export type Section = 'commander' | 'main'
 
 export type ParsedLine = {
@@ -65,3 +67,6 @@ export type ImportSummary = {
   ignored: number
   errors: { lineNumber: number; text: string }[]
 }
+
+/** Jeton d'un deck tel qu'enregistré : identifiant Scryfall de l'impression retenue en plus. */
+export type DeckTokenRow = DeckToken & { id: string }
