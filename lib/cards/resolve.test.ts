@@ -10,7 +10,7 @@ const now = new Date('2026-10-04T12:00:00Z')
 function sc(id: string, oracle: string, name: string, set: string, cn: string, lang = 'en'): ScryfallCard {
   return {
     id, oracle_id: oracle, lang, name, set, collector_number: cn, cmc: 1, type_line: 'Artifact',
-    colors: [], color_identity: [], image_uris: { normal: `https://img/${id}.jpg`, small: `https://img/s/${id}.jpg` },
+    colors: [], color_identity: [], image_uris: { normal: `https://img/${id}.jpg`, large: `https://img/l/${id}.jpg`, small: `https://img/s/${id}.jpg` },
     ...(lang === 'fr' ? { printed_name: `${name} (FR)` } : {}),
   }
 }
@@ -84,6 +84,7 @@ describe('resolveLines', () => {
     expect(fr.printed_name).toBe('Academy Ruins (FR)')
     expect(fr.image_normal).toBe('https://img/ruins.jpg')
     expect(fr.image_small).toBe('https://img/s/ruins.jpg')
+    expect(fr.image_large).toBe('https://img/l/ruins.jpg')
   })
 
   it('résout une carte avec édition, en français de la même édition', async () => {
