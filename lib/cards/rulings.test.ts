@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestDb } from '@/test/d1'
+import { createTestDb, MIGRATIONS } from '@/test/d1'
 import { cardRow } from '@/test/factories'
 import { getStoredRulings, saveRulings, upsertCards } from '@/lib/db-cards'
 import { ScryfallUnavailableError } from './scryfall'
@@ -78,6 +78,16 @@ describe('loadRulings', () => {
     const { client } = fakeClient([])
     expect(await loadRulings(db, client, ORACLE, now)).toEqual({ status: 'ok', rulings: [] })
     expect((await getStoredRulings(db, ORACLE)).data?.rulings).toEqual([])
+  })
+})
+
+describe('loadRulings sans la table card_rulings (migration pas encore appliquée)', () => {
+  it('les règles viennent quand même de Scryfall', async () => {
+    const old = createTestDb(MIGRATIONS.filter((f) => f < '0008'))
+    await upsertCards(old, [cardRow({ id: 'kenrith-en', oracle_id: ORACLE, lang: 'en' })], now)
+    const { client, calls } = fakeClient([R1])
+    expect(await loadRulings(old, client, ORACLE, now)).toEqual({ status: 'ok', rulings: [R1] })
+    expect(calls).toEqual(['kenrith-en'])
   })
 })
 

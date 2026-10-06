@@ -29,9 +29,9 @@ export async function loadRulings(
   oracleId: string,
   now: Date,
 ): Promise<RulingsResult> {
+  // Cache illisible (table pas encore créée, juste après un déploiement) : on fait comme s'il était vide.
   const stored = await getStoredRulings(db, oracleId)
-  if (stored.error !== null) return { status: 'unavailable' }
-  const cached = stored.data
+  const cached = stored.error === null ? stored.data : null
   if (cached && now.getTime() - Date.parse(cached.fetched_at) < RULINGS_MAX_AGE_MS) return { status: 'ok', rulings: cached.rulings }
 
   const card = await findCardIdByOracle(db, oracleId)
@@ -40,10 +40,11 @@ export async function loadRulings(
 
   try {
     const rulings = await client.fetchRulings(card.data)
-    await saveRulings(db, oracleId, rulings, now)
+    await saveRulings(db, oracleId, rulings, now) // échec sans conséquence : redemandées la prochaine fois
     return { status: 'ok', rulings }
   } catch (e) {
     if (!(e instanceof ScryfallUnavailableError)) throw e
+    console.warn('[rulings]', oracleId, e.message)
     return cached ? { status: 'ok', rulings: cached.rulings } : { status: 'unavailable' }
   }
 }
