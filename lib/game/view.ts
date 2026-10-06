@@ -49,7 +49,7 @@ export function viewFor(state: GameState, playerId: string, canUndo = false): Pl
     players,
     commanderCasts: state.commanderCasts,
     lookingAt: state.lookingAt[playerId] ?? [],
-    log: log.slice(logStart).map(({ turn, actor, text }) => ({ turn, actor, text })),
+    log: log.slice(logStart).map(({ turn, actor, text, roll }) => (roll ? { turn, actor, text, roll } : { turn, actor, text })),
     logStart,
     canUndo,
   }

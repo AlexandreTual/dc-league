@@ -36,6 +36,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 - Règle 103.8 : à 3 joueurs ou plus, le premier joueur pioche en gardant sa main. Le mulligan est géré par les joueurs : le jeu compte les mulligans mais n'impose aucune carte à mettre au-dessous (décision du 6 octobre, issue #72).
 - Une carte d'un adversaire peut être réanimée ou volée ; elle retourne toujours chez son propriétaire en mourant.
 - Les identifiants des commandants sont publics (clés de la taxe et des blessures).
+- Lancer de dés (issue #99) : pile ou face, d4, d6, d8, d10, d12, d20, jusqu'à 10 dés d'un coup ; tirage par le serveur, résultat public sur la table et au journal ; un lancer ne s'annule pas (sinon on pourrait relancer). Vérifié par `scripts/dice-check.mjs`.
 
 ### Points à reprendre dans les sous-projets suivants
 

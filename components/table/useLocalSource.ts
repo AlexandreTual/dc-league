@@ -14,11 +14,11 @@ import { ERROR_VISIBLE_MS, type GameSource } from './source'
 export const SOLO = 'solo'
 
 /**
- * Toute action garde implicitement la main de départ, sauf le mulligan lui-même, « Garder » et la mise
- * au-dessous d'une carte de la main pendant un mulligan (autant que le joueur veut, puis « Garder »).
+ * Toute action garde implicitement la main de départ, sauf le mulligan lui-même, « Garder », un lancer de dés
+ * et la mise au-dessous d'une carte de la main pendant un mulligan (autant que le joueur veut, puis « Garder »).
  */
 export function keepsHand(action: ClientAction, state: GameState, player: string): boolean {
-  if (action.type === 'mulligan' || action.type === 'keep') return false
+  if (action.type === 'mulligan' || action.type === 'keep' || action.type === 'roll') return false
   const paying = action.type === 'move' && action.to.zone === 'library' && action.position === 'bottom'
     && state.players[player].zones.hand.includes(action.id) && inMulligan(state.players[player])
   return !paying
@@ -31,7 +31,7 @@ function soloSetup(catalog: Catalog): GameSetup {
 /** Action complète du joueur solo : auteur et graine ajoutés ici (le serveur le fait en ligne). */
 function withActorAndSeed(action: ClientAction): GameAction {
   const full = { ...action, actor: SOLO } as GameAction
-  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook') return { ...full, seed: randomSeed() } as GameAction
+  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook' || full.type === 'roll') return { ...full, seed: randomSeed() } as GameAction
   return full
 }
 
