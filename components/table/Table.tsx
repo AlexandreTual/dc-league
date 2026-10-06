@@ -27,12 +27,11 @@ import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
 import OracleModal from '@/components/OracleModal'
+import { readLang, saveLang } from '@/lib/cards/lang'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
-
-const LANG_KEY = 'dc-card-lang'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
 const CARD_RATIO = 63 / 88
@@ -42,14 +41,6 @@ type PileState = {
   player: string
   zone: 'library' | 'graveyard' | 'exile'
   mode: 'look' | 'search' | 'browse'
-}
-
-function readLang(): Lang {
-  try {
-    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'fr'
-  } catch {
-    return 'fr'
-  }
 }
 
 /** Toutes les cartes visibles de la vue, par identifiant (y compris celles regardées en bibliothèque). */
@@ -331,7 +322,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         onLang={() => {
           const next = lang === 'fr' ? 'en' : 'fr'
           setLang(next)
-          try { localStorage.setItem(LANG_KEY, next) } catch { /* préférence non mémorisée */ }
+          saveLang(next)
         }}
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
