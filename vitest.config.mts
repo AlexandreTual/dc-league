@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
   test: {
@@ -8,6 +9,6 @@ export default defineConfig({
     exclude: ['node_modules/**', '.next/**', '.vercel/**'],
   },
   resolve: {
-    alias: { '@': path.resolve(__dirname, '.') },
+    alias: { '@': path.dirname(fileURLToPath(import.meta.url)) },
   },
 })

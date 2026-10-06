@@ -45,6 +45,9 @@ export type CardRow = {
 
 export type CardLookup = { key: string; en_card_id: string | null; fr_card_id: string | null }
 
+/** Entrée du cache lue en base, avec sa date d'enregistrement (ISO). */
+export type StoredCardLookup = CardLookup & { fetched_at: string }
+
 export type DeckCardView = {
   position: number
   quantity: number

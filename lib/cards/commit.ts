@@ -37,13 +37,16 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
   const replaced = await replaceDeckCards(db, deckId, rows)
   if (replaced.error !== null) return { data: null, error: replaced.error }
 
+  // Sans commandant trouvé dans la nouvelle liste, l'image de l'ancien commandant est effacée.
+  let image: string | null = null
   const commander = rows.find((r) => r.section === 'commander' && r.en_card_id)
   if (commander) {
     const cards = await getCards(db, [commander.en_card_id!, ...(commander.fr_card_id ? [commander.fr_card_id] : [])])
     if (cards.error !== null) return { data: null, error: cards.error }
-    const image = cards.data[commander.fr_card_id ?? '']?.image_normal ?? cards.data[commander.en_card_id!]?.image_normal ?? null
-    if (image) await setDeckCommanderImage(db, deckId, image)
+    image = cards.data[commander.fr_card_id ?? '']?.image_normal ?? cards.data[commander.en_card_id!]?.image_normal ?? null
   }
+  const saved = await setDeckCommanderImage(db, deckId, image)
+  if (saved.error !== null) return { data: null, error: saved.error }
 
   return { data: summary, error: null }
 }

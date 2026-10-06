@@ -92,7 +92,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative h-[28%] flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${highlight}`}
+      className={`relative flex-1 min-w-0 h-full flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${highlight}`}
       {...press}
     >
       <span className="absolute top-1 left-3 text-dc-muted text-xs pointer-events-none">Main ({hand.length})</span>

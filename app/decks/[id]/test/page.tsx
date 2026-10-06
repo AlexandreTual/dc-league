@@ -25,9 +25,9 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
     )
   }
 
-  // Le plateau couvre tout l'écran sous la barre de navigation, sans toucher au layout du site.
+  // Le plateau couvre toute la fenêtre, barre du site comprise ; « ← nom du deck » ramène au site.
   return (
-    <div className="fixed inset-x-0 bottom-0 top-16 z-40 bg-dc-bg">
+    <div className="fixed inset-0 z-[60] bg-dc-bg" data-table-root>
       <LocalTable catalog={catalog} excluded={excluded} deckName={deck.name} />
     </div>
   )

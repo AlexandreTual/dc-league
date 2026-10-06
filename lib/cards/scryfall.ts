@@ -3,9 +3,14 @@ import type { CardFace, CardRow } from './types'
 
 const API = 'https://api.scryfall.com'
 const HEADERS = { 'User-Agent': 'dc-league/1.0', Accept: 'application/json' }
-const MIN_INTERVAL_MS = 100
+// /cards/search et /cards/collection : 2 appels par seconde au plus (doc Scryfall « Rate Limits »).
+const MIN_INTERVAL_MS = 500
+// Un 429 bloque l'accès 30 s : on attend Retry-After (ou 30 s) avant une seule nouvelle tentative.
+const RATE_LIMIT_WAIT_MS = 30_000
+const TIMEOUT_MS = 10_000
 const COLLECTION_MAX = 75
-const SEARCH_GROUP = 10
+// La requête `q` est tronquée par Scryfall à 1000 caractères : 20 « oracleid:… » (49 caractères chacun) au plus.
+const SEARCH_GROUP = 20
 
 export class ScryfallUnavailableError extends Error {
   constructor(reason: string) {
@@ -14,7 +19,12 @@ export class ScryfallUnavailableError extends Error {
   }
 }
 
-export type ScryfallDeps = { fetch: typeof fetch; sleep: (ms: number) => Promise<void> }
+export type ScryfallDeps = {
+  fetch: typeof fetch
+  sleep: (ms: number) => Promise<void>
+  /** Signal d'annulation après `ms` (injectable pour les tests). */
+  timeout?: (ms: number) => AbortSignal
+}
 export type Identifier = { set: string; collector_number: string } | { name: string }
 
 type ImageUris = { small?: string; normal?: string }
@@ -61,20 +71,33 @@ function chunks<T>(items: T[], size: number): T[][] {
   return out
 }
 
-export function createScryfallClient(deps: ScryfallDeps) {
-  let lastCall = 0
+function retryAfterMs(res: Response): number {
+  const seconds = Number(res.headers.get('Retry-After'))
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 60) * 1000 : RATE_LIMIT_WAIT_MS
+}
 
-  async function call(url: string, init: RequestInit = {}): Promise<{ status: number; body: ListResponse }> {
-    if (lastCall > 0) {
-      const wait = MIN_INTERVAL_MS - (Date.now() - lastCall)
-      if (wait > 0) await deps.sleep(wait)
-    }
-    lastCall = Date.now()
-    let res: Response
+export function createScryfallClient(deps: ScryfallDeps) {
+  const timeout = deps.timeout ?? ((ms: number) => AbortSignal.timeout(ms))
+  // L'appel précédent peut venir de la requête d'import précédente : on compte l'intervalle dès la création.
+  let lastCall = Date.now()
+
+  async function send(url: string, init: RequestInit): Promise<Response> {
+    const wait = MIN_INTERVAL_MS - (Date.now() - lastCall)
+    if (wait > 0) await deps.sleep(wait)
     try {
-      res = await deps.fetch(url, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) } })
+      return await deps.fetch(url, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) }, signal: timeout(TIMEOUT_MS) })
     } catch (e) {
       throw new ScryfallUnavailableError((e as Error).message)
+    } finally {
+      lastCall = Date.now()
+    }
+  }
+
+  async function call(url: string, init: RequestInit = {}): Promise<{ status: number; body: ListResponse }> {
+    let res = await send(url, init)
+    if (res.status === 429) {
+      await deps.sleep(retryAfterMs(res))
+      res = await send(url, init)
     }
     // 404 = recherche sans résultat ; tout autre code d'erreur est traité comme une indisponibilité.
     if (!res.ok && res.status !== 404) throw new ScryfallUnavailableError(`HTTP ${res.status}`)
@@ -100,22 +123,35 @@ export function createScryfallClient(deps: ScryfallDeps) {
     return { cards, notFound }
   }
 
+  /** Une seule page de résultats (175 impressions) par groupe, de la plus récente à la plus ancienne. */
+  async function searchPage(oracleIds: string[]): Promise<ListResponse> {
+    const params = new URLSearchParams({
+      q: `(${oracleIds.map((o) => `oracleid:${o}`).join(' or ')}) lang:fr`,
+      unique: 'prints',
+      order: 'released',
+      dir: 'desc',
+      include_extras: 'true',
+    })
+    const { status, body } = await call(`${API}/cards/search?${params}`)
+    return status === 404 ? { data: [], has_more: false } : body
+  }
+
+  /**
+   * Impressions françaises des cartes demandées. Les pages suivantes ne sont jamais lues (une carte de base
+   * compte plus de 400 impressions françaises) ; si la page est pleine, les cartes qu'elle ne contient pas
+   * sont recherchées à nouveau sans celles qui l'ont remplie.
+   */
   async function searchFrenchPrints(oracleIds: string[]): Promise<ScryfallCard[]> {
     const cards: ScryfallCard[] = []
     for (const part of chunks(oracleIds, SEARCH_GROUP)) {
-      const params = new URLSearchParams({
-        q: `(${part.map((o) => `oracleid:${o}`).join(' or ')}) lang:fr`,
-        unique: 'prints',
-        order: 'released',
-        dir: 'desc',
-        include_extras: 'true',
-      })
-      let url: string | undefined = `${API}/cards/search?${params}`
-      while (url) {
-        const { status, body }: { status: number; body: ListResponse } = await call(url)
-        if (status === 404) break
-        cards.push(...(body.data ?? []))
-        url = body.has_more ? body.next_page : undefined
+      let pending = part
+      while (pending.length > 0) {
+        const body = await searchPage(pending)
+        const data = body.data ?? []
+        cards.push(...data)
+        if (!body.has_more || data.length === 0) break
+        const seen = new Set(data.map((c) => c.oracle_id ?? c.card_faces?.[0]?.oracle_id))
+        pending = pending.filter((o) => !seen.has(o))
       }
     }
     return cards
@@ -140,6 +176,14 @@ function toFace(face: ScryfallFace): CardFace {
   }
 }
 
+/** Nom imprimé : celui de la carte, sinon celui des faces (cartes recto-verso et doubles) joints par « // ». */
+function printedName(card: ScryfallCard): string | null {
+  if (card.printed_name) return card.printed_name
+  const faces = card.card_faces ?? []
+  if (!faces.some((f) => f.printed_name)) return null
+  return faces.map((f) => f.printed_name || f.name).join(' // ')
+}
+
 export function toCardRow(card: ScryfallCard): CardRow {
   const faces = card.card_faces?.length ? card.card_faces.map(toFace) : null
   const front = card.card_faces?.[0]
@@ -149,7 +193,7 @@ export function toCardRow(card: ScryfallCard): CardRow {
     oracle_id: card.oracle_id ?? front?.oracle_id ?? card.id,
     lang: card.lang,
     name: card.name,
-    printed_name: card.printed_name ?? null,
+    printed_name: printedName(card),
     set_code: card.set,
     collector_number: card.collector_number,
     released_at: card.released_at ?? null,

@@ -90,7 +90,7 @@ export default function OnlineTable({ tableId }: { tableId: string }) {
 - `POISON_WARN = 8`, `COMMANDER_DAMAGE_WARN = 18`
 - `<PlayerPill … />` : mêmes props que `PlayerPanel` sans `compact` ; pose `data-panel={player}`, `data-testid="player-name"` (nom) et `data-testid="player-life"` (vie). Bouton « ⋯ » d'`aria-label` `Compteurs de <nom>` ; bulle `data-bubble={player}` qui contient un `PlayerPanel` complet.
 
-- [ ] **Étape 1 : tests qui échouent.** `lib/game/player-badges.test.ts` :
+- [x] **Étape 1 : tests qui échouent.** `lib/game/player-badges.test.ts` :
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -143,9 +143,9 @@ describe('playerBadges', () => {
 })
 ```
 
-- [ ] **Étape 2 :** `npx vitest run lib/game/player-badges.test.ts` → échec (module absent).
+- [x] **Étape 2 :** `npx vitest run lib/game/player-badges.test.ts` → échec (module absent).
 
-- [ ] **Étape 3 : module pur.** `lib/game/player-badges.ts` :
+- [x] **Étape 3 : module pur.** `lib/game/player-badges.ts` :
 
 ```ts
 // Badges de la pastille d'un joueur : seulement les compteurs non nuls, en alerte près des seuils.
@@ -178,9 +178,9 @@ export function playerBadges(view: PlayerView, player: string, commanderName: (i
 }
 ```
 
-- [ ] **Étape 4 :** `npx vitest run lib/game/player-badges.test.ts` → vert.
+- [x] **Étape 4 :** `npx vitest run lib/game/player-badges.test.ts` → vert.
 
-- [ ] **Étape 5 : composant.** Dans `PlayerPanel.tsx`, ajouter `export` devant `function Stepper` et `function opposingCommanders`. Créer `components/table/PlayerPill.tsx` :
+- [x] **Étape 5 : composant.** Dans `PlayerPanel.tsx`, ajouter `export` devant `function Stepper` et `function opposingCommanders`. Créer `components/table/PlayerPill.tsx` :
 
 ```tsx
 'use client'
@@ -264,7 +264,7 @@ export default function PlayerPill(props: {
 
 La bulle s'ouvre sous la pastille, ou au-dessus avec `up` (ma pastille, en bas de l'écran). Le spectateur (`canAct` faux) voit la bulle en lecture seule : `PlayerPanel` désactive déjà ses boutons et masque « + compteur », Monarque et Initiative.
 
-- [ ] **Étape 6 : brancher.** `Table.tsx`, remplacer `panelFor` :
+- [x] **Étape 6 : brancher.** `Table.tsx`, remplacer `panelFor` :
 
 ```tsx
   /** Pastille (moi, plateau agrandi) ou panneau compact (bandeau, jusqu'à la tâche 4). */
@@ -289,7 +289,7 @@ et dans `zones.tsx`, `Hand` : remplacer la classe `h-[28%]` par `flex-1 min-w-0 
 
 `OpponentBoard.tsx` : `{panel}` reste en tête, il affiche maintenant la pastille ; l'envelopper dans `<div className="shrink-0 flex items-center">{panel}</div>`.
 
-- [ ] **Étape 7 : `online-check`.** Les blessures de commandant sont dans la bulle (section « Chloé : −3 PV et 5 blessures ») :
+- [x] **Étape 7 : `online-check`.** Les blessures de commandant sont dans la bulle (section « Chloé : −3 PV et 5 blessures ») :
 
 ```js
   await chloe.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()
@@ -304,8 +304,8 @@ et dans `zones.tsx`, `Hand` : remplacer la classe `h-[28%]` par `flex-1 min-w-0 
 
 Ajouter ensuite : `check(await chloe.page.locator('[data-bubble]').count() === 0, 'Échap ferme la bulle')`.
 
-- [ ] **Étape 8 :** vérifications complètes (voir Contraintes communes) ; captures.
-- [ ] **Étape 9 : commit** `feat(table): pastille des joueurs et bulle des compteurs`.
+- [x] **Étape 8 :** vérifications complètes (voir Contraintes communes) ; captures.
+- [x] **Étape 9 : commit** `feat(table): pastille des joueurs et bulle des compteurs`.
 
 ---
 

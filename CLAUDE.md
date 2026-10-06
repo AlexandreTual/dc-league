@@ -54,5 +54,8 @@ Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-4` (Ana, Ba
 
 - Aucune donnée d'une carte cachée ne doit atteindre le navigateur d'un joueur qui ne la voit pas.
 - Les messages d'erreur affichés sont en français.
-- Les migrations sont numérotées (`000N_nom.sql`) et ajoutées à `MIGRATIONS` dans `test/d1.ts` ; l'utilisateur les applique en production (`npm run db:migrate:remote`) : le signaler dans la PR.
+- Les migrations sont numérotées (`000N_nom.sql`) et ajoutées à `MIGRATIONS` dans `test/d1.ts`. Elles sont appliquées en production **automatiquement** à la fusion sur `main`, par `.github/workflows/deploy-game-worker.yml` (avant le déploiement du Worker de jeu) : l'utilisateur n'a rien à lancer. Le signaler quand même dans la PR, avec deux précautions :
+  - le site (Cloudflare Pages) se déploie en parallèle et peut tourner une à deux minutes sur l'ancienne base : le nouveau code doit tolérer ce court décalage (au pire une erreur propre, jamais une donnée perdue) ;
+  - si l'Action échoue, la migration n'est pas appliquée : l'utilisateur la relance depuis l'onglet Actions, ou lance `npm run db:migrate:remote`.
 - Pas de nouveau secret ou service externe sans le documenter (`docs/`) avec les étapes pour l'utilisateur.
+- L'interface doit supporter un serveur de jeu plus ancien : l'aperçu d'une PR (et le site juste après une fusion) parle au Worker de jeu de production, redéployé seulement à la fusion sur `main`. Tout nouveau champ de l'état de partie (`PlayerView`, `ViewMessage`…) peut donc manquer côté navigateur : le traiter comme facultatif dans `components/` (ne rien afficher plutôt que planter). Pour vérifier : lancer `npm run game:dev` depuis un `git worktree` de `main` et ouvrir une partie en ligne avec le site de la branche.

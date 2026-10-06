@@ -1,14 +1,23 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useGameSocket } from '@/components/online/useGameSocket'
+import { useGameSocket, type SocketStatus } from '@/components/online/useGameSocket'
+import type { ClientMessage, ViewMessage } from '@/lib/game/room'
 import { catalogsFrom, type GameSource } from './source'
 
-/** Partie en ligne : la vue et les données de cartes arrivent par la connexion au serveur de jeu. */
-export function useRemoteSource(tableId: string): GameSource | null {
-  const { status, last, cards, error, send } = useGameSocket(tableId)
+/**
+ * Partie en ligne : la vue et les données de cartes arrivent par la connexion au serveur de jeu.
+ * `source` : null tant qu'aucune vue n'est reçue ; `closedReason` : message quand les reconnexions sont abandonnées.
+ */
+export function useRemoteSource(tableId: string): { source: GameSource | null; closedReason: string | null; retry(): void } {
+  const { status, closedReason, last, cards, error, send, retry } = useGameSocket(tableId)
   const catalogs = useMemo(() => catalogsFrom(cards), [cards])
-  if (!last) return null
+  return { source: last ? remoteSource(last, status, catalogs, error, send) : null, closedReason, retry }
+}
+
+function remoteSource(
+  last: ViewMessage, status: SocketStatus, catalogs: GameSource['catalogs'], error: string | null, send: (m: ClientMessage) => void,
+): GameSource {
   const me = last.view.me || null
   return {
     me,

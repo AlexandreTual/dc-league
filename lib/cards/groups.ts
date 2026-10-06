@@ -41,7 +41,14 @@ export function displayCard(card: DeckCardView, lang: Lang): CardRow | null {
 export function displayName(card: DeckCardView, lang: Lang): string {
   const shown = displayCard(card, lang)
   if (!shown) return card.requested_name
-  return (lang === 'fr' ? shown.printed_name : null) ?? shown.name
+  return (lang === 'fr' ? frenchName(shown) : null) ?? shown.name
+}
+
+/** Nom imprimé ; pour une carte recto-verso mise en cache sans nom global, celui de ses faces. */
+function frenchName(card: CardRow): string | null {
+  if (card.printed_name) return card.printed_name
+  if (!card.faces?.some((f) => f.printed_name)) return null
+  return card.faces.map((f) => f.printed_name || f.name).join(' // ')
 }
 
 function groupOf(card: DeckCardView): CardGroup {

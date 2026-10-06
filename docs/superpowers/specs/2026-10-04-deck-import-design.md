@@ -36,7 +36,7 @@ Depuis le sous-projet 1, chaque joueur a un compte et gère ses decks dans `/pro
 | Légalité | Aucune vérification à l'import |
 | Impression | Respecter l'édition demandée, en français si elle existe dans cette édition ; sinon impression française la plus récente ; sinon l'anglais de l'édition demandée. Sans édition : française la plus récente, sinon anglaise par défaut de Scryfall |
 | Après import | Résumé + page « Voir le deck » |
-| Appels Scryfall | Faits par le serveur, par paquets de 25 lignes pilotés par le navigateur (limite Cloudflare de 50 appels sortants par requête) |
+| Appels Scryfall | Faits par le serveur, par paquets de 20 lignes pilotés par le navigateur (limite Cloudflare de 50 appels sortants par requête ; 20 cartes distinctes = une seule recherche Scryfall, dont la requête est tronquée à 1000 caractères) |
 | Confiance | L'enregistrement relit le texte brut et n'utilise que le cache serveur, jamais des données de cartes envoyées par le navigateur |
 
 ---
@@ -123,19 +123,19 @@ lookupKey(line: { name: string; set: string | null; number: string | null }): st
 
 ## Client Scryfall — `lib/cards/scryfall.ts`
 
-`fetch` est **injecté** (paramètre) pour les tests. Chaque appel envoie `User-Agent: dc-league/1.0` et `Accept: application/json`, avec un intervalle d'au moins 100 ms entre deux appels.
+`fetch` est **injecté** (paramètre) pour les tests. Chaque appel envoie `User-Agent: dc-league/1.0` et `Accept: application/json`, avec un intervalle d'au moins 500 ms entre deux appels (y compris avant le premier appel d'une requête d'import, l'appel précédent pouvant venir du paquet précédent) et un délai d'attente de 10 s. Un 429 fait attendre `Retry-After` (30 s par défaut) puis réessayer une fois ; un second échec donne `ScryfallUnavailableError`.
 
 - `fetchCollection(fetch, identifiers)` : `POST https://api.scryfall.com/cards/collection` avec au plus 75 identifiants (`{ set, collector_number }` ou `{ name }`). Renvoie `{ cards: ScryfallCard[]; notFound: Identifier[] }`.
-- `searchFrenchPrints(fetch, oracleIds)` : `GET /cards/search?q=(oracleid:A or oracleid:B …) lang:fr&unique=prints&order=released&dir=desc&include_extras=true`, avec au plus 10 identifiants par requête et les pages suivantes (`has_more`, `next_page`). Une réponse 404 (aucun résultat) donne une liste vide.
+- `searchFrenchPrints(fetch, oracleIds)` : `GET /cards/search?q=(oracleid:A or oracleid:B …) lang:fr&unique=prints&order=released&dir=desc&include_extras=true`, avec au plus 20 identifiants par requête et **une seule page** (175 impressions). Si la page est pleine (`has_more`), les cartes absentes de la page sont recherchées à nouveau sans celles qui l'ont remplie (terrains de base : plus de 400 impressions françaises) ; les pages suivantes ne sont jamais lues. Une réponse 404 (aucun résultat) donne une liste vide.
 - `toCardRow(card: ScryfallCard): CardRow` : conversion vers le format de la table `cards`.
 - `pickFrenchPrint(prints, wanted: { set, number })` : même édition et même numéro, sinon même édition, sinon le premier, c'est-à-dire le plus récent.
 - Erreurs : 429 ou 5xx → `ScryfallUnavailableError`.
 
 ## Résolution d'un paquet — `lib/cards/resolve.ts`
 
-`resolveLines(db, fetch, lines: ParsedLine[], now): Promise<{ resolved: number; notFound: string[] }>` (au plus 25 lignes) :
+`resolveLines(db, fetch, lines: ParsedLine[], now): Promise<{ resolved: number; notFound: string[] }>` (au plus 20 lignes) :
 
-1. Calculer les clés et retirer celles déjà présentes dans `card_lookups`.
+1. Calculer les clés et retirer celles déjà présentes dans `card_lookups`, sauf les entrées négatives (`en_card_id` ou `fr_card_id` NULL) de plus de 7 jours, qui sont recherchées à nouveau. Une ligne « A // B » sans édition est cherchée par sa face avant ; les noms sont comparés sans accents.
 2. Un appel `fetchCollection` pour les clés manquantes (édition et numéro si fournis, sinon nom). Pour celles qui ne sont pas trouvées avec une édition, un second appel `fetchCollection` par nom.
 3. Pour les cartes trouvées : `searchFrenchPrints` sur leurs `oracle_id`, puis `pickFrenchPrint` pour chaque ligne.
 4. Enregistrer `cards` (anglaises et françaises) et `card_lookups` (avec `fr_card_id` NULL si aucune impression française, et `en_card_id` NULL si la carte est introuvable).
@@ -173,7 +173,7 @@ Toutes en `runtime = 'edge'`, avec `assertSameOrigin`, `requireUser` et `canEdit
 ### `/profil/decks` (existante)
 
 - Chaque deck affiche son nombre de cartes s'il en a, et un bouton **« Importer la liste »**.
-- Panneau d'import : zone de texte, puis aperçu de lecture (« 99 cartes · 1 commandant · 2 lignes ignorées · 1 ligne illisible »), puis bouton « Importer ». Une barre de progression avance par paquet de 25. En cas d'échec d'un paquet, un nouvel essai automatique est fait après 2 s, puis le bouton « Reprendre l'import » apparaît. Enfin, le résumé s'affiche (cartes, % en français, introuvables avec leur ligne) avec un bouton « Voir le deck ».
+- Panneau d'import : zone de texte, puis aperçu de lecture (« 99 cartes · 1 commandant · 2 lignes ignorées · 1 ligne illisible »), puis bouton « Importer ». Une barre de progression avance par paquet de 20. En cas d'échec d'un paquet, un nouvel essai automatique est fait après 2 s, puis le bouton « Reprendre l'import » apparaît. Enfin, le résumé s'affiche (cartes, % en français, introuvables avec leur ligne) avec un bouton « Voir le deck ».
 - Le nom d'un deck importé est un lien vers `/decks/[id]`.
 
 ### `/decks/[id]` (nouvelle, publique en lecture)
@@ -199,13 +199,13 @@ Images : URLs Scryfall utilisées directement (`cards.scryfall.io`), sans copie.
 - Scryfall 429 ou 5xx → 503 ; le cache déjà rempli est conservé, et on peut reprendre.
 - Carte introuvable → non bloquante, groupe « Introuvables ».
 - Pas de version française → anglais, sans avertissement (seul le pourcentage l'indique).
-- Liste vide, trop longue ou paquet de plus de 25 lignes → 400 avec un message en français.
+- Liste vide, trop longue ou paquet de plus de 20 lignes → 400 avec un message en français.
 - Ligne absente du cache au moment de l'enregistrement → introuvable.
 
 ## Tests
 
 - `parse.ts` : chaque format de ligne, les en-têtes, les sections ignorées, les cartes doubles, les numéros spéciaux, les erreurs, la limite de 250 lignes, et un export Moxfield complet (fichier de test).
-- `scryfall.ts`, avec un `fetch` factice et des réponses enregistrées au format de l'API publique (`test/fixtures/scryfall/*.json`) : corps de `/cards/collection`, requête `oracleid` groupée et encodée, pagination, 404 de recherche donnant une liste vide, 429 donnant `ScryfallUnavailableError`, `toCardRow` sur une carte simple et sur une double face, `pickFrenchPrint` dans ses trois cas.
+- `scryfall.ts`, avec un `fetch` factice et des réponses enregistrées au format de l'API publique (`test/fixtures/scryfall/*.json`) : corps de `/cards/collection`, requête `oracleid` groupée et encodée, page unique et nouvelle recherche des cartes absentes d'une page pleine, 404 de recherche donnant une liste vide, 429 suivi d'une nouvelle tentative, délai d'attente, `toCardRow` sur une carte simple et sur une double face, `pickFrenchPrint` dans ses trois cas.
 - `db-cards.ts` (SQLite en mémoire) : écriture et lecture du cache, mémorisation de « pas de FR », remplacement atomique du contenu d'un deck, commandant.
 - `resolve.ts` : un paquet de bout en bout avec le faux Scryfall ; un second appel identique ne fait **aucun** appel réseau ; recherche par nom quand l'édition est introuvable.
 - `commit.ts` : le résumé (total, % en français, introuvables) ; une ligne absente du cache est introuvable ; l'image du commandant est mise à jour.

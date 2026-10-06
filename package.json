@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.mjs,.ts,.tsx",
     "test": "vitest run",
     "postinstall": "node scripts/patch-next-on-pages.mjs",
     "pages:dev": "wrangler pages dev",
@@ -19,7 +19,7 @@
     "@cloudflare/next-on-pages": "1.13.16",
     "@dnd-kit/core": "^6.3.1",
     "lucide-react": "^0.454.0",
-    "next": "^15.1.0",
+    "next": "^15.5.27",
     "react": "^18",
     "react-dom": "^18"
   },
@@ -30,12 +30,17 @@
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
-    "eslint-config-next": "^15.1.0",
+    "eslint-config-next": "^15.5.27",
     "playwright-core": "^1.63.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
     "vitest": "^5.0.3",
     "wrangler": "^4.86.0"
+  },
+  "overrides": {
+    "@cloudflare/next-on-pages": {
+      "next": "$next"
+    }
   }
 }

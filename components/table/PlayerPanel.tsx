@@ -10,7 +10,7 @@ import { touchTarget } from './touch'
 
 const stepBtn = `p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent ${touchTarget}`
 
-function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
+export function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
   label: React.ReactNode
   value: number
   alert?: boolean
@@ -22,15 +22,15 @@ function Stepper({ label, value, alert = false, disabled, onChange, testId }: {
   return (
     <span className={`inline-flex items-center gap-0.5 ${alert ? 'text-dc-red-light font-semibold' : ''}`}>
       {label}
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label="moins"><Minus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label={`moins : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Minus className="w-3 h-3" /></button>
       <span className="min-w-[1.75rem] text-center" data-testid={testId}>{value}</span>
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label="plus"><Plus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={`plus : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Plus className="w-3 h-3" /></button>
     </span>
   )
 }
 
 /** Commandants des autres joueurs, connus par les cartes visibles (les commandants sont publics). */
-function opposingCommanders(view: PlayerView, player: string): VisibleCard[] {
+export function opposingCommanders(view: PlayerView, player: string): VisibleCard[] {
   const out = new Map<string, VisibleCard>()
   for (const p of Object.values(view.players)) {
     const { library: _, ...zones } = p.zones

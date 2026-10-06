@@ -43,6 +43,7 @@ export default function ScoreModal({ match, onClose, onSave, allowDraw = true }:
           <h2 className="font-fantasy font-bold text-dc-gold">Résultat du match</h2>
           <button
             onClick={onClose}
+            aria-label="Fermer"
             className="text-dc-muted hover:text-dc-text transition-colors"
           >
             <X className="w-5 h-5" />

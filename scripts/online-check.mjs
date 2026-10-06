@@ -123,6 +123,8 @@ try {
   // ── Partie ──
   for (const who of [ana, bastien, chloe]) await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
   check(true, 'la table s’affiche chez les 3 joueurs')
+  const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
+  for (const who of [ana, bastien, chloe]) check(await coversSite(who.page), `${who.name} : table en plein écran`)
   for (const who of [ana, bastien, chloe]) {
     await myHand(who).first().waitFor()
     check((await myHand(who).count()) === 7, `${who.name} : main de 7 cartes`)
@@ -185,13 +187,25 @@ try {
   const anaStripPanel = chloe.page.locator(`[data-strip="${ANA.id}"] [data-panel="${ANA.id}"]`)
   for (let i = 0; i < 3; i++) await anaStripPanel.getByRole('button', { name: 'moins' }).first().click()
   await chloe.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()
-  const damage = board(chloe, ANA.id).locator(`[data-panel="${ANA.id}"]`).getByTestId(`commander-damage-${CHLOE.id}`)
+  await board(chloe, ANA.id).getByRole('button', { name: `Compteurs de ${ANA.name}` }).click()
+  const damage = chloe.page.locator(`[data-bubble="${ANA.id}"]`).getByTestId(`commander-damage-${CHLOE.id}`)
   for (let i = 0; i < 5; i++) await damage.locator('xpath=following-sibling::button').click()
+  // La vie se règle encore depuis la pastille pendant que la bulle est ouverte (le voile ne doit pas l'intercepter).
+  const anaPillMinus = board(chloe, ANA.id).locator(`[data-panel="${ANA.id}"]`).getByRole('button', { name: 'moins' }).first()
+  await anaPillMinus.click()
+  await chloe.page.waitForFunction((id) => document.querySelector(`[data-board="${id}"] [data-panel="${id}"] [data-testid="player-life"]`)?.textContent === '31', ANA.id)
+  check((await chloe.page.locator(`[data-bubble="${ANA.id}"]`).count()) === 1, 'la bulle reste ouverte après un clic sur « moins » dans la pastille')
+  const anaPillPlus = board(chloe, ANA.id).locator(`[data-panel="${ANA.id}"]`).getByRole('button', { name: 'plus' }).first()
+  await anaPillPlus.click()
+  await chloe.page.waitForFunction((id) => document.querySelector(`[data-board="${id}"] [data-panel="${id}"] [data-testid="player-life"]`)?.textContent === '32', ANA.id)
+  check(true, 'le « +1 » dans la pastille annule le « −1 » (32 PV retrouvés)')
+  await chloe.page.keyboard.press('Escape')
   await ana.page.waitForFunction((id) => document.querySelector(`[data-board="${id}"] [data-panel="${id}"] [data-testid="player-life"]`)?.textContent === '32', ANA.id)
-  await ana.page.waitForFunction(([id, c]) => document.querySelector(`[data-board="${id}"] [data-testid="commander-damage-${c}"]`)?.textContent === '5', [ANA.id, CHLOE.id])
-  check(true, 'Ana voit 5 blessures du commandant de Chloé et 32 PV (40 − 3 − 5 : les blessures retirent aussi des PV)')
+  await ana.page.waitForFunction((id) => document.querySelector(`[data-board="${id}"] [data-badge="commander"]`)?.textContent?.endsWith(' 5'), ANA.id)
+  check(true, 'Ana voit le badge « ⚔ … 5 » et 32 PV (40 − 3 − 5 : les blessures retirent aussi des PV)')
   await bastien.page.waitForFunction((id) => document.querySelector(`[data-panel="${id}"] [data-testid="player-life"]`)?.textContent === '32', ANA.id)
   check(true, 'Bastien voit aussi 32 PV pour Ana')
+  check(await chloe.page.locator('[data-bubble]').count() === 0, 'Échap ferme la bulle')
 
   // ── Ana regarde les 3 cartes du dessus de Bastien ──
   await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="library"]`).click({ button: 'right' })

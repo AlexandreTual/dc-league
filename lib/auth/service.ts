@@ -2,7 +2,6 @@ import {
   AUTH_ERR,
   clearFailures,
   countAdmins,
-  countRecentFailures,
   createInvitation,
   createUserFromInvitation,
   deleteExpiredSessions,
@@ -13,8 +12,9 @@ import {
   getValidInvitation,
   INVITATION_TTL_MS,
   insertSession,
+  forgetAttempt,
   playerExists,
-  recordFailure,
+  recordAttempt,
   resetPasswordFromInvitation,
   updatePasswordHash,
   type InvitationKind,
@@ -25,6 +25,37 @@ import type { CurrentUser, ServiceResult } from './types'
 import { validatePassword, validateUsername } from './validation'
 
 const MAX_FAILURES = 5
+const MAX_IP_ATTEMPTS = 20
+const MAX_USERNAME_KEY = 64
+
+/** Clés du compteur de tentatives : par pseudo (tronqué) et par IP (`CF-Connecting-IP`). */
+const attemptKey = {
+  user: (username: string) => `user:${username.slice(0, MAX_USERNAME_KEY)}`,
+  ip: (ip: string) => `ip:${ip.slice(0, MAX_USERNAME_KEY)}`,
+}
+
+type Attempt = { blocked: true } | { blocked: false; ipKey: string | null } | { error: string }
+
+/** Enregistre la tentative avant toute vérification ; bloquée si une des limites est dépassée. */
+async function registerAttempt(db: D1Database, key: string, ip: string | null | undefined, now: Date): Promise<Attempt> {
+  const ipKey = ip ? attemptKey.ip(ip) : null
+  const counts = await recordAttempt(db, ipKey ? [key, ipKey] : [key], now)
+  if (counts.error !== null) return { error: counts.error }
+  const [keyCount, ipCount = 0] = counts.data
+  if (keyCount > MAX_FAILURES || ipCount > MAX_IP_ATTEMPTS) {
+    // Une tentative refusée ne compte pas : sinon réessayer prolongerait le blocage indéfiniment.
+    await forgetAttempt(db, key, now)
+    if (ipKey) await forgetAttempt(db, ipKey, now)
+    return { blocked: true }
+  }
+  return { blocked: false, ipKey }
+}
+
+/** Connexion réussie : on efface les échecs de la clé et la tentative comptée pour l'IP. */
+async function forgetSuccess(db: D1Database, key: string, ipKey: string | null, now: Date): Promise<void> {
+  await clearFailures(db, key)
+  if (ipKey) await forgetAttempt(db, ipKey, now)
+}
 
 const MSG = {
   BAD_CREDENTIALS: 'Pseudo ou mot de passe incorrect',
@@ -52,29 +83,29 @@ function internal<T>(detail: string): ServiceResult<T> {
 
 export async function loginWithPassword(
   db: D1Database,
-  input: { username: string; password: string },
+  input: { username: string; password: string; ip?: string | null },
   now: Date,
 ): Promise<ServiceResult<{ userId: string }>> {
-  const username = input.username.trim()
-  const failures = await countRecentFailures(db, username, now)
-  if (failures.error !== null) return internal(failures.error)
-  if (failures.data >= MAX_FAILURES) return fail(429, MSG.TOO_MANY)
+  const username = input.username.trim().slice(0, MAX_USERNAME_KEY)
+  const key = attemptKey.user(username)
+  const attempt = await registerAttempt(db, key, input.ip, now)
+  if ('error' in attempt) return internal(attempt.error)
+  if (attempt.blocked) return fail(429, MSG.TOO_MANY)
 
   const { data: user, error } = await getUserByUsername(db, username)
   if (error !== null) return internal(error)
   if (!user) {
     await verifyDummyPassword(input.password)
   } else if (await verifyPassword(input.password, user.password_hash)) {
-    await clearFailures(db, username)
+    await forgetSuccess(db, key, attempt.ipKey, now)
     return { ok: true, value: { userId: user.id } }
   }
-  await recordFailure(db, username, now)
   return fail(401, MSG.BAD_CREDENTIALS)
 }
 
 export async function loginBootstrap(
   db: D1Database,
-  input: { adminPassword: string },
+  input: { adminPassword: string; ip?: string | null },
   envAdminPassword: string | undefined,
   now: Date,
 ): Promise<ServiceResult<{ userId: 'bootstrap' }>> {
@@ -83,16 +114,15 @@ export async function loginBootstrap(
   if (admins.error !== null) return internal(admins.error)
   if (admins.data > 0) return fail(403, MSG.BOOTSTRAP_DISABLED)
 
-  const failures = await countRecentFailures(db, 'bootstrap', now)
-  if (failures.error !== null) return internal(failures.error)
-  if (failures.data >= MAX_FAILURES) return fail(429, MSG.TOO_MANY)
+  const attempt = await registerAttempt(db, 'bootstrap', input.ip, now)
+  if ('error' in attempt) return internal(attempt.error)
+  if (attempt.blocked) return fail(429, MSG.TOO_MANY)
 
   // Comparaison sur les empreintes pour un temps constant indépendant du contenu.
   if ((await hashToken(input.adminPassword)) !== (await hashToken(envAdminPassword))) {
-    await recordFailure(db, 'bootstrap', now)
     return fail(401, MSG.BAD_ADMIN_PASSWORD)
   }
-  await clearFailures(db, 'bootstrap')
+  await forgetSuccess(db, 'bootstrap', attempt.ipKey, now)
   return { ok: true, value: { userId: 'bootstrap' } }
 }
 
