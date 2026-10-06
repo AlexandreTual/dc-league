@@ -1,5 +1,6 @@
-// Vérification du mode test sur téléphone (375 × 812, écran tactile), dans Chromium piloté par playwright-core.
-// Usage : node scripts/playtest-mobile-check.mjs <url-de-base> <deckId> <dossier-captures>
+// Vérification du mode test sur tablette en paysage (1180 × 820 puis 1024 × 768, écran tactile),
+// puis du message en portrait, dans Chromium piloté par playwright-core.
+// Usage : node scripts/playtest-tablet-check.mjs <url-de-base> <deckId> <dossier-captures>
 import { chromium } from 'playwright-core'
 
 const [base = 'http://localhost:8788', deckId, outDir = '.'] = process.argv.slice(2)
@@ -7,57 +8,52 @@ if (!deckId) throw new Error('deckId manquant')
 
 const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const browser = await chromium.launch({ executablePath })
-const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true })
-const page = await context.newPage()
-const cdp = await context.newCDPSession(page)
 const errors = []
-page.on('pageerror', (e) => errors.push(e.message))
-
-let shot = 0
-async function capture(label) {
-  shot++
-  await page.waitForTimeout(300) // laisser finir les animations
-  const path = `${outDir}/mobile-${shot}-${label}.png`
-  await page.screenshot({ path })
-  console.log(`📸 ${path}`)
-}
+/** Taille minimale d'une zone tactile. */
+const TOUCH = 44
 
 function check(condition, message) {
   if (!condition) throw new Error(`ÉCHEC : ${message}`)
   console.log(`✓ ${message}`)
 }
 
-/** Appui long au doigt au centre d'un élément (événements tactiles réels, donc aussi pointer*). */
-async function longPress(locator, ms = 700) {
-  const box = await locator.boundingBox()
-  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
-  await page.waitForTimeout(ms)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-  await page.waitForTimeout(150)
+/** Page tactile à la taille donnée, avec ses outils (captures, appui long). */
+async function open({ width, height }) {
+  const context = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true })
+  const page = await context.newPage()
+  const cdp = await context.newCDPSession(page)
+  page.on('pageerror', (e) => errors.push(e.message))
+  let shot = 0
+  return {
+    page,
+    context,
+    async capture(label) {
+      shot++
+      await page.waitForTimeout(300) // laisser finir les animations
+      const path = `${outDir}/tablette-${width}x${height}-${shot}-${label}.png`
+      await page.screenshot({ path })
+      console.log(`📸 ${path}`)
+    },
+    /** Appui long au doigt au centre d'un élément (événements tactiles réels, donc aussi pointer*). */
+    async longPress(locator, ms = 700) {
+      const box = await locator.boundingBox()
+      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
+      await page.waitForTimeout(ms)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await page.waitForTimeout(150)
+    },
+  }
 }
 
-const hand = page.locator('[data-zone="hand"] [data-card-id]')
-const library = page.locator('[data-board] [data-zone="library"]').first()
-const libraryCount = async () => Number(await library.getAttribute('data-count'))
-const menu = page.getByRole('menu')
-
-/** Le menu tient dans l'écran (jamais au-dessus du bord haut). */
-async function menuInScreen() {
-  const box = await menu.boundingBox()
-  return box.y >= 0 && box.x >= 0 && box.x + box.width <= 375 && box.y + box.height <= 812
-}
-
-try {
+/** Page du deck : « Oracle et règles » par l'icône d'une ligne, puis par appui long sur la ligne. */
+async function deckPage({ page, capture, longPress }, width) {
   await page.goto(`${base}/decks/${deckId}`)
-  await page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), deckId)
-
-  // ── Page du deck : « Oracle et règles » par l'icône d'une ligne, puis par appui long sur la ligne ──
   const oracleDialog = page.getByRole('dialog', { name: 'Oracle et règles' })
   await page.getByRole('button', { name: /^Oracle et règles : / }).first().tap()
   await oracleDialog.getByText(/Règles indisponibles|Aucune règle|\d{4}/).first().waitFor()
   const dialogBox = await oracleDialog.boundingBox()
-  check(dialogBox.x >= 0 && dialogBox.x + dialogBox.width <= 375, 'page du deck : l’icône ouvre « Oracle et règles », dans la largeur de l’écran')
+  check(dialogBox.x >= 0 && dialogBox.x + dialogBox.width <= width, 'page du deck : l’icône ouvre « Oracle et règles », dans la largeur de l’écran')
   await capture('deck-oracle')
   await oracleDialog.getByRole('button', { name: 'Fermer' }).tap()
   await oracleDialog.waitFor({ state: 'detached' })
@@ -68,89 +64,139 @@ try {
   await page.touchscreen.tap(5, 5)
   await oracleDialog.waitFor({ state: 'detached' })
   check(true, 'clic à côté : fenêtre fermée')
-  await page.goto(`${base}/decks/${deckId}/test`)
-  await hand.first().waitFor()
-  check(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'écran tactile émulé (pointer: coarse)')
-  check((await hand.count()) === 7, 'main de départ de 7 cartes')
-  await capture('depart')
+}
 
-  // ── Appui long sur la bibliothèque : son menu s'ouvre, comme au clic droit ──
-  await longPress(library)
-  check(await menu.isVisible(), 'appui long sur la bibliothèque : menu ouvert')
-  check(await menu.getByRole('menuitem', { name: 'Mélanger' }).isVisible(), 'menu de la bibliothèque (Mélanger…)')
-  check(await menuInScreen(), 'menu entièrement dans l’écran')
-  const itemHeight = (await menu.getByRole('menuitem').first().boundingBox()).height
-  check(itemHeight >= 32, `entrées du menu d’au moins 32 px au doigt (${Math.round(itemHeight)} px)`)
-  await capture('menu-bibliotheque')
-  await page.touchscreen.tap(360, 120)
-  await page.waitForTimeout(150)
-  check(!(await menu.isVisible()), 'toucher à côté ferme le menu')
-
-  // Un appui bref ne déplace rien et n'ouvre pas de menu.
-  const libraryBefore = await libraryCount()
-  await longPress(hand.first(), 120)
-  check(!(await menu.isVisible()) && (await hand.count()) === 7, 'appui bref sur une carte : ni menu ni déplacement')
-
-  // ── Mulligan n°3 : les joueurs choisissent combien de cartes mettre au-dessous (ici deux), une par une ──
-  const mulligan = page.getByRole('button', { name: 'Mulligan', exact: true })
-  for (let i = 0; i < 3; i++) {
-    await mulligan.tap()
+/** La table en paysage : zones tactiles, aperçu dans le menu, mulligan. */
+async function table(tools, { width, height }) {
+  const { page, capture, longPress } = tools
+  const size = `${width} × ${height}`
+  const hand = page.locator('[data-zone="hand"] [data-card-id]')
+  const column = page.locator('[data-board] [data-column]').first()
+  const library = column.locator('[data-zone="library"]')
+  const libraryCount = async () => Number(await library.getAttribute('data-count'))
+  const menu = page.getByRole('menu')
+  const menuInScreen = async () => {
+    const box = await menu.boundingBox()
+    return box.y >= 0 && box.x >= 0 && box.x + box.width <= width && box.y + box.height <= height
+  }
+  /** Toucher neutre (au-dessus du champ de bataille, loin des cartes) pour fermer un menu. */
+  const tapAside = async () => {
+    const box = await page.locator('[data-board] [data-zone="battlefield"]').first().boundingBox()
+    await page.touchscreen.tap(box.x + box.width - 10, box.y + 10)
     await page.waitForTimeout(400) // deux touchers rapprochés feraient un double toucher
   }
-  const banner = page.getByTestId('mulligan-banner')
-  check((await banner.innerText()).includes('Mulligan n°3') && (await banner.innerText()).includes('cartes convenues')
-    && !/\d carte/.test(await banner.innerText()), 'bandeau : Mulligan n°3, sans nombre de cartes imposé')
-  check((await banner.innerText()).includes('Mettre au-dessous'), 'bandeau : indique « Mettre au-dessous »')
-  await capture('mulligan-3')
-  for (const [n, left] of [[1, 6], [2, 5]]) {
-    const bottomed = await hand.first().getAttribute('data-card-id')
-    await longPress(hand.first())
-    check(await menu.isVisible(), `carte ${n} : appui long sur une carte de la main, menu de la carte`)
-    check(await page.getByTestId('drag-overlay').count() === 0, `carte ${n} : pas de glisser en cours`)
-    check(await menuInScreen(), `carte ${n} : menu dans l’écran`)
-    if (n === 1) await capture('menu-mettre-au-dessous')
-    await menu.getByRole('menuitem', { name: 'Mettre au-dessous' }).tap()
-    await page.waitForTimeout(400)
-    check((await hand.count()) === left && !(await page.locator(`[data-zone="hand"] [data-card-id="${bottomed}"]`).count()),
-      `carte ${n} mise au-dessous : ${left} cartes en main`)
-    check(await banner.isVisible(), `carte ${n} : main pas encore gardée`)
+
+  await page.goto(`${base}/decks/${deckId}`)
+  await page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), deckId)
+  await page.goto(`${base}/decks/${deckId}/test`)
+  await hand.first().waitFor()
+  check(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), `${size} : écran tactile émulé (pointer: coarse)`)
+  check((await hand.count()) === 7, 'main de départ de 7 cartes')
+  check(await page.evaluate(() => document.scrollingElement.scrollWidth <= innerWidth), 'pas de défilement horizontal')
+  check(!(await page.getByTestId('rotate').isVisible()), 'paysage : pas de message « Tourne ta tablette »')
+
+  // ── Colonne resserrée et zones tactiles ──
+  const columnWidth = (await column.boundingBox()).width
+  check(Math.round(columnWidth) === 188, `colonne de 188 px (${Math.round(columnWidth)} px)`)
+  for (const name of ['moins : points de vie', 'plus : points de vie', /^Compteurs de /]) {
+    const button = column.getByRole('button', { name })
+    check((await button.count()) === 1, `un seul bouton « ${name} » affiché`)
+    const box = await button.boundingBox()
+    check(box.height >= TOUCH && box.width >= TOUCH, `« ${name} » : au moins ${TOUCH} px (${Math.round(box.width)} × ${Math.round(box.height)})`)
   }
-  check((await libraryCount()) === libraryBefore + 2, `bibliothèque : deux cartes de plus (${libraryBefore + 2})`)
+  const cases = {
+    main: await column.getByTestId('hand-count').locator('..').boundingBox(),
+    bib: await library.boundingBox(),
+    exil: await column.locator('[data-zone="exile"]').boundingBox(),
+  }
+  check(Object.values(cases).every((b) => b.height >= TOUCH), `cases Main, Bib., Exil d’au moins ${TOUCH} px de haut`)
+  check(Math.abs(cases.main.y - cases.bib.y) < 2 && cases.bib.x > cases.main.x && Math.abs(cases.exil.x - cases.bib.x) < 2 && cases.exil.y > cases.bib.y,
+    'cases sur deux colonnes (Main, Bib. / Cim., Exil)')
+  const barHeights = await page.getByTestId('top-bar').locator('a, button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))
+  check(barHeights.length > 0 && barHeights.every((h) => h >= TOUCH), `boutons de la barre d’au moins ${TOUCH} px (${Math.round(Math.min(...barHeights))} px)`)
+  await capture('depart')
+
+  // ── Mulligan : une carte mise au-dessous par le menu, puis Garder ──
+  const libraryBefore = await libraryCount()
+  await page.getByRole('button', { name: 'Mulligan', exact: true }).tap()
+  await page.waitForTimeout(400)
+  const banner = page.getByTestId('mulligan-banner')
+  check((await banner.innerText()).includes('Mulligan n°1'), 'bandeau : Mulligan n°1')
   await longPress(hand.first())
-  check(await menu.getByRole('menuitem', { name: 'Mettre au-dessous' }).isVisible(), 'encore « Mettre au-dessous » : le jeu n’impose pas de nombre')
-  await page.touchscreen.tap(360, 120)
-  await page.waitForTimeout(150)
+  await menu.getByRole('menuitem', { name: 'Mettre au-dessous' }).tap()
+  await page.waitForTimeout(400)
+  check((await hand.count()) === 6 && (await libraryCount()) === libraryBefore + 1, 'carte mise au-dessous : 6 cartes en main')
   await page.getByRole('button', { name: 'Garder' }).tap()
   await page.waitForTimeout(400)
-  check(!(await banner.isVisible()), 'mulligan terminé : main gardée')
-  await page.getByRole('button', { name: /Journal/ }).tap()
-  check((await page.getByTestId('log').innerText()).includes('Garde sa main'), 'journal : « Garde sa main »')
-  await page.getByRole('button', { name: 'Fermer le journal' }).tap()
+  check(!(await banner.isVisible()), 'main gardée')
   await capture('main-gardee')
 
-  // ── Aperçu de carte : borné à l'écran, masqué au toucher suivant ──
-  // Toucher neutre d'abord : le bouton touché avant (Fermer le journal) a disparu, et React ignore
-  // alors l'entrée de la souris émulée sur l'élément suivant.
-  await page.touchscreen.tap(360, 120)
-  await page.waitForTimeout(600) // deux touchers rapprochés feraient un double toucher
+  // ── + de la vie au doigt ──
+  const life = column.getByTestId('player-life')
+  const lifeBefore = Number(await life.innerText())
+  await column.getByRole('button', { name: 'plus : points de vie' }).tap()
+  await page.waitForTimeout(300)
+  check(Number(await life.innerText()) === lifeBefore + 1, `+ : ${lifeBefore + 1} points de vie`)
+  await column.getByRole('button', { name: 'moins : points de vie' }).tap()
+  await page.waitForTimeout(400)
+
+  // ── Pas d'aperçu au toucher : il est dans le menu ouvert par l'appui long ──
+  await tapAside()
   await hand.nth(2).tap()
   await page.waitForTimeout(200)
-  const preview = page.getByTestId('preview')
-  check(await preview.isVisible(), 'toucher une carte : aperçu affiché')
+  check(!(await page.getByTestId('preview').isVisible()), 'toucher une carte : pas d’aperçu flottant')
+  await longPress(hand.nth(2))
+  check(await menu.isVisible(), 'appui long sur une carte de la main : menu ouvert')
+  check(await page.getByTestId('drag-overlay').count() === 0, 'pas de glisser en cours')
+  const preview = menu.getByTestId('menu-preview')
+  check(await preview.isVisible(), 'menu : image de la carte')
+  check(Math.round((await preview.boundingBox()).width) === 224, 'image de 224 px de large')
+  check(await menu.getByRole('menuitem', { name: 'Cimetière' }).first().isVisible(), 'menu : entrées de la carte à côté de l’image')
   {
-    const box = await preview.boundingBox()
-    check(box.x >= 0 && box.y >= 0 && box.x + box.width <= 375 && box.y + box.height <= 812, 'aperçu entièrement dans l’écran')
-    await capture('apercu')
-    await page.touchscreen.tap(360, 120)
-    await page.waitForTimeout(150)
-    check(!(await preview.isVisible()), 'aperçu masqué au toucher suivant')
+    const image = await preview.boundingBox()
+    const item = await menu.getByRole('menuitem').first().boundingBox()
+    check(item.x >= image.x + image.width, 'entrées à droite de l’image')
   }
+  const close = menu.getByRole('button', { name: 'Fermer' })
+  check((await close.boundingBox()).height >= TOUCH, `bouton « Fermer » d’au moins ${TOUCH} px`)
+  check(await menuInScreen(), 'menu entièrement dans l’écran')
+  await capture('menu-apercu')
+  await page.waitForTimeout(400) // le clic qui suit de peu un appui long est ignoré (touch.ts)
+  await close.tap()
+  await page.waitForTimeout(200)
+  check(!(await menu.isVisible()), '« Fermer » ferme le menu et l’aperçu')
+
+  // ── Appui long sur la bibliothèque : son menu, sans image ──
+  await longPress(library)
+  check(await menu.getByRole('menuitem', { name: 'Mélanger' }).isVisible(), 'appui long sur la bibliothèque : son menu (Mélanger…)')
+  check(!(await menu.getByTestId('menu-preview').count()), 'menu de la bibliothèque : pas d’image')
+  check(await menuInScreen(), 'menu de la bibliothèque dans l’écran')
+  await tapAside()
+  check(!(await menu.isVisible()), 'toucher à côté ferme le menu')
+
+}
+
+try {
+  for (const [i, viewport] of [{ width: 1180, height: 820 }, { width: 1024, height: 768 }].entries()) {
+    const tools = await open(viewport)
+    if (i === 0) await deckPage(tools, viewport.width)
+    await table(tools, viewport)
+    await tools.context.close()
+  }
+
+  // ── Tablette en portrait : message à la place de la table ──
+  const tools = await open({ width: 820, height: 1180 })
+  await tools.page.goto(`${base}/decks/${deckId}/test`)
+  const rotate = tools.page.getByTestId('rotate')
+  await rotate.waitFor()
+  check((await rotate.innerText()).includes('Tourne ta tablette en paysage'), 'portrait : « Tourne ta tablette en paysage pour jouer. »')
+  const box = await rotate.boundingBox()
+  check(box.x === 0 && box.y === 0 && box.width === 820 && box.height === 1180, 'portrait : le message couvre tout l’écran')
+  await tools.capture('portrait')
+  await tools.context.close()
 
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')
-} catch (e) {
-  await capture('echec').catch(() => {})
-  throw e
 } finally {
   await browser.close()
 }

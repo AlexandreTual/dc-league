@@ -40,7 +40,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 ### Points à reprendre dans les sous-projets suivants
 
 - Sous-projet 3 (fait) : mention « (passé par l'hôte) », vraie table à la place de la vue minimale, action `moveTop` pour la carte du dessus.
-- Interface pensée pour ordinateur d'abord ; adaptation tablette ensuite.
+- Interface pensée pour ordinateur d'abord ; adaptation tablette faite (#81).
 - Les blessures de commandant retirent aussi des points de vie (choix du moteur) : 3 PV puis 5 blessures → 32 PV.
 
 ## Retours de test (5 octobre)
@@ -62,7 +62,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
 6. Nouvelle mise en page de la table (chantier #22) — **terminé** : spec `specs/2026-10-05-table-layout-design.md`, plan `plans/2026-10-05-table-layout.md` ; plein écran (#35), pastille et bulle des compteurs (#36), piles en vignettes à côté de la main (#37), bandeaux d'adversaires compacts (#38), réglage « Taille des cartes » de 80 % à 150 % (#39).
 7. Colonne joueur façon MTGO (chantier #80) — **terminé** : spec `specs/2026-10-06-player-column-design.md`, plan `plans/2026-10-06-player-column.md` ; maquette https://claude.ai/artifact/SLrswVXfAH4ezsCXkK2AQj. Ma colonne avec la vie en gros, rouge à 10 ou moins, cases chiffrées et cimetière en cascade (#83) ; colonne de l'adversaire en Duel (#84) ; colonne compacte à gauche de chaque bandeau, bandeaux sur une rangée et cartes agrandies à 3 à 5 joueurs, même colonne pour l'adversaire agrandi (#85).
-8. Adaptation tablette de la table (#81) — chantier suivant ; maquette faite (écran « A sur tablette »), spec et plan à écrire.
+8. Adaptation tablette de la table (#81) — **terminé** : spec `specs/2026-10-06-tablet-design.md`, plan `plans/2026-10-06-tablet.md`. Tablette en paysage (1180 × 820, 1024 × 768) : colonne de 188 px, −/+ et cases de 44 px, barre du haut en 44 px, aperçu de la carte dans le menu ouvert par l'appui long (bouton « Fermer »), message « Tourne ta tablette » en portrait. Le téléphone n'est plus une cible (`playtest-tablet-check` remplace `playtest-mobile-check`).
 9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — après la tablette.
 
 ## Idées pour plus tard

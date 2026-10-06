@@ -45,7 +45,7 @@ La présentation tablette s'applique quand le pointeur principal est le doigt : 
 
 - Les bandeaux à 3 à 5 joueurs gardent leur colonne compacte de 184 px (vie 40 px) ; leurs −/+ et « ⋯ » passent aussi en grand sous la ligne portrait, et leurs cases font 44 px de haut (déjà sur deux colonnes).
 - Les noms accessibles ne changent pas (« moins : points de vie », « plus : points de vie », « Compteurs de … ») : les contrôles existants les retrouvent.
-- Le commandant et le cimetière en cascade restent sous les cases ; la cascade montre ce que la hauteur permet (la plus récente toujours visible).
+- Le commandant et le cimetière en cascade restent sous les cases. Quand la hauteur manque (colonne de l'adversaire en haut, surtout en vue agrandie), la cascade se replie d'abord, puis le commandant : la colonne ne déborde jamais sur la mienne. De même, la dernière ligne d'un bandeau (commandement, dernière carte du cimetière) se replie si la barre du haut passe sur deux lignes.
 
 ## 3. Barre du haut
 
