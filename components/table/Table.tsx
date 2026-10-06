@@ -27,6 +27,7 @@ import TokenModal from './TokenModal'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
+import OracleModal from '@/components/OracleModal'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import type { MenuPoint } from './touch'
@@ -79,6 +80,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[] } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
+  const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -139,6 +141,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     for (const command of commands) {
       if (command.kind === 'action') send(command.action)
       else if (command.kind === 'openPile') setPile({ title: command.title, player: command.player, zone: command.zone, mode: command.mode })
+      else if (command.kind === 'oracle') setOracle({ owner: command.owner, ref: command.ref })
       else {
         const answer = prompt(command.question, String(command.fallback))
         const n = answer === null ? NaN : Number.parseInt(answer, 10)
@@ -197,12 +200,13 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         setMenu(null)
         if (pile) closePile(false)
         setTokenOpen(false)
+        setOracle(null)
         setLogOpen(false)
         setSettingsOpen(false)
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || menu || !canAct) return
+      if (pile || tokenOpen || oracle || menu || !canAct) return
       e.preventDefault()
       if (shortcut === 'undo') return source.undo()
       const actions = {
@@ -216,7 +220,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, menu, canAct])
+  }, [send, source, closePile, pile, tokenOpen, oracle, menu, canAct])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -269,6 +273,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     : view.players[pile.player].zones[pile.zone].filter((c): c is VisibleCard => !c.hidden).reverse()
 
   const mine = me ? view.players[me] : null
+  const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
   const toBottom = me ? cardsToBottom(view, me) : 0
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
@@ -444,6 +449,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       {tokenOpen && (
         <TokenModal deckTokens={source.deckTokens} onCreate={(token) => send({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
       )}
+      {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
     </div>
   )

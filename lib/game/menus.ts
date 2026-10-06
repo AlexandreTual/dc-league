@@ -8,6 +8,8 @@ export type MenuCommand =
   | { kind: 'action'; action: ClientAction }
   | { kind: 'ask'; question: string; fallback: number; then: (n: number) => MenuCommand[] }
   | { kind: 'openPile'; player: string; zone: 'library' | 'graveyard' | 'exile'; mode: 'look' | 'search' | 'browse'; title: string }
+  /** Fenêtre « Oracle et règles » d'une carte du catalogue de son propriétaire. */
+  | { kind: 'oracle'; owner: string; ref: number }
 
 export type MenuEntry =
   | { kind: 'title'; label: string }
@@ -67,6 +69,16 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
   ]
 }
 
+/**
+ * « Oracle et règles » : seulement pour une carte que le joueur voit (jamais face cachée) et qui vient
+ * d'un deck (un jeton n'a ni Oracle ni règles), données de carte reçues.
+ */
+function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+  if (card.faceDown || card.token || card.ref === null) return []
+  if (!ctx.catalogs[card.owner]?.entries.some((e) => e.ref === card.ref)) return []
+  return [{ kind: 'separator' }, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+}
+
 function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
   const id = card.id
   const counter = (label: string, kind: 'plus' | 'minus' | 'other', value: number): MenuEntry => ({
@@ -111,12 +123,14 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     if (zone.zone === 'battlefield') {
       return [title, ...battlefieldEntries(card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
         item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
-        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile')]
+        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile'),
+        ...oracleEntries(ctx, card)]
     }
     if (zone.zone === 'graveyard' || zone.zone === 'exile') {
       return [title, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
         toOwner('Dans sa main', 'hand'),
-        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')])]
+        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')]),
+        ...oracleEntries(ctx, card)]
     }
     return []
   }
@@ -148,6 +162,7 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     if (dest.position) action.position = dest.position
     entries.push(item(dest.label, act(action)))
   }
+  entries.push(...oracleEntries(ctx, card))
   return entries
 }
 

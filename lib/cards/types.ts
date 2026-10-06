@@ -68,5 +68,8 @@ export type ImportSummary = {
   errors: { lineNumber: number; text: string }[]
 }
 
+/** Règle officielle (« ruling ») d'une carte, en anglais. */
+export type Ruling = { date: string; source: 'wotc' | 'scryfall'; text: string }
+
 /** Jeton d'un deck tel qu'enregistré : identifiant Scryfall de l'impression retenue en plus. */
 export type DeckTokenRow = DeckToken & { id: string }

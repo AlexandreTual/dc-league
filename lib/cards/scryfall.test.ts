@@ -259,3 +259,28 @@ describe('pickFrenchPrint', () => {
     expect(pickFrenchPrint([], { set: null, number: null })).toBeNull()
   })
 })
+
+describe('fetchRulings', () => {
+  it('GET /cards/:id/rulings, date, source et texte', async () => {
+    const { c, calls } = client([{ body: { object: 'list', data: [
+      { object: 'ruling', oracle_id: 'o1', source: 'wotc', published_at: '2019-10-04', comment: 'Kenrith’s last ability…' },
+      { object: 'ruling', oracle_id: 'o1', source: 'scryfall', published_at: '2020-01-01', comment: 'Note.' },
+    ] } }])
+    expect(await c.fetchRulings('kenrith-eld-en')).toEqual([
+      { date: '2019-10-04', source: 'wotc', text: 'Kenrith’s last ability…' },
+      { date: '2020-01-01', source: 'scryfall', text: 'Note.' },
+    ])
+    expect(calls[0].url).toBe('https://api.scryfall.com/cards/kenrith-eld-en/rulings')
+    expect(calls[0].method).toBe('GET')
+  })
+
+  it('404 → aucune règle', async () => {
+    const { c } = client([{ status: 404, body: { object: 'error' } }])
+    expect(await c.fetchRulings('inconnue')).toEqual([])
+  })
+
+  it('503 → ScryfallUnavailableError', async () => {
+    const { c } = client([{ status: 503, body: { object: 'error' } }])
+    await expect(c.fetchRulings('x')).rejects.toBeInstanceOf(ScryfallUnavailableError)
+  })
+})

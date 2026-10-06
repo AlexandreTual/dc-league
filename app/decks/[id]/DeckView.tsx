@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Crown, ExternalLink, Play, RefreshCw, Sparkles, X } from 'lucide-react'
+import { BookOpen, Crown, ExternalLink, Play, RefreshCw, Sparkles, X } from 'lucide-react'
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
 import { sendJson } from '@/components/formStyles'
+import OracleModal from '@/components/OracleModal'
+import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
 const LANG_KEY = 'dc-card-lang'
 
@@ -37,6 +39,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const [lang, setLang] = useState<Lang>('fr')
   const [hover, setHover] = useState<{ card: DeckCardView; x: number; y: number } | null>(null)
   const [selected, setSelected] = useState<DeckCardView | null>(null)
+  const [oracle, setOracle] = useState<DeckCardView | null>(null)
   const [error, setError] = useState('')
   const [tokensStatus, setTokensStatus] = useState('')
 
@@ -135,18 +138,31 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               <ul className="space-y-0.5">
                 {g.cards.map((card) => {
                   const shown = displayCard(card, lang)
+                  // Clic droit ou appui long sur la ligne, ou l'icône : fenêtre « Oracle et règles ».
+                  const openOracle = card.en ? () => { setHover(null); setOracle(card) } : undefined
                   return (
-                    <li key={card.position}>
+                    <li key={card.position} className="flex items-center gap-1" data-deck-card={card.en?.name ?? card.requested_name}>
                       <button
-                        className="w-full flex items-center gap-2 text-left text-sm px-2 py-1 rounded hover:bg-dc-border/50"
+                        className={`flex-1 min-w-0 flex items-center gap-2 text-left text-sm px-2 py-1 rounded hover:bg-dc-border/50 ${openOracle ? longPressClass : ''}`}
                         onMouseMove={(e) => shown && setHover({ card, x: e.clientX, y: e.clientY })}
                         onMouseLeave={() => setHover(null)}
                         onClick={() => shown && setSelected(card)}
+                        {...menuGesture(openOracle)}
                       >
                         <span className="text-dc-muted w-6 text-right shrink-0">{card.quantity}</span>
                         <span className={shown ? 'text-dc-text flex-1 truncate' : 'text-dc-red-light flex-1 truncate'}>{displayName(card, lang)}</span>
                         {shown?.mana_cost && <span className="text-dc-muted text-xs font-mono shrink-0">{shown.mana_cost}</span>}
                       </button>
+                      {openOracle && (
+                        <button
+                          onClick={openOracle}
+                          className={`shrink-0 p-1 rounded text-dc-muted hover:text-dc-gold ${touchTarget}`}
+                          aria-label={`Oracle et règles : ${displayName(card, lang)}`}
+                          title="Oracle et règles"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </li>
                   )
                 })}
@@ -156,7 +172,9 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
         </div>
       )}
 
-      {hover && hoverImage && !selected && (
+      {oracle?.en && <OracleModal en={oracle.en} fr={oracle.fr} onClose={() => setOracle(null)} />}
+
+      {hover && hoverImage && !selected && !oracle && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={hoverImage}

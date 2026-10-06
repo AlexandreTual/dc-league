@@ -51,6 +51,23 @@ async function menuInScreen() {
 try {
   await page.goto(`${base}/decks/${deckId}`)
   await page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), deckId)
+
+  // ── Page du deck : « Oracle et règles » par l'icône d'une ligne, puis par appui long sur la ligne ──
+  const oracleDialog = page.getByRole('dialog', { name: 'Oracle et règles' })
+  await page.getByRole('button', { name: /^Oracle et règles : / }).first().tap()
+  await oracleDialog.getByText(/Règles indisponibles|Aucune règle|\d{4}/).first().waitFor()
+  const dialogBox = await oracleDialog.boundingBox()
+  check(dialogBox.x >= 0 && dialogBox.x + dialogBox.width <= 375, 'page du deck : l’icône ouvre « Oracle et règles », dans la largeur de l’écran')
+  await capture('deck-oracle')
+  await oracleDialog.getByRole('button', { name: 'Fermer' }).tap()
+  await oracleDialog.waitFor({ state: 'detached' })
+  await longPress(page.locator('[data-deck-card] button').first())
+  await oracleDialog.waitFor()
+  check(true, 'page du deck : l’appui long sur une ligne ouvre « Oracle et règles »')
+  await page.waitForTimeout(400) // le clic qui suit de peu un appui long est ignoré (touch.ts)
+  await page.touchscreen.tap(5, 5)
+  await oracleDialog.waitFor({ state: 'detached' })
+  check(true, 'clic à côté : fenêtre fermée')
   await page.goto(`${base}/decks/${deckId}/test`)
   await hand.first().waitFor()
   check(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'écran tactile émulé (pointer: coarse)')

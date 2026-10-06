@@ -18,6 +18,7 @@ export const MIGRATIONS = [
   '0006_table_starting.sql',
   '0007_ligue_index.sql',
   '0008_deck_tokens.sql',
+  '0009_card_rulings.sql',
 ]
 
 /** D1 refuse une requête qui lie plus de 100 paramètres. */

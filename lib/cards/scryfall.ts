@@ -1,5 +1,5 @@
 // Client Scryfall minimal. fetch et sleep sont injectés pour pouvoir tester sans réseau.
-import type { CardFace, CardRow } from './types'
+import type { CardFace, CardRow, Ruling } from './types'
 
 const API = 'https://api.scryfall.com'
 const HEADERS = { 'User-Agent': 'dc-league/1.0', Accept: 'application/json' }
@@ -71,6 +71,8 @@ export type ScryfallCard = {
   all_parts?: RelatedCard[]
 }
 
+type ScryfallRuling = { source?: string; published_at?: string; comment?: string }
+
 type ListResponse = { data?: ScryfallCard[]; not_found?: Identifier[]; has_more?: boolean; next_page?: string }
 
 function chunks<T>(items: T[], size: number): T[][] {
@@ -101,7 +103,7 @@ export function createScryfallClient(deps: ScryfallDeps) {
     }
   }
 
-  async function call(url: string, init: RequestInit = {}): Promise<{ status: number; body: ListResponse }> {
+  async function call<B = ListResponse>(url: string, init: RequestInit = {}): Promise<{ status: number; body: B }> {
     let res = await send(url, init)
     if (res.status === 429) {
       await deps.sleep(retryAfterMs(res))
@@ -110,7 +112,7 @@ export function createScryfallClient(deps: ScryfallDeps) {
     // 404 = recherche sans résultat ; tout autre code d'erreur est traité comme une indisponibilité.
     if (!res.ok && res.status !== 404) throw new ScryfallUnavailableError(`HTTP ${res.status}`)
     try {
-      return { status: res.status, body: (await res.json()) as ListResponse }
+      return { status: res.status, body: (await res.json()) as B }
     } catch {
       throw new ScryfallUnavailableError('réponse illisible')
     }
@@ -165,7 +167,18 @@ export function createScryfallClient(deps: ScryfallDeps) {
     return cards
   }
 
-  return { fetchCollection, searchFrenchPrints }
+  /** Règles d'une carte (identiques pour toutes ses impressions), de la plus ancienne à la plus récente. */
+  async function fetchRulings(cardId: string): Promise<Ruling[]> {
+    const { status, body } = await call<{ data?: ScryfallRuling[] }>(`${API}/cards/${encodeURIComponent(cardId)}/rulings`)
+    if (status === 404) return []
+    return (body.data ?? []).map((r) => ({
+      date: r.published_at ?? '',
+      source: r.source === 'wotc' ? 'wotc' : 'scryfall',
+      text: r.comment ?? '',
+    }))
+  }
+
+  return { fetchCollection, searchFrenchPrints, fetchRulings }
 }
 
 export type ScryfallClient = ReturnType<typeof createScryfallClient>

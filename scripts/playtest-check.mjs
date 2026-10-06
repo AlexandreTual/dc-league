@@ -126,6 +126,21 @@ try {
   await page.keyboard.press('Escape')
   check(!(await page.getByRole('menu').isVisible()), 'Échap ferme le menu')
 
+  // Oracle et règles : depuis une carte visible, pas une fois face cachée.
+  await onField.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Oracle et règles' }).click()
+  const oracleDialog = page.getByRole('dialog', { name: 'Oracle et règles' })
+  await oracleDialog.getByText(/Règles indisponibles|Aucune règle|\d{4}/).first().waitFor()
+  check((await oracleDialog.getByRole('link', { name: /Gatherer/ }).getAttribute('href')).startsWith('https://gatherer.wizards.com/'), 'fenêtre « Oracle et règles » ouverte depuis le menu, avec le lien Gatherer')
+  await capture('oracle')
+  await oracleDialog.getByRole('button', { name: 'Fermer' }).click()
+  check((await oracleDialog.count()) === 0, 'bouton « Fermer » : fenêtre fermée')
+  await onField.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Face cachée' }).click()
+  await onField.click({ button: 'right' })
+  check((await page.getByRole('menuitem', { name: 'Oracle et règles' }).count()) === 0, 'carte face cachée : pas d’entrée « Oracle et règles »')
+  await page.getByRole('menuitem', { name: 'Face visible' }).click()
+
   await page.getByRole('button', { name: 'Jeton', exact: true }).click()
   await page.getByRole('button', { name: 'Personnalisé' }).click()
   await page.getByPlaceholder('Nom (ex. Soldat)').fill('Soldat')
@@ -261,6 +276,7 @@ try {
   check((await handCount()) === handBefore, 'Ctrl+Z : annule la pioche')
 
   await page.getByRole('button', { name: 'Jeton', exact: true }).click()
+  await page.getByRole('button', { name: 'Scryfall' }).click() // l'onglet « Du deck » s'ouvre d'abord (#41)
   await page.getByPlaceholder(/Soldat, Treasure/).fill('d')
   check((await handCount()) === handBefore, 'touche D pendant la saisie : pas de pioche')
   await page.keyboard.press('Escape')

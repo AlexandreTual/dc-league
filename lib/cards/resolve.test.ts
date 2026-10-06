@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { getCards, getLookups, saveLookups } from '@/lib/db-cards'
-import { ScryfallUnavailableError, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
+import { ScryfallUnavailableError, type Identifier, type ScryfallCard } from './scryfall'
 import type { ParsedLine } from './types'
-import { resolveLines } from './resolve'
+import { resolveLines, type ImportClient } from './resolve'
 
 const now = new Date('2026-10-04T12:00:00Z')
 
@@ -32,7 +32,7 @@ const FR = [
 
 function fakeClient() {
   const calls = { collection: 0, search: 0, names: [] as string[] }
-  const client: ScryfallClient = {
+  const client: ImportClient = {
     async fetchCollection(ids: Identifier[]) {
       calls.collection++
       const cards: ScryfallCard[] = []
@@ -175,7 +175,7 @@ describe('resolveLines', () => {
   it('Scryfall indisponible pendant le rafraîchissement d’une entrée négative : le cache sert', async () => {
     const { client } = fakeClient()
     await resolveLines(db, client, [line('Mystic Remora')], new Date('2026-09-01T12:00:00Z'))
-    const down: ScryfallClient = {
+    const down: ImportClient = {
       fetchCollection: async () => { throw new ScryfallUnavailableError('HTTP 429') },
       searchFrenchPrints: async () => { throw new ScryfallUnavailableError('HTTP 429') },
     }
