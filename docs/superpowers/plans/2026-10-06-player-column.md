@@ -43,7 +43,7 @@
 - `<PlayerPortrait size="column" | "header" up? … />` : mêmes props que `PlayerPill` plus `size` ; pose `data-panel`, `player-name`, `player-life`
 - `<PlayerColumn {...zoneProps} player me up onLibraryMenu onPile />`
 
-- [ ] **Étape 1 : tests qui échouent.** `lib/game/player-summary.test.ts` :
+- [x] **Étape 1 : tests qui échouent.** `lib/game/player-summary.test.ts` :
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -110,9 +110,9 @@ describe('frameOf', () => {
 
 Le deck de test (`test/factories.ts`) place Kenrith en zone de commandement au départ (`lib/game/setup.ts`). Les deux formats (`'commander' | 'duel'`) ont des commandants.
 
-- [ ] **Étape 2 :** `npx vitest run lib/game/player-summary.test.ts` → échec (module absent).
+- [x] **Étape 2 :** `npx vitest run lib/game/player-summary.test.ts` → échec (module absent).
 
-- [ ] **Étape 3 : implémenter `lib/game/player-summary.ts`.**
+- [x] **Étape 3 : implémenter `lib/game/player-summary.ts`.**
 
 ```ts
 // Règles d'affichage de la colonne joueur : vie basse, cascade du cimetière, portrait, emplacement d'un commandant.
@@ -161,30 +161,30 @@ export function frameOf(colors: string[], typeLine: string): 'W' | 'U' | 'B' | '
 
 Ordre de recherche : le commandement d'abord, puis les autres zones de chaque joueur (un commandant volé peut être sur le champ de bataille d'un autre).
 
-- [ ] **Étape 4 :** les tests passent.
+- [x] **Étape 4 :** les tests passent.
 
-- [ ] **Étape 5 : `zones.tsx`.** Exporter `cardProps`, et `useZone(ref, key?)` : l'identifiant de dépôt devient `dropId(ref) + (key ? ':' + key : '')`, `data` reste `ref`. `onDragEnd` lit `e.over.data.current` : rien à changer dans `Table.tsx`. `ZonePile` reste en place (bandeaux et adversaire agrandi l'utilisent encore jusqu'aux tâches 2 et 3).
+- [x] **Étape 5 : `zones.tsx`.** Exporter `cardProps`, et `useZone(ref, key?)` : l'identifiant de dépôt devient `dropId(ref) + (key ? ':' + key : '')`, `data` reste `ref`. `onDragEnd` lit `e.over.data.current` : rien à changer dans `Table.tsx`. `ZonePile` reste en place (bandeaux et adversaire agrandi l'utilisent encore jusqu'aux tâches 2 et 3).
 
-- [ ] **Étape 6 : `PlayerPortrait.tsx`.** Reprendre `PlayerPill.tsx` (bulle, Échap, clic à côté, badges) avec :
+- [x] **Étape 6 : `PlayerPortrait.tsx`.** Reprendre `PlayerPill.tsx` (bulle, Échap, clic à côté, badges) avec :
   - portrait : `portraitCard` → `<img>` de `cardInfo(...).image`, `object-cover` avec `object-position: 50% 22%` et une légère mise à l'échelle pour cadrer l'illustration ; sinon l'initiale du nom ; 44 px (`column`) ou 32 px (`header`) ;
   - vie : `data-testid="player-life"`, `text-[52px]` (`column`) ou `text-[40px]` (`header`), `leading-none font-bold tabular-nums`, `text-dc-red-light` si `lifeLevel(life) === 'low'` ;
   - − et + : deux boutons à `aria-label` « moins : points de vie » et « plus : points de vie », Maj = ±5, désactivés si `!canAct` ;
   - cadre `border-dc-gold/70` pour le joueur actif, `opacity-50` et nom barré s'il est éliminé ;
   - bulle : `up` comme aujourd'hui ; `w-[24rem] max-w-[90vw]`, `z-[58]`.
 
-- [ ] **Étape 7 : `PileCases.tsx`.**
+- [x] **Étape 7 : `PileCases.tsx`.**
   - `PileCases` : grille de 4 cases (`grid-cols-4 gap-1`), chiffres `text-xl font-bold tabular-nums`, nom `text-[10px] text-dc-muted`. Bib. : `useZone({player, zone:'library'})`, `data-zone="library" data-player data-count`, mini-vignette de 24 px de haut (dos, ou `libraryTop`) ; même `Draggable` `topId(player)` et même `onDoubleClick` que `ZonePile` ; `menuGesture(onLibraryMenu)`. Cim. : `useZone({player, zone:'graveyard'}, 'case')`, bordure dorée, `onClick` → `onPile('graveyard')`. Exil : `useZone({player, zone:'exile'})`, `data-zone="exile" data-player data-count`, `onClick` → `onPile('exile')`. Main : `data-testid="hand-count"` ; prop `handZone` pour poser `data-zone="hand" data-player` (bandeau seulement).
   - `CommandBlock` : `useZone({player, zone:'command'})`, `data-zone="command" data-player data-count`, vignette 34 × 47 px avec les commandants décalés (`COMMANDER_SHIFT`), chacun en `Draggable` avec `tax={taxOf(view, id)}` ; à côté, pour chaque commandant du joueur (`isCommander && owner === player`, toutes zones visibles) : nom, `commanderPlace`, « Taxe : +N ». Sans commandant visible : la vignette vide seule, toujours cible de dépôt.
   - `GraveyardCascade` : `useZone({player, zone:'graveyard'})`, `data-zone="graveyard" data-player data-count`, `flex flex-col justify-end overflow-hidden` (les plus anciennes sortent par le haut), titre « Cimetière » + nombre ; chaque carte de `graveyardTail` en `Draggable` (`cardProps`) : nom (`cardInfo`) sur un liseré `border-2` de la couleur `frameOf`, `-mt-0.5`, ombre portée vers le haut. Clic sur le bloc (hors glisser) → `onPile('graveyard')`.
   - `GraveyardLast` : même zone et mêmes repères que la cascade, une seule ligne : « Cim. : » puis la dernière carte, ou « vide ».
   - Couleurs des liserés, en constantes dans le fichier : W `#d8d2bd`, U `#3a6ea5`, B `#3a3540`, R `#c4553b`, G `#3f7a4a`, multi `#c9a84c`, land `#8b6f4e`, colorless `#8a8a8a`.
 
-- [ ] **Étape 8 : `PlayerColumn.tsx` et `MyBoard.tsx`.**
+- [x] **Étape 8 : `PlayerColumn.tsx` et `MyBoard.tsx`.**
   - `PlayerColumn` : `w-[216px] shrink-0 flex flex-col gap-1.5 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5`, `data-column={player}` ; `PlayerPortrait size="column"`, badges, `PileCases`, `CommandBlock`, `GraveyardCascade` (`flex-1 min-h-0`). Sous 640 px : `max-sm:w-full max-sm:flex-row`, `CommandBlock` et cascade masqués.
   - `MyBoard` : `flex flex-col sm:flex-row gap-2` → `PlayerColumn` (`up`), puis une colonne `flex-1 min-w-0` avec le champ de bataille et la main (`h-[25%]`, toute la largeur). Les quatre `ZonePile` et le `panel` disparaissent.
   - `Table.tsx` : plus de `panelFor(me…)` dans `MyBoard` ; la vie quitte la barre du haut en mode test : retirer les props `life` et `onLife` de `TopBar` (plus utilisées) et leur affichage (`data-testid="life"`, que les scripts n'utilisent pas). En mode test, `PlayerColumn` reçoit `canAct` et `send` comme en ligne : − et + envoient l'action `life` sur moi.
 
-- [ ] **Étape 9 : contrôles navigateur.**
+- [x] **Étape 9 : contrôles navigateur.**
   - `playtest-check.mjs` : remplacer le contrôle « piles en vignettes à droite de la main » par :
 
 ```js
@@ -200,8 +200,9 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
   - Vie basse : retirer 10 points avec Maj + « moins » (deux clics), vérifier que `[data-testid="player-life"]` a la classe `text-dc-red-light`, puis remettre la vie.
   - `online-check.mjs` : les lignes 239-248 cherchent ma pastille dans `board(chloe, ANA.id)` ; elles restent valides si la ligne portrait garde `data-panel` dans le plateau d'Ana. Mettre à jour les commentaires « pastille » → « ligne portrait ».
 
-- [ ] **Étape 10 :** vérifications complètes, captures (dont une avec 6 cartes ou plus au cimetière et la vie à 10 ou moins).
-- [ ] **Étape 11 : commit** `feat(table): colonne joueur, vie et cimetière bien visibles`.
+- [x] **Ajout hors plan :** `Table.tsx` retient la zone sous le pointeur (`pointerWithin`, puis `rectIntersection` à défaut). Sans cela, un commandant lâché sur la petite zone de commandement tombait dans la cascade du cimetière voisine (contrôle « retour en zone de commandement » de `playtest-check`).
+- [x] **Étape 10 :** vérifications complètes, captures (dont une avec 6 cartes ou plus au cimetière et la vie à 10 ou moins).
+- [x] **Étape 11 : commit** `feat(table): colonne joueur, vie et cimetière bien visibles`.
 
 ---
 

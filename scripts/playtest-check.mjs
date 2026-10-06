@@ -51,11 +51,14 @@ try {
   const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
   check(await coversSite(page), 'plein écran : la table couvre la barre du site')
 
-  // Mes piles en vignettes, à droite de la main et à sa hauteur.
+  // Ma colonne, à gauche de mon champ de bataille et de ma main ; la vie n'est plus dans la barre du haut.
+  const columnBox = await page.locator('[data-column]').boundingBox()
   const handBox = await page.locator('[data-zone="hand"]').boundingBox()
-  const libraryBox = await page.locator('[data-zone="library"]').boundingBox()
-  check(libraryBox.x >= handBox.x + handBox.width && libraryBox.y >= handBox.y - 2 && libraryBox.y + libraryBox.height <= handBox.y + handBox.height + 2,
-    'piles en vignettes à droite de la main')
+  const fieldBox = await page.locator('[data-zone="battlefield"]').boundingBox()
+  check(columnBox.x + columnBox.width <= fieldBox.x && columnBox.x + columnBox.width <= handBox.x, 'colonne à gauche du champ de bataille et de la main')
+  check((await page.locator('[data-column] [data-zone="library"]').count()) === 1 && (await page.locator('[data-column] [data-testid="player-life"]').count()) === 1,
+    'bibliothèque et vie dans la colonne')
+  check((await page.getByTestId('life').count()) === 0, 'mode test : plus de vie dans la barre du haut')
 
   check((await handCount()) === 7, 'main de départ de 7 cartes')
   check(await page.locator('[data-testid="mulligan-banner"]').isVisible(), 'bandeau de mulligan affiché')
@@ -330,6 +333,36 @@ try {
   await page.getByLabel('Taille des cartes').selectOption('1')
   check(Math.abs((await fieldCard.boundingBox()).width - widthBefore) < 1, 'taille des cartes 100 % : taille d’origine')
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+
+  // ── Cimetière en cascade : les 6 dernières, la plus récente en bas ──
+  const graveyard = page.locator('[data-column] [data-zone="graveyard"]')
+  const graveyardBefore = Number(await graveyard.getAttribute('data-count'))
+  for (let i = 0; i < 7; i++) await page.keyboard.press('d')
+  let lastDumped = null
+  for (let i = 0; i < 7; i++) {
+    const card = page.locator('[data-zone="hand"] [data-card-id]').first()
+    lastDumped = await card.getAttribute('data-card-id')
+    const box = await graveyard.boundingBox()
+    await drag(card, box.x + box.width / 2, box.y + box.height / 2)
+  }
+  const cascade = graveyard.locator('[data-card-id]')
+  check(Number(await graveyard.getAttribute('data-count')) === graveyardBefore + 7, 'cimetière : 7 cartes déposées')
+  check((await cascade.count()) === 6 && (await cascade.last().getAttribute('data-card-id')) === lastDumped, 'cascade : 6 dernières cartes, la plus récente en bas')
+  await capture('cimetiere')
+  await page.locator('[data-column]').getByRole('button', { name: 'Cim.' }).click()
+  check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'case Cim. : ouvre tout le cimetière')
+  await page.keyboard.press('Escape')
+
+  // ── Vie basse : en rouge à 10 ou moins ──
+  const life = page.locator('[data-column] [data-testid="player-life"]')
+  const lifeButton = (name) => page.locator('[data-column] [data-panel]').getByRole('button', { name }).first()
+  const toTen = Number(await life.innerText()) - 10
+  for (let i = 0; i < Math.floor(toTen / 5); i++) await lifeButton('moins : points de vie').click({ modifiers: ['Shift'] })
+  for (let i = 0; i < toTen % 5; i++) await lifeButton('moins : points de vie').click()
+  check((await life.innerText()) === '10' && (await life.getAttribute('class')).includes('text-dc-red-light'), 'vie à 10 : en rouge')
+  await capture('vie-basse')
+  await lifeButton('plus : points de vie').click()
+  check((await life.innerText()) === '11' && !(await life.getAttribute('class')).includes('text-dc-red-light'), 'vie à 11 : couleur normale')
 
   // ── Réserve de mana : 2 verts, puis vidée au tour suivant ──
   await page.getByRole('button', { name: 'Réserve de mana' }).click()
