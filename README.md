@@ -76,7 +76,7 @@ node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # imp
 ## Mise en production
 
 - **Site** : Cloudflare Pages construit le site à chaque fusion sur `main` (`npx @cloudflare/next-on-pages`, sortie `.vercel/output/static`, voir `wrangler.toml`).
-- **Base D1** : `npm run db:migrate:remote` applique les migrations en production.
+- **Base D1** : les migrations sont appliquées en production automatiquement à chaque fusion sur `main`, par `.github/workflows/deploy-game-worker.yml`. En cas d'échec de l'Action : `npm run db:migrate:remote`.
 - **Jeu en ligne** : le Worker `workers/game` est déployé par `.github/workflows/deploy-game-worker.yml`. Mise en ligne, secrets à créer et développement local : voir [docs/deploiement-jeu-en-ligne.md](docs/deploiement-jeu-en-ligne.md).
 
 Les consignes de travail (méthode, règles, commandes) sont dans [CLAUDE.md](CLAUDE.md) ; l'avancement dans [docs/superpowers/roadmap.md](docs/superpowers/roadmap.md).
