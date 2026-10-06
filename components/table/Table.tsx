@@ -19,7 +19,7 @@ import MyBoard from './MyBoard'
 import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
-import PlayerPill from './PlayerPill'
+import PlayerHeader from './PlayerHeader'
 import PlayerPortrait from './PlayerPortrait'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
@@ -309,17 +309,16 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     return items
   }
 
-  /** Pastille d'un adversaire (bandeau, plateau agrandi). */
-  const panelFor = (player: string, onTitleClick?: () => void) => (
-    <PlayerPill view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} onTitleClick={onTitleClick} />
-  )
-
-  /** Ligne portrait d'une colonne (vie en gros) ; `up` : bulle ouverte vers le haut (ma colonne, en bas de l'écran). */
-  const portraitFor = (player: string, up = false) => (
+  /**
+   * Ligne portrait (vie en gros) : `column` pour une colonne, `header` pour l'en-tête d'un adversaire ;
+   * `up` : bulle ouverte vers le haut (ma colonne, en bas de l'écran) ; `onTitleClick` : agrandir (bandeau).
+   */
+  const portraitFor = (player: string, size: 'column' | 'header' = 'column', up = false, onTitleClick?: () => void) => (
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} size="column" up={up} />
+      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} />
   )
+  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at)
+  const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
   return (
     <div className="relative h-full flex flex-col">
@@ -397,18 +396,19 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
                 renderStrip={(p, focus) => (
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
-                    panel={panelFor(p, focus)}
-                    onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
-                    onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
+                    header={(
+                      <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus)}
+                        onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />
+                    )}
                   />
                 )}
                 renderBoard={(p) => (
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
                     layout={opponents.length === 1 ? 'column' : 'header'}
-                    panel={opponents.length === 1 ? portraitFor(p) : panelFor(p)}
-                    onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
-                    onPile={(zone, title) => setPile({ title, player: p, zone, mode: 'browse' })}
+                    portrait={portraitFor(p, opponents.length === 1 ? 'column' : 'header')}
+                    onLibraryMenu={libraryMenuOf(p)}
+                    onPile={pileOf(p)}
                   />
                 )}
               />
@@ -419,7 +419,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              portrait={portraitFor(me, true)}
+              portrait={portraitFor(me, 'column', true)}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}

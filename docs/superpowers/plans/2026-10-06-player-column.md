@@ -230,18 +230,19 @@ check(await page.locator('[data-column] [data-zone="library"]').count() === 1, '
 - Modifier : `scripts/online-check.mjs`
 - Modifier : `docs/superpowers/roadmap.md`
 
-- [ ] **Étape 1 : contrôles qui échouent** (`online-check`, partie à 4) :
+- [x] **Étape 1 : contrôles qui échouent** (`online-check`, partie à 4) :
   - chez Ana, les 3 bandeaux ont le même `y` (± 2 px) : une seule rangée ;
   - `[data-strip="<Bastien>"] [data-panel="<Bastien>"] [data-testid="player-life"]` existe ;
   - `[data-strip="<Bastien>"] [data-zone="graveyard"]` contient la dernière carte qu'il a mise au cimetière ;
   - adversaire agrandi : `[data-board="<Bastien>"] [data-panel="<Bastien>"]` est au-dessus de son `[data-zone="battlefield"]`.
-- [ ] **Étape 2 :** lancer `online-check` → échecs.
-- [ ] **Étape 3 : `PlayerHeader`.** `PlayerPortrait size="header"`, badges sous le nom, puis une ligne `PileCases` (+ `handZone` dans un bandeau) et la petite vignette de commandement (`CommandBlock` en version mini, sans le texte), puis `GraveyardLast`. Le clic sur le nom garde `onTitleClick` (agrandir).
-- [ ] **Étape 4 : bandeau et vue agrandie.**
+- [x] **Étape 2 :** lancer `online-check` → échecs.
+- [x] **Étape 3 : `PlayerHeader`.** `PlayerPortrait size="header"`, badges sous le nom, puis une ligne `PileCases` (+ `handZone` dans un bandeau) et la petite vignette de commandement (`CommandBlock` en version mini, sans le texte), puis `GraveyardLast`. Le clic sur le nom garde `onTitleClick` (agrandir).
+- [x] **Étape 4 : bandeau et vue agrandie.**
   - `OpponentStrip` : remplacer la pastille et la ligne fine par `PlayerHeader` ; garder `data-strip`, `data-row`, `data-strip-card` et les trois rangées. Cadre `border-dc-gold/70` pour le joueur actif.
   - `OpponentBoard` `layout="header"` : `PlayerHeader`, puis `OpponentHand`, puis son `Battlefield`.
   - `OpponentsArea` : `grid-cols-2`, `grid-cols-3` ou `grid-cols-4` selon le nombre d'adversaires, une seule rangée (`grid-rows-1`).
   - Supprimer `PlayerPill` et ce qui ne sert plus dans `zones.tsx`.
-- [ ] **Étape 5 :** vérifications complètes ; captures à 4 joueurs (1600 × 1000, 1280 × 720) et à 5 joueurs en 1280 × 720 (seed avec `e2e-5` si `scripts/seed-online.mjs` ne prévoit que 4 joueurs : l'ajouter dans la même PR). Si les bandeaux sont illisibles à 5 joueurs en 1280 × 720, le signaler dans #80 plutôt que de changer la mise en page.
-- [ ] **Étape 6 : feuille de route.** `docs/superpowers/roadmap.md` : ajouter « Colonne joueur façon MTGO (#80) — **terminé** », et rappeler que la tablette (#81) et les fenêtres séparées (#82) suivent.
-- [ ] **Étape 7 : commit** `feat(table): en-têtes des adversaires et bandeaux sur une rangée`.
+- [x] **Étape 5 :** vérifications complètes ; captures à 4 joueurs (1600 × 1000, 1280 × 720) et à 5 joueurs en 1280 × 720 (seed avec `e2e-5` si `scripts/seed-online.mjs` ne prévoit que 4 joueurs : l'ajouter dans la même PR). Si les bandeaux sont illisibles à 5 joueurs en 1280 × 720, le signaler dans #80 plutôt que de changer la mise en page.
+- [x] **Notes de réalisation :** le contrôle de la partie en ligne se joue à 3 (Ana voit 2 bandeaux), d'où la vérification « une seule rangée » sur 2 bandeaux ; captures à 4 et 5 joueurs prises par un script temporaire. Vue agrandie : l'en-tête tient sur une ligne (`PlayerHeader wide`) pour laisser la hauteur au champ de bataille. Spectateur : jusqu'à 5 bandeaux côte à côte. `e2e-5` (Émilie) ajouté au seed et à `CLAUDE.md`.
+- [x] **Étape 6 : feuille de route.** `docs/superpowers/roadmap.md` : ajouter « Colonne joueur façon MTGO (#80) — **terminé** », et rappeler que la tablette (#81) et les fenêtres séparées (#82) suivent.
+- [x] **Étape 7 : commit** `feat(table): en-têtes des adversaires et bandeaux sur une rangée`.

@@ -96,9 +96,9 @@ const COMMANDER_SHIFT = 0.4
 
 /**
  * Zone de commandement en petite vignette (cible de dépôt, commandants déplaçables avec leur taxe),
- * puis, pour chaque commandant du joueur, son nom, où il se trouve et sa taxe.
+ * puis, pour chaque commandant du joueur, son nom, où il se trouve et sa taxe. `mini` : la vignette seule (en-tête de bandeau).
  */
-export function CommandBlock(props: ZoneProps) {
+export function CommandBlock(props: ZoneProps & { mini?: boolean }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'command' }
   const { setNodeRef, highlight } = useZone(ref)
@@ -112,7 +112,8 @@ export function CommandBlock(props: ZoneProps) {
 
   return (
     <div ref={setNodeRef} data-zone="command" data-player={player} data-count={view.players[player].zones.command.length}
-      className={`flex items-center gap-2 rounded-md border border-dc-border bg-dc-bg/60 p-0.5 ${highlight}`}>
+      className={`flex items-center gap-2 rounded-md border border-dc-border bg-dc-bg/60 p-0.5 ${props.mini ? 'shrink-0' : ''} ${highlight}`}
+      title={props.mini ? 'Zone de commandement' : undefined}>
       <div className="relative h-8 shrink-0" style={{ aspectRatio: `${63 * span} / 88` }}>
         {inZone.length === 0 && <div className="h-full aspect-[63/88] rounded-[6%] border border-dashed border-dc-border" />}
         {inZone.map((card, i) => (
@@ -121,7 +122,7 @@ export function CommandBlock(props: ZoneProps) {
           </Draggable>
         ))}
       </div>
-      {mine.length > 0 && (
+      {!props.mini && mine.length > 0 && (
         <div className="min-w-0 flex flex-col gap-0.5">
           {mine.map((c) => (
             <div key={c.id} className="min-w-0 leading-tight">
@@ -163,6 +164,33 @@ export function GraveyardCascade(props: ZoneProps & { onOpen: () => void; classN
           </Draggable>
         ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Dernière carte arrivée au cimetière, sur une ligne (en-tête d'un adversaire) : son nom sur un liseré de sa couleur,
+ * ou « vide ». Cible de dépôt ; la carte se glisse ; un clic ouvre tout le cimetière.
+ */
+export function GraveyardLast(props: ZoneProps & { onOpen: () => void }) {
+  const { view, player, catalogs, lang } = props
+  const ref: ZoneRef = { player, zone: 'graveyard' }
+  const { setNodeRef, highlight } = useZone(ref)
+  const all = view.players[player].zones.graveyard
+  const last = graveyardTail(all, 1)[0]
+  return (
+    <div ref={setNodeRef} data-zone="graveyard" data-player={player} data-count={all.length}
+      className={`min-w-0 flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] text-dc-muted cursor-pointer hover:bg-dc-bg/60 ${highlight}`}
+      onClick={props.onOpen} title="Voir tout le cimetière">
+      <span className="shrink-0">Cim. :</span>
+      {last ? (
+        <Draggable {...cardProps(last.id, ref, props)} className="min-w-0">
+          <div className="truncate rounded px-1.5 border-2 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black"
+            style={{ borderColor: frameColor(catalogs[last.owner], last) }}>
+            {cardInfo(catalogs[last.owner], last, lang).name}
+          </div>
+        </Draggable>
+      ) : <span>vide</span>}
     </div>
   )
 }

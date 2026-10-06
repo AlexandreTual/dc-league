@@ -61,7 +61,9 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
 5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
 6. Nouvelle mise en page de la table (chantier #22) — **terminé** : spec `specs/2026-10-05-table-layout-design.md`, plan `plans/2026-10-05-table-layout.md` ; plein écran (#35), pastille et bulle des compteurs (#36), piles en vignettes à côté de la main (#37), bandeaux d'adversaires compacts (#38), réglage « Taille des cartes » de 80 % à 150 % (#39).
-7. Adaptation tablette de la table — chantier suivant prévu par la spec #22 (conception à faire).
+7. Colonne joueur façon MTGO (chantier #80) — **terminé** : spec `specs/2026-10-06-player-column-design.md`, plan `plans/2026-10-06-player-column.md` ; maquette https://claude.ai/artifact/SLrswVXfAH4ezsCXkK2AQj. Ma colonne avec la vie en gros, rouge à 10 ou moins, cases chiffrées et cimetière en cascade (#83) ; colonne de l'adversaire en Duel (#84) ; en-têtes des adversaires et bandeaux sur une rangée à 3 à 5 joueurs (#85).
+8. Adaptation tablette de la table (#81) — chantier suivant ; maquette faite (écran « A sur tablette »), spec et plan à écrire.
+9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — après la tablette.
 
 ## Idées pour plus tard
 
