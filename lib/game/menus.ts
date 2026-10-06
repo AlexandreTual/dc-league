@@ -13,7 +13,8 @@ export type MenuEntry =
   | { kind: 'title'; label: string }
   | { kind: 'separator' }
   | { kind: 'item'; label: string; commands: MenuCommand[] }
-  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand }
+  /** `set` : valeur tapée directement (facultatif), traduite en commandes ; vide si rien ne change. */
+  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand; set?: (n: number) => MenuCommand[] }
 
 export type MenuContext = {
   me: string | null
@@ -42,6 +43,7 @@ const others = (ctx: MenuContext, me: string) =>
   Object.keys(ctx.view.players).filter((p) => p !== me && !ctx.view.players[p].eliminated)
 
 const MAX_COPIES = 20
+const MAX_COUNTERS = 999
 const clampPct = (n: number) => Math.max(0, Math.min(100, n))
 
 /** Le jeton copie reprend la carte telle qu'elle est affichée ; un jeton copié recopie son TokenData. */
@@ -73,6 +75,12 @@ function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: b
     kind: 'stepper', label, value,
     minus: act({ type: 'counter', id, kind, delta: -1 }),
     plus: act({ type: 'counter', id, kind, delta: 1 }),
+    // Un écart plutôt qu'une valeur absolue : le serveur de jeu en production comprend déjà cette action.
+    set: (n) => {
+      if (!Number.isFinite(n)) return []
+      const delta = Math.max(0, Math.min(MAX_COUNTERS, Math.floor(n))) - value
+      return delta === 0 ? [] : [act({ type: 'counter', id, kind, delta })]
+    },
   })
   const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
