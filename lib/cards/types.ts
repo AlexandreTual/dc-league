@@ -23,6 +23,8 @@ export type CardFace = {
   /** Image « large » (672 px) ; absente des cartes enregistrées avant son ajout. */
   image_large?: string | null
   image_small: string | null
+  /** Illustration de la face (Scryfall `illustration_id`) ; absente des cartes enregistrées avant son ajout. */
+  illustration_id?: string | null
 }
 
 export type CardRow = {
@@ -46,6 +48,13 @@ export type CardRow = {
   /** Image « large » (672 px) ; absente des catalogues d'un serveur de jeu plus ancien. */
   image_large?: string | null
   image_small: string | null
+  /**
+   * Numérisation de cette impression chez Scryfall (`highres_scan`, `lowres`, `placeholder`, `missing`).
+   * Si elle est floue, les images peuvent venir d'une impression nette de même illustration (issue #20).
+   */
+  image_status?: string | null
+  /** Illustration (Scryfall `illustration_id`) ; celle de la face avant est dans `faces`. */
+  illustration_id?: string | null
   faces: CardFace[] | null
 }
 

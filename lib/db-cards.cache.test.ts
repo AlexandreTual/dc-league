@@ -42,10 +42,17 @@ describe('cache de cartes', () => {
     })
   })
 
-  it('base pas encore migrée (sans image_large) : la carte est enregistrée quand même, sans image large', async () => {
+  it('base pas encore migrée (sans les colonnes d’images récentes) : la carte est enregistrée quand même', async () => {
     const old = createTestDb(MIGRATIONS.filter((f) => f < '0010'))
     expect((await upsertCards(old, [cardRow()], now)).error).toBeNull()
     expect((await getCards(old, ['sol-c21-en'])).data!['sol-c21-en']).toEqual(cardRow({ image_large: null }))
+  })
+
+  it('base migrée à moitié (image_large, pas encore image_status) : garde ce qui peut l’être', async () => {
+    const half = createTestDb(MIGRATIONS.filter((f) => f < '0011'))
+    const row = cardRow({ image_status: 'lowres', illustration_id: 'ill' })
+    expect((await upsertCards(half, [row], now)).error).toBeNull()
+    expect((await getCards(half, ['sol-c21-en'])).data!['sol-c21-en']).toEqual(cardRow())
   })
 
   it('getLookups ignore les clés inconnues et getCards([]) renvoie {}', async () => {

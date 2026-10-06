@@ -115,6 +115,24 @@ describe('searchFrenchPrints', () => {
   })
 })
 
+describe('searchPrints', () => {
+  it('cherche toutes les impressions (anglaises) des cartes, sans filtre de langue, par groupes de 20', async () => {
+    const { c, calls } = client([
+      { body: { object: 'list', has_more: false, data: [{ id: 'sol-c21', oracle_id: 'o0', lang: 'en', name: 'Sol Ring', set: 'c21', collector_number: '263' }] } },
+      { body: { object: 'list', has_more: false, data: [] } },
+    ])
+    const ids = Array.from({ length: 21 }, (_, i) => `o${i}`)
+    const cards = await c.searchPrints(ids)
+    expect(calls).toHaveLength(2)
+    const first = new URL(calls[0].url)
+    expect(first.searchParams.get('q')).toBe(`(${ids.slice(0, 20).map((o) => `oracleid:${o}`).join(' or ')})`)
+    expect(first.searchParams.get('unique')).toBe('prints')
+    expect(first.searchParams.get('include_extras')).toBe('true')
+    expect(new URL(calls[1].url).searchParams.get('q')).toBe('(oracleid:o20)')
+    expect(cards.map((x) => x.id)).toEqual(['sol-c21'])
+  })
+})
+
 describe('erreurs et rythme', () => {
   it('429 : attend Retry-After puis réessaie une fois', async () => {
     const { c, calls, sleeps } = client([
@@ -230,6 +248,20 @@ describe('toCardRow', () => {
       card_faces: card.card_faces!.map((f, i) => ({ ...f, printed_name: ['Sondeur de secrets', 'Aberration insectile'][i] })),
     }
     expect(toCardRow(fr).printed_name).toBe('Sondeur de secrets // Aberration insectile')
+  })
+
+  it("lit l'état de la numérisation et l'illustration (carte et faces)", () => {
+    const card = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
+    const row = toCardRow({
+      ...card,
+      image_status: 'lowres',
+      card_faces: card.card_faces!.map((f, i) => ({ ...f, illustration_id: `ill-${i}` })),
+    })
+    expect(row.image_status).toBe('lowres')
+    expect(row.illustration_id).toBe('ill-0')
+    expect(row.faces!.map((f) => f.illustration_id)).toEqual(['ill-0', 'ill-1'])
+    const simple = toCardRow({ ...collection.data[0], image_status: 'highres_scan', illustration_id: 'ill-sol' })
+    expect(simple).toMatchObject({ image_status: 'highres_scan', illustration_id: 'ill-sol' })
   })
 
   it('lit les champs imprimés d’une carte française', () => {

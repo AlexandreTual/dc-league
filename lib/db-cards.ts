@@ -49,6 +49,8 @@ function normalizeCard(row: Record<string, unknown>): CardRow {
     color_identity: parseJson<string[]>(row.color_identity, []),
     image_normal: (row.image_normal as string) ?? null,
     image_large: (row.image_large as string) ?? null,
+    image_status: (row.image_status as string) ?? null,
+    illustration_id: (row.illustration_id as string) ?? null,
     image_small: (row.image_small as string) ?? null,
     faces: parseJson<CardRow['faces']>(row.faces, null),
   }
@@ -64,12 +66,13 @@ function cardValues(c: CardRow, now: Date): Record<string, unknown> {
     oracle_text: c.oracle_text, printed_text: c.printed_text,
     colors: JSON.stringify(c.colors), color_identity: JSON.stringify(c.color_identity),
     image_normal: c.image_normal, image_large: c.image_large ?? null, image_small: c.image_small,
+    image_status: c.image_status ?? null, illustration_id: c.illustration_id ?? null,
     faces: c.faces ? JSON.stringify(c.faces) : null, fetched_at: now.toISOString(),
   }
 }
 
 /** Colonnes ajoutées par une migration récente : le site peut tourner une ou deux minutes avant elle. */
-const RECENT_COLUMNS = ['image_large']
+const RECENT_COLUMNS = ['image_large', 'image_status', 'illustration_id']
 
 async function writeCards(db: D1Database, cards: CardRow[], now: Date, columns: string[]) {
   const updates = columns.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')
@@ -83,19 +86,17 @@ async function writeCards(db: D1Database, cards: CardRow[], now: Date, columns: 
 
 export async function upsertCards(db: D1Database, cards: CardRow[], now: Date): Promise<Result<true>> {
   if (cards.length === 0) return ok(true)
-  const columns = Object.keys(cardValues(cards[0], now))
-  try {
-    await writeCards(db, cards, now, columns)
-    return ok(true)
-  } catch (e) {
-    const message = (e as Error).message
-    if (!RECENT_COLUMNS.some((c) => message.includes(c))) return err(message)
-    // Base pas encore migrée : on enregistre sans les nouvelles colonnes plutôt que de faire échouer l'import.
+  let columns = Object.keys(cardValues(cards[0], now))
+  for (;;) {
     try {
-      await writeCards(db, cards, now, columns.filter((c) => !RECENT_COLUMNS.includes(c)))
+      await writeCards(db, cards, now, columns)
       return ok(true)
-    } catch (e2) {
-      return err((e2 as Error).message)
+    } catch (e) {
+      const message = (e as Error).message
+      // Base pas encore migrée : on enregistre sans la colonne absente plutôt que de faire échouer l'import.
+      const missing = RECENT_COLUMNS.find((c) => columns.includes(c) && message.includes(c))
+      if (!missing) return err(message)
+      columns = columns.filter((c) => c !== missing)
     }
   }
 }

@@ -7,13 +7,19 @@ import { resolveLines, type ImportClient } from './resolve'
 
 const now = new Date('2026-10-04T12:00:00Z')
 
-function sc(id: string, oracle: string, name: string, set: string, cn: string, lang = 'en'): ScryfallCard {
+function sc(id: string, oracle: string, name: string, set: string, cn: string, lang = 'en', extra: Partial<ScryfallCard> = {}): ScryfallCard {
   return {
     id, oracle_id: oracle, lang, name, set, collector_number: cn, cmc: 1, type_line: 'Artifact',
-    colors: [], color_identity: [], image_uris: { normal: `https://img/${id}.jpg`, small: `https://img/s/${id}.jpg` },
+    colors: [], color_identity: [],
+    image_uris: { normal: `https://img/${id}.jpg`, large: `https://img/l/${id}.jpg`, small: `https://img/s/${id}.jpg` },
     ...(lang === 'fr' ? { printed_name: `${name} (FR)` } : {}),
+    ...extra,
   }
 }
+
+// Numérisations (image_status) et illustrations, comme les renvoie Scryfall pour les impressions surtout vendues en foil.
+const hires = (illustration_id: string): Partial<ScryfallCard> => ({ image_status: 'highres_scan', illustration_id })
+const blurry = (image_status: string, illustration_id: string): Partial<ScryfallCard> => ({ image_status, illustration_id })
 
 // Catalogue factice : impressions anglaises (une par défaut par nom) et françaises triées de la plus récente à la plus ancienne.
 const EN = [
@@ -23,15 +29,29 @@ const EN = [
   sc('remora', 'o-remora', 'Mystic Remora', 'ice', '87'),
   sc('limdul', 'o-limdul', 'Lim-Dûl the Necromancer', 'hml', '12'),
   sc('fire-ice', 'o-fire-ice', 'Fire // Ice', 'mh2', '290'),
+  // Secret Lair : anglaise nette, française en attente de photo (placeholder), même illustration.
+  sc('bolt-sld', 'o-bolt', 'Lightning Bolt', 'sld', '1', 'en', hires('ill-bolt-sld')),
+  // The List : seule impression importée, numérisation basse définition.
+  sc('rhystic-plst', 'o-rhystic', 'Rhystic Study', 'plst', 'PCY-45', 'en', blurry('lowres', 'ill-rhystic')),
+  // Promo floue dont aucune impression nette ne partage l'illustration.
+  sc('mox-promo', 'o-mox', 'Chrome Mox', 'pmrd', '152', 'en', blurry('lowres', 'ill-mox-promo')),
 ]
 const FR = [
   sc('sol-cmr-fr', 'o-sol', 'Sol Ring', 'cmr', '472', 'fr'),
   sc('sol-c21-fr', 'o-sol', 'Sol Ring', 'c21', '263', 'fr'),
   sc('signet-fr', 'o-signet', 'Arcane Signet', 'c21', '236', 'fr'),
+  sc('bolt-sld-fr', 'o-bolt', 'Lightning Bolt', 'sld', '1', 'fr', blurry('placeholder', 'ill-bolt-sld')),
+]
+
+// Autres impressions (anglaises) renvoyées par searchPrints.
+const PRINTS = [
+  sc('rhystic-jmp', 'o-rhystic', 'Rhystic Study', 'jmp', '169', 'en', hires('ill-rhystic-jmp')),
+  sc('rhystic-pcy', 'o-rhystic', 'Rhystic Study', 'pcy', '45', 'en', hires('ill-rhystic')),
+  sc('mox-mrd', 'o-mox', 'Chrome Mox', 'mrd', '152', 'en', hires('ill-mox-mrd')),
 ]
 
 function fakeClient() {
-  const calls = { collection: 0, search: 0, names: [] as string[] }
+  const calls = { collection: 0, search: 0, names: [] as string[], prints: [] as string[][] }
   const client: ImportClient = {
     async fetchCollection(ids: Identifier[]) {
       calls.collection++
@@ -57,6 +77,10 @@ function fakeClient() {
     async searchFrenchPrints(oracleIds: string[]) {
       calls.search++
       return FR.filter((c) => oracleIds.includes(c.oracle_id!))
+    },
+    async searchPrints(oracleIds: string[]) {
+      calls.prints.push(oracleIds)
+      return [...EN, ...PRINTS].filter((c) => oracleIds.includes(c.oracle_id!))
     },
   }
   return { client, calls }
@@ -178,6 +202,7 @@ describe('resolveLines', () => {
     const down: ImportClient = {
       fetchCollection: async () => { throw new ScryfallUnavailableError('HTTP 429') },
       searchFrenchPrints: async () => { throw new ScryfallUnavailableError('HTTP 429') },
+      searchPrints: async () => { throw new ScryfallUnavailableError('HTTP 429') },
     }
     expect(await resolveLines(db, down, [line('Mystic Remora')], now)).toEqual({ resolved: 1, notFound: [] })
     // une carte jamais vue ne peut pas être servie : l'erreur remonte
@@ -191,5 +216,51 @@ describe('resolveLines', () => {
     await resolveLines(db, client, [line('Sol Ring')], new Date('2025-01-01T12:00:00Z'))
     await resolveLines(db, client, [line('Sol Ring')], now)
     expect(calls.collection).toBe(1)
+  })
+})
+
+describe('resolveLines : impressions floues (foils, promos, Secret Lair, The List)', () => {
+  const row = async (id: string) => (await getCards(db, [id])).data![id]
+
+  it("française en attente de photo : image de l'anglaise nette de même illustration, nom et édition français gardés", async () => {
+    const { client, calls } = fakeClient()
+    await resolveLines(db, client, [line('Lightning Bolt', 'SLD', '1')], now)
+    expect(await row('bolt-sld-fr')).toMatchObject({
+      lang: 'fr', printed_name: 'Lightning Bolt (FR)', set_code: 'sld', collector_number: '1', image_status: 'placeholder',
+      image_normal: 'https://img/bolt-sld.jpg', image_large: 'https://img/l/bolt-sld.jpg', image_small: 'https://img/s/bolt-sld.jpg',
+    })
+    expect((await row('bolt-sld')).image_normal).toBe('https://img/bolt-sld.jpg')
+    // L'impression nette était déjà là : pas de recherche supplémentaire.
+    expect(calls.prints).toEqual([])
+  })
+
+  it("impression basse définition sans autre impression importée : cherche les autres impressions et prend celle de même illustration", async () => {
+    const { client, calls } = fakeClient()
+    await resolveLines(db, client, [line('Rhystic Study', 'PLST', 'PCY-45'), line('Sol Ring', 'C21', '263', 2)], now)
+    expect(calls.prints).toEqual([['o-rhystic']])
+    expect(await row('rhystic-plst')).toMatchObject({
+      set_code: 'plst', collector_number: 'PCY-45', image_status: 'lowres',
+      image_normal: 'https://img/rhystic-pcy.jpg', image_large: 'https://img/l/rhystic-pcy.jpg',
+    })
+    expect((await row('sol-c21')).image_normal).toBe('https://img/sol-c21.jpg')
+  })
+
+  it("aucune impression nette de même illustration : l'image d'origine est gardée", async () => {
+    const { client } = fakeClient()
+    await resolveLines(db, client, [line('Chrome Mox', 'PMRD', '152')], now)
+    expect((await row('mox-promo')).image_normal).toBe('https://img/mox-promo.jpg')
+  })
+
+  it("recherche des autres impressions indisponible : l'import réussit avec l'image d'origine", async () => {
+    const { client } = fakeClient()
+    const flaky: ImportClient = { ...client, searchPrints: async () => { throw new ScryfallUnavailableError('HTTP 429') } }
+    expect(await resolveLines(db, flaky, [line('Rhystic Study', 'PLST', 'PCY-45')], now)).toEqual({ resolved: 1, notFound: [] })
+    expect((await row('rhystic-plst')).image_normal).toBe('https://img/rhystic-plst.jpg')
+  })
+
+  it('impressions nettes ou sans état connu : aucune recherche supplémentaire', async () => {
+    const { client, calls } = fakeClient()
+    await resolveLines(db, client, [line('Sol Ring'), line('Arcane Signet', null, null, 2)], now)
+    expect(calls.prints).toEqual([])
   })
 })

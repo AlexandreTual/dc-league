@@ -1,4 +1,5 @@
 import { getLookups, saveLookups, upsertCards } from '@/lib/db-cards'
+import { isBlurry, sharpSource, withImagesOf } from './images'
 import { lookupKey } from './parse'
 import { pickFrenchPrint, ScryfallUnavailableError, toCardRow, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
 import type { CardLookup, CardRow, ParsedLine, StoredCardLookup } from './types'
@@ -46,7 +47,7 @@ function identifier(w: Wanted, byName: boolean): Identifier {
 }
 
 /** Ce que l'import utilise du client Scryfall. */
-export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenchPrints'>
+export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenchPrints' | 'searchPrints'>
 
 /** Données anglaises puis impressions françaises des cartes à (re)chercher. */
 async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
@@ -77,6 +78,28 @@ async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
     }
   }
   return { englishRows, frenchByOracle }
+}
+
+/**
+ * Impressions floues (foils, promos, Secret Lair, The List…) : images d'une impression nette de même illustration,
+ * prise parmi les impressions déjà lues, sinon parmi les autres impressions de la carte (une recherche de plus).
+ * Si Scryfall ne répond pas à cette recherche, les images d'origine sont gardées : l'import ne doit pas échouer pour ça.
+ */
+async function sharpenImages(client: ImportClient, rows: CardRow[], known: CardRow[]): Promise<CardRow[]> {
+  const pending = rows.filter((r) => isBlurry(r) && !sharpSource(r, known))
+  let candidates = known
+  if (pending.length > 0) {
+    try {
+      const others = await client.searchPrints([...new Set(pending.map((r) => r.oracle_id))])
+      candidates = [...known, ...others.map(toCardRow)]
+    } catch (e) {
+      if (!(e instanceof ScryfallUnavailableError)) throw e
+    }
+  }
+  return rows.map((r) => {
+    const source = sharpSource(r, candidates)
+    return source ? withImagesOf(r, source) : r
+  })
 }
 
 /** Remplit le cache pour un paquet de lignes : données anglaises puis impressions françaises. */
@@ -120,7 +143,8 @@ export async function resolveLines(
         return { key: w.key, en_card_id: en.id, fr_card_id: fr?.id ?? null }
       })
 
-      const saved = await upsertCards(db, [...rows.values()], now)
+      const known = [...englishRows.values(), ...[...frenchByOracle.values()].flat()]
+      const saved = await upsertCards(db, await sharpenImages(client, [...rows.values()], known), now)
       if (saved.error !== null) throw new Error(saved.error)
       const savedLookups = await saveLookups(db, newLookups, now)
       if (savedLookups.error !== null) throw new Error(savedLookups.error)

@@ -45,6 +45,7 @@ type ScryfallFace = {
   toughness?: string
   image_uris?: ImageUris
   oracle_id?: string
+  illustration_id?: string
 }
 
 export type ScryfallCard = {
@@ -67,6 +68,8 @@ export type ScryfallCard = {
   power?: string
   toughness?: string
   image_uris?: ImageUris
+  image_status?: string
+  illustration_id?: string
   card_faces?: ScryfallFace[]
   all_parts?: RelatedCard[]
 }
@@ -134,9 +137,10 @@ export function createScryfallClient(deps: ScryfallDeps) {
   }
 
   /** Une seule page de résultats (175 impressions) par groupe, de la plus récente à la plus ancienne. */
-  async function searchPage(oracleIds: string[]): Promise<ListResponse> {
+  async function searchPage(oracleIds: string[], lang: 'fr' | null): Promise<ListResponse> {
+    const ids = `(${oracleIds.map((o) => `oracleid:${o}`).join(' or ')})`
     const params = new URLSearchParams({
-      q: `(${oracleIds.map((o) => `oracleid:${o}`).join(' or ')}) lang:fr`,
+      q: lang ? `${ids} lang:${lang}` : ids,
       unique: 'prints',
       order: 'released',
       dir: 'desc',
@@ -152,11 +156,20 @@ export function createScryfallClient(deps: ScryfallDeps) {
    * sont recherchées à nouveau sans celles qui l'ont remplie.
    */
   async function searchFrenchPrints(oracleIds: string[]): Promise<ScryfallCard[]> {
+    return searchPrintsIn(oracleIds, 'fr')
+  }
+
+  /** Toutes les impressions anglaises (Scryfall n'inclut les autres langues que sur demande), mêmes limites. */
+  async function searchPrints(oracleIds: string[]): Promise<ScryfallCard[]> {
+    return searchPrintsIn(oracleIds, null)
+  }
+
+  async function searchPrintsIn(oracleIds: string[], lang: 'fr' | null): Promise<ScryfallCard[]> {
     const cards: ScryfallCard[] = []
     for (const part of chunks(oracleIds, SEARCH_GROUP)) {
       let pending = part
       while (pending.length > 0) {
-        const body = await searchPage(pending)
+        const body = await searchPage(pending, lang)
         const data = body.data ?? []
         cards.push(...data)
         if (!body.has_more || data.length === 0) break
@@ -178,7 +191,7 @@ export function createScryfallClient(deps: ScryfallDeps) {
     }))
   }
 
-  return { fetchCollection, searchFrenchPrints, fetchRulings }
+  return { fetchCollection, searchFrenchPrints, searchPrints, fetchRulings }
 }
 
 export type ScryfallClient = ReturnType<typeof createScryfallClient>
@@ -195,6 +208,7 @@ function toFace(face: ScryfallFace): CardFace {
     image_normal: face.image_uris?.normal ?? null,
     image_large: face.image_uris?.large ?? null,
     image_small: face.image_uris?.small ?? null,
+    illustration_id: face.illustration_id ?? null,
   }
 }
 
@@ -230,6 +244,8 @@ export function toCardRow(card: ScryfallCard): CardRow {
     image_normal: card.image_uris?.normal ?? faces?.[0].image_normal ?? null,
     image_large: card.image_uris?.large ?? faces?.[0].image_large ?? null,
     image_small: card.image_uris?.small ?? faces?.[0].image_small ?? null,
+    image_status: card.image_status ?? null,
+    illustration_id: card.illustration_id ?? faces?.[0].illustration_id ?? null,
     faces,
   }
 }
