@@ -48,6 +48,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 - Connexion, import d'un deck (cartes en français) et mode test : OK, interface fluide.
 - **Corrigé — glisser-déposer** : l'aperçu garde la taille de la carte d'origine et la carte se pose au centre de l'aperçu (contrôles ajoutés à `scripts/playtest-check.mjs`).
 - **Fait — jetons du deck** (issue #41) : les jetons créés par les cartes (`all_parts` de Scryfall, en français si possible) sont enregistrés à l'import et proposés dans l'onglet « Du deck » de « Créer un jeton » (mode test et partie en ligne, chacun ne voit que les siens). Decks déjà importés : bouton « Mettre à jour les jetons » sur la page du deck.
+- **Corrigé — images floues** (issue #20) : l'aperçu agrandi (288 px CSS, 576 px réels en densité 2) prend l'image `large` de Scryfall (672 px) par `srcset` (migration 0010) ; une impression floue chez Scryfall (`lowres`, `placeholder`, `missing` : foils, promos, Secret Lair, The List) prend l'image d'une impression nette de même illustration, sinon garde la sienne (migration 0011). Pas de rattrapage : un deck déjà importé garde ses images jusqu'à son prochain import.
 
 ## Organisation du travail (depuis le 5 octobre)
 
@@ -75,4 +76,5 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 - Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
 - Nouvelle table : vérifier sur son écran (et en Duel comme à 4) la taille des vignettes de piles et le réglage « Taille des cartes » avec les vraies images de cartes.
 - Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
+- Images nettes (issue #20) : réimporter un deck qui contient des foils (promos, Secret Lair, The List) et vérifier l'aperçu sur téléphone (Scryfall non joignable depuis le serveur de test : choix de l'impression nette testé avec des réponses simulées).
 - Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).
