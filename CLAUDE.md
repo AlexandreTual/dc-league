@@ -33,7 +33,7 @@ npm run db:migrate:local
 node scripts/seed-online.mjs > /tmp/seed.sql && npx wrangler d1 execute dc-league --local --file /tmp/seed.sql
 npm run game:dev &                                  # serveur de jeu, port 8787
 npx wrangler pages dev --port 8788 &                # site (relancer après chaque build)
-node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test (32 vérifications)
+node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test (57 vérifications)
 node scripts/playtest-mobile-check.mjs http://localhost:8788 <deckId> <dossier>  # mode test sur téléphone (375×812, tactile)
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien

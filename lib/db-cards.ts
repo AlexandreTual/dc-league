@@ -1,5 +1,5 @@
 import type { Result } from './db'
-import type { CardLookup, CardRow, DeckCardView, Section, StoredCardLookup } from './cards/types'
+import type { CardLookup, CardRow, DeckCardView, Ruling, Section, StoredCardLookup } from './cards/types'
 
 type Ok<T> = { data: T; error: null }
 type Err = { data: null; error: string }
@@ -131,6 +131,47 @@ export async function saveLookups(db: D1Database, lookups: CardLookup[], now: Da
           .bind(l.key, l.en_card_id, l.fr_card_id, now.toISOString()),
       ),
     )
+    return ok(true)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+// ── Règles (rulings) ──────────────────────────────────────────────────────────
+
+/** Une impression en cache de la carte (anglaise de préférence), ou null si la carte est inconnue. */
+export async function findCardIdByOracle(db: D1Database, oracleId: string): Promise<Result<string | null>> {
+  try {
+    const id = await db
+      .prepare("SELECT id FROM cards WHERE oracle_id = ? ORDER BY lang = 'en' DESC LIMIT 1")
+      .bind(oracleId)
+      .first<string>('id')
+    return ok(id ?? null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export type StoredRulings = { rulings: Ruling[]; fetched_at: string }
+
+export async function getStoredRulings(db: D1Database, oracleId: string): Promise<Result<StoredRulings | null>> {
+  try {
+    const row = await db
+      .prepare('SELECT rulings, fetched_at FROM card_rulings WHERE oracle_id = ?')
+      .bind(oracleId)
+      .first<{ rulings: string; fetched_at: string }>()
+    return ok(row ? { rulings: parseJson<Ruling[]>(row.rulings, []), fetched_at: row.fetched_at } : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function saveRulings(db: D1Database, oracleId: string, rulings: Ruling[], now: Date): Promise<Result<true>> {
+  try {
+    await db
+      .prepare('INSERT OR REPLACE INTO card_rulings (oracle_id, rulings, fetched_at) VALUES (?, ?, ?)')
+      .bind(oracleId, JSON.stringify(rulings), now.toISOString())
+      .run()
     return ok(true)
   } catch (e) {
     return err((e as Error).message)

@@ -45,8 +45,11 @@ function identifier(w: Wanted, byName: boolean): Identifier {
     : { name: frontFace(w.name).trim() }
 }
 
+/** Ce que l'import utilise du client Scryfall. */
+export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenchPrints'>
+
 /** Données anglaises puis impressions françaises des cartes à (re)chercher. */
-async function fetchFromScryfall(client: ScryfallClient, missing: Wanted[]) {
+async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
   // 1. Données anglaises : par édition et numéro si fournis, puis par nom pour ce qui manque.
   const english = new Map<string, ScryfallCard>()
   const first = await client.fetchCollection(missing.map((w) => identifier(w, false)))
@@ -79,7 +82,7 @@ async function fetchFromScryfall(client: ScryfallClient, missing: Wanted[]) {
 /** Remplit le cache pour un paquet de lignes : données anglaises puis impressions françaises. */
 export async function resolveLines(
   db: D1Database,
-  client: ScryfallClient,
+  client: ImportClient,
   lines: ParsedLine[],
   now: Date,
 ): Promise<{ resolved: number; notFound: string[] }> {

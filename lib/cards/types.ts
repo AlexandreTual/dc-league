@@ -65,3 +65,6 @@ export type ImportSummary = {
   ignored: number
   errors: { lineNumber: number; text: string }[]
 }
+
+/** Règle officielle (« ruling ») d'une carte, en anglais. */
+export type Ruling = { date: string; source: 'wotc' | 'scryfall'; text: string }

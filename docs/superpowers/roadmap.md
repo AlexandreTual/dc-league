@@ -59,6 +59,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 2. Mot de passe oublié et invitations par mail — spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md` ; tâche 1 faite, tâches 2 à 5 en issues (à enchaîner dans l'ordre).
 3. Jetons copies depuis les cartes en jeu — **fait** (clic droit sur une carte visible du champ de bataille, la sienne ou celle d'un adversaire).
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
+5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0008), rafraîchies après 7 jours.
 
 ## Idées pour plus tard
 
@@ -72,3 +73,4 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 - Recherche de jetons sur Scryfall (l'import et les images de cartes sont confirmés).
 - Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
 - Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
+- Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).

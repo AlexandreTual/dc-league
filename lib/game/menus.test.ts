@@ -38,6 +38,7 @@ describe('cardMenu', () => {
       'Engager', 'Retourner', 'Face cachée', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…',
       'Donner le contrôle à Bob', 'Donner le contrôle à Chloé',
       'Main', 'Cimetière', 'Exil', 'Zone de commandement', 'Dessus de la bibliothèque', 'Dessous de la bibliothèque',
+      'Oracle et règles',
     ])
     expect(item(entries, 'Donner le contrôle à Bob')).toEqual([{ kind: 'action', action: { type: 'giveControl', id: card('p1', 4), to: 'p2' } }])
     expect(item(entries, 'Cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p1', 4), to: at('p1', 'graveyard') } }])
@@ -46,7 +47,7 @@ describe('cardMenu', () => {
   it('carte d’un adversaire sur son champ de bataille', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 2)), at('p2', 'battlefield'))
-    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil'])
+    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil', 'Oracle et règles'])
     expect(item(entries, 'Prendre le contrôle')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p1', 'battlefield') } }])
     expect(item(entries, 'Dans son cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p2', 'graveyard') } }])
   })
@@ -54,7 +55,7 @@ describe('cardMenu', () => {
   it('carte du cimetière d’un adversaire', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 4)), at('p2', 'graveyard'))
-    expect(labels(entries)).toEqual(['Sur mon champ de bataille', 'Dans sa main', 'Dans son exil'])
+    expect(labels(entries)).toEqual(['Sur mon champ de bataille', 'Dans sa main', 'Dans son exil', 'Oracle et règles'])
   })
 
   it('carte de ma main : révéler à tous ou à un joueur', () => {
@@ -174,6 +175,46 @@ describe('jetons copies', () => {
     expect(positions).toEqual([[34, 44], [37, 47], [40, 50]])
     expect(ask.then(25)).toHaveLength(20)
     expect(ask.then(0)).toHaveLength(1)
+  })
+})
+
+describe('Oracle et règles', () => {
+  const moved = (s: GameState, id: string, patch: Partial<GameState['cards'][string]>): GameState =>
+    ({ ...s, cards: { ...s.cards, [id]: { ...s.cards[id], ...patch } } })
+  const ORACLE = 'Oracle et règles'
+
+  it('carte visible : ouvre la fenêtre de la carte de son propriétaire', () => {
+    const s = setup()
+    expect(item(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')), ORACLE)).toEqual([{ kind: 'oracle', owner: 'p1', ref: 2 }])
+    expect(item(cardMenu(ctx(s), visible(s, card('p2', 2)), at('p2', 'battlefield')), ORACLE)).toEqual([{ kind: 'oracle', owner: 'p2', ref: 2 }])
+    expect(item(cardMenu(ctx(s), visible(s, card('p2', 4)), at('p2', 'graveyard')), ORACLE)).toEqual([{ kind: 'oracle', owner: 'p2', ref: 4 }])
+    const inHand = s.players.p1.zones.hand[0]
+    expect(labels(cardMenu(ctx(s), visible(s, inHand), at('p1', 'hand')))).toContain(ORACLE)
+  })
+
+  it('carte face cachée (la mienne ou celle d’un adversaire) : absente', () => {
+    const mine = moved(setup(), card('p1', 2), { faceDown: true })
+    expect(labels(cardMenu(ctx(mine), visible(mine, card('p1', 2)), at('p1', 'battlefield')))).not.toContain(ORACLE)
+    const theirs = moved(setup(), card('p2', 2), { faceDown: true })
+    expect(labels(cardMenu(ctx(theirs), visible(theirs, card('p2', 2)), at('p2', 'battlefield')))).not.toContain(ORACLE)
+  })
+
+  it('carte de la main d’un adversaire : absente', () => {
+    const s = setup()
+    const theirs = s.players.p2.zones.hand[0]
+    expect(labels(cardMenu(ctx(s), visible(s, theirs), at('p2', 'hand')))).not.toContain(ORACLE)
+  })
+
+  it('jeton (créé à la main ou copie) : absente', () => {
+    const soldier = { name: 'Soldat', typeLine: 'Token Creature — Soldier', power: '1', toughness: '1', colors: ['W'], image: null }
+    const s = run(setupFor('commander', 2), start(1), { type: 'createToken', actor: 'p1', token: soldier, x: 10, y: 10 })
+    expect(labels(cardMenu(ctx(s), visible(s, 't1'), at('p1', 'battlefield')))).not.toContain(ORACLE)
+  })
+
+  it('données de la carte absentes du navigateur : absente', () => {
+    const s = setup()
+    const entries = cardMenu({ ...ctx(s), catalogs: { ...s.catalogs, p2: { ...s.catalogs.p2, entries: [] } } }, visible(s, card('p2', 2)), at('p2', 'battlefield'))
+    expect(labels(entries)).not.toContain(ORACLE)
   })
 })
 
