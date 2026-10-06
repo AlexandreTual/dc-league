@@ -67,6 +67,13 @@ export type ScryfallCard = {
   power?: string
   toughness?: string
   image_uris?: ImageUris
+  /** « placeholder » : image anglaise barrée de « Localized Image Not Available » ; « missing » : aucune. */
+  image_status?: string
+  finishes?: string[]
+  border_color?: string
+  frame_effects?: string[]
+  full_art?: boolean
+  promo?: boolean
   card_faces?: ScryfallFace[]
   all_parts?: RelatedCard[]
 }
@@ -183,7 +190,12 @@ export function createScryfallClient(deps: ScryfallDeps) {
 
 export type ScryfallClient = ReturnType<typeof createScryfallClient>
 
-function toFace(face: ScryfallFace): CardFace {
+/** Scryfall n'a pas de scan de cette impression (fréquent pour les vieilles éditions en français). */
+function withoutRealImage(card: ScryfallCard): boolean {
+  return card.image_status === 'placeholder' || card.image_status === 'missing'
+}
+
+function toFace(face: ScryfallFace, hasImage: boolean): CardFace {
   return {
     name: face.name,
     printed_name: face.printed_name ?? null,
@@ -192,8 +204,8 @@ function toFace(face: ScryfallFace): CardFace {
     printed_type_line: face.printed_type_line ?? null,
     oracle_text: face.oracle_text ?? null,
     printed_text: face.printed_text ?? null,
-    image_normal: face.image_uris?.normal ?? null,
-    image_small: face.image_uris?.small ?? null,
+    image_normal: hasImage ? face.image_uris?.normal ?? null : null,
+    image_small: hasImage ? face.image_uris?.small ?? null : null,
   }
 }
 
@@ -205,8 +217,10 @@ function printedName(card: ScryfallCard): string | null {
   return faces.map((f) => f.printed_name || f.name).join(' // ')
 }
 
+/** Carte enregistrée ; sans image quand Scryfall n'a pas de vrai scan, pour retomber sur l'image anglaise. */
 export function toCardRow(card: ScryfallCard): CardRow {
-  const faces = card.card_faces?.length ? card.card_faces.map(toFace) : null
+  const hasImage = !withoutRealImage(card)
+  const faces = card.card_faces?.length ? card.card_faces.map((f) => toFace(f, hasImage)) : null
   const front = card.card_faces?.[0]
   const faceColors = card.card_faces?.flatMap((f) => f.colors ?? []) ?? []
   return {
@@ -226,19 +240,59 @@ export function toCardRow(card: ScryfallCard): CardRow {
     printed_text: card.printed_text ?? null,
     colors: card.colors ?? [...new Set(faceColors)],
     color_identity: card.color_identity ?? [],
-    image_normal: card.image_uris?.normal ?? faces?.[0].image_normal ?? null,
-    image_small: card.image_uris?.small ?? faces?.[0].image_small ?? null,
+    image_normal: (hasImage ? card.image_uris?.normal : null) ?? faces?.[0].image_normal ?? null,
+    image_small: (hasImage ? card.image_uris?.small : null) ?? faces?.[0].image_small ?? null,
     faces,
   }
 }
 
-/** Impression française : même édition et numéro, sinon même édition, sinon la plus récente (première). */
-export function pickFrenchPrint(prints: CardRow[], wanted: { set: string | null; number: string | null }): CardRow | null {
+/** Impression française candidate : la carte, plus la qualité de son image et son style. */
+export type FrenchPrint = CardRow & {
+  /** Scan en haute définition (image nette). */
+  highres: boolean
+  /** Version classique : ni foil seul, ni gravée, ni sans bordure, showcase, illustration étendue, pleine illustration ou promo. */
+  classic: boolean
+}
+
+const SPECIAL_FRAMES = ['showcase', 'extendedart', 'etched', 'inverted']
+
+export function toFrenchPrint(card: ScryfallCard): FrenchPrint {
+  const classic =
+    (!card.finishes || card.finishes.includes('nonfoil')) &&
+    card.border_color !== 'borderless' &&
+    !card.frame_effects?.some((f) => SPECIAL_FRAMES.includes(f)) &&
+    !card.full_art &&
+    !card.promo
+  return { ...toCardRow(card), highres: card.image_status === 'highres_scan', classic }
+}
+
+/**
+ * Impression française, de la plus récente à la plus ancienne dans `prints` :
+ * 1. celle demandée (même édition et numéro) si son scan est net ;
+ * 2. sinon la plus récente classique au scan net ;
+ * 3. sinon une vraie image : celle demandée, puis même édition (classique), puis la plus récente classique ;
+ * 4. sinon aucune vraie image : celle demandée, même édition ou la plus récente, pour le texte français
+ *    (l'image anglaise y est ajoutée à l'import).
+ * Une version foil ou spéciale n'est jamais choisie à la place de celle demandée.
+ */
+export function pickFrenchPrint<T extends CardRow & Partial<Pick<FrenchPrint, 'highres' | 'classic'>>>(
+  prints: T[],
+  wanted: { set: string | null; number: string | null },
+): T | null {
   const set = wanted.set?.toLowerCase() ?? null
+  const asked = (p: T) => p.set_code === set && p.collector_number === wanted.number
+  const sameSet = (p: T) => p.set_code === set
+  const image = (p: T) => p.image_normal !== null
+  const classic = (p: T) => p.classic !== false
   return (
-    prints.find((p) => p.set_code === set && p.collector_number === wanted.number) ??
-    prints.find((p) => p.set_code === set) ??
-    prints[0] ??
+    prints.find((p) => asked(p) && image(p) && p.highres) ??
+    prints.find((p) => classic(p) && image(p) && p.highres) ??
+    prints.find((p) => asked(p) && image(p)) ??
+    prints.find((p) => sameSet(p) && classic(p) && image(p)) ??
+    prints.find((p) => classic(p) && image(p)) ??
+    prints.find((p) => asked(p)) ??
+    prints.find((p) => sameSet(p) && classic(p)) ??
+    prints.find((p) => classic(p) && !image(p)) ??
     null
   )
 }
