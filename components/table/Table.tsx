@@ -19,7 +19,6 @@ import MyBoard from './MyBoard'
 import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
-import PlayerPanel from './PlayerPanel'
 import PlayerPill from './PlayerPill'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
@@ -310,11 +309,11 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     return items
   }
 
-  /** Pastille (moi, plateau agrandi) ou panneau compact (bandeau, jusqu'à la tâche 4). */
-  const panelFor = (player: string, onTitleClick?: () => void, kind: 'pill' | 'pill-up' | 'compact' = 'pill') => {
-    const common = { view, player, catalogs, lang, host: source.online?.host, online: source.online?.players, canAct, send, onTitleClick }
-    return kind === 'compact' ? <PlayerPanel {...common} compact /> : <PlayerPill {...common} up={kind === 'pill-up'} />
-  }
+  /** Pastille d'un joueur (bandeau, plateau agrandi, ma ligne du bas) ; `up` : bulle ouverte vers le haut. */
+  const panelFor = (player: string, onTitleClick?: () => void, up = false) => (
+    <PlayerPill view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
+      canAct={canAct} send={send} onTitleClick={onTitleClick} up={up} />
+  )
 
   return (
     <div className="relative h-full flex flex-col">
@@ -387,14 +386,14 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       <div className="relative flex-1 min-h-0 flex flex-col">
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {opponents.length > 0 && (
-            <div className={`${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[42%]'} shrink-0` : 'flex-1'} min-h-0 px-2 pt-2`}>
+            <div className={`${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[38%]'} shrink-0` : 'flex-1'} min-h-0 px-2 pt-2`}>
               <OpponentsArea
                 view={view}
                 players={opponents}
                 renderStrip={(p, focus) => (
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
-                    panel={panelFor(p, focus, 'compact')}
+                    panel={panelFor(p, focus)}
                     onPile={(zone, title) => setPile({ title: `${title} de ${view.players[p].name}`, player: p, zone, mode: 'browse' })}
                     onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, p), at)}
                   />
@@ -415,7 +414,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
               {...zoneProps}
               player={me}
               me={me}
-              panel={source.mode === 'online' ? panelFor(me, undefined, 'pill-up') : undefined}
+              panel={source.mode === 'online' ? panelFor(me, undefined, true) : undefined}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}

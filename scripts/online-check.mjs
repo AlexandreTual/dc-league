@@ -135,6 +135,10 @@ try {
   }
   check(true, 'chacun garde sa main')
   check((await ana.page.locator('[data-opponents="all"] [data-strip]').count()) === 2, 'Ana voit ses 2 adversaires en bandeaux')
+  // Bandeau compact : la pastille et une ligne fine, puis les rangées sur toute la largeur du bandeau.
+  const strip = await ana.page.locator(`[data-strip="${BASTIEN.id}"]`).boundingBox()
+  const rows = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="battlefield"]`).boundingBox()
+  check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
 
   // ── Pioche et carte jouée par Bastien, vues par Ana ──
   const before = await handCount(ana, BASTIEN.id)

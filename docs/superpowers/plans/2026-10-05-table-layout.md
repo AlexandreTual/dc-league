@@ -418,7 +418,7 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
 - Modifier : `components/table/PlayerPanel.tsx` (retirer le mode `compact`, devenu inutile)
 - Modifier : `scripts/online-check.mjs` si un sélecteur bouge
 
-- [ ] **Étape 1 : contrôle qui échoue.** `online-check.mjs`, après « Ana voit ses 2 adversaires en bandeaux » :
+- [x] **Étape 1 : contrôle qui échoue.** `online-check.mjs`, après « Ana voit ses 2 adversaires en bandeaux » :
 
 ```js
 // Bandeau compact : la pastille et une ligne fine, puis les rangées sur toute la largeur du bandeau.
@@ -427,9 +427,9 @@ const rows = await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-zone="ba
 check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
 ```
 
-- [ ] **Étape 2 :** `online-check` → échec (aujourd'hui une colonne de 112 px est à gauche des rangées).
+- [x] **Étape 2 :** `online-check` → échec (aujourd'hui une colonne de 112 px est à gauche des rangées).
 
-- [ ] **Étape 3 : `OpponentStrip`.** Garder `mini` et `pile` ; remplacer le `return` par :
+- [x] **Étape 3 : `OpponentStrip`.** Garder `mini` et `pile` ; remplacer le `return` par :
 
 ```tsx
   return (
@@ -468,10 +468,10 @@ check(rows.width >= strip.width - 24, 'bandeau : rangées sur toute la largeur')
 
 Le titre passé à `onPile` reste « Cimetière » / « Exil » (titre de la fenêtre) : `pile` reçoit le libellé court pour l'affichage et garde le titre long pour `onPile`.
 
-- [ ] **Étape 4 : `Table.tsx`.** Bandeau : `panelFor(p, focus)` (pastille, plus `'compact'`). Hauteur multijoueur : `h-[42%]` devient `h-[38%]` (le Duel garde `h-[40%]`). `PlayerPanel.tsx` : retirer la prop `compact` et ses deux branches ; le type `'compact'` de `panelFor` disparaît.
+- [x] **Étape 4 : `Table.tsx`.** Bandeau : `panelFor(p, focus)` (pastille, plus `'compact'`). Hauteur multijoueur : `h-[42%]` devient `h-[38%]` (le Duel garde `h-[40%]`). `PlayerPanel.tsx` : retirer la prop `compact` et ses deux branches ; le type `'compact'` de `panelFor` disparaît.
 
-- [ ] **Étape 5 :** vérifications complètes ; captures à 4 joueurs.
-- [ ] **Étape 6 : commit** `feat(table): bandeaux d'adversaires compacts`.
+- [x] **Étape 5 :** vérifications complètes ; captures à 4 joueurs.
+- [x] **Étape 6 : commit** `feat(table): bandeaux d'adversaires compacts`.
 
 ---
 
