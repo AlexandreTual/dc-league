@@ -60,11 +60,12 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 3. Jetons copies depuis les cartes en jeu — **fait** (clic droit sur une carte visible du champ de bataille, la sienne ou celle d'un adversaire).
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
 5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
+6. Nouvelle mise en page de la table (chantier #22) — **terminé** : spec `specs/2026-10-05-table-layout-design.md`, plan `plans/2026-10-05-table-layout.md` ; plein écran (#35), pastille et bulle des compteurs (#36), piles en vignettes à côté de la main (#37), bandeaux d'adversaires compacts (#38), réglage « Taille des cartes » de 80 % à 150 % (#39).
+7. Adaptation tablette de la table — chantier suivant prévu par la spec #22 (conception à faire).
 
 ## Idées pour plus tard
 
 - Analyse de deck par IA (courbe de mana, cohérence, suggestions).
-- Adaptation tablette du mode test et de la table.
 - Chat texte et messages rapides pendant la partie (pour l'instant : Discord/WhatsApp).
 - Spectateur qui voit tout (option de table).
 
@@ -72,5 +73,6 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 
 - Recherche de jetons sur Scryfall (l'import et les images de cartes sont confirmés).
 - Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
+- Nouvelle table : vérifier sur son écran (et en Duel comme à 4) la taille des vignettes de piles et le réglage « Taille des cartes » avec les vraies images de cartes.
 - Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
 - Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).

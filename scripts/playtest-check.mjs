@@ -27,6 +27,7 @@ function check(condition, message) {
 
 const handCount = () => page.locator('[data-zone="hand"] [data-card-id]').count()
 const battlefieldCount = () => page.locator('[data-zone="battlefield"] [data-card-id]').count()
+const libraryCount = async () => Number(await page.locator('[data-zone="library"]').getAttribute('data-count'))
 
 /** Glisse un élément vers un point, par petits pas (le capteur de dnd-kit exige un vrai mouvement). */
 async function drag(locator, x, y) {
@@ -49,6 +50,12 @@ try {
   // Plein écran : le haut de la fenêtre appartient à la table, pas à la barre du site.
   const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
   check(await coversSite(page), 'plein écran : la table couvre la barre du site')
+
+  // Mes piles en vignettes, à droite de la main et à sa hauteur.
+  const handBox = await page.locator('[data-zone="hand"]').boundingBox()
+  const libraryBox = await page.locator('[data-zone="library"]').boundingBox()
+  check(libraryBox.x >= handBox.x + handBox.width && libraryBox.y >= handBox.y - 2 && libraryBox.y + libraryBox.height <= handBox.y + handBox.height + 2,
+    'piles en vignettes à droite de la main')
 
   check((await handCount()) === 7, 'main de départ de 7 cartes')
   check(await page.locator('[data-testid="mulligan-banner"]').isVisible(), 'bandeau de mulligan affiché')
@@ -178,7 +185,7 @@ try {
   await tokenDialog.getByRole('button', { name: /Plante/ }).click()
   check((await battlefieldCount()) === 4 && (await page.locator('[data-zone="battlefield"]').innerText()).includes('Plante'), 'jeton du deck créé')
 
-  const libraryBefore = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
+  const libraryBefore = await libraryCount()
   page.once('dialog', (d) => d.accept('3'))
   await page.locator('[data-zone="library"]').click({ button: 'right' })
   await page.getByRole('menuitem', { name: /Regarder les X/ }).click()
@@ -189,7 +196,7 @@ try {
   await page.locator('[data-pile-card]').first().getByRole('button', { name: 'Dessous', exact: true }).click()
   check((await page.locator('[data-pile-card]').count()) === 2, 'carte envoyée dessous : retirée de la liste')
   await page.getByRole('button', { name: 'Fermer' }).click()
-  const libraryAfter = Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])
+  const libraryAfter = await libraryCount()
   check(libraryAfter === libraryBefore, `bibliothèque inchangée en taille (${libraryAfter}), ${looked} en dessous`)
 
   // Regard : remettre les cartes regardées dans l'ordre de son choix (flèches, puis glisser-déposer).
@@ -253,7 +260,6 @@ try {
   check(await topFaceUp() && (await library.locator('img').getAttribute('alt')) !== null, `après la pioche de ${topName} : la suivante est face visible`)
   await libraryMenu('Cacher la carte du dessus')
   check(!(await topFaceUp()), 'cacher la carte du dessus : dos de carte')
-  const libraryCount = async () => Number((await library.innerText()).match(/\((\d+)\)/)[1])
   await libraryMenu('Voir la carte du dessus (pour moi seul)')
   check(await topFaceUp(), 'voir la carte du dessus (pour moi seul) : face visible sur la pile')
   await capture('voir-dessus')
@@ -309,6 +315,20 @@ try {
   await page.getByRole('button', { name: 'Réglages' }).click()
   await page.getByLabel('Quadrillage sur le champ de bataille').check()
   await page.getByRole('button', { name: 'Par défaut' }).click()
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+
+  // Taille des cartes : 150 % agrandit les cartes du champ de bataille, 100 % revient à la taille automatique.
+  const fieldCard = page.locator('[data-zone="battlefield"] [data-card-id]').first()
+  const widthBefore = (await fieldCard.boundingBox()).width
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByLabel('Taille des cartes').selectOption('1.5')
+  const widthAfter = (await fieldCard.boundingBox()).width
+  check(Math.abs(widthAfter / widthBefore - 1.5) < 0.05, `taille des cartes 150 % (${Math.round(widthBefore)} → ${Math.round(widthAfter)} px)`)
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  await capture('taille-150')
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByLabel('Taille des cartes').selectOption('1')
+  check(Math.abs((await fieldCard.boundingBox()).width - widthBefore) < 1, 'taille des cartes 100 % : taille d’origine')
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
 
   // ── Réserve de mana : 2 verts, puis vidée au tour suivant ──

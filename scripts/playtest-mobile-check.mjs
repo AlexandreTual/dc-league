@@ -39,7 +39,7 @@ async function longPress(locator, ms = 700) {
 
 const hand = page.locator('[data-zone="hand"] [data-card-id]')
 const library = page.locator('[data-board] [data-zone="library"]').first()
-const libraryCount = async () => Number((await library.innerText()).match(/\((\d+)\)/)[1])
+const libraryCount = async () => Number(await library.getAttribute('data-count'))
 const menu = page.getByRole('menu')
 
 /** Le menu tient dans l'écran (jamais au-dessus du bord haut). */
