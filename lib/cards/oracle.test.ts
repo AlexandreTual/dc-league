@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow } from '@/test/factories'
 import { gathererUrl, oracleFaces } from './oracle'
-import type { CardFace } from './types'
+import type { CardFace, CardRow } from './types'
 
 const face = (overrides: Partial<CardFace>): CardFace => ({
   name: '', printed_name: null, mana_cost: null, type_line: '', printed_type_line: null,
@@ -9,28 +9,43 @@ const face = (overrides: Partial<CardFace>): CardFace => ({
 })
 
 describe('gathererUrl', () => {
-  it('page des impressions françaises, nom anglais en slug', () => {
-    expect(gathererUrl(cardRow({ name: 'Redirect Lightning' }))).toBe('https://gatherer.wizards.com/prints/redirect-lightning/fr-fr')
+  const fr = (overrides: Partial<CardRow>) => cardRow({ id: 'fr', lang: 'fr', ...overrides })
+
+  it('fiche de l’impression française : édition, numéro et nom anglais en slug', () => {
+    const en = cardRow({ name: 'Viscera Seer', set_code: 'm11', collector_number: '120' })
+    expect(gathererUrl(en, fr({ name: 'Viscera Seer', set_code: 'soc', collector_number: '229' })))
+      .toBe('https://gatherer.wizards.com/SOC/fr-fr/229/viscera-seer')
+  })
+
+  it('sans impression française : fiche anglaise', () => {
+    expect(gathererUrl(cardRow({ name: 'Sol Ring', set_code: 'c21', collector_number: '263' }), null))
+      .toBe('https://gatherer.wizards.com/C21/en-us/263/sol-ring')
   })
 
   it('virgule, apostrophe et accents', () => {
-    expect(gathererUrl(cardRow({ name: 'Kenrith, the Returned King' }))).toBe('https://gatherer.wizards.com/prints/kenrith-the-returned-king/fr-fr')
-    expect(gathererUrl(cardRow({ name: 'Urza’s Saga' }))).toBe('https://gatherer.wizards.com/prints/urzas-saga/fr-fr')
-    expect(gathererUrl(cardRow({ name: "Urza's Saga" }))).toBe('https://gatherer.wizards.com/prints/urzas-saga/fr-fr')
-    expect(gathererUrl(cardRow({ name: 'Lim-Dûl the Necromancer' }))).toBe('https://gatherer.wizards.com/prints/lim-dul-the-necromancer/fr-fr')
+    const url = (name: string) => gathererUrl(cardRow({ name, set_code: 'x', collector_number: '1' }))
+    expect(url('Kenrith, the Returned King')).toBe('https://gatherer.wizards.com/X/en-us/1/kenrith-the-returned-king')
+    expect(url('Urza\u2019s Saga')).toBe('https://gatherer.wizards.com/X/en-us/1/urzas-saga')
+    expect(url("Urza's Saga")).toBe('https://gatherer.wizards.com/X/en-us/1/urzas-saga')
+    expect(url('Lim-Dûl the Necromancer')).toBe('https://gatherer.wizards.com/X/en-us/1/lim-dul-the-necromancer')
+  })
+
+  it('numéro avec caractère spécial : encodé', () => {
+    expect(gathererUrl(cardRow({ name: 'Sol Ring', set_code: 'plst', collector_number: 'C21-263★' })))
+      .toBe('https://gatherer.wizards.com/PLST/en-us/C21-263%E2%98%85/sol-ring')
   })
 
   it('carte double sur une seule face (Fire // Ice) : les deux noms', () => {
-    const fireIce = cardRow({ name: 'Fire // Ice', faces: [face({ name: 'Fire' }), face({ name: 'Ice' })] })
-    expect(gathererUrl(fireIce)).toBe('https://gatherer.wizards.com/prints/fire-ice/fr-fr')
+    const fireIce = cardRow({ name: 'Fire // Ice', set_code: 'mh2', collector_number: '290', faces: [face({ name: 'Fire' }), face({ name: 'Ice' })] })
+    expect(gathererUrl(fireIce)).toBe('https://gatherer.wizards.com/MH2/en-us/290/fire-ice')
   })
 
   it('carte recto verso : le nom de la face avant', () => {
     const delver = cardRow({
-      name: 'Delver of Secrets // Insectile Aberration',
+      name: 'Delver of Secrets // Insectile Aberration', set_code: 'isd', collector_number: '51',
       faces: [face({ name: 'Delver of Secrets', image_normal: 'a.jpg' }), face({ name: 'Insectile Aberration', image_normal: 'b.jpg' })],
     })
-    expect(gathererUrl(delver)).toBe('https://gatherer.wizards.com/prints/delver-of-secrets/fr-fr')
+    expect(gathererUrl(delver)).toBe('https://gatherer.wizards.com/ISD/en-us/51/delver-of-secrets')
   })
 })
 

@@ -131,7 +131,7 @@ try {
   await page.getByRole('menuitem', { name: 'Oracle et règles' }).click()
   const oracleDialog = page.getByRole('dialog', { name: 'Oracle et règles' })
   await oracleDialog.getByText(/Règles indisponibles|Aucune règle|\d{4}/).first().waitFor()
-  check((await oracleDialog.getByRole('link', { name: /Gatherer/ }).getAttribute('href')).startsWith('https://gatherer.wizards.com/prints/'), 'fenêtre « Oracle et règles » ouverte depuis le menu, avec le lien Gatherer')
+  check((await oracleDialog.getByRole('link', { name: /Gatherer/ }).getAttribute('href')).startsWith('https://gatherer.wizards.com/'), 'fenêtre « Oracle et règles » ouverte depuis le menu, avec le lien Gatherer')
   await capture('oracle')
   await oracleDialog.getByRole('button', { name: 'Fermer' }).click()
   check((await oracleDialog.count()) === 0, 'bouton « Fermer » : fenêtre fermée')

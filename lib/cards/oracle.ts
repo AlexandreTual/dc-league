@@ -40,11 +40,15 @@ function slug(name: string): string {
 }
 
 /**
- * Page Gatherer des impressions françaises. Carte recto verso (une image par face) : nom de la face avant ;
- * carte double sur une seule face (Fire // Ice) : nom complet.
+ * Fiche Gatherer d'une impression (texte, règles) : l'impression française du deck si elle existe, sinon
+ * l'anglaise. Carte recto verso (une image par face) : nom de la face avant ; carte double sur une seule
+ * face (Fire // Ice) : nom complet.
  */
-export function gathererUrl(en: CardRow): string {
+export function gathererUrl(en: CardRow, fr: CardRow | null = null): string {
+  const print = fr ?? en
   const faces = en.faces ?? []
   const doubleSided = faces.length > 1 && faces.every((f) => f.image_normal)
-  return `https://gatherer.wizards.com/prints/${slug(doubleSided ? faces[0].name : en.name)}/fr-fr`
+  const name = slug(doubleSided ? faces[0].name : en.name)
+  const lang = fr ? 'fr-fr' : 'en-us'
+  return `https://gatherer.wizards.com/${encodeURIComponent(print.set_code.toUpperCase())}/${lang}/${encodeURIComponent(print.collector_number)}/${name}`
 }

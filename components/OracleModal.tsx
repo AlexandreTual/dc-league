@@ -99,7 +99,7 @@ export default function OracleModal({ en, fr, onClose }: { en: CardRow; fr: Card
 
         <div className="px-4 py-3 border-t border-dc-border flex items-center gap-3">
           <a
-            href={gathererUrl(en)}
+            href={gathererUrl(en, fr)}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Voir la fiche officielle sur Gatherer (nouvel onglet)"
