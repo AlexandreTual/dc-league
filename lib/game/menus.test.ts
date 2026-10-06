@@ -52,6 +52,26 @@ describe('cardMenu', () => {
     expect(item(entries, 'Dans son cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p2', 'graveyard') } }])
   })
 
+  it('marqueurs : nombre tapé directement, envoyé comme écart (compatible avec un serveur plus ancien)', () => {
+    const s = setup()
+    const id = card('p1', 2)
+    const withCounters = { ...visible(s, id), counters: { plus: 3, minus: 0, other: 0 } }
+    const entries = cardMenu(ctx(s), withCounters, at('p1', 'battlefield'))
+    const stepper = (label: string) => {
+      const e = entries.find((x) => x.kind === 'stepper' && x.label === label)
+      if (!e || e.kind !== 'stepper' || !e.set) throw new Error(`saisie absente : ${label}`)
+      return e.set
+    }
+    expect(stepper('+1/+1')(10)).toEqual([{ kind: 'action', action: { type: 'counter', id, kind: 'plus', delta: 7 } }])
+    expect(stepper('+1/+1')(0)).toEqual([{ kind: 'action', action: { type: 'counter', id, kind: 'plus', delta: -3 } }])
+    expect(stepper('+1/+1')(3)).toEqual([])
+    expect(stepper('-1/-1')(-5)).toEqual([])
+    expect(stepper('Compteur')(2.7)).toEqual([{ kind: 'action', action: { type: 'counter', id, kind: 'other', delta: 2 } }])
+    expect(stepper('Compteur')(NaN)).toEqual([])
+    const tax = entries.find((x) => x.kind === 'stepper' && x.label === 'Taxe')
+    expect(tax === undefined || (tax.kind === 'stepper' && tax.set === undefined)).toBe(true)
+  })
+
   it('carte du cimetière d’un adversaire', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 4)), at('p2', 'graveyard'))

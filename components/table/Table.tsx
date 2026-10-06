@@ -77,7 +77,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[] } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef } } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
@@ -153,9 +153,24 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
   const toItems = (entries: MenuEntry[]): MenuItem[] =>
     entries.map((e) => {
       if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands) }
-      if (e.kind === 'stepper') return { kind: 'stepper', label: e.label, value: e.value, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]) }
+      if (e.kind === 'stepper') {
+        const set = e.set
+        return { kind: 'stepper', label: e.label, value: e.value, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
+          onSet: set && ((n: number) => run(set(n))) }
+      }
       return e
     })
+
+  /** Menu d'une carte reconstruit à chaque rendu : les marqueurs affichés (et l'écart d'une valeur tapée) suivent la partie. */
+  const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef } }): MenuEntry[] => {
+    const { id, zone } = m.card ?? {}
+    if (!id || !zone || zone.zone === 'library') return m.entries
+    const card = cards.get(id)
+    const z = zone.zone
+    if (!card || !view.players[zone.player]?.zones[z].some((c) => !c.hidden && c.id === id)) return m.entries
+    const fresh = cardMenu(menuCtx, card, zone)
+    return fresh.length > 0 ? fresh : m.entries
+  }
 
   const openMenu = (entries: MenuEntry[], at: MenuPoint) => {
     if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries })
@@ -231,7 +246,8 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
     },
     onContextMenu: (id, zone, at) => {
       const card = cards.get(id)
-      if (card) openMenu(cardMenu(menuCtx, card, zone), at)
+      const entries = card ? cardMenu(menuCtx, card, zone) : []
+      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone } })
     },
     onHover: (id) => setHovered(id),
   }
@@ -425,7 +441,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(menu.entries)} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}
