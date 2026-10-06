@@ -55,7 +55,7 @@ try {
   await capture('depart')
 
   await page.getByRole('button', { name: 'Mulligan', exact: true }).click()
-  check((await handCount()) === 7, 'après mulligan : toujours 7 cartes (premier gratuit)')
+  check((await handCount()) === 7, 'après mulligan : 7 nouvelles cartes')
   check((await page.locator('[data-testid="mulligan-banner"]').innerText()).includes('Mulligan n°1'), 'bandeau : Mulligan n°1')
   await capture('mulligan')
   await page.getByRole('button', { name: 'Garder' }).click()
@@ -276,7 +276,7 @@ try {
 
   await page.getByRole('button', { name: /Journal/ }).click()
   const log = await page.getByTestId('log').innerText()
-  check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1 (gratuit)') && log.includes('remet les 3 cartes du dessus de sa bibliothèque dans l’ordre de son choix'), 'journal en français (dont le regard)')
+  check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1') && !log.includes('gratuit') && log.includes('remet les 3 cartes du dessus de sa bibliothèque dans l’ordre de son choix'), 'journal en français (dont le regard)')
   await capture('journal')
   await page.getByRole('button', { name: 'Fermer le journal' }).click()
 

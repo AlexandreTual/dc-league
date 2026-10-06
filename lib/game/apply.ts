@@ -54,10 +54,6 @@ export function isLand(state: GameState, id: string): boolean {
   return typeLine.split(' // ')[0].includes('Land')
 }
 
-export function bottomCount(state: GameState, playerId: string): number {
-  return Math.max(0, (state.players[playerId]?.mulligans ?? 0) - 1)
-}
-
 export function taxOf(state: Pick<GameState, 'commanderCasts'>, id: string): number {
   return COMMANDER_TAX_STEP * (state.commanderCasts[id] ?? 0)
 }
@@ -254,8 +250,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       s = draw(shuffleLibrary(s, action.actor, action.seed), action.actor, OPENING_HAND)
       const n = player.mulligans + 1
       s = setPlayer(s, action.actor, { mulligans: n })
-      const k = bottomCount(s, action.actor)
-      return log(s, action.actor, k === 0 ? `Mulligan n°${n} (gratuit)` : `Mulligan n°${n} : met ${k} carte(s) en dessous`)
+      return log(s, action.actor, `Mulligan n°${n}`)
     }
 
     case 'keep': {
