@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { assertSameOrigin, requireAdmin } from '@/lib/auth/session'
 import { issueInvitation } from '@/lib/auth/service'
+import { disabledMailer } from '@/lib/mail'
 
 export const runtime = 'edge'
 
@@ -21,10 +22,8 @@ export async function POST(req: NextRequest) {
     env.DB,
     { playerId: body.player_id, kind: body.kind, grantAdmin: body.grant_admin === true },
     new Date(),
+    { mailer: disabledMailer, baseUrl: new URL(req.url).origin },
   )
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
-  return NextResponse.json(
-    { url: new URL(`/invitation/${result.value.token}`, req.url).toString(), expiresAt: result.value.expiresAt },
-    { status: 201 },
-  )
+  return NextResponse.json({ url: result.value.url, expiresAt: result.value.expiresAt }, { status: 201 })
 }
