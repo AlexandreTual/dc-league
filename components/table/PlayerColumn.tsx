@@ -18,7 +18,7 @@ export default function PlayerColumn(props: ZoneProps & {
   const { portrait, onPile, ...zoneProps } = props
   const titles = { graveyard: 'Cimetière', exile: 'Exil' }
   return (
-    <div className="sm:w-[216px] shrink-0 min-h-0 flex max-sm:flex-row max-sm:items-center flex-col gap-1.5 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5"
+    <div className="sm:w-[216px] shrink-0 min-h-0 flex max-sm:flex-row max-sm:items-center flex-col gap-1 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5"
       data-column={props.player}>
       <div className="max-sm:flex-1 max-sm:min-w-0">{portrait}</div>
       <div className="max-sm:w-48 shrink-0">

@@ -70,7 +70,7 @@ De haut en bas :
 2. **Badges** des compteurs non nuls, sous la ligne portrait : ceux d'aujourd'hui (`playerBadges`), avec les mêmes seuils et couleurs.
 3. **Quatre cases chiffrées** : Main, Bib., Cim., Exil (§4).
 4. **Commandant** : la zone de commandement (`data-zone="command"`) en petite vignette (deux commandants légèrement décalés, taxe affichée sur la carte comme aujourd'hui), puis, pour chacun de ses commandants, son nom, où il se trouve (« zone de commandement », « en jeu », « au cimetière », « en exil », « en main ») et sa taxe. Sans commandant (deck importé sans commandant), il ne reste que la vignette vide de la zone de commandement, qui reste une cible de dépôt.
-5. **Cimetière en cascade** (`data-zone="graveyard"`, `data-count`) : titre « Cimetière » et nombre, puis les noms des 6 dernières cartes empilées, chacune sur un liseré de la couleur de sa carte, **la plus récente en bas**. Quand la hauteur manque, les plus anciennes sortent par le haut : la plus récente reste toujours visible.
+5. **Cimetière en cascade** (`data-zone="graveyard"`, `data-count`) : sans titre (le nombre est dans la case Cim. ; « Cimetière vide » quand il n'y a rien), les noms des 6 dernières cartes empilées, chacune sur un liseré de la couleur de sa carte, **la plus récente en bas**. Quand la hauteur manque, les plus anciennes sortent par le haut : la plus récente reste toujours visible.
 
 ## 3. En-tête d'un adversaire (bandeau « Tous » et adversaire agrandi, 3 à 5 joueurs)
 

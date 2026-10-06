@@ -386,6 +386,53 @@ try {
   const row = JSON.parse(out)[0].results[0]
   check(row.status === 'finished' && row.winner_player_id === ANA.id, `base : partie terminée, vainqueur ${row.winner_player_id}`)
 
+  // ── Duel : la colonne de l'adversaire, alignée sur la mienne ──
+  await ana.page.goto(`${base}/salon`)
+  await ana.page.getByRole('combobox').first().selectOption('duel')
+  await ana.page.getByRole('button', { name: 'Créer la table' }).click()
+  await ana.page.waitForURL((url) => /\/tables\//.test(url.pathname) && url.href !== tableUrl)
+  const duelUrl = ana.page.url()
+  await chooseDeck(ana)
+  await bastien.page.goto(duelUrl)
+  await bastien.page.getByRole('button', { name: 'Rejoindre la table' }).click()
+  await chooseDeck(bastien)
+  await ana.page.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => x.textContent === 'Démarrer la partie')
+    return b && !b.disabled
+  }, null, { timeout: 10_000 })
+  await ana.page.getByRole('button', { name: 'Démarrer la partie' }).click()
+  for (const who of [ana, bastien]) await myHand(who).first().waitFor({ timeout: 10_000 })
+  for (const [who, other] of [[ana, BASTIEN], [bastien, ANA]]) {
+    const theirs = board(who, other.id).locator(`[data-column="${other.id}"]`)
+    const mine = board(who, who.id).locator(`[data-column="${who.id}"]`)
+    check((await theirs.count()) === 1, `Duel : ${who.name} voit la colonne de ${other.name} dans son plateau`)
+    const [a, b] = [await theirs.boundingBox(), await mine.boundingBox()]
+    check(Math.abs(a.x - b.x) <= 2 && Math.abs(a.width - b.width) <= 2, `Duel : chez ${who.name}, les deux colonnes sont alignées`)
+    check((await theirs.locator('[data-testid="player-life"]').innerText()) === '20', `Duel : la vie de ${other.name} (20) est dans sa colonne`)
+    const field = await board(who, other.id).locator('[data-zone="battlefield"]').boundingBox()
+    check(a.x + a.width <= field.x, `Duel : chez ${who.name}, la colonne de ${other.name} est à gauche de son champ de bataille`)
+  }
+  await capture(ana, 'duel')
+
+  // Petit écran (1280 × 720) : la cascade de l'adversaire montre au moins 4 noms, la plus récente entière.
+  for (let i = 0; i < 6; i++) {
+    await drag(bastien, myHand(bastien).first(), board(bastien, BASTIEN.id).locator('[data-zone="graveyard"]'))
+  }
+  for (const who of [ana, bastien]) await who.page.getByRole('button', { name: 'Garder' }).click()
+  await ana.page.setViewportSize({ width: 1280, height: 720 })
+  const cascade = board(ana, BASTIEN.id).locator('[data-zone="graveyard"]')
+  await ana.page.waitForFunction((id) => document.querySelector(`[data-board="${id}"] [data-zone="graveyard"]`)?.getAttribute('data-count') === '6', BASTIEN.id)
+  const shown = await cascade.evaluate((el) => {
+    const list = el.lastElementChild.getBoundingClientRect()
+    return [...el.querySelectorAll('[data-card-id]')].filter((c) => {
+      const r = c.getBoundingClientRect()
+      return r.top >= list.top - 1 && r.bottom <= list.bottom + 1
+    }).length
+  })
+  check(shown >= 4, `Duel en 1280 × 720 : ${shown} noms entiers dans la cascade de Bastien`)
+  await capture(ana, 'duel-1280x720')
+  await ana.page.setViewportSize({ width: 1280, height: 900 })
+
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')
 } finally {
