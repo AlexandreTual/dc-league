@@ -387,7 +387,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
       <div className="relative flex-1 min-h-0 flex flex-col">
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {opponents.length > 0 && (
-            <div className={`${me ? 'h-[42%] shrink-0' : 'flex-1'} min-h-0 px-2 pt-2`}>
+            <div className={`${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[42%]'} shrink-0` : 'flex-1'} min-h-0 px-2 pt-2`}>
               <OpponentsArea
                 view={view}
                 players={opponents}

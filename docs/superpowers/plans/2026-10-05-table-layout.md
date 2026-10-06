@@ -319,7 +319,7 @@ Ajouter ensuite : `check(await chloe.page.locator('[data-bubble]').count() === 0
 **Interfaces :**
 - `ZonePile` : la prop `compact?: boolean` est remplacée par `size: 'tile' | 'mini'` ; la pile pose `data-count={count}` (les scripts lisent le nombre de cartes ici, plus dans le texte).
 
-- [ ] **Étape 1 : contrôles qui échouent.** `playtest-check.mjs` : remplacer les deux lectures `Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])` (et la fonction `libraryCount`) par :
+- [x] **Étape 1 : contrôles qui échouent.** `playtest-check.mjs` : remplacer les deux lectures `Number((await page.locator('[data-zone="library"]').innerText()).match(/\((\d+)\)/)[1])` (et la fonction `libraryCount`) par :
 
 ```js
 const libraryCount = async () => Number(await page.locator('[data-zone="library"]').getAttribute('data-count'))
@@ -335,9 +335,9 @@ check(libraryBox.x >= handBox.x + handBox.width && libraryBox.y >= handBox.y - 2
   'piles en vignettes à droite de la main')
 ```
 
-- [ ] **Étape 2 :** `playtest-check` → `ÉCHEC : piles en vignettes à droite de la main`.
+- [x] **Étape 2 :** `playtest-check` → `ÉCHEC : piles en vignettes à droite de la main`.
 
-- [ ] **Étape 3 : `ZonePile`.** Libellés courts et mise en page en vignette (le reste du composant — bibliothèque, carte du dessus connue, glisser, double-clic, clic droit — ne change pas) :
+- [x] **Étape 3 : `ZonePile`.** Libellés courts et mise en page en vignette (le reste du composant — bibliothèque, carte du dessus connue, glisser, double-clic, clic droit — ne change pas) :
 
 ```tsx
 const PILE_LABELS: Record<'command' | 'library' | 'graveyard' | 'exile', string> = {
@@ -367,7 +367,7 @@ Conteneur de la pile :
 
 Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
 
-- [ ] **Étape 4 : `MyBoard`.**
+- [x] **Étape 4 : `MyBoard`.**
 
 ```tsx
     <div className="flex-1 min-h-0 flex flex-col gap-2 p-2" data-board={zoneProps.player}>
@@ -385,7 +385,7 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
     </div>
 ```
 
-- [ ] **Étape 5 : `OpponentBoard`.** Une ligne fine au-dessus de son champ :
+- [x] **Étape 5 : `OpponentBoard`.** Une ligne fine au-dessus de son champ :
 
 ```tsx
     <div className="h-full min-h-0 flex flex-col gap-1.5" data-board={zoneProps.player}>
@@ -403,10 +403,10 @@ Le texte « Taxe +N » reste dessiné par `GameCard` sur la carte du commandant.
     </div>
 ```
 
-- [ ] **Étape 6 : hauteurs du Duel.** `Table.tsx`, zone des adversaires : `${me ? 'h-[42%] shrink-0' : 'flex-1'}` devient `${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[42%]'} shrink-0` : 'flex-1'}`.
+- [x] **Étape 6 : hauteurs du Duel.** `Table.tsx`, zone des adversaires : `${me ? 'h-[42%] shrink-0' : 'flex-1'}` devient `${me ? `${opponents.length === 1 ? 'h-[40%]' : 'h-[42%]'} shrink-0` : 'flex-1'}`.
 
-- [ ] **Étape 7 :** vérifications complètes ; contrôler dans `online-check` que les glisser-déposer vers le cimetière d'Ana et depuis son plateau agrandi passent toujours ; captures.
-- [ ] **Étape 8 : commit** `feat(table): piles en vignettes à côté de la main`.
+- [x] **Étape 7 :** vérifications complètes ; contrôler dans `online-check` que les glisser-déposer vers le cimetière d'Ana et depuis son plateau agrandi passent toujours ; captures.
+- [x] **Étape 8 : commit** `feat(table): piles en vignettes à côté de la main`.
 
 ---
 

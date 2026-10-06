@@ -3,7 +3,10 @@
 import type { MenuPoint } from './touch'
 import { Battlefield, OpponentHand, ZonePile, type ZoneProps } from './zones'
 
-/** Plateau réel d'un adversaire (vue agrandie) : ses zones acceptent le glisser-déposer. */
+/**
+ * Plateau réel d'un adversaire (vue agrandie) : une ligne fine (pastille, main, piles en mini-vignettes)
+ * au-dessus de son champ de bataille. Ses zones acceptent le glisser-déposer.
+ */
 export default function OpponentBoard(props: ZoneProps & {
   me: string | null
   panel: React.ReactNode
@@ -14,17 +17,17 @@ export default function OpponentBoard(props: ZoneProps & {
   const name = zoneProps.view.players[zoneProps.player].name
   return (
     <div className="h-full min-h-0 flex flex-col gap-1.5" data-board={zoneProps.player}>
-      <div className="shrink-0 flex items-center">{panel}</div>
-      <div className="flex-1 min-h-0 flex gap-2">
-        <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} />
-        <div className="w-44 shrink-0 grid grid-cols-2 grid-rows-2 gap-1.5 min-h-0">
-          <ZonePile zone="command" me={me} compact {...zoneProps} />
-          <ZonePile zone="library" me={me} compact {...zoneProps} onPileContextMenu={onLibraryMenu} />
-          <ZonePile zone="graveyard" me={me} compact {...zoneProps} onPileClick={() => onPile('graveyard', `Cimetière de ${name}`)} />
-          <ZonePile zone="exile" me={me} compact {...zoneProps} onPileClick={() => onPile('exile', `Exil de ${name}`)} />
+      <div className="h-12 shrink-0 flex items-center gap-2">
+        <div className="shrink-0">{panel}</div>
+        <OpponentHand {...zoneProps} />
+        <div className="ml-auto h-full flex gap-1">
+          <ZonePile zone="command" size="mini" me={me} {...zoneProps} />
+          <ZonePile zone="library" size="mini" me={me} {...zoneProps} onPileContextMenu={onLibraryMenu} />
+          <ZonePile zone="graveyard" size="mini" me={me} {...zoneProps} onPileClick={() => onPile('graveyard', `Cimetière de ${name}`)} />
+          <ZonePile zone="exile" size="mini" me={me} {...zoneProps} onPileClick={() => onPile('exile', `Exil de ${name}`)} />
         </div>
       </div>
-      <OpponentHand {...zoneProps} />
+      <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} />
     </div>
   )
 }
