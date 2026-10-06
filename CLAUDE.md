@@ -36,6 +36,7 @@ npx wrangler pages dev --port 8788 &                # site (relancer après chaq
 node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test (59 vérifications)
 node scripts/playtest-mobile-check.mjs http://localhost:8788 <deckId> <dossier>  # mode test sur téléphone (375×812, tactile)
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
+node scripts/board-window-check.mjs http://localhost:8788 <dossier>        # plateau d'un adversaire en fenêtre à part
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
 ```
 

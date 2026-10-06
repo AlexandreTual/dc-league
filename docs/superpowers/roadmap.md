@@ -63,7 +63,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 6. Nouvelle mise en page de la table (chantier #22) — **terminé** : spec `specs/2026-10-05-table-layout-design.md`, plan `plans/2026-10-05-table-layout.md` ; plein écran (#35), pastille et bulle des compteurs (#36), piles en vignettes à côté de la main (#37), bandeaux d'adversaires compacts (#38), réglage « Taille des cartes » de 80 % à 150 % (#39).
 7. Colonne joueur façon MTGO (chantier #80) — **terminé** : spec `specs/2026-10-06-player-column-design.md`, plan `plans/2026-10-06-player-column.md` ; maquette https://claude.ai/artifact/SLrswVXfAH4ezsCXkK2AQj. Ma colonne avec la vie en gros, rouge à 10 ou moins, cases chiffrées et cimetière en cascade (#83) ; colonne de l'adversaire en Duel (#84) ; colonne compacte à gauche de chaque bandeau, bandeaux sur une rangée et cartes agrandies à 3 à 5 joueurs, même colonne pour l'adversaire agrandi (#85).
 8. Adaptation tablette de la table (#81) — chantier suivant ; maquette faite (écran « A sur tablette »), spec et plan à écrire.
-9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — après la tablette.
+9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — **fait** : spec `specs/2026-10-06-board-window-design.md`, plan `plans/2026-10-06-board-window.md` ; bouton « Ouvrir dans une fenêtre » sur ordinateur (ligne portrait et bulle « ⋯ » de chaque adversaire), une fenêtre par adversaire (`/tables/<id>/plateau/<joueur>`), « Ramener » des deux côtés ; traité avant la tablette, indépendante.
 
 ## Idées pour plus tard
 
@@ -77,4 +77,5 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 - Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
 - Nouvelle table : vérifier sur son écran (et en Duel comme à 4) la taille des vignettes de piles et le réglage « Taille des cartes » avec les vraies images de cartes.
 - Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
+- Fenêtre à part (#82) : sur deux écrans réels, sortir le plateau d'un adversaire, le déplacer sur le second écran, jouer quelques tours, puis le ramener ; vérifier aussi le message quand le navigateur bloque la fenêtre.
 - Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).
