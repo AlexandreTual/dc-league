@@ -96,8 +96,10 @@ function baseRoom(
   }
 }
 
-export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: () => Seed, now: number): RoomState {
-  const start = { ...startAction(setup.players.map((p) => p.id), seed), at: now }
+/** `firstPlayer` : premier joueur choisi par l'hôte ; ignoré s'il n'est pas à la table (tirage au sort). */
+export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: () => Seed, now: number, firstPlayer?: string): RoomState {
+  const ids = setup.players.map((p) => p.id)
+  const start = { ...startAction(ids, seed, firstPlayer !== undefined && ids.includes(firstPlayer) ? firstPlayer : undefined), at: now }
   return baseRoom(tableId, setup, hostId, new GameHistory(setup, [start]), now)
 }
 
@@ -130,7 +132,7 @@ function serverAction(raw: unknown, actor: string, seed: () => Seed): GameAction
   // Éliminer un autre joueur passe par la commande de l'hôte ; un joueur ne peut que concéder.
   if (action.type === 'eliminate' && action.target !== actor) return MSG.eliminateOther
   const full = { ...action, actor } as GameAction
-  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook') return { ...full, seed: seed() } as GameAction
+  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook' || full.type === 'roll') return { ...full, seed: seed() } as GameAction
   return full
 }
 

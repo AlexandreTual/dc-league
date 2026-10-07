@@ -23,7 +23,8 @@ export interface Socket {
 
 export type SocketInfo = { playerId: string | null }
 
-export type InitBody = { tableId: string; setup: GameSetup; hostId: string }
+/** `firstPlayer` : premier joueur choisi par l'hôte ; absent : tirage au sort. */
+export type InitBody = { tableId: string; setup: GameSetup; hostId: string; firstPlayer?: string }
 
 /**
  * `finishPending` : fin de partie pas encore enregistrée en D1, à retenter (connexion suivante ou nettoyage).
@@ -95,7 +96,8 @@ export class RoomRuntime {
   async init(body: InitBody): Promise<Response> {
     await this.load()
     if (this.room) return new Response('Partie déjà créée', { status: 409 })
-    const room = createRoom(body.tableId, body.setup, body.hostId, this.seed, this.clock())
+    const first = typeof body.firstPlayer === 'string' ? body.firstPlayer : undefined
+    const room = createRoom(body.tableId, body.setup, body.hostId, this.seed, this.clock(), first)
     const meta: Meta = { tableId: body.tableId, hostId: body.hostId, finished: false, winner: null }
     await this.storage.put('setup', body.setup)
     await this.storage.put(actionKey(0), room.history.actions[0])

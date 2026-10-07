@@ -15,6 +15,10 @@ describe('keepsHand (mode test)', () => {
     expect(keepsHand({ type: 'keep' }, fresh, 'p1')).toBe(false)
   })
 
+  it('un lancer de dés ne garde pas la main', () => {
+    expect(keepsHand({ type: 'roll', sides: 6, count: 2 }, fresh, 'p1')).toBe(false)
+  })
+
   it('après un mulligan, carte de la main mise au-dessous : la main n’est pas gardée implicitement', () => {
     let s = mull(fresh, 1)
     for (let i = 0; i < 7; i++) {

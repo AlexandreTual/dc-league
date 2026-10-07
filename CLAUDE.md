@@ -36,10 +36,13 @@ npx wrangler pages dev --port 8788 &                # site (relancer après chaq
 node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test (59 vérifications)
 node scripts/playtest-mobile-check.mjs http://localhost:8788 <deckId> <dossier>  # mode test sur téléphone (375×812, tactile)
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
+node scripts/board-window-check.mjs http://localhost:8788 <dossier>        # plateau d'un adversaire en fenêtre à part
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
+node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lancer de dés (mode test et en ligne)
+node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
 ```
 
-Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-4` (Ana, Bastien, Chloé, Damien), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`.
+Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`.
 
 ## Architecture (repères)
 

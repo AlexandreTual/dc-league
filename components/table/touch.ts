@@ -50,7 +50,7 @@ export function menuPosition(at: { x: number; y: number }, menu: Size, screen: S
 }
 
 /** Largeur de l'aperçu sur grand écran (w-72) ; en dessous de ces dimensions, il est centré et borné. */
-const PREVIEW_WIDTH = 288
+export const PREVIEW_WIDTH = 288
 const SMALL_WIDTH = 640
 const SMALL_HEIGHT = 480
 const PREVIEW_MARGIN = 16

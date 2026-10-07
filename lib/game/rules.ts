@@ -1,3 +1,4 @@
+import { isDiceRoll } from './dice'
 import { EVERYONE, FORMAT_RULES, HIDDEN_ZONES, MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
 
 // ── Lecture ───────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ const MSG = {
   emptyLibrary: 'Bibliothèque vide',
   oneFace: "Cette carte n'a qu'une face",
   badMana: 'Mana invalide',
+  badRoll: 'Lancer de dés invalide',
 }
 
 const isPlayer = (state: GameState, id: string | null) => id !== null && id in state.players
@@ -83,7 +85,8 @@ function canMove(state: GameState, action: Extract<GameAction, { type: 'move' }>
 /** null si l'action est permise, sinon un message en français. */
 export function canApply(state: GameState, action: GameAction): string | null {
   if (action.type === 'start') {
-    return action.actor === 'server' && !state.started ? null : 'Seul le serveur démarre la partie, une seule fois'
+    if (action.actor !== 'server' || state.started) return 'Seul le serveur démarre la partie, une seule fois'
+    return action.first === undefined || isPlayer(state, action.first) ? null : MSG.unknownPlayer
   }
   const actor = state.players[action.actor]
   if (!actor) return MSG.unknownPlayer
@@ -91,6 +94,9 @@ export function canApply(state: GameState, action: GameAction): string | null {
   if (actor.eliminated) return MSG.eliminated
 
   switch (action.type) {
+    case 'roll':
+      return isDiceRoll(action.sides, action.count) ? null : MSG.badRoll
+
     case 'mana':
       return MANA_COLORS.includes(action.color) && Number.isInteger(action.delta) ? null : MSG.badMana
 

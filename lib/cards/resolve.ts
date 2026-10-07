@@ -1,7 +1,7 @@
 import { getLookups, saveLookups, upsertCards } from '@/lib/db-cards'
 import { lookupKey } from './parse'
 import { pickFrenchPrint, ScryfallUnavailableError, toCardRow, toFrenchPrint, type FrenchPrint, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
-import type { CardLookup, CardRow, ParsedLine, StoredCardLookup } from './types'
+import type { CardFace, CardLookup, CardRow, ParsedLine, StoredCardLookup } from './types'
 
 export { MAX_BATCH_LINES } from './parse'
 
@@ -49,12 +49,12 @@ function identifier(w: Wanted, byName: boolean): Identifier {
 function withEnglishImages(fr: FrenchPrint, en: CardRow): CardRow {
   const { highres: _h, classic: _c, ...row } = fr
   if (row.image_normal) return row
-  return {
-    ...row,
-    image_normal: en.image_normal,
-    image_small: en.image_small,
-    faces: row.faces?.map((f, i) => ({ ...f, image_normal: en.faces?.[i]?.image_normal ?? null, image_small: en.faces?.[i]?.image_small ?? null })) ?? null,
-  }
+  const images = (from: CardFace | CardRow | undefined) => ({
+    image_normal: from?.image_normal ?? null,
+    image_large: from?.image_large ?? null,
+    image_small: from?.image_small ?? null,
+  })
+  return { ...row, ...images(en), faces: row.faces?.map((f, i) => ({ ...f, ...images(en.faces?.[i]) })) ?? null }
 }
 
 /** Ce que l'import utilise du client Scryfall. */

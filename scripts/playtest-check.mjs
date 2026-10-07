@@ -51,6 +51,16 @@ try {
   const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
   check(await coversSite(page), 'plein écran : la table couvre la barre du site')
 
+  // Vrai plein écran du navigateur : le bouton suit l'état réel (y compris une sortie hors bouton, comme Échap).
+  const fullscreenButton = page.getByTestId('fullscreen')
+  await fullscreenButton.click()
+  await page.waitForFunction(() => !!document.fullscreenElement)
+  check((await fullscreenButton.getAttribute('aria-label')) === 'Quitter le plein écran', 'plein écran du navigateur : le bouton devient « Quitter le plein écran »')
+  await page.evaluate(() => document.exitFullscreen())
+  await page.waitForFunction(() => !document.fullscreenElement)
+  await page.waitForFunction(() => document.querySelector('[data-testid="fullscreen"]')?.textContent?.trim() === 'Plein écran')
+  check(true, 'sortie du plein écran (Échap) : le bouton redevient « Plein écran »')
+
   // Ma colonne, à gauche de mon champ de bataille et de ma main ; la vie n'est plus dans la barre du haut.
   const columnBox = await page.locator('[data-column]').boundingBox()
   const handBox = await page.locator('[data-zone="hand"]').boundingBox()

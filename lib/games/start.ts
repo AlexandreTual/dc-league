@@ -7,20 +7,24 @@ import type { GameSetup } from '@/lib/game/types'
 export { INTERNAL_ERROR }
 
 /** Crée la partie dans le Durable Object de la table. */
-export type GameInit = (tableId: string, body: { setup: GameSetup; hostId: string }) => Promise<{ ok: boolean; status: number }>
+export type GameInit = (tableId: string, body: { setup: GameSetup; hostId: string; firstPlayer?: string }) => Promise<{ ok: boolean; status: number }>
 
 /**
  * Démarre la partie : l'hôte seulement, conditions remplies ; catalogues construits depuis les decks choisis.
  * La table est d'abord réservée (`starting`) : plus personne ne rejoint, ne part ni ne change de deck pendant
  * la création de la partie, et deux démarrages simultanés n'en créent qu'un. En cas d'échec, elle redevient ouverte.
+ * `firstPlayer` : joueur de la table choisi par l'hôte pour commencer ; absent : tirage au sort.
  */
-export async function startTable(db: D1Database, init: GameInit, tableId: string, playerId: string): Promise<Result<GameTable>> {
+export async function startTable(db: D1Database, init: GameInit, tableId: string, playerId: string, firstPlayer?: string): Promise<Result<GameTable>> {
   const { data: table, error } = await getTable(db, tableId)
   if (error !== null) return { data: null, error: INTERNAL_ERROR }
   if (!table) return { data: null, error: 'Table introuvable' }
   if (table.hostPlayerId !== playerId) return { data: null, error: "Seul l'hôte peut faire ça" }
   const reason = startCheck(table)
   if (reason) return { data: null, error: reason }
+  if (firstPlayer !== undefined && !table.players.some((p) => p.playerId === firstPlayer)) {
+    return { data: null, error: "Ce joueur n'est pas à cette table" }
+  }
 
   const { data: claimed, error: claimError } = await claimStart(db, tableId, playerId)
   if (claimError !== null) return { data: null, error: INTERNAL_ERROR }
@@ -28,7 +32,7 @@ export async function startTable(db: D1Database, init: GameInit, tableId: string
 
   let started = false
   try {
-    const result = await createGame(db, init, tableId)
+    const result = await createGame(db, init, tableId, firstPlayer)
     started = result.error === null
     return result
   } finally {
@@ -38,7 +42,7 @@ export async function startTable(db: D1Database, init: GameInit, tableId: string
 }
 
 /** Table réservée : relue (places désormais figées), partie créée, table passée en cours. */
-async function createGame(db: D1Database, init: GameInit, tableId: string): Promise<Result<GameTable>> {
+async function createGame(db: D1Database, init: GameInit, tableId: string, firstPlayer?: string): Promise<Result<GameTable>> {
   const { data: table, error } = await getTable(db, tableId)
   if (error !== null || !table) return { data: null, error: INTERNAL_ERROR }
   const reason = startCheck({ ...table, status: 'open' })
@@ -53,7 +57,9 @@ async function createGame(db: D1Database, init: GameInit, tableId: string): Prom
   const setup: GameSetup = { format: table.format, players, options: { eliminatedSeeAll: table.eliminatedSeeAll } }
 
   // 409 : partie déjà créée lors d'un essai précédent interrompu, on termine le démarrage.
-  const res = await init(tableId, { setup, hostId: table.hostPlayerId })
+  // Places relues après la réservation : un premier joueur parti entre-temps est ignoré (tirage au sort).
+  const first = firstPlayer !== undefined && table.players.some((p) => p.playerId === firstPlayer) ? { firstPlayer } : {}
+  const res = await init(tableId, { setup, hostId: table.hostPlayerId, ...first })
   if (!res.ok && res.status !== 409) return { data: null, error: INTERNAL_ERROR }
   if ((await markPlaying(db, tableId)).error !== null) return { data: null, error: INTERNAL_ERROR }
   const { data: started } = await getTable(db, tableId)

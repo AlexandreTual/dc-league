@@ -76,6 +76,13 @@ describe('init et connexion', () => {
     const s1 = await open(rt, 'p1')
     expect(s1.last()).toMatchObject({ type: 'view', host: 'p1', online: ['p1'] })
   })
+
+  it('premier joueur choisi par l’hôte', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1', firstPlayer: 'p2' })
+    const s1 = await open(rt, 'p1')
+    expect(s1.last()).toMatchObject({ type: 'view', view: { activePlayer: 'p2', firstChosen: true } })
+  })
 })
 
 describe('actions et persistance', () => {

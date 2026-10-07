@@ -36,6 +36,8 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 - Règle 103.8 : à 3 joueurs ou plus, le premier joueur pioche en gardant sa main. Le mulligan est géré par les joueurs : le jeu compte les mulligans mais n'impose aucune carte à mettre au-dessous (décision du 6 octobre, issue #72).
 - Une carte d'un adversaire peut être réanimée ou volée ; elle retourne toujours chez son propriétaire en mourant.
 - Les identifiants des commandants sont publics (clés de la taxe et des blessures).
+- Lancer de dés (issue #99) : pile ou face, d4, d6, d8, d10, d12, d20, jusqu'à 10 dés d'un coup ; tirage par le serveur, résultat public sur la table et au journal ; un lancer ne s'annule pas (sinon on pourrait relancer). Vérifié par `scripts/dice-check.mjs`.
+- Qui commence (issue #100) : le serveur tire l'ordre du tour au hasard, sauf si l'hôte choisit le premier joueur dans la salle d'attente (les autres places restent tirées). Au lancement, chaque joueur voit les noms défiler jusqu'au premier joueur (sans défilement s'il a été choisi), puis l'ordre du tour ; un numéro d'ordre reste affiché à côté de chaque nom. Rien en mode test. Vérifié par `scripts/first-player-check.mjs`.
 
 ### Points à reprendre dans les sous-projets suivants
 
@@ -61,8 +63,11 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
 5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
 6. Nouvelle mise en page de la table (chantier #22) — **terminé** : spec `specs/2026-10-05-table-layout-design.md`, plan `plans/2026-10-05-table-layout.md` ; plein écran (#35), pastille et bulle des compteurs (#36), piles en vignettes à côté de la main (#37), bandeaux d'adversaires compacts (#38), réglage « Taille des cartes » de 80 % à 150 % (#39).
-7. Adaptation tablette de la table — chantier suivant prévu par la spec #22 (conception à faire).
-8. Minuteur des parties en ligne (issue #101) — **fait** : temps de partie et temps du tour en cours dans la barre du haut (heure du serveur, mêmes valeurs pour tous) ; à la fin, durée figée et enregistrée (`game_tables.duration_seconds`) avec le temps de jeu de chaque joueur pendant ses tours (`game_seats.play_seconds`, migration 0011) pour des statistiques plus tard. Décisions du 7 octobre : pistes A et B seulement (pas de pendule ni de limite de partie), pas de pause, rien en mode test.
+7. Colonne joueur façon MTGO (chantier #80) — **terminé** : spec `specs/2026-10-06-player-column-design.md`, plan `plans/2026-10-06-player-column.md` ; maquette https://claude.ai/artifact/SLrswVXfAH4ezsCXkK2AQj. Ma colonne avec la vie en gros, rouge à 10 ou moins, cases chiffrées et cimetière en cascade (#83) ; colonne de l'adversaire en Duel (#84) ; colonne compacte à gauche de chaque bandeau, bandeaux sur une rangée et cartes agrandies à 3 à 5 joueurs, même colonne pour l'adversaire agrandi (#85).
+8. Adaptation tablette de la table (#81) — chantier suivant ; maquette faite (écran « A sur tablette »), spec et plan à écrire.
+9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — **fait** : spec `specs/2026-10-06-board-window-design.md`, plan `plans/2026-10-06-board-window.md` ; bouton « Ouvrir dans une fenêtre » sur ordinateur (ligne portrait et bulle « ⋯ » de chaque adversaire), une fenêtre par adversaire (`/tables/<id>/plateau/<joueur>`), « Ramener » des deux côtés ; traité avant la tablette, indépendante.
+10. Vrai plein écran du navigateur (#91) — **fait** : bouton « Plein écran » / « Quitter le plein écran » dans la barre de la table (mode test et en ligne), API Fullscreen, suit Échap ; message si le navigateur refuse (iPhone notamment).
+11. Minuteur des parties en ligne (issue #101) — **fait** : temps de partie et temps du tour en cours dans la barre du haut (heure du serveur, mêmes valeurs pour tous) ; à la fin, durée figée et enregistrée (`game_tables.duration_seconds`) avec le temps de jeu de chaque joueur pendant ses tours (`game_seats.play_seconds`, migration 0012) pour des statistiques plus tard. Décisions du 7 octobre : pistes A et B seulement (pas de pendule ni de limite de partie), pas de pause, rien en mode test.
 
 ## Idées pour plus tard
 
@@ -76,4 +81,6 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 - Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
 - Nouvelle table : vérifier sur son écran (et en Duel comme à 4) la taille des vignettes de piles et le réglage « Taille des cartes » avec les vraies images de cartes.
 - Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
+- Fenêtre à part (#82) : sur deux écrans réels, sortir le plateau d'un adversaire, le déplacer sur le second écran, jouer quelques tours, puis le ramener ; vérifier aussi le message quand le navigateur bloque la fenêtre.
+- Plein écran (#91) : sur ordinateur et sur Android, entrer puis sortir (bouton et Échap) ; sur iPhone, vérifier que le message de refus s'affiche.
 - Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).

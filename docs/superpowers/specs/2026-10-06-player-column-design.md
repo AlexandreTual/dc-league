@@ -26,7 +26,8 @@ On s'inspire de MTGO : un bloc par joueur sur le bord gauche, avec la vie en gro
 | Cimetière | cascade des **6 dernières cartes** (5 si la hauteur manque) ; un clic ouvre tout le cimetière avec ses filtres |
 | 3 à 5 joueurs | option 2 : ma colonne comme en Duel ; chaque bandeau adverse commence par sa propre ligne portrait |
 | Mode test | la vie n'est que dans ma colonne, plus dans la barre du haut |
-| Adversaire agrandi (3 à 5) | sa ligne portrait et ses cases au-dessus de son plateau, comme dans son bandeau |
+| Adversaire agrandi (3 à 5) | sa colonne à gauche de son plateau, comme en Duel (retour du 6 octobre après essai : d'abord prévue au-dessus) |
+| Bandeaux (3 à 5) | colonne compacte à gauche de chaque bandeau, cartes agrandies (retour du 6 octobre après essai) |
 | 5 joueurs | les quatre bandeaux côte à côte, sur une seule rangée |
 
 ## Hors périmètre
@@ -46,8 +47,8 @@ Le bloc d'un joueur reste **à l'intérieur de son plateau** (`data-board`), à 
 |---|---|---|
 | Mode test | — | ma colonne · (mon champ de bataille, ma main) |
 | Duel | colonne de l'adversaire · (bande de sa main, son champ de bataille) | ma colonne · (mon champ de bataille, ma main) |
-| 3 à 5, vue « Tous » | bandeaux adverses côte à côte, chacun avec son en-tête | ma colonne · (mon champ de bataille, ma main) |
-| 3 à 5, adversaire agrandi | onglets, puis son en-tête au-dessus de son champ de bataille | ma colonne · (mon champ de bataille, ma main) |
+| 3 à 5, vue « Tous » | bandeaux adverses côte à côte, chacun avec sa colonne compacte à gauche | ma colonne · (mon champ de bataille, ma main) |
+| 3 à 5, adversaire agrandi | onglets, puis colonne de l'adversaire · (bande de sa main, son champ de bataille) | ma colonne · (mon champ de bataille, ma main) |
 
 - **Largeur de la colonne : 216 px**, la même pour l'adversaire en Duel et pour moi : les deux blocs s'alignent sur le bord gauche.
 - Hauteurs inchangées : adversaires 40 % en Duel et 38 % à 3 à 5 joueurs ; ma main reste à 25 % de mon plateau.
@@ -72,17 +73,20 @@ De haut en bas :
 4. **Commandant** : la zone de commandement (`data-zone="command"`) en petite vignette (deux commandants légèrement décalés, taxe affichée sur la carte comme aujourd'hui), puis, pour chacun de ses commandants, son nom, où il se trouve (« zone de commandement », « en jeu », « au cimetière », « en exil », « en main ») et sa taxe. Sans commandant (deck importé sans commandant), il ne reste que la vignette vide de la zone de commandement, qui reste une cible de dépôt.
 5. **Cimetière en cascade** (`data-zone="graveyard"`, `data-count`) : sans titre (le nombre est dans la case Cim. ; « Cimetière vide » quand il n'y a rien), les noms des 6 dernières cartes empilées, chacune sur un liseré de la couleur de sa carte, **la plus récente en bas**. Quand la hauteur manque, les plus anciennes sortent par le haut : la plus récente reste toujours visible.
 
-## 3. En-tête d'un adversaire (bandeau « Tous » et adversaire agrandi, 3 à 5 joueurs)
+## 3. Colonne compacte d'un adversaire (bandeau « Tous », 3 à 5 joueurs)
 
-1. **Ligne portrait compacte** (`data-panel`) : portrait de 32 px, nom (clic : agrandir, comme aujourd'hui), point en ligne, couronne, badges sous le nom, **vie en 40 px** (rouge à 10 ou moins), − et +, « ⋯ » pour la bulle (vers le bas).
-2. **Quatre cases chiffrées**, puis la petite vignette de sa zone de commandement.
-3. **Dernière carte arrivée dans son cimetière** (`data-zone="graveyard"`, `data-count`) : son nom sur un liseré de sa couleur, ou « vide ».
+Après un premier essai (en-tête au-dessus des rangées), l'utilisateur a demandé le 6 octobre une colonne à gauche, comme pour soi, pour que les rangées gagnent toute la hauteur du bandeau et que les cartes soient plus grandes.
 
-En dessous :
-- dans le bandeau : les trois rangées (Créatures, Autres, Terrains), inchangées ;
-- dans la vue agrandie : la bande de sa main (cartes révélées comprises), puis son champ de bataille.
+À gauche du bandeau, une colonne de 184 px (`data-header`) :
+1. **Ligne portrait compacte** (`data-panel`) : portrait de 32 px, nom (clic : agrandir, comme aujourd'hui), point en ligne, couronne, − et +, « ⋯ » pour la bulle (vers le bas), **vie en 40 px** (rouge à 10 ou moins), badges en dessous.
+2. **Quatre cases chiffrées** sur deux rangées (Main, Bib. / Cim., Exil).
+3. La petite vignette de sa zone de commandement et la **dernière carte arrivée dans son cimetière** (`data-zone="graveyard"`, `data-count`) : son nom sur un liseré de sa couleur, ou « vide ».
 
-Le bandeau du joueur dont c'est le tour a un cadre doré. Les bandeaux sont **tous sur une rangée** : 2, 3 ou 4 colonnes égales.
+À droite, ses trois rangées (Créatures, Autres, Terrains) sur toute la hauteur : côte à côte avec 2 adversaires, l'une sous l'autre à partir de 3. Cartes de 80 px de haut avec 2 adversaires, 56 px à partir de 3 (40 px auparavant).
+
+**Adversaire agrandi** : la même colonne que la mienne et que celle du Duel (§2), puis la bande de sa main (cartes révélées comprises) et son champ de bataille.
+
+Le bandeau du joueur dont c'est le tour a un cadre doré. Les bandeaux sont **tous sur une rangée** : 2, 3 ou 4 colonnes égales (5 pour un spectateur).
 
 ## 4. Cases chiffrées et gestes
 

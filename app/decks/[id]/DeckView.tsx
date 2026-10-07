@@ -7,6 +7,7 @@ import { BookOpen, Crown, ExternalLink, Play, RefreshCw, Sparkles, X } from 'luc
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
+import { cardSrcSet } from '@/lib/cards/images'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { sendJson } from '@/components/formStyles'
 import OracleModal from '@/components/OracleModal'
@@ -62,7 +63,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const total = cards.reduce((n, c) => n + c.quantity, 0)
   const groups = groupDeckCards(cards, lang)
   const selectedShown = selected ? displayCard(selected, lang) : null
-  const hoverImage = hover ? displayCard(hover.card, lang)?.image_normal : null
+  const hoverShown = hover ? displayCard(hover.card, lang) : null
+  const hoverImage = hoverShown?.image_normal ?? null
 
   return (
     <div className="space-y-6">
@@ -161,6 +163,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={hoverImage}
+          srcSet={cardSrcSet(hoverImage, hoverShown?.image_large)}
+          sizes="224px"
           alt=""
           className="hidden md:block fixed z-40 w-56 rounded-xl shadow-card pointer-events-none"
           style={{ left: Math.min(hover.x + 24, window.innerWidth - 240), top: Math.max(8, Math.min(hover.y - 150, window.innerHeight - 320)) }}
@@ -174,11 +178,19 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               <X className="w-6 h-6" />
             </button>
             <div className="flex flex-wrap justify-center gap-4">
-              {(selectedShown.faces?.some((f) => f.image_normal) ? selectedShown.faces.map((f) => f.image_normal) : [selectedShown.image_normal])
-                .filter((src): src is string => !!src)
-                .map((src) => (
+              {(selectedShown.faces?.some((f) => f.image_normal) ? selectedShown.faces : [selectedShown])
+                .filter((img): img is typeof img & { image_normal: string } => !!img.image_normal)
+                .map((img) => (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={src} src={src} alt="" className="w-full max-w-xs rounded-2xl shadow-card" />
+                  <img
+                    key={img.image_normal}
+                    src={img.image_normal}
+                    // max-w-xs (320 px), moins les marges sur petit écran : image large sur écran haute densité.
+                    srcSet={cardSrcSet(img.image_normal, img.image_large)}
+                    sizes="(max-width: 352px) calc(100vw - 32px), 320px"
+                    alt=""
+                    className="w-full max-w-xs rounded-2xl shadow-card"
+                  />
                 ))}
             </div>
             {canEdit && selected.section !== 'commander' && selected.en?.type_line.includes('Legendary') && (

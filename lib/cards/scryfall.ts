@@ -30,7 +30,7 @@ export type Identifier = { set: string; collector_number: string } | { name: str
 /** Carte liée (jeton, emblème, pièce de combo…) listée dans `all_parts`. */
 export type RelatedCard = { id: string; component: string; name: string; type_line?: string }
 
-type ImageUris = { small?: string; normal?: string }
+type ImageUris = { small?: string; normal?: string; large?: string }
 
 type ScryfallFace = {
   name: string
@@ -205,6 +205,7 @@ function toFace(face: ScryfallFace, hasImage: boolean): CardFace {
     oracle_text: face.oracle_text ?? null,
     printed_text: face.printed_text ?? null,
     image_normal: hasImage ? face.image_uris?.normal ?? null : null,
+    image_large: hasImage ? face.image_uris?.large ?? null : null,
     image_small: hasImage ? face.image_uris?.small ?? null : null,
   }
 }
@@ -241,6 +242,7 @@ export function toCardRow(card: ScryfallCard): CardRow {
     colors: card.colors ?? [...new Set(faceColors)],
     color_identity: card.color_identity ?? [],
     image_normal: (hasImage ? card.image_uris?.normal : null) ?? faces?.[0].image_normal ?? null,
+    image_large: (hasImage ? card.image_uris?.large : null) ?? faces?.[0].image_large ?? null,
     image_small: (hasImage ? card.image_uris?.small : null) ?? faces?.[0].image_small ?? null,
     faces,
   }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useDroppable } from '@dnd-kit/core'
-import { taxOf } from '@/lib/game/apply'
 import type { Catalog, CardView, PlayerView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack, type Lang } from './GameCard'
@@ -146,80 +145,6 @@ export function OpponentHand(props: ZoneProps) {
         )}
       </div>
       {hand.length > COMPACT_HAND_MAX && <span className="text-dc-muted text-xs">+{hand.length - COMPACT_HAND_MAX}</span>}
-    </div>
-  )
-}
-
-/** Nom court affiché sous une pile, suivi du nombre de cartes. */
-const PILE_LABELS: Record<'command' | 'library' | 'graveyard' | 'exile', string> = {
-  command: 'Cmd', library: 'Bib.', graveyard: 'Cim.', exile: 'Exil',
-}
-
-/** Décalage d'un commandant sur le précédent, en largeur de carte (deux commandants légèrement décalés). */
-const COMMANDER_SHIFT = 0.4
-
-/**
- * Pile en vignette au format carte (à droite de ma main ; `mini` sur la ligne fine d'un adversaire agrandi).
- * Bibliothèque : dos de carte, ou la carte du dessus face visible quand elle est connue ;
- * seul son propriétaire peut la glisser (identifiant `top:<joueur>`, résolu par le moteur avec moveTop).
- * Le clic droit (ou l'appui long) y ouvre toujours le menu de la bibliothèque.
- */
-export function ZonePile(props: ZoneProps & {
-  zone: 'command' | 'library' | 'graveyard' | 'exile'
-  me: string | null
-  size: 'tile' | 'mini'
-  onPileClick?: () => void
-  onPileContextMenu?: (at: MenuPoint) => void
-}) {
-  const { view, player, catalogs, lang, zone } = props
-  const ref: ZoneRef = { player, zone }
-  const { setNodeRef, highlight } = useZone(ref)
-  const zones = view.players[player].zones
-  const count = zone === 'library' ? zones.library.count : zones[zone].length
-  // Commandement : toutes les cartes. Autres piles : la dernière carte arrivée est visible.
-  const cards = zone === 'library' ? [] : zone === 'command' ? visible(zones.command) : visible(zones[zone]).slice(-1)
-  const empty = count === 0
-  const canDrawTop = zone === 'library' && count > 0 && player === props.me && props.interactive
-  const top = zone === 'library' ? libraryTop(view, player) : null
-  const topFace = top
-    ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" />
-    : <CardBack className="h-full" bare={props.size === 'mini'} />
-  const hoverTop = top ? (h: boolean) => props.handlers.onHover(h ? top.id : null) : undefined
-  const press = menuGesture(props.onPileContextMenu)
-  // Plusieurs commandants : la vignette s'élargit pour les montrer décalés.
-  const span = 1 + COMMANDER_SHIFT * Math.max(0, cards.length - 1)
-  const mini = props.size === 'mini'
-  return (
-    <div
-      ref={setNodeRef}
-      data-zone={zone}
-      data-player={player}
-      data-count={count}
-      className={`relative h-full shrink-0 flex flex-col items-center gap-0.5 rounded-lg ${props.onPileClick ? 'cursor-pointer' : ''} ${props.onPileContextMenu ? longPressClass : ''} ${highlight}`}
-      title={mini ? undefined : `${PILE_LABELS[zone]} ${count}`}
-      onClick={props.onPileClick}
-      {...press}
-    >
-      <div className={`relative ${mini ? 'h-[calc(100%-12px)]' : 'h-[calc(100%-14px)]'}`} style={{ aspectRatio: `${63 * span} / 88` }}>
-        {empty && <div className="h-full aspect-[63/88] rounded-[6%] border border-dashed border-dc-border" />}
-        {zone === 'library' && !empty && (
-          canDrawTop ? (
-            <Draggable id={topId(player)} from={ref} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), ref)} onHover={hoverTop}>
-              {topFace}
-            </Draggable>
-          ) : (
-            <div className="h-full" onMouseEnter={() => hoverTop?.(true)} onMouseLeave={() => hoverTop?.(false)}>
-              {topFace}
-            </div>
-          )
-        )}
-        {cards.map((card, i) => (
-          <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="absolute top-0 h-full" style={{ left: `${(i * COMMANDER_SHIFT * 100) / span}%` }}>
-            <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} tax={zone === 'command' ? taxOf(view, card.id) : 0} className="h-full" />
-          </Draggable>
-        ))}
-      </div>
-      <span className={`${mini ? 'text-[9px]' : 'text-[10px]'} leading-none text-dc-muted whitespace-nowrap`}>{PILE_LABELS[zone]} {count}</span>
     </div>
   )
 }
