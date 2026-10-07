@@ -167,6 +167,16 @@ describe('cycle de vie', () => {
     expect((await getTable(db, c)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p1' })
   })
 
+  it('fin de partie : durée et temps de jeu de chaque joueur', async () => {
+    const { id } = (await commander()).data!
+    await joinTable(db, id, 'p2')
+    expect((await getTable(db, id)).data!.durationSeconds).toBeNull()
+    expect((await finishTable(db, id, 'p2', { duration: 3600, playTime: { p1: 1500, p2: 2100 } })).error).toBeNull()
+    expect((await getTable(db, id)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p2', durationSeconds: 3600 })
+    const seats = await db.prepare('SELECT player_id, play_seconds FROM game_seats WHERE table_id = ? ORDER BY seat').bind(id).all()
+    expect(seats.results).toEqual([{ player_id: 'p1', play_seconds: 1500 }, { player_id: 'p2', play_seconds: 2100 }])
+  })
+
   it('activité, tables périmées, hôte, suppression en cascade', async () => {
     const old = (await commander()).data!.id
     const fresh = (await commander()).data!.id

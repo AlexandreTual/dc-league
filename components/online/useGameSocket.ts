@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toLocalClock, type LocalClock } from '@/lib/game/clock'
 import { mergeCards, type CardDataMap, type ClientMessage, type ServerMessage, type ViewMessage } from '@/lib/game/room'
 import { ERROR_VISIBLE_MS } from '@/components/table/source'
 import { SOCKET_MSG, nextStep } from './reconnect'
@@ -23,6 +24,7 @@ export function useGameSocket(tableId: string) {
   const [closedReason, setClosedReason] = useState<string | null>(null)
   const [generation, setGeneration] = useState(0)
   const [last, setLast] = useState<ViewMessage | null>(null)
+  const [clock, setClock] = useState<LocalClock | undefined>(undefined)
   const [cards, setCards] = useState<CardDataMap>({})
   const [error, setError] = useState<string | null>(null)
   const socket = useRef<WebSocket | null>(null)
@@ -58,6 +60,7 @@ export function useGameSocket(tableId: string) {
         }
         if (message.type === 'view') {
           setLast(message)
+          setClock(toLocalClock(message.clock, Date.now()))
           setCards((prev) => mergeCards(prev, message.cards))
         } else {
           showError(message.error)
@@ -102,5 +105,5 @@ export function useGameSocket(tableId: string) {
     setGeneration((g) => g + 1)
   }, [])
 
-  return { status, closedReason, last, cards, error, send, retry }
+  return { status, closedReason, last, clock, cards, error, send, retry }
 }

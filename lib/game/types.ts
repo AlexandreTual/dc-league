@@ -115,6 +115,15 @@ export type GameState = {
   lookingAt: Record<string, string[]>
   nextTokenId: number
   log: LogEntry[]
+  /**
+   * Minuteur, d'après l'horodatage serveur (`at`) des actions qui changent de tour ; absent en mode test
+   * et pour les actions jouées avant l'horodatage. Instants en millisecondes.
+   */
+  startedAt?: number
+  /** Début du tour en cours. */
+  turnStartedAt?: number
+  /** Temps de jeu par joueur (ms) : somme de ses tours terminés, le tour en cours non compris. */
+  playTime?: Record<string, number>
 }
 
 export type Position = 'top' | 'bottom' | number
@@ -125,7 +134,10 @@ export type Position = 'top' | 'bottom' | number
  */
 export type Seed = number | string
 
-export type GameAction =
+/** Instant serveur (ms) posé sur `start`, `endTurn` et `eliminate` : sert au minuteur, jamais repris du navigateur. */
+export type Stamp = { at?: number }
+
+export type GameAction = Stamp & (
   /**
    * `seeds` : graine de la bibliothèque de chaque joueur ; absente des anciennes parties (graine + rang du joueur).
    * `first` : premier joueur choisi par l'hôte ; absent : tirage au sort.
@@ -166,6 +178,7 @@ export type GameAction =
   | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: Seed }
   /** `sides` : 2 (pile ou face), 4, 6, 8, 10, 12 ou 20 ; `count` : nombre de dés lancés ensemble. */
   | { type: 'roll'; actor: string; sides: number; count: number; seed: Seed }
+)
 
 export type VisibleCard = {
   hidden: false

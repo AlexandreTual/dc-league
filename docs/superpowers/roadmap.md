@@ -67,6 +67,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 8. Adaptation tablette de la table (#81) — chantier suivant ; maquette faite (écran « A sur tablette »), spec et plan à écrire.
 9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — **fait** : spec `specs/2026-10-06-board-window-design.md`, plan `plans/2026-10-06-board-window.md` ; bouton « Ouvrir dans une fenêtre » sur ordinateur (ligne portrait et bulle « ⋯ » de chaque adversaire), une fenêtre par adversaire (`/tables/<id>/plateau/<joueur>`), « Ramener » des deux côtés ; traité avant la tablette, indépendante.
 10. Vrai plein écran du navigateur (#91) — **fait** : bouton « Plein écran » / « Quitter le plein écran » dans la barre de la table (mode test et en ligne), API Fullscreen, suit Échap ; message si le navigateur refuse (iPhone notamment).
+11. Minuteur des parties en ligne (issue #101) — **fait** : temps de partie et temps du tour en cours dans la barre du haut (heure du serveur, mêmes valeurs pour tous) ; à la fin, durée figée et enregistrée (`game_tables.duration_seconds`) avec le temps de jeu de chaque joueur pendant ses tours (`game_seats.play_seconds`, migration 0012) pour des statistiques plus tard. Décisions du 7 octobre : pistes A et B seulement (pas de pendule ni de limite de partie), pas de pause, rien en mode test.
 
 ## Idées pour plus tard
 

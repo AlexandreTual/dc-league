@@ -42,6 +42,8 @@ async function capture(who, label) {
 const board = (who, playerId) => who.page.locator(`[data-board="${playerId}"]`)
 const myHand = (who) => who.page.locator(`[data-board="${who.id}"] [data-zone="hand"] [data-card-id]`)
 const handCount = async (who, playerId) => Number(await who.page.locator(`[data-strip="${playerId}"] [data-testid="hand-count"]`).innerText())
+/** `m:ss` ou `h:mm:ss` → secondes. */
+const toSeconds = (text) => text.replace(/[^\d:]/g, '').split(':').reduce((acc, n) => acc * 60 + Number(n), 0)
 const activeName = async (who) => (await who.page.getByTestId('active-player').innerText()).replace('Joueur actif : ', '')
 const views = (who) => who.frames.filter((f) => f.type === 'view').map((f) => f.view)
 const lastView = (who) => views(who).at(-1)
@@ -159,6 +161,13 @@ try {
     await who.page.getByRole('button', { name: 'Garder' }).waitFor({ state: 'detached' })
   }
   check(true, 'chacun garde sa main')
+  // ── Minuteur : temps de partie et du tour, donnés par le serveur ──
+  const timerOf = async (who, id) => who.page.getByTestId(id).innerText()
+  await ana.page.waitForTimeout(1500)
+  const [anaGame, chloeGame] = [await timerOf(ana, 'game-time'), await timerOf(chloe, 'game-time')]
+  check(/^\d+:\d\d$/.test(anaGame) && /tour \d+:\d\d/.test(await timerOf(ana, 'turn-time')),
+    `minuteur affiché : partie ${anaGame}, ${await timerOf(ana, 'turn-time')}`)
+  check(Math.abs(toSeconds(anaGame) - toSeconds(chloeGame)) <= 1, `même temps de partie chez Ana et Chloé (${anaGame} / ${chloeGame})`)
   check((await ana.page.locator('[data-opponents="all"] [data-strip]').count()) === 2, 'Ana voit ses 2 adversaires en bandeaux')
   // Bandeau : la colonne compacte à gauche, puis les rangées sur toute la hauteur du bandeau.
   const strip = await ana.page.locator(`[data-strip="${BASTIEN.id}"]`).boundingBox()
@@ -384,6 +393,8 @@ try {
   await ana.page.getByRole('button', { name: 'Journal' }).click()
   await ana.page.getByTestId('log').getByText('(passé par l’hôte)').waitFor()
   check(true, `Ana (hôte) passe le tour de Chloé → ${await activeName(ana)}, « (passé par l’hôte) » au journal`)
+  const [turnTime, gameTime] = [toSeconds(await timerOf(ana, 'turn-time')), toSeconds(await timerOf(ana, 'game-time'))]
+  check(turnTime <= 3 && gameTime > turnTime, `le temps du tour repart à zéro au changement de joueur (tour ${turnTime} s, partie ${gameTime} s)`)
   const journal = await ana.page.getByTestId('log').innerText()
   check(journal.includes('Mulligan n°1') && !journal.includes('gratuit') && !journal.includes('carte(s) en dessous'),
     'journal : « Mulligan n°1 », sans nombre de cartes ni « gratuit »')
@@ -400,12 +411,23 @@ try {
     await who.page.getByTestId('finished').getByText(`Victoire de ${ANA.name}`).waitFor()
   }
   check(true, 'Ana élimine Chloé : « Victoire de Ana » chez tout le monde')
+  const finalTime = await timerOf(ana, 'game-time')
+  await ana.page.waitForTimeout(1500)
+  check(/^Durée \d+:\d\d/.test(finalTime) && (await timerOf(ana, 'game-time')) === finalTime && (await ana.page.getByTestId('turn-time').count()) === 0,
+    `partie finie : durée figée (${finalTime}), plus de temps de tour`)
   await capture(chloe, 'fin')
 
   const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'dc-league', '--local', '--json', '--command',
-    `SELECT status, winner_player_id FROM game_tables WHERE id = '${tableId}'`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    `SELECT status, winner_player_id, duration_seconds FROM game_tables WHERE id = '${tableId}'`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
   const row = JSON.parse(out)[0].results[0]
   check(row.status === 'finished' && row.winner_player_id === ANA.id, `base : partie terminée, vainqueur ${row.winner_player_id}`)
+  check(Math.abs(row.duration_seconds - toSeconds(finalTime)) <= 1, `base : durée enregistrée (${row.duration_seconds} s)`)
+  const seatsOut = execFileSync('npx', ['wrangler', 'd1', 'execute', 'dc-league', '--local', '--json', '--command',
+    `SELECT player_id, play_seconds FROM game_seats WHERE table_id = '${tableId}'`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  const seats = JSON.parse(seatsOut)[0].results
+  const playedTotal = seats.reduce((sum, s) => sum + s.play_seconds, 0)
+  check(seats.length === 3 && seats.every((s) => Number.isInteger(s.play_seconds)) && Math.abs(playedTotal - row.duration_seconds) <= 3,
+    `base : temps de jeu par joueur (${seats.map((s) => `${s.player_id} ${s.play_seconds} s`).join(', ')})`)
 
   // ── Duel : la colonne de l'adversaire, alignée sur la mienne ──
   await ana.page.goto(`${base}/salon`)

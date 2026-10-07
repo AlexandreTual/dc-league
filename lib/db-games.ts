@@ -16,6 +16,8 @@ export type GameTable = {
   eliminatedSeeAll: boolean
   status: TableStatus
   winnerPlayerId: string | null
+  /** Durée de la partie finie (secondes) ; null avant la fin ou sans minuteur. */
+  durationSeconds: number | null
   createdAt: string
   lastActivityAt: string
   players: GameTablePlayer[]
@@ -86,6 +88,7 @@ function normalize(row: Record<string, unknown>, players: GameTablePlayer[]): Ga
     eliminatedSeeAll: !!row.eliminated_see_all,
     status: row.status as TableStatus,
     winnerPlayerId: (row.winner_player_id as string) ?? null,
+    durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
     createdAt: row.created_at as string,
     lastActivityAt: row.last_activity_at as string,
     players,
@@ -263,8 +266,23 @@ export const markPlaying = (db: D1Database, id: string) =>
 export const touchActivity = (db: D1Database, id: string, now: Date) =>
   run(db, 'UPDATE game_tables SET last_activity_at = ? WHERE id = ?', sqlTime(now), id)
 
-export const finishTable = (db: D1Database, id: string, winner: string | null) =>
-  run(db, "UPDATE game_tables SET status = 'finished', winner_player_id = ? WHERE id = ?", winner, id)
+/** Minuteur d'une partie finie, en secondes : durée totale et temps de jeu par joueur. */
+export type GameTiming = { duration: number | null; playTime: Record<string, number> }
+
+/** Termine la partie, avec sa durée et le temps de jeu de chaque joueur (pour les statistiques). */
+export async function finishTable(
+  db: D1Database, id: string, winner: string | null, timing: GameTiming = { duration: null, playTime: {} },
+): Promise<Result<null>> {
+  return guard(async () => {
+    await db.batch([
+      db.prepare("UPDATE game_tables SET status = 'finished', winner_player_id = ?, duration_seconds = ? WHERE id = ?")
+        .bind(winner, timing.duration, id),
+      ...Object.entries(timing.playTime).map(([playerId, seconds]) =>
+        db.prepare('UPDATE game_seats SET play_seconds = ? WHERE table_id = ? AND player_id = ?').bind(seconds, id, playerId)),
+    ])
+    return ok(null)
+  })
+}
 
 export const setHost = (db: D1Database, id: string, playerId: string) =>
   run(db, 'UPDATE game_tables SET host_player_id = ? WHERE id = ?', playerId, id)

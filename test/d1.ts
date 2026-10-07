@@ -21,6 +21,7 @@ export const MIGRATIONS = [
   '0009_card_rulings.sql',
   '0010_card_images.sql',
   '0011_card_image_large.sql',
+  '0012_game_timing.sql',
 ]
 
 /** D1 refuse une requête qui lie plus de 100 paramètres. */

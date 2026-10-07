@@ -164,7 +164,16 @@ function emptyManaPools(state: GameState): GameState {
   return { ...state, players }
 }
 
-function passTurn(state: GameState, actor: string | null, byHost = false): GameState {
+/** Minuteur au changement de tour : le joueur qui finit son tour cumule sa durée ; le tour suivant part de `at`. */
+function stampTurn(state: GameState, at: number | undefined): GameState {
+  if (at === undefined) return state.turnStartedAt === undefined ? state : { ...state, turnStartedAt: undefined }
+  if (state.turnStartedAt === undefined) return { ...state, turnStartedAt: at }
+  const prev = state.activePlayer
+  const playTime = { ...state.playTime, [prev]: (state.playTime?.[prev] ?? 0) + Math.max(0, at - state.turnStartedAt) }
+  return { ...state, playTime, turnStartedAt: at }
+}
+
+function passTurn(state: GameState, actor: string | null, byHost = false, at?: number): GameState {
   const order = state.turnOrder
   const current = order.indexOf(state.activePlayer)
   for (let step = 1; step <= order.length; step++) {
@@ -172,7 +181,7 @@ function passTurn(state: GameState, actor: string | null, byHost = false): GameS
     const next = order[index]
     if (state.players[next].eliminated) continue
     const turn = index <= current ? state.turn + 1 : state.turn
-    let s: GameState = { ...state, activePlayer: next, turn, firstTurnDone: true }
+    let s: GameState = { ...stampTurn(state, at), activePlayer: next, turn, firstTurnDone: true }
     s = draw(untapAllOf(emptyManaPools(s), next), next, 1)
     return log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
   }
@@ -247,6 +256,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
         ? [first, ...shuffle(Object.keys(s.players).filter((id) => id !== first), action.seed)]
         : shuffle(Object.keys(s.players), action.seed)
       s = { ...s, turnOrder, activePlayer: turnOrder[0], firstChosen: !!first }
+      if (action.at !== undefined) s = { ...s, startedAt: action.at, turnStartedAt: action.at, playTime: {} }
       return log(s, null, `Début de partie : ${s.players[turnOrder[0]].name} commence${first ? " (choisi par l'hôte)" : ''}`)
     }
 
@@ -283,7 +293,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(shuffleLibrary(state, action.actor, action.seed), action.actor, 'Mélange sa bibliothèque')
 
     case 'endTurn':
-      return passTurn(state, action.actor, action.byHost)
+      return passTurn(state, action.actor, action.byHost, action.at)
 
     case 'moveTop': {
       const { type: _type, ...rest } = action
@@ -384,7 +394,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'eliminate': {
       let s = setPlayer(state, action.target, { eliminated: true })
       s = log(s, action.actor, `${state.players[action.target].name} est éliminé`)
-      return state.activePlayer === action.target ? passTurn(s, null) : s
+      return state.activePlayer === action.target ? passTurn(s, null, false, action.at) : s
     }
 
     case 'reveal': {
