@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Crown, Minus, MoreHorizontal, Plus } from 'lucide-react'
+import { Crown, ExternalLink, Minus, MoreHorizontal, Plus } from 'lucide-react'
 import { cardInfo } from '@/lib/game/apply'
 import { playerBadges } from '@/lib/game/player-badges'
 import { lifeLevel, portraitCard } from '@/lib/game/player-summary'
@@ -39,8 +39,10 @@ export default function PlayerPortrait(props: {
   size: 'column' | 'header'
   /** Bulle au-dessus de la ligne (ma colonne, en bas de l'écran). */
   up?: boolean
+  /** « Ouvrir dans une fenêtre » (adversaire, en ligne, sur ordinateur). */
+  onDetach?: () => void
 }) {
-  const { size, up = false, ...panelProps } = props
+  const { size, up = false, onDetach, ...panelProps } = props
   const { view, player, catalogs, lang, host, online, canAct, send, onTitleClick } = panelProps
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -81,6 +83,9 @@ export default function PlayerPortrait(props: {
     }
   }, [open])
 
+  // Rang dans l'ordre du tour (1 = premier joueur), à partir de 2 joueurs.
+  const rank = Object.keys(view.players).length > 1 ? (view.turnOrder?.indexOf(player) ?? -1) + 1 : 0
+
   return (
     <div className={`relative ${p.eliminated ? 'opacity-50' : ''}`} data-panel={player} ref={ref}>
       <div className={`flex items-center gap-2 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
@@ -93,8 +98,18 @@ export default function PlayerPortrait(props: {
         <div className="flex-1 min-w-0 flex flex-col gap-1">
           <div className={`flex items-center gap-1 ${s.name} text-dc-text min-w-0`}>
             {online && <span className={`w-2 h-2 shrink-0 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? 'en ligne' : 'hors ligne'} />}
+            {rank > 0 && (
+              <span className="shrink-0 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full border border-dc-gold/50 text-dc-gold text-[10px] leading-none flex items-center justify-center tabular-nums"
+                title={rank === 1 ? 'Premier joueur' : `${rank}e dans l'ordre du tour`} data-testid="turn-rank">{rank}</span>
+            )}
             <button className={`font-semibold truncate hover:text-dc-gold ${p.eliminated ? 'line-through' : ''}`} onClick={onTitleClick} disabled={!onTitleClick} data-testid="player-name">{p.name}</button>
             {host === player && <Crown className="w-3.5 h-3.5 shrink-0 text-dc-gold" aria-label="hôte" />}
+            {onDetach && (
+              <button className="ml-auto shrink-0 text-dc-muted hover:text-dc-gold" onClick={onDetach} title="Ouvrir dans une fenêtre"
+                aria-label={`Ouvrir le plateau de ${p.name} dans une fenêtre`} data-testid="detach">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           {p.eliminated && <span className="text-[10px] text-dc-red-light">éliminé</span>}
           {!p.kept && !p.eliminated && <span className="text-[10px] text-dc-muted italic">choisit sa main…</span>}
@@ -113,6 +128,12 @@ export default function PlayerPortrait(props: {
       {open && (
         <div className={`absolute left-0 ${up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] bg-dc-surface rounded-xl shadow-card`} data-bubble={player}>
           <PlayerPanel {...panelProps} />
+          {onDetach && (
+            <button className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 border-t border-dc-border text-dc-text hover:text-dc-gold"
+              onClick={() => { setOpen(false); onDetach() }} data-testid="detach-bubble">
+              <ExternalLink className="w-3.5 h-3.5" /> Ouvrir dans une fenêtre
+            </button>
+          )}
         </div>
       )}
     </div>

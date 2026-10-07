@@ -12,11 +12,11 @@ import { catalogsFrom, type GameSource } from './source'
 export function useRemoteSource(tableId: string): { source: GameSource | null; closedReason: string | null; retry(): void } {
   const { status, closedReason, last, cards, error, send, retry } = useGameSocket(tableId)
   const catalogs = useMemo(() => catalogsFrom(cards), [cards])
-  return { source: last ? remoteSource(last, status, catalogs, error, send) : null, closedReason, retry }
+  return { source: last ? remoteSource(tableId, last, status, catalogs, error, send) : null, closedReason, retry }
 }
 
 function remoteSource(
-  last: ViewMessage, status: SocketStatus, catalogs: GameSource['catalogs'], error: string | null, send: (m: ClientMessage) => void,
+  tableId: string, last: ViewMessage, status: SocketStatus, catalogs: GameSource['catalogs'], error: string | null, send: (m: ClientMessage) => void,
 ): GameSource {
   const me = last.view.me || null
   return {
@@ -29,6 +29,7 @@ function remoteSource(
     error,
     mode: 'online',
     online: {
+      tableId,
       status,
       host: last.host,
       players: last.online,

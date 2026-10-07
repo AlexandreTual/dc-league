@@ -1,5 +1,6 @@
 // Validation des actions reçues d'un navigateur : rien n'y est fiable (types, bornes, champs en trop).
 import type { ClientAction } from './room'
+import { DICE_SIDES, MAX_DICE } from './dice'
 import { MANA_COLORS, PLAYER_ZONES } from './types'
 
 /** Plus grand écart accepté pour un compteur, des points de vie, du mana… */
@@ -109,6 +110,7 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   search: { target: player },
   reorderTop: { target: player, ids: listOf(id, MAX_CARDS) },
   endLook: { target: player, shuffle: bool },
+  roll: { sides: oneOf(DICE_SIDES), count: int(1, MAX_DICE) },
 }
 
 /** L'action nettoyée (champs prévus seulement), ou un message d'erreur en français. */

@@ -37,10 +37,13 @@ export class GameHistory {
     return null
   }
 
-  /** Vrai si la dernière action est de `actor` (personne n'a joué depuis) et n'est pas le début de partie. */
+  /**
+   * Vrai si la dernière action est de `actor` (personne n'a joué depuis) et n'est ni le début de partie
+   * ni un lancer de dés (sinon on pourrait relancer jusqu'au résultat voulu).
+   */
   canUndo(actor: string): boolean {
     const last = this.list.at(-1)
-    return !!last && last.type !== 'start' && last.actor === actor
+    return !!last && last.type !== 'start' && last.type !== 'roll' && last.actor === actor
   }
 
   undo(actor: string): boolean {

@@ -1,3 +1,4 @@
+import { rollDice, rollText } from './dice'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
@@ -240,9 +241,13 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       Object.keys(s.players).forEach((id, i) => {
         s = draw(shuffleLibrary(s, id, seedOf(id, i)), id, OPENING_HAND)
       })
-      const turnOrder = shuffle(Object.keys(s.players), action.seed)
-      s = { ...s, turnOrder, activePlayer: turnOrder[0] }
-      return log(s, null, `Début de partie : ${s.players[turnOrder[0]].name} commence`)
+      // Premier joueur choisi par l'hôte : il commence, les autres places restent tirées au sort.
+      const first = action.first
+      const turnOrder = first
+        ? [first, ...shuffle(Object.keys(s.players).filter((id) => id !== first), action.seed)]
+        : shuffle(Object.keys(s.players), action.seed)
+      s = { ...s, turnOrder, activePlayer: turnOrder[0], firstChosen: !!first }
+      return log(s, null, `Début de partie : ${s.players[turnOrder[0]].name} commence${first ? " (choisi par l'hôte)" : ''}`)
     }
 
     case 'mulligan': {
@@ -270,6 +275,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const n = Math.min(action.count, state.players[action.actor].zones.library.length)
       return log(draw(state, action.actor, n), action.actor, `Pioche ${plural(n, 'carte')}`)
     }
+
+    case 'roll':
+      return { ...state, log: [...state.log, { turn: state.turn, actor: action.actor, text: rollText(action.sides, rollDice(action.sides, action.count, action.seed)), visibleTo: 'all', roll: true }] }
 
     case 'shuffle':
       return log(shuffleLibrary(state, action.actor, action.seed), action.actor, 'Mélange sa bibliothèque')

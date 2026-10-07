@@ -15,6 +15,8 @@ export type GameSource = {
   error: string | null
   mode: 'local' | 'online'
   online?: {
+    /** Table en ligne (fenêtres à part du plateau d'un adversaire). */
+    tableId: string
     status: 'connecting' | 'open' | 'reconnecting' | 'closed'
     host: string
     players: string[]
