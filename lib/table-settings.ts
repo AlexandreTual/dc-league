@@ -1,4 +1,4 @@
-// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes), mémorisés sur l'appareil.
+// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes, place des piles), mémorisés sur l'appareil.
 
 export type TableSettings = {
   /** Quadrillage discret sur les champs de bataille. */
@@ -7,11 +7,13 @@ export type TableSettings = {
   background: string | null
   /** Taille des cartes des grands champs de bataille (1 = taille automatique). */
   cardScale: number
+  /** Bibliothèque, cimetière, exil et commandement en vignettes à droite de ma main (façon Moxfield), plutôt que dans ma colonne. */
+  pilesBesideHand: boolean
 }
 
 /** Tailles proposées dans Réglages (80 % à 150 %). */
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1 }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: false }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -25,7 +27,8 @@ export function parseTableSettings(raw: string | null): TableSettings {
     if (data.background !== null && !(typeof data.background === 'string' && HEX.test(data.background))) return DEFAULT_TABLE_SETTINGS
     // Taille absente (sauvegarde d'avant) ou hors liste : 100 %, sans perdre les autres réglages.
     const cardScale = CARD_SCALES.includes(data.cardScale) ? data.cardScale : 1
-    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale }
+    const pilesBesideHand = data.pilesBesideHand === true
+    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand }
   } catch {
     return DEFAULT_TABLE_SETTINGS
   }

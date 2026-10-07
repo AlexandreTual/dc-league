@@ -386,6 +386,42 @@ try {
   await page.getByRole('button', { name: /Tour suivant/ }).click()
   check((await pool.innerText()).includes('Mana : 0'), 'tour suivant : réserve vidée')
 
+  // ── Réglage « Piles à côté de la main » (façon Moxfield) : vignettes à droite de la main, colonne réduite au portrait ──
+  const pilesBeside = async (on) => {
+    await page.getByRole('button', { name: 'Réglages' }).click()
+    await page.getByLabel('Piles à côté de la main (façon Moxfield)').setChecked(on)
+    await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  }
+  await pilesBeside(true)
+  const handZone = page.locator('[data-zone="hand"]')
+  const tiles = page.locator('[data-pile-tiles]')
+  const hb = await handZone.boundingBox()
+  const tb = await tiles.boundingBox()
+  check(tb.x >= hb.x + hb.width - 1 && tb.y >= hb.y - 2 && tb.y + tb.height <= hb.y + hb.height + 2, 'piles à côté de la main : vignettes à droite de la main, à sa hauteur')
+  check((await page.locator('[data-column] [data-zone]').count()) === 0 && (await page.locator('[data-column] [data-testid="player-life"]').count()) === 1,
+    'piles à côté de la main : la colonne ne garde que la ligne portrait')
+  for (const zone of ['library', 'graveyard', 'exile', 'command']) {
+    check((await tiles.locator(`[data-zone="${zone}"]`).count()) === 1, `vignette ${zone} présente`)
+  }
+  const tileGrave = tiles.locator('[data-zone="graveyard"]')
+  const graveBefore = Number(await tileGrave.getAttribute('data-count'))
+  const dumped = page.locator('[data-zone="hand"] [data-card-id]').first()
+  const dumpedId = await dumped.getAttribute('data-card-id')
+  const gb = await tileGrave.boundingBox()
+  await drag(dumped, gb.x + gb.width / 2, gb.y + gb.height / 2)
+  check(Number(await tileGrave.getAttribute('data-count')) === graveBefore + 1 && (await tileGrave.locator('[data-card-id]').getAttribute('data-card-id')) === dumpedId,
+    'vignette Cim. : dépôt, la dernière carte affichée face visible')
+  const handBeforeDraw = await handCount()
+  await tiles.locator('[data-zone="library"] [data-card-id]').dblclick()
+  await page.waitForTimeout(300)
+  check((await handCount()) === handBeforeDraw + 1, 'vignette Bib. : double-clic pioche')
+  await capture('piles-a-cote-main')
+  await tileGrave.click()
+  check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'vignette Cim. : un clic ouvre tout le cimetière')
+  await page.keyboard.press('Escape')
+  await pilesBeside(false)
+  check((await page.locator('[data-pile-tiles]').count()) === 0 && (await page.locator('[data-column] [data-zone="library"]').count()) === 1, 'réglage décoché : retour à la colonne')
+
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')
 } finally {
