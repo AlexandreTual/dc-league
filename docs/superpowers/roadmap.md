@@ -62,6 +62,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
 6. Nouvelle mise en page de la table (chantier #22) — **terminé** : spec `specs/2026-10-05-table-layout-design.md`, plan `plans/2026-10-05-table-layout.md` ; plein écran (#35), pastille et bulle des compteurs (#36), piles en vignettes à côté de la main (#37), bandeaux d'adversaires compacts (#38), réglage « Taille des cartes » de 80 % à 150 % (#39).
 7. Adaptation tablette de la table — chantier suivant prévu par la spec #22 (conception à faire).
+8. Minuteur des parties en ligne (issue #101) — **fait** : temps de partie et temps du tour en cours dans la barre du haut (heure du serveur, mêmes valeurs pour tous) ; à la fin, durée figée et enregistrée (`game_tables.duration_seconds`) avec le temps de jeu de chaque joueur pendant ses tours (`game_seats.play_seconds`, migration 0011) pour des statistiques plus tard. Décisions du 7 octobre : pistes A et B seulement (pas de pendule ni de limite de partie), pas de pause, rien en mode test.
 
 ## Idées pour plus tard
 

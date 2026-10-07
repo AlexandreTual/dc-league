@@ -11,10 +11,12 @@ export const barButton =
  * Barre du haut de la table. En mode test : réserve de mana et « Nouvelle partie » (la vie est dans ma colonne).
  * En ligne : joueur actif, « Piocher », et les commandes passées dans `extra` (abandon, hôte).
  */
-export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, onNextTurn, onDraw, onLang, onUndo, onNewGame, onToken, onLog, onSettings, mana, extra }: {
+export default function TopBar({ back, turn, activeName, timer, lang, canAct, canUndo, canEndTurn, onNextTurn, onDraw, onLang, onUndo, onNewGame, onToken, onLog, onSettings, mana, extra }: {
   back: { href: string; label: string }
   turn: number
   activeName?: string
+  /** Minuteur (en ligne). */
+  timer?: React.ReactNode
   lang: Lang
   canAct: boolean
   canUndo: boolean
@@ -36,6 +38,7 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
       <Link href={back.href} className={barButton}><ArrowLeft className="w-3.5 h-3.5" /> {back.label}</Link>
       <span className="text-dc-gold font-fantasy text-sm ml-2" data-testid="turn">Tour {turn}</span>
       {activeName && <span className="text-xs text-dc-muted" data-testid="active-player">Joueur actif : <span className="text-dc-text">{activeName}</span></span>}
+      {timer}
       <button className={barButton} onClick={onNextTurn} disabled={!canEndTurn} title="Tour suivant (N)"><SkipForward className="w-3.5 h-3.5" /> Tour suivant</button>
       {onDraw && <button className={barButton} onClick={onDraw} disabled={!canAct} title="Piocher (D)"><Layers className="w-3.5 h-3.5" /> Piocher</button>}
       {mana && <span className="text-xs text-dc-text ml-2">{mana}</span>}

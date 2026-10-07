@@ -24,6 +24,7 @@ import PlayerPortrait from './PlayerPortrait'
 import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import TokenModal from './TokenModal'
+import GameTimer from './GameTimer'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
@@ -327,6 +328,7 @@ export default function Table({ source, notice }: { source: GameSource; notice?:
         back={source.local ? { href: `/decks/${source.local.deckId}`, label: source.local.deckName } : { href: '/salon', label: 'Salon' }}
         turn={view.turn}
         activeName={source.mode === 'online' ? view.players[view.activePlayer]?.name : undefined}
+        timer={source.online?.clock && <GameTimer clock={source.online.clock} />}
         lang={lang}
         canAct={canAct}
         canUndo={canAct && source.canUndo}

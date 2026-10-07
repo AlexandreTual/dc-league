@@ -190,6 +190,32 @@ describe('D1', () => {
     expect(storage.data.get('meta')).toMatchObject({ finished: true, winner: 'p2' })
   })
 
+  it('fin de partie : durée et temps de jeu de chaque joueur enregistrés en D1', async () => {
+    now = 1_000
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const s2 = await open(rt, 'p2')
+    for (const s of [s1, s2]) await send(rt, s, { type: 'action', action: { type: 'keep' } })
+    const first = rt.state()!.history.state.activePlayer
+    const second = first === 'p1' ? 'p2' : 'p1'
+    now = 61_000
+    await send(rt, first === 'p1' ? s1 : s2, { type: 'action', action: { type: 'endTurn' } })
+    expect(s1.last()).toMatchObject({ clock: { now: 61_000, startedAt: 1_000, turnStartedAt: 61_000 } })
+    now = 91_000
+    await send(rt, s1, { type: 'host', op: 'close' })
+    expect(storage.data.get('meta')).toMatchObject({ finished: true, finishedAt: 91_000 })
+    expect((await getTable(db, tableId)).data).toMatchObject({ status: 'finished', durationSeconds: 90 })
+    const seats = await db.prepare('SELECT player_id, play_seconds FROM game_seats WHERE table_id = ?').bind(tableId).all<{ player_id: string; play_seconds: number }>()
+    expect(Object.fromEntries(seats.results.map((r) => [r.player_id, r.play_seconds]))).toEqual({ [first]: 60, [second]: 30 })
+
+    // Réveil : l'instant de fin est relu, la durée affichée ne bouge plus.
+    const awake = runtime()
+    now = 500_000
+    const s3 = await open(awake, 'p2')
+    expect(s3.last()).toMatchObject({ clock: { startedAt: 1_000, finishedAt: 91_000 } })
+  })
+
   it('fin de partie non enregistrée en D1 : retentée à la connexion suivante ou par sync', async () => {
     const real = db
     let failFinish = true

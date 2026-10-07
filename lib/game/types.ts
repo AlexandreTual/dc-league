@@ -112,6 +112,15 @@ export type GameState = {
   lookingAt: Record<string, string[]>
   nextTokenId: number
   log: LogEntry[]
+  /**
+   * Minuteur, d'après l'horodatage serveur (`at`) des actions qui changent de tour ; absent en mode test
+   * et pour les actions jouées avant l'horodatage. Instants en millisecondes.
+   */
+  startedAt?: number
+  /** Début du tour en cours. */
+  turnStartedAt?: number
+  /** Temps de jeu par joueur (ms) : somme de ses tours terminés, le tour en cours non compris. */
+  playTime?: Record<string, number>
 }
 
 export type Position = 'top' | 'bottom' | number
@@ -122,7 +131,10 @@ export type Position = 'top' | 'bottom' | number
  */
 export type Seed = number | string
 
-export type GameAction =
+/** Instant serveur (ms) posé sur `start`, `endTurn` et `eliminate` : sert au minuteur, jamais repris du navigateur. */
+export type Stamp = { at?: number }
+
+export type GameAction = Stamp & (
   /** `seeds` : graine de la bibliothèque de chaque joueur ; absente des anciennes parties (graine + rang du joueur). */
   | { type: 'start'; actor: 'server'; seed: Seed; seeds?: Record<string, Seed> }
   | { type: 'mulligan'; actor: string; seed: Seed }
@@ -158,6 +170,7 @@ export type GameAction =
   | { type: 'search'; actor: string; target: string }
   | { type: 'reorderTop'; actor: string; target: string; ids: string[] }
   | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: Seed }
+)
 
 export type VisibleCard = {
   hidden: false

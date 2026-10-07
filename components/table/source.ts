@@ -1,3 +1,4 @@
+import type { LocalClock } from '@/lib/game/clock'
 import type { CardDataMap, ClientAction } from '@/lib/game/room'
 import type { Catalog, DeckToken, PlayerView } from '@/lib/game/types'
 
@@ -20,6 +21,8 @@ export type GameSource = {
     players: string[]
     finished: boolean
     winner: string | null
+    /** Minuteur à l'heure locale ; absent avec un serveur de jeu plus ancien (rien n'est affiché). */
+    clock?: LocalClock
     concede(): void
     hostCommands?: { passTurn(target: string): void; eliminate(target: string): void; close(): void }
   }
