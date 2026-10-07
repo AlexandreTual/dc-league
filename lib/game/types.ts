@@ -106,6 +106,8 @@ export type GameState = {
   turn: number
   started: boolean
   firstTurnDone: boolean
+  /** Premier joueur choisi par l'hôte (sinon tiré au sort). */
+  firstChosen: boolean
   monarch: string | null
   initiative: string | null
   cards: Record<string, CardInstance>
@@ -124,8 +126,11 @@ export type Position = 'top' | 'bottom' | number
 export type Seed = number | string
 
 export type GameAction =
-  /** `seeds` : graine de la bibliothèque de chaque joueur ; absente des anciennes parties (graine + rang du joueur). */
-  | { type: 'start'; actor: 'server'; seed: Seed; seeds?: Record<string, Seed> }
+  /**
+   * `seeds` : graine de la bibliothèque de chaque joueur ; absente des anciennes parties (graine + rang du joueur).
+   * `first` : premier joueur choisi par l'hôte ; absent : tirage au sort.
+   */
+  | { type: 'start'; actor: 'server'; seed: Seed; seeds?: Record<string, Seed>; first?: string }
   | { type: 'mulligan'; actor: string; seed: Seed }
   | { type: 'keep'; actor: string }
   | { type: 'draw'; actor: string; count: number }
@@ -191,6 +196,8 @@ export type PlayerView = {
   turn: number
   activePlayer: string
   turnOrder: string[]
+  /** Premier joueur choisi par l'hôte. Absent avec un serveur de jeu plus ancien : compter un tirage au sort. */
+  firstChosen?: boolean
   monarch: string | null
   initiative: string | null
   players: Record<string, PlayerViewState>

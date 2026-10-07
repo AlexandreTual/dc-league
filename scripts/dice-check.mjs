@@ -81,7 +81,13 @@ try {
     return b && !b.disabled
   }, null, { timeout: 10_000 })
   await ana.page.getByRole('button', { name: 'Démarrer la partie' }).click()
-  for (const who of [ana, bastien]) await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
+  for (const who of [ana, bastien]) {
+    await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
+    // « Qui commence ? » : fermé avant de lancer les dés.
+    await who.page.getByTestId('start-draw').waitFor()
+    await who.page.keyboard.press('Escape')
+    await who.page.getByTestId('start-draw').waitFor({ state: 'detached' })
+  }
 
   await bastien.page.getByRole('button', { name: 'Dés' }).click()
   await bastien.page.getByTestId('roll-d20').click()

@@ -13,7 +13,7 @@ const noTokens = createScryfallClient({ fetch: (async () => new Response('{"data
 
 let db: D1Database
 let tableId: string
-let calls: { tableId: string; body: { setup: GameSetup; hostId: string } }[]
+let calls: { tableId: string; body: { setup: GameSetup; hostId: string; firstPlayer?: string } }[]
 
 const okInit: GameInit = async (id, body) => {
   calls.push({ tableId: id, body })
@@ -58,6 +58,22 @@ describe('startTable', () => {
     expect(setup).toMatchObject({ format: 'commander', options: { eliminatedSeeAll: true } })
     expect(setup.players.map((p) => [p.id, p.name, p.catalog.deckId])).toEqual([['p1', 'Alex', 'd-p1'], ['p2', 'Bob', 'd-p2']])
     expect(setup.players[0].catalog.entries.map((e) => [e.en.name, e.quantity])).toEqual([['Sol Ring', 1], ['Forest', 2]])
+  })
+
+  it('premier joueur choisi par l’hôte : transmis au serveur de jeu', async () => {
+    await startTable(db, okInit, tableId, 'p1', 'p2')
+    expect(calls[0].body.firstPlayer).toBe('p2')
+  })
+
+  it('sans choix de premier joueur : rien n’est transmis (tirage au sort)', async () => {
+    await startTable(db, okInit, tableId, 'p1')
+    expect(calls[0].body).not.toHaveProperty('firstPlayer')
+  })
+
+  it('refuse un premier joueur qui n’est pas à la table', async () => {
+    expect((await startTable(db, okInit, tableId, 'p1', 'p9')).error).toBe("Ce joueur n'est pas à cette table")
+    expect(calls).toEqual([])
+    expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
 
   it('table qui reste ouverte si le serveur de jeu échoue', async () => {

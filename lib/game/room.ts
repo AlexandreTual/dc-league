@@ -87,8 +87,10 @@ function baseRoom(
   }
 }
 
-export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: () => Seed, now: number): RoomState {
-  const start = startAction(setup.players.map((p) => p.id), seed)
+/** `firstPlayer` : premier joueur choisi par l'hôte ; ignoré s'il n'est pas à la table (tirage au sort). */
+export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: () => Seed, now: number, firstPlayer?: string): RoomState {
+  const ids = setup.players.map((p) => p.id)
+  const start = startAction(ids, seed, firstPlayer !== undefined && ids.includes(firstPlayer) ? firstPlayer : undefined)
   return baseRoom(tableId, setup, hostId, new GameHistory(setup, [start]), now)
 }
 

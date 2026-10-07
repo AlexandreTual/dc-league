@@ -44,6 +44,7 @@ export function viewFor(state: GameState, playerId: string, canUndo = false): Pl
     turn: state.turn,
     activePlayer: state.activePlayer,
     turnOrder: state.turnOrder,
+    firstChosen: state.firstChosen,
     monarch: state.monarch,
     initiative: state.initiative,
     players,

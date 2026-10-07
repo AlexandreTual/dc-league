@@ -21,6 +21,8 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** Premier joueur choisi par l'hôte ; vide : tirage au sort. */
+  const [first, setFirst] = useState('')
 
   useEffect(() => {
     const timer = setInterval(async () => {
@@ -34,6 +36,8 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
   const seat = table.players.find((p) => p.playerId === me)
   const isHost = table.hostPlayerId === me
   const blocker = startCheck(table)
+  // Un joueur choisi qui quitte la table : retour au tirage au sort.
+  const firstPlayer = table.players.some((p) => p.playerId === first) ? first : ''
 
   async function post(path: string, body?: unknown): Promise<GameTable | null> {
     setBusy(true)
@@ -105,7 +109,14 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
           {myDecks.length === 0 && <p className="text-dc-muted text-sm">Importe d&apos;abord la liste d&apos;un de tes decks (Profil → Mes decks).</p>}
           {isHost && (
             <>
-              <button className={primaryButtonClass} disabled={busy || blocker !== null} onClick={() => post('start')}>Démarrer la partie</button>
+              <label>
+                <span className={labelClass}>Qui commence ?</span>
+                <select className={inputClass} value={firstPlayer} disabled={busy} onChange={(e) => setFirst(e.target.value)} data-testid="first-player-select">
+                  <option value="">Tirage au sort</option>
+                  {table.players.map((p) => <option key={p.playerId} value={p.playerId}>{p.name}</option>)}
+                </select>
+              </label>
+              <button className={primaryButtonClass} disabled={busy || blocker !== null} onClick={() => post('start', firstPlayer ? { firstPlayer } : undefined)}>Démarrer la partie</button>
               {blocker && <p className="text-dc-muted text-sm text-center">{blocker}</p>}
             </>
           )}
