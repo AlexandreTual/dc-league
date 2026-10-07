@@ -80,6 +80,13 @@ async function drag(who, source, target) {
   await who.page.waitForTimeout(200)
 }
 
+/** « Qui commence ? » (vérifié par first-player-check.mjs) : fermé pour la suite. */
+async function closeStartDraw(who) {
+  await who.page.getByTestId('start-draw').waitFor({ timeout: 10_000 })
+  await who.page.keyboard.press('Escape')
+  await who.page.getByTestId('start-draw').waitFor({ state: 'detached' })
+}
+
 async function chooseDeck(who) {
   await who.page.getByTestId('deck-select').selectOption(`deck-${who.id}`)
   await who.page.locator(`[data-seat="${who.id}"]`).getByText(`Kenrith de ${who.name}`).waitFor()
@@ -123,6 +130,7 @@ try {
   // ── Partie ──
   for (const who of [ana, bastien, chloe]) await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
   check(true, 'la table s’affiche chez les 3 joueurs')
+  for (const who of [ana, bastien, chloe]) await closeStartDraw(who)
   const coversSite = (p) => p.evaluate(() => !!document.elementFromPoint(window.innerWidth / 2, 8)?.closest('[data-table-root]'))
   for (const who of [ana, bastien, chloe]) check(await coversSite(who.page), `${who.name} : table en plein écran`)
   for (const who of [ana, bastien, chloe]) {
@@ -415,6 +423,7 @@ try {
   }, null, { timeout: 10_000 })
   await ana.page.getByRole('button', { name: 'Démarrer la partie' }).click()
   for (const who of [ana, bastien]) await myHand(who).first().waitFor({ timeout: 10_000 })
+  for (const who of [ana, bastien]) await closeStartDraw(who)
   for (const [who, other] of [[ana, BASTIEN], [bastien, ANA]]) {
     const theirs = board(who, other.id).locator(`[data-column="${other.id}"]`)
     const mine = board(who, who.id).locator(`[data-column="${who.id}"]`)

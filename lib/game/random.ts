@@ -70,10 +70,11 @@ export function randomSeed(): string {
   return Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) => n.toString(16).padStart(8, '0')).join('')
 }
 
-/** Début de partie : une graine pour l'ordre du tour et une graine indépendante par joueur. */
-export function startAction(playerIds: readonly string[], seed: () => Seed = randomSeed): Extract<GameAction, { type: 'start' }> {
+/** Début de partie : une graine pour l'ordre du tour, une graine indépendante par joueur, et le premier joueur choisi s'il y en a un. */
+export function startAction(playerIds: readonly string[], seed: () => Seed = randomSeed, first?: string): Extract<GameAction, { type: 'start' }> {
   const turnSeed = seed()
-  return { type: 'start', actor: 'server', seed: turnSeed, seeds: Object.fromEntries(playerIds.map((id) => [id, seed()])) }
+  const action: Extract<GameAction, { type: 'start' }> = { type: 'start', actor: 'server', seed: turnSeed, seeds: Object.fromEntries(playerIds.map((id) => [id, seed()])) }
+  return first === undefined ? action : { ...action, first }
 }
 
 /** Mélange de Fisher-Yates sur une copie, déterministe pour une graine donnée. */
