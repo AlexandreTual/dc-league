@@ -272,7 +272,9 @@ export function gameTiming(room: RoomState): { duration: number | null; playTime
   const { startedAt, turnStartedAt, activePlayer, playTime = {} } = room.history.state
   const end = room.finishedAt
   if (end === undefined) return { duration: null, playTime: {} }
-  const ms = { ...playTime }
+  // Partie chronométrée : chaque joueur part de 0, même s'il n'a jamais eu son tour (0 s ≠ non mesuré).
+  const timed = startedAt !== undefined || turnStartedAt !== undefined
+  const ms: Record<string, number> = timed ? { ...Object.fromEntries(room.seats.map((s) => [s.playerId, 0])), ...playTime } : {}
   if (turnStartedAt !== undefined) ms[activePlayer] = (ms[activePlayer] ?? 0) + Math.max(0, end - turnStartedAt)
   const seconds = (n: number) => Math.round(n / 1000)
   return {

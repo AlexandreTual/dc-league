@@ -363,7 +363,15 @@ describe('minuteur', () => {
   it('clôture par l’hôte : le tour en cours compte jusqu’à la clôture', () => {
     const { r, a } = timed()
     host(r, 'p1', 'close', undefined, 61_000)
-    expect(gameTiming(r)).toEqual({ duration: 60, playTime: { [a]: 60 } })
+    expect(gameTiming(r)).toEqual({ duration: 60, playTime: { p1: 0, p2: 0, [a]: 60 } })
+  })
+
+  it('un joueur qui n’a jamais eu son tour compte 0 s', () => {
+    const r = room(3, 1000)
+    keepAll(r)
+    const [a, b, c] = state(r).turnOrder
+    host(r, 'p1', 'close', undefined, 31_000)
+    expect(gameTiming(r).playTime).toEqual({ [a]: 30, [b]: 0, [c]: 0 })
   })
 
   it('restaurée, la partie garde son instant de fin', () => {
