@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, BookOpen, Dices, Layers, RotateCcw, Settings, SkipForward, Sparkles, Undo2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, Dices, Layers, Maximize, Minimize, RotateCcw, Settings, SkipForward, Sparkles, Undo2 } from 'lucide-react'
 import type { Lang } from './GameCard'
+import { isFullscreen, toggleFullscreen } from './fullscreen'
 
 export const barButton =
   'flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-dc-border rounded-lg text-dc-text hover:border-dc-gold/50 disabled:opacity-40 disabled:cursor-not-allowed'
@@ -50,9 +52,36 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
         <button className={barButton} onClick={onDice} disabled={!canAct}><Dices className="w-3.5 h-3.5" /> Dés</button>
         <button className={barButton} onClick={onLog}><BookOpen className="w-3.5 h-3.5" /> Journal</button>
         <button className={barButton} onClick={onSettings}><Settings className="w-3.5 h-3.5" /> Réglages</button>
+        <FullscreenButton />
         {onNewGame && <button className={barButton} onClick={onNewGame}><RotateCcw className="w-3.5 h-3.5" /> Nouvelle partie</button>}
         {extra}
       </div>
     </div>
+  )
+}
+
+/** « Plein écran » (API du navigateur) ; suit l'état réel, y compris la sortie par Échap. */
+function FullscreenButton() {
+  const [on, setOn] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    const sync = () => setOn(isFullscreen(document))
+    sync()
+    document.addEventListener('fullscreenchange', sync)
+    return () => document.removeEventListener('fullscreenchange', sync)
+  }, [])
+  useEffect(() => {
+    if (!error) return
+    const timer = setTimeout(() => setError(null), 4000)
+    return () => clearTimeout(timer)
+  }, [error])
+
+  return (
+    <>
+      <button className={barButton} onClick={async () => setError(await toggleFullscreen(document))} data-testid="fullscreen">
+        {on ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />} {on ? 'Quitter le plein écran' : 'Plein écran'}
+      </button>
+      {error && <span className="text-xs text-dc-red-light" role="alert" data-testid="fullscreen-error">{error}</span>}
+    </>
   )
 }
