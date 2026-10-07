@@ -12,6 +12,7 @@ import { readLang, saveLang } from '@/lib/cards/lang'
 import { sendJson } from '@/components/formStyles'
 import { ImportProgressBar } from '@/components/decks/ImportPanel'
 import { importDeckFromLink, type ImportProgress } from '@/components/decks/importDeck'
+import { deckSiteName } from '@/lib/cards/deck-link'
 import OracleModal from '@/components/OracleModal'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
@@ -98,7 +99,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
             {playerName} · {total} cartes
             {deck.moxfield_url && (
               <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="ml-2 text-dc-gold inline-flex items-center gap-1 hover:underline">
-                Moxfield <ExternalLink className="w-3 h-3" />
+                {deckSiteName(deck.moxfield_url) ?? 'Lien du deck'} <ExternalLink className="w-3 h-3" />
               </a>
             )}
           </p>

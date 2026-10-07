@@ -7,6 +7,7 @@ import { ClipboardPaste, ExternalLink, Pencil, Plus, RotateCw, Trash2, Upload, X
 import ImportPanel, { ImportProgressBar, ImportResult } from '@/components/decks/ImportPanel'
 import { importDeckFromLink, importDeckText, type ImportOutcome, type ImportProgress } from '@/components/decks/importDeck'
 import type { ImportSummary } from '@/lib/cards/types'
+import { deckSiteName } from '@/lib/cards/deck-link'
 import type { DbDeck } from '@/lib/db-decks'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
@@ -196,7 +197,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                   {cardCounts[deck.id] ? <p className="text-dc-muted text-xs">{cardCounts[deck.id]} cartes</p> : null}
                   {deck.moxfield_url && (
                     <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="text-dc-gold text-xs inline-flex items-center gap-1 hover:underline">
-                      {deck.moxfield_url.includes('archidekt') ? 'Archidekt' : 'Moxfield'} <ExternalLink className="w-3 h-3" />
+                      {deckSiteName(deck.moxfield_url) ?? 'Lien du deck'} <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>

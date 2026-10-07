@@ -54,6 +54,7 @@ try {
   // 1 bis. Page du deck : « Réimporter » relance l'import sur place, sans renvoyer vers la liste des decks.
   const deckHref = await row.getByRole('link', { name: 'Voir le deck →' }).getAttribute('href')
   await page.goto(`${base}${deckHref}`)
+  check(await page.getByRole('link', { name: 'Archidekt' }).isVisible(), 'page du deck : le lien affiche « Archidekt » (et non « Moxfield »)')
   calls.length = 0
   await page.getByRole('button', { name: 'Réimporter' }).click()
   await page.getByTestId('reimport-done').getByText('32 cartes importées · 97 % en français').waitFor()
