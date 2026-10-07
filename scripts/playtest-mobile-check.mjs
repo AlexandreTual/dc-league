@@ -52,8 +52,27 @@ try {
   await page.goto(`${base}/decks/${deckId}`)
   await page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), deckId)
 
-  // ── Page du deck : « Oracle et règles » par l'icône d'une ligne, puis par appui long sur la ligne ──
+  // ── Page du deck : visuels par défaut, zoom défilable, puis liste ──
+  await page.evaluate(() => localStorage.removeItem('dc-deck-view'))
+  await page.reload()
   const oracleDialog = page.getByRole('dialog', { name: 'Oracle et règles' })
+  await page.locator('[data-deck-card] img').first().waitFor()
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= 375), 'page du deck : visuels par défaut, sans défilement horizontal')
+  await capture('deck-visuels')
+  await page.locator('[data-deck-card] button').first().tap()
+  const closeZoom = page.getByRole('button', { name: 'Fermer' })
+  const closeBox = await closeZoom.boundingBox()
+  check(closeBox.y >= 0 && closeBox.x + closeBox.width <= 375, 'zoom d’une carte : bouton « Fermer » visible dans l’écran')
+  await closeZoom.tap()
+  await longPress(page.locator('[data-deck-card] button').first())
+  await oracleDialog.waitFor()
+  check(true, 'visuels : l’appui long sur une carte ouvre « Oracle et règles »')
+  await page.waitForTimeout(400)
+  await oracleDialog.getByRole('button', { name: 'Fermer' }).tap()
+  await oracleDialog.waitFor({ state: 'detached' })
+  await page.getByRole('button', { name: 'Liste' }).tap()
+
+  // « Oracle et règles » par l'icône d'une ligne, puis par appui long sur la ligne
   await page.getByRole('button', { name: /^Oracle et règles : / }).first().tap()
   await oracleDialog.getByText(/Règles indisponibles|Aucune règle|\d{4}/).first().waitFor()
   const dialogBox = await oracleDialog.boundingBox()
