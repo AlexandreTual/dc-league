@@ -10,6 +10,8 @@ import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards
 import { cardSrcSet } from '@/lib/cards/images'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { sendJson } from '@/components/formStyles'
+import { ImportProgressBar } from '@/components/decks/ImportPanel'
+import { importDeckFromLink, type ImportProgress } from '@/components/decks/importDeck'
 import OracleModal from '@/components/OracleModal'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
@@ -26,6 +28,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const [oracle, setOracle] = useState<DeckCardView | null>(null)
   const [error, setError] = useState('')
   const [tokensStatus, setTokensStatus] = useState('')
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
+  const [importStatus, setImportStatus] = useState('')
 
   useEffect(() => setLang(readLang()), [])
   useEffect(() => {
@@ -60,6 +64,19 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     setTokensStatus(count === 0 ? 'Aucun jeton dans ce deck' : `${count} jeton${count > 1 ? 's' : ''} enregistré${count > 1 ? 's' : ''}`)
   }
 
+  /** Réimport direct depuis le lien du deck (Moxfield ou Archidekt → Scryfall), sans passer par la liste des decks. */
+  async function reimport(link: string) {
+    setError('')
+    setImportStatus('')
+    const outcome = await importDeckFromLink(deck.id, link, { onProgress: setImportProgress })
+    setImportProgress(null)
+    if (!outcome.ok) return setError(outcome.error)
+    const { total, frenchCount, notFound } = outcome.summary
+    const percent = total ? Math.round((frenchCount / total) * 100) : 0
+    setImportStatus(`${total} cartes importées · ${percent} % en français${notFound.length ? ` · ${notFound.length} introuvable(s) : ${notFound.map((n) => n.text).join(', ')}` : ''}`)
+    router.refresh()
+  }
+
   const total = cards.reduce((n, c) => n + c.quantity, 0)
   const groups = groupDeckCards(cards, lang)
   const selectedShown = selected ? displayCard(selected, lang) : null
@@ -92,7 +109,16 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
             {' / '}
             <span className={lang === 'en' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>EN</span>
           </button>
-          {canEdit && (
+          {canEdit && deck.moxfield_url && (
+            <button
+              onClick={() => reimport(deck.moxfield_url!)}
+              disabled={importProgress !== null}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5${importProgress ? ' animate-spin' : ''}`} /> {importProgress ? 'Import en cours…' : 'Réimporter'}
+            </button>
+          )}
+          {canEdit && !deck.moxfield_url && (
             <Link href="/profil/decks" className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold">
               <RefreshCw className="w-3.5 h-3.5" /> Réimporter
             </Link>
@@ -111,6 +137,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
       </div>
 
       {error && <p className="text-dc-red-light text-sm">{error}</p>}
+      {importProgress && <ImportProgressBar progress={importProgress} />}
+      {importStatus && <p className="text-dc-muted text-sm" role="status" data-testid="reimport-done">{importStatus}</p>}
       {tokensStatus && <p className="text-dc-muted text-sm" role="status">{tokensStatus}</p>}
 
       {cards.length === 0 ? (
