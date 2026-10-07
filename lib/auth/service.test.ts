@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
-import { countRecentFailures, getSessionWithUser } from '@/lib/db-auth'
+import { countRecentFailures, getSessionWithUser, getUserById, setUserEmail } from '@/lib/db-auth'
+import { disabledMailer, type Mail, type Mailer, type MailResult } from '@/lib/mail'
 import { hashToken } from './crypto'
 import { resolveSession } from './resolve'
 import {
@@ -10,12 +11,22 @@ import {
   loginBootstrap,
   loginWithPassword,
   openSession,
+  updateEmail,
+  type MailContext,
 } from './service'
 
 const now = new Date('2026-10-03T12:00:00Z')
 const minutes = (n: number) => new Date(now.getTime() + n * 60 * 1000)
 const days = (n: number) => new Date(now.getTime() + n * 24 * 3600 * 1000)
 const PASSWORD = 'motdepasse1'
+const ctx: MailContext = { mailer: disabledMailer, baseUrl: 'https://site.test' }
+const tokenOf = (url: string) => url.split('/invitation/')[1]
+
+/** Mailer simulé : garde les mails reçus et renvoie le résultat choisi. */
+function fakeMailer(result: MailResult = 'sent'): Mailer & { sent: Mail[] } {
+  const sent: Mail[] = []
+  return { sent, send: async (mail) => (sent.push(mail), result) }
+}
 
 let db: D1Database
 
@@ -28,9 +39,9 @@ beforeEach(async () => {
 })
 
 async function invite(playerId: string, kind: 'signup' | 'reset' = 'signup', grantAdmin = false) {
-  const r = await issueInvitation(db, { playerId, kind, grantAdmin }, now)
+  const r = await issueInvitation(db, { playerId, kind, grantAdmin }, now, ctx)
   if (!r.ok) throw new Error(r.error)
-  return r.value.token
+  return tokenOf(r.value.url)
 }
 
 async function createAccount(playerId: string, username: string, grantAdmin = false) {
@@ -137,7 +148,7 @@ describe('loginBootstrap', () => {
 
 describe('issueInvitation', () => {
   it('refuse un joueur inexistant', async () => {
-    expect(await issueInvitation(db, { playerId: 'x', kind: 'signup', grantAdmin: false }, now)).toEqual({
+    expect(await issueInvitation(db, { playerId: 'x', kind: 'signup', grantAdmin: false }, now, ctx)).toEqual({
       ok: false,
       status: 404,
       error: 'Joueur introuvable',
@@ -146,7 +157,7 @@ describe('issueInvitation', () => {
 
   it("refuse une création de compte si le joueur en a déjà un", async () => {
     await createAccount('p1', 'Alex')
-    expect(await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false }, now)).toEqual({
+    expect(await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false }, now, ctx)).toEqual({
       ok: false,
       status: 409,
       error: 'Ce joueur a déjà un compte',
@@ -154,17 +165,124 @@ describe('issueInvitation', () => {
   })
 
   it("refuse une réinitialisation si le joueur n'a pas de compte", async () => {
-    expect(await issueInvitation(db, { playerId: 'p1', kind: 'reset', grantAdmin: false }, now)).toEqual({
+    expect(await issueInvitation(db, { playerId: 'p1', kind: 'reset', grantAdmin: false }, now, ctx)).toEqual({
       ok: false,
       status: 409,
       error: "Ce joueur n'a pas encore de compte",
     })
   })
 
-  it('renvoie un jeton en clair et sa date d’expiration', async () => {
-    const r = await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false }, now)
-    expect(r.ok && r.value.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
+  it('renvoie le lien (jeton en clair) et sa date d’expiration', async () => {
+    const r = await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false }, now, ctx)
+    expect(r.ok && r.value.url).toMatch(/^https:\/\/site\.test\/invitation\/[A-Za-z0-9_-]{43}$/)
     expect(r.ok && r.value.expiresAt).toBe(days(7).toISOString())
+  })
+
+  it('avec une adresse : mail d’invitation envoyé, adresse copiée sur le compte', async () => {
+    const mailer = fakeMailer()
+    const r = await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false, email: '  alex@gmail.com ' }, now, { mailer, baseUrl: 'https://site.test' })
+    if (!r.ok) throw new Error(r.error)
+    expect(r.value.mail).toBe('sent')
+    expect(mailer.sent).toHaveLength(1)
+    expect(mailer.sent[0].to).toBe('alex@gmail.com')
+    expect(mailer.sent[0].subject).toBe('Commander League — ton invitation')
+    expect(mailer.sent[0].text).toContain('Bonjour Alex')
+    expect(mailer.sent[0].text).toContain(r.value.url)
+    const created = await acceptInvitation(db, tokenOf(r.value.url), { username: 'Alex', password: PASSWORD, passwordConfirm: PASSWORD }, now)
+    if (!created.ok) throw new Error(created.error)
+    expect((await getUserById(db, created.value.userId)).data?.email).toBe('alex@gmail.com')
+  })
+
+  it('sans adresse : none, aucun mail', async () => {
+    const mailer = fakeMailer()
+    for (const email of [undefined, null, '   ']) {
+      const r = await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false, email }, now, { mailer, baseUrl: 'https://site.test' })
+      expect(r.ok && r.value.mail).toBe('none')
+    }
+    expect(mailer.sent).toHaveLength(0)
+  })
+
+  it('envoi en échec : failed, lien quand même valide', async () => {
+    const r = await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false, email: 'alex@gmail.com' }, now, { mailer: fakeMailer('failed'), baseUrl: 'https://site.test' })
+    if (!r.ok) throw new Error(r.error)
+    expect(r.value.mail).toBe('failed')
+    expect((await acceptInvitation(db, tokenOf(r.value.url), { username: 'Alex', password: PASSWORD, passwordConfirm: PASSWORD }, now)).ok).toBe(true)
+  })
+
+  it('service non configuré : disabled', async () => {
+    const r = await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false, email: 'alex@gmail.com' }, now, ctx)
+    expect(r.ok && r.value.mail).toBe('disabled')
+  })
+
+  it('refuse une adresse invalide (400)', async () => {
+    const mailer = fakeMailer()
+    expect(await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false, email: 'alex@' }, now, { mailer, baseUrl: 'https://site.test' })).toEqual({
+      ok: false,
+      status: 400,
+      error: 'Adresse mail invalide',
+    })
+    expect(mailer.sent).toHaveLength(0)
+  })
+
+  it('refuse une adresse déjà portée par un compte (409, sans casse)', async () => {
+    const userId = await createAccount('p2', 'Bob')
+    await setUserEmail(db, userId, 'bob@gmail.com')
+    expect(await issueInvitation(db, { playerId: 'p1', kind: 'signup', grantAdmin: false, email: 'BOB@gmail.com' }, now, ctx)).toEqual({
+      ok: false,
+      status: 409,
+      error: 'Cette adresse est déjà utilisée',
+    })
+  })
+
+  it('réinitialisation d’un compte avec adresse : mail de l’admin, 7 jours, adresse saisie ignorée', async () => {
+    const userId = await createAccount('p1', 'Alex')
+    await setUserEmail(db, userId, 'alex@gmail.com')
+    const mailer = fakeMailer()
+    const r = await issueInvitation(db, { playerId: 'p1', kind: 'reset', grantAdmin: false, email: 'autre@gmail.com' }, now, { mailer, baseUrl: 'https://site.test' })
+    if (!r.ok) throw new Error(r.error)
+    expect(r.value.mail).toBe('sent')
+    expect(r.value.expiresAt).toBe(days(7).toISOString())
+    expect(mailer.sent.map((m) => m.to)).toEqual(['alex@gmail.com'])
+    expect(mailer.sent[0].subject).toBe('Commander League — nouveau mot de passe')
+    expect(mailer.sent[0].text).toContain('valable 7 jours')
+    expect(mailer.sent[0].text).toContain(r.value.url)
+  })
+
+  it('réinitialisation d’un compte sans adresse : none', async () => {
+    await createAccount('p1', 'Alex')
+    const mailer = fakeMailer()
+    const r = await issueInvitation(db, { playerId: 'p1', kind: 'reset', grantAdmin: false }, now, { mailer, baseUrl: 'https://site.test' })
+    expect(r.ok && r.value.mail).toBe('none')
+    expect(mailer.sent).toHaveLength(0)
+  })
+})
+
+describe('updateEmail', () => {
+  async function currentUser(playerId: string, username: string) {
+    const id = await createAccount(playerId, username)
+    return { id, playerId, username, isAdmin: false, playerName: username, avatarUrl: null, isBootstrap: false }
+  }
+
+  it('enregistre l’adresse nettoyée', async () => {
+    const user = await currentUser('p1', 'Alex')
+    expect(await updateEmail(db, user, '  alex@gmail.com ')).toEqual({ ok: true, value: { email: 'alex@gmail.com' } })
+    expect((await getUserById(db, user.id)).data?.email).toBe('alex@gmail.com')
+  })
+
+  it('efface l’adresse (null) avec une chaîne vide ou null', async () => {
+    const user = await currentUser('p1', 'Alex')
+    await updateEmail(db, user, 'alex@gmail.com')
+    expect(await updateEmail(db, user, '  ')).toEqual({ ok: true, value: { email: null } })
+    expect((await getUserById(db, user.id)).data?.email).toBeNull()
+    expect(await updateEmail(db, user, null)).toEqual({ ok: true, value: { email: null } })
+  })
+
+  it('refuse une adresse invalide (400) ou déjà prise (409)', async () => {
+    const alex = await currentUser('p1', 'Alex')
+    const bob = await currentUser('p2', 'Bob')
+    expect(await updateEmail(db, alex, 'a b@c.fr')).toEqual({ ok: false, status: 400, error: 'Adresse mail invalide' })
+    await updateEmail(db, alex, 'alex@gmail.com')
+    expect(await updateEmail(db, bob, 'ALEX@gmail.com')).toEqual({ ok: false, status: 409, error: 'Cette adresse est déjà utilisée' })
   })
 })
 
