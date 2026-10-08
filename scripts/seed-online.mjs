@@ -12,10 +12,10 @@ export const PLAYERS = [
 export const tokenOf = (id) => `jeton-de-test-${id}`
 
 const CARDS = [
-  { id: 'e2e-ken', name: 'Kenrith, the Returned King', type: 'Legendary Creature — Human Noble', qty: 1, section: 'commander' },
+  { id: 'e2e-ken', name: 'Kenrith, the Returned King', type: 'Legendary Creature — Human Noble', qty: 1, section: 'commander', pt: ['5', '5'] },
   { id: 'e2e-sol', name: 'Sol Ring', fr: 'Anneau solaire', type: 'Artifact', qty: 1, section: 'main' },
-  { id: 'e2e-elf', name: 'Llanowar Elves', type: 'Creature — Elf Druid', qty: 4, section: 'main' },
-  { id: 'e2e-avenger', name: 'Avenger of Zendikar', type: 'Creature — Elemental', qty: 1, section: 'main' },
+  { id: 'e2e-elf', name: 'Llanowar Elves', type: 'Creature — Elf Druid', qty: 4, section: 'main', pt: ['1', '1'] },
+  { id: 'e2e-avenger', name: 'Avenger of Zendikar', type: 'Creature — Elemental', qty: 1, section: 'main', pt: ['5', '5'] },
   { id: 'e2e-forest', name: 'Forest', fr: 'Forêt', type: 'Basic Land — Forest', qty: 29, section: 'main' },
 ]
 
@@ -37,7 +37,8 @@ for (const c of CARDS) {
     const id = `${c.id}-${lang}`
     const printed = lang === 'fr' ? c.fr : null
     lines.push(
-      `INSERT OR REPLACE INTO cards (id, oracle_id, lang, name, printed_name, set_code, collector_number, cmc, mana_cost, type_line, printed_type_line, colors, color_identity, image_normal, image_small, fetched_at) VALUES (${[id, c.id, lang, c.name, printed, 'tst', '1', 0, null, c.type, null, '[]', '[]', svg(printed ?? c.name), svg(printed ?? c.name), '2026-10-04'].map(q).join(', ')});`,
+      // Force et endurance ('' : la carte n'en a pas), pour que le mode test ne les cherche pas chez Scryfall.
+      `INSERT OR REPLACE INTO cards (id, oracle_id, lang, name, printed_name, set_code, collector_number, cmc, mana_cost, type_line, printed_type_line, colors, color_identity, image_normal, image_small, power, toughness, fetched_at) VALUES (${[id, c.id, lang, c.name, printed, 'tst', '1', 0, null, c.type, null, '[]', '[]', svg(printed ?? c.name), svg(printed ?? c.name), c.pt?.[0] ?? '', c.pt?.[1] ?? '', '2026-10-04'].map(q).join(', ')});`,
     )
   }
 }
