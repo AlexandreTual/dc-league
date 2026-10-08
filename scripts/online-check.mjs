@@ -374,7 +374,7 @@ try {
   const byName = { [ANA.name]: ana, [BASTIEN.name]: bastien, [CHLOE.name]: chloe }
   for (let i = 0; i < 3 && (await activeName(ana)) !== CHLOE.name; i++) {
     const current = await activeName(ana)
-    await byName[current].page.getByRole('button', { name: 'Tour suivant' }).click()
+    await byName[current].page.getByRole('button', { name: 'Fin de tour' }).click()
     await ana.page.waitForFunction((name) => document.querySelector('[data-testid="active-player"]')?.textContent !== `Joueur actif : ${name}`, current)
   }
   check((await activeName(ana)) === CHLOE.name, 'c’est au tour de Chloé')

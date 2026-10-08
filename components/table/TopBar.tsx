@@ -39,7 +39,7 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
       <Link href={back.href} className={barButton}><ArrowLeft className="w-3.5 h-3.5" /> {back.label}</Link>
       <span className="text-dc-gold font-fantasy text-sm ml-2" data-testid="turn">Tour {turn}</span>
       {activeName && <span className="text-xs text-dc-muted" data-testid="active-player">Joueur actif : <span className="text-dc-text">{activeName}</span></span>}
-      <button className={barButton} onClick={onNextTurn} disabled={!canEndTurn} title="Tour suivant (N)"><SkipForward className="w-3.5 h-3.5" /> Tour suivant</button>
+      <button className={barButton} onClick={onNextTurn} disabled={!canEndTurn} title="Fin de tour (N)"><SkipForward className="w-3.5 h-3.5" /> Fin de tour</button>
       {onDraw && <button className={barButton} onClick={onDraw} disabled={!canAct} title="Piocher (D)"><Layers className="w-3.5 h-3.5" /> Piocher</button>}
       {mana && <span className="text-xs text-dc-text ml-2">{mana}</span>}
       <div className="flex flex-wrap items-center gap-2 ml-auto">

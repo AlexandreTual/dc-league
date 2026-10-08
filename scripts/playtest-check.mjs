@@ -117,7 +117,7 @@ try {
   const transform = await onField.evaluate((el) => el.style.transform)
   check(transform.includes('rotate(90deg)'), 'double-clic : carte engagée')
 
-  await page.getByRole('button', { name: /Tour suivant/ }).click()
+  await page.getByRole('button', { name: /Fin de tour/ }).click()
   check((await page.getByTestId('turn').innerText()) === 'Tour 2', 'tour suivant : tour 2')
   check((await handCount()) === 7, 'tour suivant : pioche (7 cartes)')
   check(!(await onField.evaluate((el) => el.style.transform)).includes('rotate(90deg)'), 'tour suivant : carte dégagée')
@@ -383,7 +383,7 @@ try {
   await capture('mana')
   await page.keyboard.press('Escape')
   check(!(await page.getByRole('dialog', { name: 'Réserve de mana' }).isVisible()), 'Échap ferme le détail de la réserve')
-  await page.getByRole('button', { name: /Tour suivant/ }).click()
+  await page.getByRole('button', { name: /Fin de tour/ }).click()
   check((await pool.innerText()).includes('Mana : 0'), 'tour suivant : réserve vidée')
 
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
