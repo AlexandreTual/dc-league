@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getDeck } from '@/lib/db-decks'
 import { listDeckCards, listDeckTokens } from '@/lib/db-cards'
+import { createScryfallClient } from '@/lib/cards/scryfall'
+import { fillCardStats } from '@/lib/cards/stats'
 import { buildCatalog } from '@/lib/game/catalog'
 import LocalTable from '@/components/table/LocalTable'
 
@@ -14,7 +16,9 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
   const { data: deck } = await getDeck(env.DB, id)
   if (!deck) notFound()
   const [{ data: cards }, { data: tokens }] = await Promise.all([listDeckCards(env.DB, deck.id), listDeckTokens(env.DB, deck.id)])
-  const { catalog, excluded } = buildCatalog(deck.id, cards ?? [])
+  // Force et endurance des cartes importées avant leur ajout : relues une fois chez Scryfall.
+  const scryfall = createScryfallClient({ fetch, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) })
+  const { catalog, excluded } = buildCatalog(deck.id, await fillCardStats(env.DB, scryfall, cards ?? []))
 
   if (catalog.entries.length === 0) {
     return (

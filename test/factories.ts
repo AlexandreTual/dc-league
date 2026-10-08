@@ -22,6 +22,8 @@ export function cardRow(overrides: Partial<CardRow> = {}): CardRow {
     image_large: 'https://cards.scryfall.io/large/sol.jpg',
     image_small: 'https://cards.scryfall.io/small/sol.jpg',
     faces: null,
+    power: null,
+    toughness: null,
     ...overrides,
   }
 }
