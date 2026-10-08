@@ -56,34 +56,45 @@ try {
   await page.goto(`${base}${deckHref}`)
   check(await page.getByRole('link', { name: 'Archidekt' }).isVisible(), 'page du deck : le lien affiche « Archidekt » (et non « Moxfield »)')
   calls.length = 0
-  await page.getByRole('button', { name: 'Réimporter' }).click()
+  await page.getByRole('button', { name: /^(Réimporter|Importer)$/ }).click()
   await page.getByTestId('reimport-done').getByText('32 cartes importées · 97 % en français').waitFor()
   check(new URL(page.url()).pathname === deckHref, 'page du deck : on reste sur la page')
   check(calls.join(',') === 'link,resolve,commit', `page du deck : réimport direct (${calls.join(', ')})`)
   await page.screenshot({ path: `${outDir}/deck-reimport.png` })
-  await page.goto(`${base}/profil/decks`)
 
-  // 2. Le site refuse la lecture : message, puis repli par liste collée.
+  // 2. Le site refuse la lecture : message sur la page du deck, puis repli par liste collée.
   await page.unroute('**/import/link')
   await page.route('**/import/link', slow({ error: 'Moxfield refuse la lecture de ce deck' }, 502))
   calls.length = 0
-  await row.getByRole('button', { name: 'Importer Kenrith à importer' }).click()
-  await row.getByTestId('import-error').getByText('Moxfield refuse la lecture de ce deck').waitFor()
+  await page.getByRole('button', { name: /^(Réimporter|Importer)$/ }).click()
+  await page.getByText('Moxfield refuse la lecture de ce deck').waitFor()
   check(!calls.includes('resolve'), 'erreur du lien : pas d’appel à Scryfall, message affiché')
-  await row.getByRole('button', { name: 'Coller la liste à la place' }).click()
-  check(await row.getByLabel('Liste du deck').isVisible(), 'repli : zone pour coller la liste')
+  await page.getByRole('button', { name: 'Coller la liste à la place' }).click()
+  check(await page.getByLabel('Liste du deck').isVisible(), 'repli : zone pour coller la liste')
   await page.screenshot({ path: `${outDir}/deck-import-error.png` })
 
-  // 3. Deck sans lien : le bouton ouvre directement la zone de collage.
+  // 3. Liste des decks : plus de bouton d'import, le nom mène à la page du deck.
+  await page.goto(`${base}/profil/decks`)
+  check(await page.getByRole('button', { name: /^Importer/ }).count() === 0, 'Mes decks : plus de bouton « Importer »')
+  await page.screenshot({ path: `${outDir}/deck-list.png`, fullPage: true })
   const seeded = page.locator('li', { hasText: `Kenrith de ${ANA.name}` })
-  await seeded.getByRole('button', { name: `Importer Kenrith de ${ANA.name}` }).click()
-  check(await seeded.getByLabel('Liste du deck').isVisible(), 'deck sans lien : la zone de collage s’ouvre')
-  await seeded.getByLabel('Liste du deck').fill(text)
-  check(await seeded.getByText(/32 cartes · 1 commandant\(s\)/).isVisible(), 'la liste collée est lue : 32 cartes, 1 commandant')
 
+  // 4. Deck sans lien : « Réimporter » sur sa page ouvre la zone de collage.
+  await seeded.getByRole('link', { name: `Kenrith de ${ANA.name}` }).click()
+  await page.waitForURL(/\/decks\/deck-/)
+  await page.getByRole('button', { name: /^(Réimporter|Importer)$/ }).click()
+  check(await page.getByLabel('Liste du deck').isVisible(), 'deck sans lien : la zone de collage s’ouvre sur sa page')
+  await page.getByLabel('Liste du deck').fill(text)
+  check(await page.getByText(/32 cartes · 1 commandant\(s\)/).isVisible(), 'la liste collée est lue : 32 cartes, 1 commandant')
+
+  await page.goto(`${base}/profil/decks`)
   // Ménage : supprime le deck créé.
-  await row.getByRole('button', { name: 'Supprimer Kenrith à importer' }).click()
-  await row.waitFor({ state: 'detached' })
+  while (await row.count()) {
+    const before = await row.count()
+    await row.first().getByRole('button', { name: 'Supprimer Kenrith à importer' }).click()
+    await page.waitForFunction((n) => document.querySelectorAll('li').length < n, await page.locator('li').count())
+    if ((await row.count()) >= before) break
+  }
 
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ClipboardPaste, ExternalLink, Pencil, Plus, RotateCw, Trash2, Upload, X } from 'lucide-react'
+import { ClipboardPaste, ExternalLink, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import ImportPanel, { ImportProgressBar, ImportResult } from '@/components/decks/ImportPanel'
 import { importDeckFromLink, importDeckText, type ImportOutcome, type ImportProgress } from '@/components/decks/importDeck'
 import type { ImportSummary } from '@/lib/cards/types'
@@ -130,9 +130,8 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
     await imported(id, outcome.summary)
   }
 
-  /** Un seul clic : lit le lien du deck, complète chaque carte avec Scryfall et enregistre. Sans lien, on colle la liste. */
-  async function startImport(deck: DbDeck) {
-    if (!deck.moxfield_url) return setPastingId((prev) => (prev === deck.id ? null : deck.id))
+  /** À la création : lit le lien du deck, complète chaque carte avec Scryfall et enregistre. Réimport : page du deck. */
+  async function startImport(deck: DbDeck & { moxfield_url: string }) {
     setPastingId(null)
     const onProgress = (progress: ImportProgress) => setImport(deck.id, { step: 'running', progress })
     await finish(deck.id, await importDeckFromLink(deck.id, deck.moxfield_url, { onProgress }))
@@ -149,7 +148,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
     if (error) return error
     const deck = data as DbDeck
     setDecks((prev) => [...prev, deck])
-    if (deck.moxfield_url) void startImport(deck)
+    if (deck.moxfield_url) void startImport({ ...deck, moxfield_url: deck.moxfield_url })
     return null
   }
 
@@ -189,11 +188,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                   <div className="w-12 h-16 rounded bg-dc-bg border border-dc-border" />
                 )}
                 <div className="flex-1 min-w-0">
-                  {cardCounts[deck.id] ? (
-                    <Link href={`/decks/${deck.id}`} className="text-dc-text font-semibold truncate block hover:text-dc-gold">{deck.name}</Link>
-                  ) : (
-                    <p className="text-dc-text font-semibold truncate">{deck.name}</p>
-                  )}
+                  <Link href={`/decks/${deck.id}`} className="text-dc-text font-semibold truncate block hover:text-dc-gold">{deck.name}</Link>
                   {cardCounts[deck.id] ? <p className="text-dc-muted text-xs">{cardCounts[deck.id]} cartes</p> : null}
                   {deck.moxfield_url && (
                     <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="text-dc-gold text-xs inline-flex items-center gap-1 hover:underline">
@@ -201,14 +196,6 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                     </a>
                   )}
                 </div>
-                <button
-                  onClick={() => startImport(deck)}
-                  disabled={imports[deck.id]?.step === 'running'}
-                  aria-label={`Importer ${deck.name}`}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border/60 rounded-lg text-dc-muted hover:text-dc-gold hover:border-dc-gold/40 disabled:opacity-40"
-                >
-                  <Upload className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{cardCounts[deck.id] ? 'Réimporter' : 'Importer'}</span>
-                </button>
                 <button onClick={() => setEditingId(deck.id)} className="p-2 text-dc-muted hover:text-dc-text" aria-label={`Modifier ${deck.name}`}>
                   <Pencil className="w-4 h-4" />
                 </button>
@@ -217,10 +204,9 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                 </button>
               </div>
             )}
-            {editingId !== deck.id && pastingId !== deck.id && <ImportStatus deck={deck} state={imports[deck.id]} onRetry={() => startImport(deck)} onResume={resumeImport} onPaste={() => setPastingId(deck.id)} />}
+            {editingId !== deck.id && pastingId !== deck.id && <ImportStatus deck={deck} state={imports[deck.id]} onRetry={() => deck.moxfield_url && startImport({ ...deck, moxfield_url: deck.moxfield_url })} onResume={resumeImport} onPaste={() => setPastingId(deck.id)} />}
             {pastingId === deck.id && editingId !== deck.id && (
               <div className="mt-4 pt-4 border-t border-dc-border">
-                {!deck.moxfield_url && <p className="text-dc-muted text-xs mb-2">Ajoute un lien Moxfield ou Archidekt (bouton ✎) pour importer en un clic, ou colle la liste :</p>}
                 <ImportPanel
                   deckId={deck.id}
                   initialText={imports[deck.id]?.step === 'failed' ? (imports[deck.id] as { text: string }).text : ''}
@@ -239,7 +225,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
       <div className={cardClass}>
         <h2 className="font-fantasy text-lg text-dc-text flex items-center gap-2"><Plus className="w-4 h-4" /> Nouveau deck</h2>
         <DeckForm initial={emptyFields} submitLabel={(f) => (f.moxfield_url.trim() ? 'Créer et importer' : 'Créer le deck')} onSubmit={create} />
-        <p className="text-dc-muted text-xs">Colle le lien du deck : les cartes sont importées depuis Scryfall dès la création.</p>
+        <p className="text-dc-muted text-xs">Colle le lien du deck : les cartes sont importées depuis Scryfall dès la création. Pour mettre à jour la liste ensuite : « Réimporter » sur la page du deck.</p>
       </div>
     </div>
   )
