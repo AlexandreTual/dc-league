@@ -10,6 +10,10 @@ import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards
 import { cardSrcSet } from '@/lib/cards/images'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { sendJson } from '@/components/formStyles'
+import ImportPanel, { ImportProgressBar } from '@/components/decks/ImportPanel'
+import { importDeckFromLink, type ImportProgress } from '@/components/decks/importDeck'
+import type { ImportSummary } from '@/lib/cards/types'
+import { deckSiteName } from '@/lib/cards/deck-link'
 import OracleModal from '@/components/OracleModal'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
@@ -26,6 +30,10 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const [oracle, setOracle] = useState<DeckCardView | null>(null)
   const [error, setError] = useState('')
   const [tokensStatus, setTokensStatus] = useState('')
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
+  const [importStatus, setImportStatus] = useState('')
+  const [importFailed, setImportFailed] = useState(false)
+  const [pasting, setPasting] = useState(false)
 
   useEffect(() => setLang(readLang()), [])
   useEffect(() => {
@@ -60,6 +68,28 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     setTokensStatus(count === 0 ? 'Aucun jeton dans ce deck' : `${count} jeton${count > 1 ? 's' : ''} enregistré${count > 1 ? 's' : ''}`)
   }
 
+  /** Réimport direct depuis le lien du deck (Moxfield ou Archidekt → Scryfall), sans passer par la liste des decks. */
+  async function reimport() {
+    setError('')
+    setImportStatus('')
+    setImportFailed(false)
+    if (!deck.moxfield_url) return setPasting((open) => !open)
+    setPasting(false)
+    const outcome = await importDeckFromLink(deck.id, deck.moxfield_url, { onProgress: setImportProgress })
+    setImportProgress(null)
+    if (!outcome.ok) {
+      setImportFailed(true)
+      return setError(outcome.error)
+    }
+    showImported(outcome.summary)
+  }
+
+  function showImported({ total, frenchCount, notFound }: ImportSummary) {
+    const percent = total ? Math.round((frenchCount / total) * 100) : 0
+    setImportStatus(`${total} cartes importées · ${percent} % en français${notFound.length ? ` · ${notFound.length} introuvable(s) : ${notFound.map((n) => n.text).join(', ')}` : ''}`)
+    router.refresh()
+  }
+
   const total = cards.reduce((n, c) => n + c.quantity, 0)
   const groups = groupDeckCards(cards, lang)
   const selectedShown = selected ? displayCard(selected, lang) : null
@@ -81,7 +111,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
             {playerName} · {total} cartes
             {deck.moxfield_url && (
               <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="ml-2 text-dc-gold inline-flex items-center gap-1 hover:underline">
-                Moxfield <ExternalLink className="w-3 h-3" />
+                {deckSiteName(deck.moxfield_url) ?? 'Lien du deck'} <ExternalLink className="w-3 h-3" />
               </a>
             )}
           </p>
@@ -93,9 +123,13 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
             <span className={lang === 'en' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>EN</span>
           </button>
           {canEdit && (
-            <Link href="/profil/decks" className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold">
-              <RefreshCw className="w-3.5 h-3.5" /> Réimporter
-            </Link>
+            <button
+              onClick={reimport}
+              disabled={importProgress !== null}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5${importProgress ? ' animate-spin' : ''}`} /> {importProgress ? 'Import en cours…' : cards.length ? 'Réimporter' : 'Importer'}
+            </button>
           )}
           {canEdit && cards.length > 0 && (
             <button onClick={updateTokens} disabled={tokensStatus === 'Recherche des jetons…'} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50">
@@ -111,6 +145,27 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
       </div>
 
       {error && <p className="text-dc-red-light text-sm">{error}</p>}
+      {importProgress && <ImportProgressBar progress={importProgress} />}
+      {importFailed && !pasting && (
+        <button onClick={() => setPasting(true)} className="text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-text">
+          Coller la liste à la place
+        </button>
+      )}
+      {pasting && (
+        <div className="bg-dc-surface border border-dc-border rounded-2xl p-4 space-y-2">
+          {!deck.moxfield_url && <p className="text-dc-muted text-xs">Ajoute un lien Moxfield ou Archidekt (Mes decks → ✎) pour réimporter en un clic, ou colle la liste :</p>}
+          <ImportPanel
+            deckId={deck.id}
+            onDone={(summary) => {
+              setPasting(false)
+              setImportFailed(false)
+              setError('')
+              showImported(summary)
+            }}
+          />
+        </div>
+      )}
+      {importStatus && <p className="text-dc-muted text-sm" role="status" data-testid="reimport-done">{importStatus}</p>}
       {tokensStatus && <p className="text-dc-muted text-sm" role="status">{tokensStatus}</p>}
 
       {cards.length === 0 ? (

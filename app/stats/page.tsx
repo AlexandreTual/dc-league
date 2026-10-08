@@ -2,6 +2,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import { BarChart2, ExternalLink, Swords, Trophy, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 import { listMatchStats, computeAllStats, type PlayerRecord, type H2HEntry } from '@/lib/db-stats'
+import { deckSiteName } from '@/lib/cards/deck-link'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
@@ -161,7 +162,7 @@ function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
-                            title="Voir sur Moxfield"
+                            title={`Voir sur ${deckSiteName(deck.moxfield_url) ?? 'le site du deck'}`}
                           >
                             <ExternalLink className="w-3 h-3" />
                           </a>
