@@ -5,7 +5,7 @@ import { groupBattlefield, type Stack } from '@/lib/game/battlefield'
 import type { Catalog, PlayerView, VisibleCard } from '@/lib/game/types'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import { longPressClass, menuGesture } from './touch'
-import type { CardHandlers } from './zones'
+import { ptEdit, type CardHandlers } from './zones'
 
 const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terrains']] as const
 
@@ -44,7 +44,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       onMouseEnter={() => handlers.onHover(card.id)}
       onMouseLeave={() => handlers.onHover(null)}
     >
-      <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
+      <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" pt onPtEdit={ptEdit(handlers, card.id, battlefield)} />
       {count > 1 && <span className="absolute -bottom-1 -right-1 rounded-full bg-black/80 text-dc-gold text-[10px] px-1">×{count}</span>}
     </div>
   )

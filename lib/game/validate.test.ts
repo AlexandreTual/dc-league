@@ -24,6 +24,7 @@ describe('parseClientAction', () => {
     ok({ type: 'setMonarch', to: null })
     ok({ type: 'mana', color: 'G', delta: 1 })
     ok({ type: 'counter', id: 'x', kind: 'plus', delta: 1 })
+    ok({ type: 'pt', id: 'x', power: -2, toughness: 3 })
     ok({ type: 'playerCounter', target: 'p1', name: 'Énergie', delta: 2 })
     ok({ type: 'endLook', target: 'p2', shuffle: true })
     ok({ type: 'reorderTop', target: 'p2', ids: ['a', 'b'] })
@@ -53,6 +54,8 @@ describe('parseClientAction', () => {
     ko({ type: 'move', id: 'a', to: { player: 'p1', zone: 'library' }, position: 'milieu' })
     ko({ type: 'mana', color: 'X', delta: 1 })
     ko({ type: 'counter', id: 'x', kind: 'autre', delta: 1 })
+    ko({ type: 'pt', id: 'x', power: 1 })
+    ko({ type: 'pt', id: 'x', power: 0.5, toughness: 0 })
   })
 
   it('refuse les chaînes absentes, vides ou trop longues', () => {

@@ -8,7 +8,8 @@ function fingerprints(view: PlayerView): Map<string, string> {
   const out = new Map<string, string>()
   const add = (player: string, zone: string, c: VisibleCard) => {
     const { plus, minus, other } = c.counters
-    out.set(c.id, [player, zone, c.tapped, c.flipped, c.faceDown, plus, minus, other, c.x, c.y].join('|'))
+    const pt = c.ptMod ? `${c.ptMod.power}/${c.ptMod.toughness}` : ''
+    out.set(c.id, [player, zone, c.tapped, c.flipped, c.faceDown, plus, minus, other, pt, c.x, c.y].join('|'))
   }
   for (const [player, p] of Object.entries(view.players)) {
     const { library, ...zones } = p.zones

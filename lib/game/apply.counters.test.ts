@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction, cardData, taxOf } from './apply'
+import { viewFor } from './view'
 import type { GameAction, GameState, TokenData } from './types'
 
 const apply = (s: GameState, ...actions: GameAction[]) => actions.reduce((acc, a) => applyAction(acc, a), s)
@@ -40,6 +41,37 @@ describe('cartes', () => {
   it('compteurs bornés à 0', () => {
     const s = apply(game(), { type: 'counter', actor: 'p1', id: card('p1', 2), kind: 'plus', delta: 2 }, { type: 'counter', actor: 'p1', id: card('p1', 2), kind: 'plus', delta: -5 })
     expect(s.cards[card('p1', 2)].counters.plus).toBe(0)
+  })
+
+  it('force et endurance : tout joueur les modifie, écarts cumulés, journal', () => {
+    const id = kenrith('p1')
+    let s = place(game(), [{ id, player: 'p1', zone: 'battlefield' }])
+    s = apply(s, { type: 'pt', actor: 'p2', id, power: 3, toughness: 3 }, { type: 'pt', actor: 'p1', id, power: -1, toughness: 0 })
+    expect(s.cards[id].ptMod).toEqual({ power: 2, toughness: 3 })
+    expect(s.log.at(-1)).toMatchObject({ actor: 'p1', text: 'Kenrith, the Returned King : 7/8 (+2/+3)' })
+    expect(viewFor(s, 'p3').players.p1.zones.battlefield.find((c) => !c.hidden && c.id === id)).toMatchObject({ ptMod: { power: 2, toughness: 3 } })
+    s = applyAction(s, { type: 'pt', actor: 'p1', id, power: -2, toughness: -3 })
+    expect(s.cards[id]).not.toHaveProperty('ptMod')
+    expect(lastText(s)).toBe('Kenrith, the Returned King : 5/5')
+  })
+
+  it('force et endurance : marqueurs comptés, carte face cachée 2/2 sans son nom, modification bornée', () => {
+    let s = apply(game(), { type: 'counter', actor: 'p1', id: delver('p1'), kind: 'plus', delta: 1 }, { type: 'pt', actor: 'p1', id: delver('p1'), power: 1, toughness: 0 })
+    expect(lastText(s)).toBe('Delver of Secrets // Insectile Aberration : 3/2 (+1/+0)')
+    s = apply(s, { type: 'faceDown', actor: 'p1', id: delver('p1') }, { type: 'pt', actor: 'p1', id: delver('p1'), power: 0, toughness: 1 })
+    expect(lastText(s)).toBe('une carte face cachée : 4/4 (+1/+1)')
+    s = applyAction(s, { type: 'pt', actor: 'p1', id: delver('p1'), power: 5000, toughness: -5000 })
+    expect(s.cards[delver('p1')].ptMod).toEqual({ power: 999, toughness: -999 })
+  })
+
+  it('force et endurance : seulement sur le champ de bataille, perdues en le quittant', () => {
+    const s = game()
+    expect(applyAction(s, { type: 'pt', actor: 'p1', id: kenrith('p1'), power: 1, toughness: 1 })).toBe(s)
+    const modified = applyAction(s, { type: 'pt', actor: 'p1', id: delver('p1'), power: 1, toughness: 1 })
+    const moved = applyAction(modified, { type: 'move', actor: 'p1', id: delver('p1'), to: { player: 'p1', zone: 'graveyard' } })
+    expect(moved.cards[delver('p1')]).not.toHaveProperty('ptMod')
+    const shifted = applyAction(modified, { type: 'move', actor: 'p1', id: delver('p1'), to: { player: 'p1', zone: 'battlefield' }, x: 10, y: 10 })
+    expect(shifted.cards[delver('p1')].ptMod).toEqual({ power: 1, toughness: 1 })
   })
 
   it('jetons : sur le champ de bataille de l’auteur, identifiants partagés', () => {

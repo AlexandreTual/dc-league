@@ -1,6 +1,7 @@
 // Menus clic droit de la table : quelles entrées pour quelle carte, selon qui regarde.
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
+import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
 import type { ClientAction } from './room'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
 
@@ -15,8 +16,11 @@ export type MenuEntry =
   | { kind: 'title'; label: string }
   | { kind: 'separator' }
   | { kind: 'item'; label: string; commands: MenuCommand[] }
-  /** `set` : valeur tapée directement (facultatif), traduite en commandes ; vide si rien ne change. */
-  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand; set?: (n: number) => MenuCommand[] }
+  /**
+   * `set` : valeur tapée directement (facultatif), traduite en commandes ; vide si rien ne change.
+   * `signed` : valeur négative possible (force, endurance).
+   */
+  | { kind: 'stepper'; label: string; value: number | string; minus: MenuCommand; plus: MenuCommand; set?: (n: number) => MenuCommand[]; signed?: boolean }
 
 export type MenuContext = {
   me: string | null
@@ -53,7 +57,9 @@ function copyData(ctx: MenuContext, card: VisibleCard): TokenData {
   if (card.token) return card.token
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
   const entry = card.ref === null ? undefined : ctx.catalogs[card.owner]?.entries.find((e) => e.ref === card.ref)
-  return { name: info.name, typeLine: info.typeLine, image: info.image, power: null, toughness: null, colors: entry?.en.colors ?? [] }
+  // Valeurs imprimées seulement : une copie ne reprend ni les marqueurs ni les modifications (règle 707.2).
+  const pt = basePT(ctx.catalogs[card.owner], card)
+  return { name: info.name, typeLine: info.typeLine, image: info.image, power: pt?.power ?? null, toughness: pt?.toughness ?? null, colors: entry?.en.colors ?? [] }
 }
 
 /** « Créer un jeton copie » et « Créer des jetons copies… » : sur mon champ de bataille, à côté de l'original ou au centre. */
@@ -81,7 +87,42 @@ function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   return [{ kind: 'separator' }, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
 }
 
-function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
+/**
+ * Force et endurance d'une carte en jeu, modifiables par tout joueur : valeur affichée, nombre tapé = nouvelle
+ * valeur (ou nouvel écart pour une carte sans force connue), « Réinitialiser » quand elle a été modifiée.
+ */
+function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+  const id = card.id
+  const stats = ptStats(ctx.catalogs[card.owner], card)
+  const stepper = (label: string, stat: 'power' | 'toughness'): MenuEntry => {
+    const shown = stats?.[stat]
+    const current = shown ? (shown.value ?? shown.delta) : 0
+    const change = (n: number) => act({ type: 'pt', id, power: stat === 'power' ? n : 0, toughness: stat === 'toughness' ? n : 0 })
+    return {
+      kind: 'stepper', label, value: shown?.text ?? '+0', signed: true, minus: change(-1), plus: change(1),
+      set: (n) => {
+        if (!Number.isFinite(n)) return []
+        const delta = Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, Math.trunc(n))) - current
+        return delta === 0 ? [] : [change(delta)]
+      },
+    }
+  }
+  const mod = card.ptMod ?? NO_PT
+  const entries = [stepper('Force', 'power'), stepper('Endurance', 'toughness')]
+  if (mod.power !== 0 || mod.toughness !== 0) {
+    entries.push(item('Réinitialiser force/endurance', act({ type: 'pt', id, power: -mod.power, toughness: -mod.toughness })))
+  }
+  return entries
+}
+
+/** Menu de l'encart force/endurance d'une carte en jeu (toucher l'encart) ; vide pour un spectateur ou une partie finie. */
+export function ptMenu(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+  if (!ctx.me || ctx.readOnly) return []
+  const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
+  return [{ kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }, ...ptEntries(ctx, card)]
+}
+
+function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
   const id = card.id
   const counter = (label: string, kind: 'plus' | 'minus' | 'other', value: number): MenuEntry => ({
     kind: 'stepper', label, value,
@@ -98,7 +139,8 @@ function battlefieldEntries(card: VisibleCard, flippable: boolean, controller: b
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
   if (controller) entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })))
   entries.push({ kind: 'separator' },
-    counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other))
+    counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
+    ...ptEntries(ctx, card))
   return entries
 }
 
@@ -125,7 +167,7 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     // Chez un adversaire : on agit sur la carte, ou on la renvoie dans les zones de son propriétaire.
     const toOwner = (label: string, z: PlayerZone) => item(label, act({ type: 'move', id, to: { player: card.owner, zone: z } }))
     if (zone.zone === 'battlefield') {
-      return [title, ...battlefieldEntries(card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
+      return [title, ...battlefieldEntries(ctx, card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
         item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
         toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile'),
         ...oracleEntries(ctx, card)]
@@ -149,7 +191,7 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
   }
   if (zone.zone === 'battlefield') {
-    entries.push(...battlefieldEntries(card, flippable, true), ...copyEntries(ctx, card, zone, me))
+    entries.push(...battlefieldEntries(ctx, card, flippable, true), ...copyEntries(ctx, card, zone, me))
     entries.push({ kind: 'separator' })
     for (const p of others(ctx, me)) entries.push(item(`Donner le contrôle à ${name(p)}`, act({ type: 'giveControl', id, to: p })))
   }

@@ -55,6 +55,9 @@ export type ZoneRef = { player: string; zone: PlayerZone }
 
 export type Counters = { plus: number; minus: number; other: number }
 
+/** Modification libre de la force et de l'endurance d'une carte en jeu (effets « +3/+3 jusqu'à la fin du tour »…). */
+export type PtMod = { power: number; toughness: number }
+
 export type PlayerState = {
   id: string
   name: string
@@ -88,6 +91,8 @@ export type CardInstance = {
   flipped: boolean
   faceDown: boolean
   counters: Counters
+  /** Absent : aucune modification (0/0), et toujours absent hors du champ de bataille. */
+  ptMod?: PtMod
   x: number
   y: number
   knownBy: string[]
@@ -144,6 +149,8 @@ export type GameAction =
   | { type: 'flip'; actor: string; id: string }
   | { type: 'faceDown'; actor: string; id: string }
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
+  /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
+  | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
   | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number; copy?: boolean }
   | { type: 'life'; actor: string; target: string; delta: number }
   | { type: 'poison'; actor: string; target: string; delta: number }
@@ -178,6 +185,8 @@ export type VisibleCard = {
   flipped: boolean
   faceDown: boolean
   counters: Counters
+  /** Absent : aucune modification, ou serveur de jeu plus ancien. */
+  ptMod?: PtMod
   x: number
   y: number
 }

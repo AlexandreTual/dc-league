@@ -90,6 +90,7 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   flip: { id },
   faceDown: { id },
   counter: { id, kind: oneOf(['plus', 'minus', 'other']), delta },
+  pt: { id, power: delta, toughness: delta },
   createToken: { token, x: finite, y: finite, copy: optional(bool) },
   life: { target: player, delta },
   poison: { target: player, delta },

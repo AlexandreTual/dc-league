@@ -29,6 +29,14 @@ function parseJson<T>(value: unknown, fallback: T): T {
   }
 }
 
+/** Force ou endurance enregistrée : '' = la carte n'en a pas (null) ; NULL = pas encore lue (undefined). */
+function storedStat(value: unknown): string | null | undefined {
+  if (typeof value !== 'string') return undefined
+  return value === '' ? null : value
+}
+
+const statValue = (value: string | null | undefined) => (value === undefined ? null : value ?? '')
+
 function normalizeCard(row: Record<string, unknown>): CardRow {
   return {
     id: row.id as string,
@@ -51,6 +59,8 @@ function normalizeCard(row: Record<string, unknown>): CardRow {
     image_large: (row.image_large as string) ?? null,
     image_small: (row.image_small as string) ?? null,
     faces: parseJson<CardRow['faces']>(row.faces, null),
+    power: storedStat(row.power),
+    toughness: storedStat(row.toughness),
   }
 }
 
@@ -65,11 +75,12 @@ function cardValues(c: CardRow, now: Date): Record<string, unknown> {
     colors: JSON.stringify(c.colors), color_identity: JSON.stringify(c.color_identity),
     image_normal: c.image_normal, image_large: c.image_large ?? null, image_small: c.image_small,
     faces: c.faces ? JSON.stringify(c.faces) : null, fetched_at: now.toISOString(),
+    power: statValue(c.power), toughness: statValue(c.toughness),
   }
 }
 
-/** Colonne ajoutée par une migration récente : le site peut tourner une ou deux minutes avant elle. */
-const RECENT_COLUMNS = ['image_large']
+/** Colonnes ajoutées par une migration récente : le site peut tourner une ou deux minutes avant elle. */
+const RECENT_COLUMNS = ['image_large', 'power', 'toughness']
 
 async function writeCards(db: D1Database, cards: CardRow[], now: Date, columns: string[]) {
   const updates = columns.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')
@@ -109,6 +120,22 @@ export async function getCards(db: D1Database, ids: string[]): Promise<Result<Re
       for (const row of results) out[row.id as string] = normalizeCard(row)
     }
     return ok(out)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Force et endurance relues chez Scryfall pour une carte déjà enregistrée (faces comprises). */
+export type CardStats = Pick<CardRow, 'id' | 'power' | 'toughness' | 'faces'>
+
+/** Rattrapage des cartes enregistrées avant la migration 0012 ; échoue (sans rien écrire) si elle n'est pas encore appliquée. */
+export async function saveCardStats(db: D1Database, cards: CardStats[]): Promise<Result<true>> {
+  if (cards.length === 0) return ok(true)
+  try {
+    await db.batch(cards.map((c) =>
+      db.prepare('UPDATE cards SET power = ?, toughness = ?, faces = ? WHERE id = ?')
+        .bind(statValue(c.power), statValue(c.toughness), c.faces ? JSON.stringify(c.faces) : null, c.id)))
+    return ok(true)
   } catch (e) {
     return err((e as Error).message)
   }
