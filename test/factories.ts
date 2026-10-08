@@ -53,22 +53,22 @@ export function deckCardView(
   }
 }
 
-const face = (name: string, type: string, image: string) => ({
+const face = (name: string, type: string, image: string, power: string, toughness: string) => ({
   name, printed_name: null, mana_cost: null, type_line: type, printed_type_line: null,
-  oracle_text: null, printed_text: null, image_normal: image, image_small: image,
+  oracle_text: null, printed_text: null, image_normal: image, image_small: image, power, toughness,
 })
 
-/** Deck de test : Kenrith (commandant), Sol Ring (avec version FR), 30 Forêts, Delver (double face) = 33 exemplaires. */
+/** Deck de test : Kenrith (commandant, 5/5), Sol Ring (avec version FR), 30 Forêts, Delver (double face, 1/1 puis 3/2) = 33 exemplaires. */
 export function testDeckCards() {
   return [
-    deckCardView(1, cardRow({ id: 'ken', name: 'Kenrith, the Returned King', type_line: 'Legendary Creature — Human Noble' }), { section: 'commander' }),
+    deckCardView(1, cardRow({ id: 'ken', name: 'Kenrith, the Returned King', type_line: 'Legendary Creature — Human Noble', power: '5', toughness: '5' }), { section: 'commander' }),
     deckCardView(2, cardRow({ id: 'sol' }), { fr: cardRow({ id: 'sol-fr', lang: 'fr', printed_name: 'Anneau solaire' }) }),
     deckCardView(3, cardRow({ id: 'forest', name: 'Forest', type_line: 'Basic Land — Forest', cmc: 0 }), { quantity: 30 }),
     deckCardView(4, cardRow({
       id: 'delver', name: 'Delver of Secrets // Insectile Aberration',
       type_line: 'Creature — Human Wizard // Creature — Human Insect',
-      image_normal: 'front.jpg',
-      faces: [face('Delver of Secrets', 'Creature — Human Wizard', 'front.jpg'), face('Insectile Aberration', 'Creature — Human Insect', 'back.jpg')],
+      image_normal: 'front.jpg', power: '1', toughness: '1',
+      faces: [face('Delver of Secrets', 'Creature — Human Wizard', 'front.jpg', '1', '1'), face('Insectile Aberration', 'Creature — Human Insect', 'back.jpg', '3', '2')],
     })),
   ]
 }

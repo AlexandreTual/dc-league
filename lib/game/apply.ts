@@ -1,4 +1,5 @@
 import { rollDice, rollText } from './dice'
+import { MAX_PT_MOD, NO_PT, ptLog } from './pt'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
@@ -117,6 +118,13 @@ function setCard(state: GameState, id: string, patch: Partial<CardInstance>): Ga
   return { ...state, cards: { ...state.cards, [id]: { ...state.cards[id], ...patch } } }
 }
 
+/** La carte sans modification de force et d'endurance (champ retiré plutôt que mis à 0/0). */
+function withoutPt(state: GameState, id: string): GameState {
+  if (!state.cards[id].ptMod) return state
+  const { ptMod: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
 function insertAt(list: string[], id: string, position: Position): string[] {
   if (position === 'top') return [id, ...list]
   if (position === 'bottom') return [...list, id]
@@ -213,6 +221,7 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     patch.y = clampPct(action.y ?? 50)
   }
   next = setCard(next, action.id, patch)
+  if (from.zone === 'battlefield') next = withoutPt(next, action.id)
 
   if (card.isCommander && from.zone === 'command' && to.zone !== 'command') {
     next = { ...next, commanderCasts: { ...next.commanderCasts, [action.id]: (next.commanderCasts[action.id] ?? 0) + 1 } }
@@ -316,6 +325,16 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const label = { plus: '+1/+1', minus: '-1/-1', other: 'compteur' }[action.kind]
       const name = card.faceDown ? 'une carte' : cardName(state, action.id)
       return log(setCard(state, action.id, { counters: { ...card.counters, [action.kind]: value } }), action.actor, `${name} : ${label} (${value})`)
+    }
+
+    case 'pt': {
+      const card = state.cards[action.id]
+      const mod = card.ptMod ?? NO_PT
+      const clamp = (n: number) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, n))
+      const ptMod = { power: clamp(mod.power + action.power), toughness: clamp(mod.toughness + action.toughness) }
+      const s = ptMod.power === 0 && ptMod.toughness === 0 ? withoutPt(state, action.id) : setCard(state, action.id, { ptMod })
+      const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
+      return log(s, action.actor, `${name} : ${ptLog(state.catalogs[card.owner], s.cards[action.id])}`)
     }
 
     case 'createToken': {
