@@ -61,13 +61,21 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-testid="fullscreen"]')?.textContent?.trim() === 'Plein écran')
   check(true, 'sortie du plein écran (Échap) : le bouton redevient « Plein écran »')
 
-  // Ma colonne, à gauche de mon champ de bataille et de ma main ; la vie n'est plus dans la barre du haut.
+  // Ma colonne (portrait), à gauche de mon champ de bataille et de ma main ; la vie n'est plus dans la barre du haut.
+  // Par défaut, mes piles en vignettes à droite de la main (façon Moxfield).
   const columnBox = await page.locator('[data-column]').boundingBox()
   const handBox = await page.locator('[data-zone="hand"]').boundingBox()
   const fieldBox = await page.locator('[data-zone="battlefield"]').boundingBox()
   check(columnBox.x + columnBox.width <= fieldBox.x && columnBox.x + columnBox.width <= handBox.x, 'colonne à gauche du champ de bataille et de la main')
-  check((await page.locator('[data-column] [data-zone="library"]').count()) === 1 && (await page.locator('[data-column] [data-testid="player-life"]').count()) === 1,
-    'bibliothèque et vie dans la colonne')
+  check((await page.locator('[data-column] [data-zone]').count()) === 0 && (await page.locator('[data-column] [data-testid="player-life"]').count()) === 1,
+    'par défaut : la colonne ne garde que la ligne portrait (vie)')
+  const tiles = page.locator('[data-pile-tiles]')
+  const tilesBox = await tiles.boundingBox()
+  check(tilesBox.x >= handBox.x + handBox.width - 1 && tilesBox.y >= handBox.y - 2 && tilesBox.y + tilesBox.height <= handBox.y + handBox.height + 2,
+    'par défaut : piles en vignettes à droite de la main, à sa hauteur')
+  for (const zone of ['library', 'graveyard', 'exile', 'command']) {
+    check((await tiles.locator(`[data-zone="${zone}"]`).count()) === 1, `vignette ${zone} présente`)
+  }
   check((await page.getByTestId('life').count()) === 0, 'mode test : plus de vie dans la barre du haut')
 
   check((await handCount()) === 7, 'main de départ de 7 cartes')
@@ -344,7 +352,17 @@ try {
   check(Math.abs((await fieldCard.boundingBox()).width - widthBefore) < 1, 'taille des cartes 100 % : taille d’origine')
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
 
-  // ── Cimetière en cascade : les 6 dernières, la plus récente en bas ──
+  // ── Réglage « Piles dans la colonne » : l'ancienne disposition, avec le cimetière en cascade ──
+  const oldLayout = async (on) => {
+    await page.getByRole('button', { name: 'Réglages' }).click()
+    await page.getByLabel('Piles dans la colonne (ancienne disposition)').setChecked(on)
+    await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  }
+  await oldLayout(true)
+  check((await page.locator('[data-pile-tiles]').count()) === 0 && (await page.locator('[data-column] [data-zone="library"]').count()) === 1,
+    'piles dans la colonne : bibliothèque dans la colonne, plus de vignettes')
+
+  // Cimetière en cascade : les 6 dernières, la plus récente en bas.
   const graveyard = page.locator('[data-column] [data-zone="graveyard"]')
   const graveyardBefore = Number(await graveyard.getAttribute('data-count'))
   for (let i = 0; i < 7; i++) await page.keyboard.press('d')
@@ -362,6 +380,8 @@ try {
   await page.locator('[data-column]').getByRole('button', { name: 'Cim.' }).click()
   check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'case Cim. : ouvre tout le cimetière')
   await page.keyboard.press('Escape')
+  await oldLayout(false)
+  check((await page.locator('[data-pile-tiles]').count()) === 1, 'réglage décoché : retour aux vignettes à côté de la main')
 
   // ── Vie basse : en rouge à 10 ou moins ──
   const life = page.locator('[data-column] [data-testid="player-life"]')
@@ -386,23 +406,7 @@ try {
   await page.getByRole('button', { name: /Tour suivant/ }).click()
   check((await pool.innerText()).includes('Mana : 0'), 'tour suivant : réserve vidée')
 
-  // ── Réglage « Piles à côté de la main » (façon Moxfield) : vignettes à droite de la main, colonne réduite au portrait ──
-  const pilesBeside = async (on) => {
-    await page.getByRole('button', { name: 'Réglages' }).click()
-    await page.getByLabel('Piles à côté de la main (façon Moxfield)').setChecked(on)
-    await page.getByRole('button', { name: 'Fermer les réglages' }).click()
-  }
-  await pilesBeside(true)
-  const handZone = page.locator('[data-zone="hand"]')
-  const tiles = page.locator('[data-pile-tiles]')
-  const hb = await handZone.boundingBox()
-  const tb = await tiles.boundingBox()
-  check(tb.x >= hb.x + hb.width - 1 && tb.y >= hb.y - 2 && tb.y + tb.height <= hb.y + hb.height + 2, 'piles à côté de la main : vignettes à droite de la main, à sa hauteur')
-  check((await page.locator('[data-column] [data-zone]').count()) === 0 && (await page.locator('[data-column] [data-testid="player-life"]').count()) === 1,
-    'piles à côté de la main : la colonne ne garde que la ligne portrait')
-  for (const zone of ['library', 'graveyard', 'exile', 'command']) {
-    check((await tiles.locator(`[data-zone="${zone}"]`).count()) === 1, `vignette ${zone} présente`)
-  }
+  // ── Vignettes à côté de la main : dépôt au cimetière, pioche, ouverture du cimetière ──
   const tileGrave = tiles.locator('[data-zone="graveyard"]')
   const graveBefore = Number(await tileGrave.getAttribute('data-count'))
   const dumped = page.locator('[data-zone="hand"] [data-card-id]').first()
@@ -419,8 +423,6 @@ try {
   await tileGrave.click()
   check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'vignette Cim. : un clic ouvre tout le cimetière')
   await page.keyboard.press('Escape')
-  await pilesBeside(false)
-  check((await page.locator('[data-pile-tiles]').count()) === 0 && (await page.locator('[data-column] [data-zone="library"]').count()) === 1, 'réglage décoché : retour à la colonne')
 
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)
   console.log('\nTout est OK')

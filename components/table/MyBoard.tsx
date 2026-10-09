@@ -7,8 +7,8 @@ import { Battlefield, Hand, type ZoneProps } from './zones'
 
 /**
  * Mon plateau : ma colonne à gauche, puis mon champ de bataille et ma main sur toute la largeur restante.
- * Réglage « Piles à côté de la main » : bibliothèque, cimetière, exil et commandement en vignettes à droite
- * de la main (au-dessus sous 640 px) ; la colonne ne garde que la ligne portrait.
+ * Par défaut, bibliothèque, cimetière, exil et commandement en vignettes à droite de la main (au-dessus sous 640 px),
+ * et la colonne ne garde que la ligne portrait ; réglage « Piles dans la colonne » : l'ancienne disposition.
  */
 export default function MyBoard(props: Omit<ZoneProps, 'player'> & {
   player: string
@@ -20,7 +20,7 @@ export default function MyBoard(props: Omit<ZoneProps, 'player'> & {
   onPile: (zone: 'graveyard' | 'exile', title: string) => void
 }) {
   const { onLibraryMenu, onHandMenu, onPile, me, portrait, ...zoneProps } = props
-  const beside = zoneProps.settings?.pilesBesideHand ?? false
+  const beside = zoneProps.settings?.pilesBesideHand ?? true
   const titles = { graveyard: 'Cimetière', exile: 'Exil' }
   return (
     <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-2 p-2" data-board={zoneProps.player}>

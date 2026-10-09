@@ -7,13 +7,13 @@ export type TableSettings = {
   background: string | null
   /** Taille des cartes des grands champs de bataille (1 = taille automatique). */
   cardScale: number
-  /** Bibliothèque, cimetière, exil et commandement en vignettes à droite de ma main (façon Moxfield), plutôt que dans ma colonne. */
+  /** Bibliothèque, cimetière, exil et commandement en vignettes à droite de ma main (façon Moxfield, par défaut) ; false : dans ma colonne (ancienne disposition). */
   pilesBesideHand: boolean
 }
 
 /** Tailles proposées dans Réglages (80 % à 150 %). */
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: false }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -27,7 +27,8 @@ export function parseTableSettings(raw: string | null): TableSettings {
     if (data.background !== null && !(typeof data.background === 'string' && HEX.test(data.background))) return DEFAULT_TABLE_SETTINGS
     // Taille absente (sauvegarde d'avant) ou hors liste : 100 %, sans perdre les autres réglages.
     const cardScale = CARD_SCALES.includes(data.cardScale) ? data.cardScale : 1
-    const pilesBesideHand = data.pilesBesideHand === true
+    // Absent (sauvegarde d'avant) ou illisible : la disposition par défaut, piles à côté de la main.
+    const pilesBesideHand = data.pilesBesideHand !== false
     return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand }
   } catch {
     return DEFAULT_TABLE_SETTINGS

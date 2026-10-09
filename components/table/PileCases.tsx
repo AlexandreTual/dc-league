@@ -213,8 +213,8 @@ const emptyTile = <div className="h-full aspect-[63/88] rounded-[6%] border bord
 const tileClass = 'relative h-full shrink-0 flex flex-col items-center gap-0.5 rounded-lg'
 
 /**
- * Bibliothèque, cimetière, exil et commandement en vignettes au format carte, à droite de ma main (façon Moxfield ;
- * réglage « Piles à côté de la main »). Chacune est une cible de dépôt. Bibliothèque : carte du dessus (glissable,
+ * Bibliothèque, cimetière, exil et commandement en vignettes au format carte, à droite de ma main (façon Moxfield,
+ * disposition par défaut ; réglage « Piles dans la colonne » pour revenir à l'ancienne). Chacune est une cible de dépôt. Bibliothèque : carte du dessus (glissable,
  * double-clic pour piocher, menu au clic droit) ; cimetière et exil : dernière carte arrivée, un clic ouvre la pile ;
  * commandement : les commandants avec leur taxe.
  */
