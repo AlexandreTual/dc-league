@@ -93,8 +93,10 @@ export default function Table({ source, notice, boardWindow }: {
   // `pt` : menu de l'encart force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
   const [menu, setMenu] = useState<{
     x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean }
-    /** Image de la carte (menu ouvert au doigt). */
-    preview?: ReturnType<typeof menuPreview>
+    /** Ouvert au doigt : l'image de la carte est dans le menu. */
+    touch?: boolean
+    /** Menu de la bibliothèque de ce joueur : l'image est celle de la carte du dessus, si elle est visible. */
+    library?: string
   } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
@@ -195,8 +197,18 @@ export default function Table({ source, notice, boardWindow }: {
     return fresh.length > 0 ? fresh : m.entries
   }
 
-  const openMenu = (entries: MenuEntry[], at: MenuPoint) => {
-    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries })
+  const openMenu = (entries: MenuEntry[], at: MenuPoint, library?: string) => {
+    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, touch: at.touch, library })
+  }
+
+  /**
+   * Image du menu ouvert au doigt, recalculée à chaque rendu comme l'aperçu au survol : une carte devenue
+   * cachée (retournée, rendue en main) ou une carte du dessus piochée disparaît du menu resté ouvert.
+   */
+  const menuImage = (m: NonNullable<typeof menu>) => {
+    if (!m.touch) return null
+    const card = m.library ? libraryTop(view, m.library) ?? undefined : m.card && cards.get(m.card.id)
+    return menuPreview(card, catalogs[card?.owner ?? ''], lang)
   }
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
@@ -274,7 +286,7 @@ export default function Table({ source, notice, boardWindow }: {
       const entries = card ? cardMenu(menuCtx, card, zone) : []
       // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
       const preview = at.touch ? menuPreview(card, catalogs[card?.owner ?? ''], lang) : null
-      if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, preview })
+      if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
     onHover: (id) => setHovered(id),
     onPtEdit: canAct ? (id, zone, at) => {
@@ -357,7 +369,7 @@ export default function Table({ source, notice, boardWindow }: {
     setLang(next)
     saveLang(next)
   }
-  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at)
+  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
   return (
@@ -503,7 +515,7 @@ export default function Table({ source, notice, boardWindow }: {
               player={me}
               me={me}
               portrait={portraitFor(me, 'column', true)}
-              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
+              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at, me)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
             />
@@ -528,7 +540,7 @@ export default function Table({ source, notice, boardWindow }: {
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} preview={menu.preview} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} preview={menuImage(menu)} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}

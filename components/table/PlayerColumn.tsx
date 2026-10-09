@@ -27,8 +27,9 @@ export default function PlayerColumn(props: ZoneProps & {
       <div className="max-sm:w-48 shrink-0">
         <PileCases {...zoneProps} onPile={(zone) => onPile(zone, titles[zone])} />
       </div>
-      {/* Hauteur trop juste (adversaire en haut, sur tablette) : la cascade se replie d'abord, puis le commandant ; jamais de débordement. */}
-      <div className="max-sm:hidden min-h-0 shrink overflow-hidden"><CommandBlock {...zoneProps} /></div>
+      {/* Hauteur trop juste (adversaire en haut, sur tablette) : la cascade se replie d'abord, puis le commandant ; jamais de débordement.
+          p-0.5 -m-0.5 : le cadre doré de dépôt (ring-2) reste visible malgré overflow-hidden. */}
+      <div className="max-sm:hidden min-h-0 shrink overflow-hidden p-0.5 -m-0.5"><CommandBlock {...zoneProps} /></div>
       <GraveyardCascade {...zoneProps} className="shrink-[100] max-sm:hidden" onOpen={() => onPile('graveyard', titles.graveyard)} />
       </>}
     </div>

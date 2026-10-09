@@ -66,7 +66,8 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
       {preview && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={preview.image} srcSet={cardSrcSet(preview.image, preview.imageLarge)} sizes={`${PREVIEW_PX}px`} alt={preview.name}
-          className="rounded-xl shadow-card shrink-0" style={{ width: PREVIEW_PX }} data-testid="menu-preview" />
+          // Hauteur fixée (format d'une carte) : le menu est placé avant le chargement de l'image.
+          className="rounded-xl shadow-card shrink-0 aspect-[63/88] object-cover" style={{ width: PREVIEW_PX }} data-testid="menu-preview" />
       )}
       {preview ? (
         <div className="w-60 flex flex-col">

@@ -49,6 +49,8 @@ async function open({ width, height }) {
 /** Page du deck : « Oracle et règles » par l'icône d'une ligne, puis par appui long sur la ligne. */
 async function deckPage({ page, capture, longPress }, width) {
   await page.goto(`${base}/decks/${deckId}`)
+  // Visuels par défaut : les vérifications portent sur la liste.
+  await page.getByRole('button', { name: 'Liste' }).tap()
   const oracleDialog = page.getByRole('dialog', { name: 'Oracle et règles' })
   await page.getByRole('button', { name: /^Oracle et règles : / }).first().tap()
   await oracleDialog.getByText(/Règles indisponibles|Aucune règle|\d{4}/).first().waitFor()
@@ -169,7 +171,7 @@ async function table(tools, { width, height }) {
   // ── Appui long sur la bibliothèque : son menu, sans image ──
   await longPress(library)
   check(await menu.getByRole('menuitem', { name: 'Mélanger' }).isVisible(), 'appui long sur la bibliothèque : son menu (Mélanger…)')
-  check(!(await menu.getByTestId('menu-preview').count()), 'menu de la bibliothèque : pas d’image')
+  check(!(await menu.getByTestId('menu-preview').count()), 'menu de la bibliothèque, carte du dessus cachée : pas d’image')
   check(await menuInScreen(), 'menu de la bibliothèque dans l’écran')
   await tapAside()
   check(!(await menu.isVisible()), 'toucher à côté ferme le menu')
