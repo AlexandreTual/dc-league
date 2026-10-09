@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Sword, Calendar, BookOpen, Shield, Trophy, Clock, LogIn, Users, BarChart2, Menu, X } from 'lucide-react'
 import type { CurrentUser } from '@/lib/auth/types'
+import { loginHref } from '@/lib/auth/validation'
 import UserMenu from './UserMenu'
 
 const navLinks = [
@@ -74,7 +75,7 @@ export default function Navbar({ user }: { user: CurrentUser | null }) {
                 <UserMenu user={user} />
               ) : (
                 <Link
-                  href="/connexion"
+                  href={loginHref(pathname)}
                   aria-label="Connexion"
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-dc-muted hover:text-dc-text hover:bg-dc-border/50 transition-all duration-200"
                 >

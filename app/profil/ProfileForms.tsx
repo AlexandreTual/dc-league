@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ChevronDown } from 'lucide-react'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson, successClass } from '@/components/formStyles'
 
 type Status = { error: string; success: string }
@@ -64,26 +65,32 @@ export default function ProfileForms({ initialName, initialAvatarUrl }: { initia
         <button type="submit" disabled={loading || !name.trim()} className={primaryButtonClass}>Enregistrer</button>
       </form>
 
-      <form onSubmit={savePassword} className={cardClass}>
-        <h2 className="font-fantasy text-lg text-dc-text">Mot de passe</h2>
-        <div>
-          <label className={labelClass} htmlFor="current">Mot de passe actuel</label>
-          <input id="current" type="password" className={inputClass} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="new">Nouveau mot de passe</label>
-          <input id="new" type="password" className={inputClass} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="confirm">Confirmation</label>
-          <input id="confirm" type="password" className={inputClass} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
-        </div>
-        {passwordStatus.error && <p className={errorClass}>{passwordStatus.error}</p>}
-        {passwordStatus.success && <p className={successClass}>{passwordStatus.success}</p>}
-        <button type="submit" disabled={loading || !currentPassword || !newPassword} className={primaryButtonClass}>
-          Changer le mot de passe
-        </button>
-      </form>
+      {/* Replié par défaut : les champs n'apparaissent que si on veut changer de mot de passe. */}
+      <details className="group bg-dc-surface border border-dc-border rounded-2xl">
+        <summary className="flex items-center justify-between gap-2 cursor-pointer list-none p-6 font-fantasy text-lg text-dc-text [&::-webkit-details-marker]:hidden">
+          Changer mon mot de passe
+          <ChevronDown className="w-5 h-5 text-dc-muted transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <form onSubmit={savePassword} className="px-6 pb-6 space-y-4">
+          <div>
+            <label className={labelClass} htmlFor="current">Mot de passe actuel</label>
+            <input id="current" type="password" className={inputClass} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="new">Nouveau mot de passe</label>
+            <input id="new" type="password" className={inputClass} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="confirm">Confirmation</label>
+            <input id="confirm" type="password" className={inputClass} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+          </div>
+          {passwordStatus.error && <p className={errorClass}>{passwordStatus.error}</p>}
+          {passwordStatus.success && <p className={successClass}>{passwordStatus.success}</p>}
+          <button type="submit" disabled={loading || !currentPassword || !newPassword} className={primaryButtonClass}>
+            Changer le mot de passe
+          </button>
+        </form>
+      </details>
     </div>
   )
 }
