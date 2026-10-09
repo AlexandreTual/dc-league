@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createLongPress, LONG_PRESS_MS, menuPosition, previewBox } from './touch'
+import { createLongPress, LONG_PRESS_MS, menuGesture, menuPosition, previewBox } from './touch'
 
 describe('createLongPress', () => {
   beforeEach(() => { vi.useFakeTimers() })
@@ -96,5 +96,36 @@ describe('previewBox', () => {
     const box = previewBox({ width: 812, height: 375 })!
     expect(box.height).toBe(375 - 32)
     expect(box.left).toBeCloseTo((812 - box.width) / 2)
+  })
+})
+
+describe('menuGesture : menu ouvert au doigt', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Pas de navigateur dans les tests : fenêtre et document réduits aux écouteurs d'événements.
+    vi.stubGlobal('window', new EventTarget())
+    vi.stubGlobal('document', new EventTarget())
+    vi.stubGlobal('KeyboardEvent', class extends Event {})
+  })
+  afterEach(() => {
+    vi.runAllTimers()
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('appui long : le point porte touch', () => {
+    const open = vi.fn()
+    const down = { pointerType: 'touch', nativeEvent: new Event('pointerdown'), clientX: 10, clientY: 20 }
+    menuGesture(open).onPointerDown!(down as unknown as React.PointerEvent)
+    vi.advanceTimersByTime(LONG_PRESS_MS)
+    expect(open).toHaveBeenCalledWith({ clientX: 10, clientY: 20, touch: true })
+  })
+
+  it('clic droit à la souris : pas de touch', () => {
+    const open = vi.fn()
+    vi.advanceTimersByTime(2000) // loin de l'appui long du test précédent (contextmenu d'Android ignoré)
+    const click = { preventDefault: () => {}, nativeEvent: new Event('contextmenu'), clientX: 30, clientY: 40 }
+    menuGesture(open).onContextMenu!(click as unknown as React.MouseEvent)
+    expect(open).toHaveBeenCalledWith({ clientX: 30, clientY: 40 })
   })
 })

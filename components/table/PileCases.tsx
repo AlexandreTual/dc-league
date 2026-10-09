@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
+import { useDndContext } from '@dnd-kit/core'
 import { cardInfo, taxOf } from '@/lib/game/apply'
 import { commanderPlace, frameOf, graveyardTail } from '@/lib/game/player-summary'
 import type { Catalog, CardView, VisibleCard, ZoneRef } from '@/lib/game/types'
@@ -21,7 +23,7 @@ function frameColor(catalog: Catalog | undefined, card: VisibleCard): string {
   return entry ? FRAMES[frameOf(entry.en.colors, entry.en.type_line)] : FRAMES.colorless
 }
 
-const caseClass = 'min-w-0 flex flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1 text-dc-text'
+const caseClass = 'min-w-0 tablet:min-h-11 flex flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1 text-dc-text'
 const number = 'text-lg font-bold tabular-nums leading-none'
 const label = 'text-[10px] leading-none text-dc-muted'
 
@@ -31,7 +33,7 @@ type PileProps = ZoneProps & {
   onPile: (zone: 'graveyard' | 'exile') => void
   /** Pose `data-zone="hand"` sur la case Main (bandeau : aucune autre main affichée). */
   handZone?: boolean
-  /** 2 : cases sur deux rangées (colonne étroite d'un bandeau). */
+  /** 2 : cases sur deux rangées (colonne étroite d'un bandeau) ; toujours sur tablette. */
   cols?: 2 | 4
 }
 
@@ -54,7 +56,7 @@ export function PileCases(props: PileProps) {
     : top ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" /> : <CardBack className="h-full" bare />
 
   return (
-    <div className={`grid ${props.cols === 2 ? 'grid-cols-2' : 'grid-cols-4'} gap-1`}>
+    <div className={`grid ${props.cols === 2 ? 'grid-cols-2' : 'grid-cols-4 tablet:grid-cols-2'} gap-1`}>
       <div className={`${caseClass} border-dc-border bg-dc-bg/60`} {...(props.handZone ? { 'data-zone': 'hand', 'data-player': player } : {})}>
         <span className={number} data-testid="hand-count">{zones.hand.length}</span>
         <span className={label}>Main</span>
@@ -217,6 +219,8 @@ const tileClass = 'relative h-full shrink-0 flex flex-col items-center gap-0.5 r
  * disposition par défaut ; réglage « Piles dans la colonne » pour revenir à l'ancienne). Chacune est une cible de dépôt. Bibliothèque : carte du dessus (glissable,
  * double-clic pour piocher, menu au clic droit) ; cimetière et exil : dernière carte arrivée, un clic ouvre la pile ;
  * commandement : les commandants avec leur taxe.
+ * Sur tablette, seule la bibliothèque reste à côté de la main : cimetière, exil et commandement sont rangés dans un
+ * menu ouvert par le bouton juste au-dessus (avec leurs nombres), et ce menu s'ouvre de lui-même pendant un glisser.
  */
 export function PileTiles(props: ZoneProps & {
   me: string | null
@@ -224,8 +228,30 @@ export function PileTiles(props: ZoneProps & {
   onPile: (zone: 'graveyard' | 'exile') => void
   className?: string
 }) {
-  const { view, player, catalogs, lang, me, onLibraryMenu, onPile } = props
+  const { view, player, catalogs, lang, me, onLibraryMenu } = props
   const zones = view.players[player].zones
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  // Pendant un glisser, le menu (tablette) est ouvert : ses piles sont des cibles de dépôt.
+  const { active } = useDndContext()
+  const shown = open || active !== null
+  const onPile = (zone: 'graveyard' | 'exile') => {
+    setOpen(false)
+    props.onPile(zone)
+  }
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
   const library = useZone({ player, zone: 'library' })
   const graveyard = useZone({ player, zone: 'graveyard' })
   const exile = useZone({ player, zone: 'exile' })
@@ -251,9 +277,13 @@ export function PileTiles(props: ZoneProps & {
   }
 
   return (
-    <div className={`flex justify-end gap-1.5 ${props.className ?? ''}`} data-pile-tiles={player}>
+    <div ref={ref} className={`relative flex justify-end gap-1.5 tablet:flex-col tablet:items-center tablet:gap-1 ${props.className ?? ''}`} data-pile-tiles={player}>
+      <button className="hidden tablet:flex h-11 shrink-0 items-center gap-1 px-2 rounded-lg border border-dc-border bg-dc-bg/60 text-xs text-dc-text whitespace-nowrap tabular-nums"
+        aria-expanded={shown} aria-label="Cimetière, exil et commandement" onClick={() => setOpen((o) => !o)} data-testid="piles-toggle">
+        Cim. {zones.graveyard.length} · Exil {zones.exile.length} · Cmd {zones.command.length}
+      </button>
       <div ref={library.setNodeRef} data-zone="library" data-player={player} data-count={zones.library.count}
-        className={`${tileClass} cursor-context-menu ${longPressClass} ${library.highlight}`} title="Bibliothèque" {...menuGesture(onLibraryMenu)}>
+        className={`${tileClass} tablet:h-auto tablet:flex-1 tablet:min-h-0 cursor-context-menu ${longPressClass} ${library.highlight}`} title="Bibliothèque" {...menuGesture(onLibraryMenu)}>
         <Tile label="Bib." count={zones.library.count}>
           {zones.library.count === 0 ? emptyTile : canDrawTop ? (
             <Draggable id={topId(player)} from={libraryRef} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
@@ -264,6 +294,9 @@ export function PileTiles(props: ZoneProps & {
           )}
         </Tile>
       </div>
+      {/* À la souris, les vignettes suivent la bibliothèque ; sur tablette, menu au-dessus du bouton. */}
+      <div className={`contents tablet:absolute tablet:bottom-full tablet:right-0 tablet:mb-1 tablet:z-[55] tablet:h-44 tablet:gap-1.5 tablet:p-1.5 tablet:rounded-xl tablet:border tablet:border-dc-border tablet:bg-dc-surface tablet:shadow-card ${shown ? 'tablet:flex' : 'tablet:hidden'}`}
+        data-testid="piles-menu">
       <div ref={graveyard.setNodeRef} data-zone="graveyard" data-player={player} data-count={zones.graveyard.length}
         className={`${tileClass} cursor-pointer ${graveyard.highlight}`} title="Cimetière" onClick={() => onPile('graveyard')}>
         <Tile label="Cim." count={zones.graveyard.length}>{last('graveyard')}</Tile>
@@ -282,6 +315,7 @@ export function PileTiles(props: ZoneProps & {
             </Draggable>
           ))}
         </Tile>
+      </div>
       </div>
     </div>
   )
