@@ -43,6 +43,27 @@ async function open({ width, height }) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
       await page.waitForTimeout(150)
     },
+    /** Glisser au doigt : appui de 350 ms, petit déplacement (le glisser démarre), puis jusqu'au point donné par `to()`. */
+    async drag(locator, to) {
+      const box = await locator.boundingBox()
+      let point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+      const move = async (target, steps) => {
+        const start = point
+        for (let i = 1; i <= steps; i++) {
+          point = { x: start.x + ((target.x - start.x) * i) / steps, y: start.y + ((target.y - start.y) * i) / steps }
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] })
+          await page.waitForTimeout(16)
+        }
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
+      await page.waitForTimeout(350)
+      await move({ x: point.x, y: point.y - 40 }, 5)
+      await page.waitForTimeout(100)
+      await move(await to(), 15)
+      await page.waitForTimeout(100)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await page.waitForTimeout(400)
+    },
   }
 }
 
@@ -68,13 +89,16 @@ async function deckPage({ page, capture, longPress }, width) {
   check(true, 'clic à côté : fenêtre fermée')
 }
 
-/** La table en paysage : zones tactiles, aperçu dans le menu, mulligan. */
+/** La table en paysage : zones tactiles, piles rangées dans un menu, aperçu dans le menu d'une carte, mulligan, ancienne disposition. */
 async function table(tools, { width, height }) {
-  const { page, capture, longPress } = tools
+  const { page, capture, longPress, drag } = tools
   const size = `${width} × ${height}`
   const hand = page.locator('[data-zone="hand"] [data-card-id]')
   const column = page.locator('[data-board] [data-column]').first()
-  const library = column.locator('[data-zone="library"]')
+  const library = page.locator('[data-board] [data-zone="library"]').first()
+  const tiles = page.locator('[data-board] [data-pile-tiles]').first()
+  const pilesMenu = tiles.getByTestId('piles-menu')
+  const toggle = tiles.getByTestId('piles-toggle')
   const libraryCount = async () => Number(await library.getAttribute('data-count'))
   const menu = page.getByRole('menu')
   const menuInScreen = async () => {
@@ -106,14 +130,16 @@ async function table(tools, { width, height }) {
     const box = await button.boundingBox()
     check(box.height >= TOUCH && box.width >= TOUCH, `« ${name} » : au moins ${TOUCH} px (${Math.round(box.width)} × ${Math.round(box.height)})`)
   }
-  const cases = {
-    main: await column.getByTestId('hand-count').locator('..').boundingBox(),
-    bib: await library.boundingBox(),
-    exil: await column.locator('[data-zone="exile"]').boundingBox(),
-  }
-  check(Object.values(cases).every((b) => b.height >= TOUCH), `cases Main, Bib., Exil d’au moins ${TOUCH} px de haut`)
-  check(Math.abs(cases.main.y - cases.bib.y) < 2 && cases.bib.x > cases.main.x && Math.abs(cases.exil.x - cases.bib.x) < 2 && cases.exil.y > cases.bib.y,
-    'cases sur deux colonnes (Main, Bib. / Cim., Exil)')
+  // ── Disposition par défaut : la bibliothèque seule à côté de la main, les autres piles dans un menu juste au-dessus ──
+  check(!(await column.locator('[data-zone]').count()), 'colonne : la ligne portrait seule')
+  const libraryBox = await library.boundingBox()
+  check(libraryBox.height >= TOUCH && libraryBox.width >= TOUCH, `bibliothèque à côté de la main, d’au moins ${TOUCH} px`)
+  check(!(await pilesMenu.isVisible()), 'cimetière, exil et commandement rangés (menu fermé)')
+  const toggleBox = await toggle.boundingBox()
+  check(toggleBox.height >= TOUCH && toggleBox.y + toggleBox.height <= libraryBox.y + 1, `bouton des piles juste au-dessus de la bibliothèque, ${TOUCH} px`)
+  check(/Cim\. 0 · Exil 0 · Cmd 1/.test(await toggle.innerText()), 'bouton : nombres des piles (Cim. 0 · Exil 0 · Cmd 1)')
+  const handWidth = (await page.locator('[data-board] [data-zone="hand"]').first().boundingBox()).width
+  check(handWidth >= width * 0.55, `main sur presque toute la largeur (${Math.round(handWidth)} px)`)
   const barHeights = await page.getByTestId('top-bar').locator('a, button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))
   check(barHeights.length > 0 && barHeights.every((h) => h >= TOUCH), `boutons de la barre d’au moins ${TOUCH} px (${Math.round(Math.min(...barHeights))} px)`)
   await capture('depart')
@@ -176,6 +202,46 @@ async function table(tools, { width, height }) {
   await tapAside()
   check(!(await menu.isVisible()), 'toucher à côté ferme le menu')
 
+  // ── Menu des piles : par le bouton, puis ouvert de lui-même pendant un glisser vers le cimetière ──
+  await toggle.tap()
+  await page.waitForTimeout(200)
+  check(await pilesMenu.isVisible(), 'bouton : menu des piles ouvert')
+  for (const [zone, name] of [['graveyard', 'Cim.'], ['exile', 'Exil'], ['command', 'Cmd']]) {
+    const box = await pilesMenu.locator(`[data-zone="${zone}"]`).boundingBox()
+    check(box.height >= TOUCH && box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height,
+      `menu des piles : ${name} dans l’écran, d’au moins ${TOUCH} px`)
+  }
+  await capture('menu-piles')
+  await tapAside()
+  check(!(await pilesMenu.isVisible()), 'toucher à côté ferme le menu des piles')
+  const graveyard = pilesMenu.locator('[data-zone="graveyard"]')
+  const graveyardBefore = Number(await graveyard.getAttribute('data-count'))
+  let openedDuringDrag = false
+  await drag(hand.first(), async () => {
+    openedDuringDrag = await pilesMenu.isVisible()
+    const box = await graveyard.boundingBox()
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  })
+  check(openedDuringDrag, 'glisser : le menu des piles s’ouvre de lui-même')
+  check(Number(await graveyard.getAttribute('data-count')) === graveyardBefore + 1, 'carte déposée au cimetière')
+  check(!(await pilesMenu.isVisible()), 'après le glisser : menu des piles refermé')
+  check(/Cim\. 1 /.test(await toggle.innerText()), 'bouton : Cim. 1')
+
+  // ── Ancienne disposition (réglage « Piles dans la colonne ») : cases sur deux colonnes ──
+  await page.evaluate(() => localStorage.setItem('dc-table-settings', JSON.stringify({ grid: true, background: null, cardScale: 1, pilesBesideHand: false })))
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).tap()
+  await hand.first().waitFor()
+  const cases = {
+    main: await column.getByTestId('hand-count').locator('..').boundingBox(),
+    bib: await column.locator('[data-zone="library"]').boundingBox(),
+    exil: await column.locator('[data-zone="exile"]').boundingBox(),
+  }
+  check(Object.values(cases).every((b) => b.height >= TOUCH), `ancienne disposition : cases Main, Bib., Exil d’au moins ${TOUCH} px de haut`)
+  check(Math.abs(cases.main.y - cases.bib.y) < 2 && cases.bib.x > cases.main.x && Math.abs(cases.exil.x - cases.bib.x) < 2 && cases.exil.y > cases.bib.y,
+    'ancienne disposition : cases sur deux colonnes (Main, Bib. / Cim., Exil)')
+  check(!(await tiles.count()), 'ancienne disposition : pas de vignettes à côté de la main')
+  await capture('ancienne-disposition')
 }
 
 try {

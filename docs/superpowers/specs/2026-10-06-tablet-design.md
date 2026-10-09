@@ -66,10 +66,19 @@ Sur tablette tenue en portrait, la table est remplacée par un message centré :
 
 Le message parle de l’écran, pas de la tablette : un téléphone tenu droit (hors cible, mais pointeur tactile lui aussi) l’affiche également. En paysage, la table n’y est pas adaptée.
 
+## 5 bis. Piles à côté de la main (disposition par défaut depuis le 9 octobre)
+
+Décidé avec l'utilisateur après la fusion de la disposition façon Moxfield (PR #109). Sur tablette, la main serait trop étroite avec les quatre vignettes à côté (environ 420 px en 1024 × 768) :
+
+- **seule la bibliothèque** reste à côté de la main, en bas à droite (mêmes gestes : appui long pour son menu, carte du dessus glissable) ;
+- **juste au-dessus**, un bouton de 44 px affiche les nombres : « Cim. 3 · Exil 0 · Cmd 1 ». Il ouvre un menu avec les vignettes Cim., Exil et Cmd au format carte (on en tire une carte ; un toucher sur Cim. ou Exil ouvre la pile et referme le menu). Un toucher à côté le ferme ;
+- **pendant un glisser**, le menu s'ouvre de lui-même (ses vignettes sont des cibles de dépôt) et se referme après ;
+- la main prend la largeur libérée. À la souris, rien ne change. L'ancienne disposition (réglage « Piles dans la colonne ») garde la colonne décrite plus haut.
+
 ## 6. Vérifications
 
-- `npm test` : tests de l'image du menu (`menuPreview`, jamais pour une carte cachée) et du repère « ouvert au doigt » de l'appui long.
+- `npm test` : tests de l'image du menu (`cardPreview`, jamais pour une carte cachée) et du repère « ouvert au doigt » de l'appui long.
 - `npx tsc --noEmit`, `npm run lint`, `npx @cloudflare/next-on-pages`.
 - `playtest-check` et `online-check` inchangés à la souris.
-- **Nouveau contrôle `scripts/playtest-tablet-check.mjs`**, à 1180 × 820 puis 1024 × 768 (écran tactile émulé) : colonne de 188 px ; −/+ et cases d'au moins 44 px, cases sur deux colonnes ; boutons de la barre d'au moins 44 px ; pas d'aperçu au toucher ; appui long sur une carte de la main : menu avec l'image et « Fermer », dans l'écran ; « Fermer » le ferme ; menu de la bibliothèque ; mulligan par le menu ; en portrait (820 × 1180), le message remplace la table. Il reprend aussi les contrôles de la page du deck (« Oracle et règles » à l'appui long).
+- **Nouveau contrôle `scripts/playtest-tablet-check.mjs`**, à 1180 × 820 puis 1024 × 768 (écran tactile émulé) : colonne de 188 px ; −/+ d'au moins 44 px ; disposition par défaut : bibliothèque seule à côté de la main, bouton des piles au-dessus, menu des piles dans l'écran, ouvert de lui-même pendant un glisser vers le cimetière ; ancienne disposition : cases d'au moins 44 px sur deux colonnes ; boutons de la barre d'au moins 44 px ; pas d'aperçu au toucher ; appui long sur une carte de la main : menu avec l'image et « Fermer », dans l'écran ; « Fermer » le ferme ; menu de la bibliothèque ; mulligan par le menu ; en portrait (820 × 1180), le message remplace la table. Il reprend aussi les contrôles de la page du deck (« Oracle et règles » à l'appui long).
 - Captures jointes à la PR : mode test en 1180 × 820 et 1024 × 768, menu avec aperçu, message en portrait.
