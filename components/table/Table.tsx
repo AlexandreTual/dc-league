@@ -571,8 +571,9 @@ export default function Table({ source, notice, boardWindow }: {
       )}
       {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
-      {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
-      <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
+      {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière.
+          Exception : le mode test sur téléphone tenu droit, qui a sa disposition (variante `phone`). */}
+      <div className={`hidden tablet-portrait:flex ${source.local ? 'phone:hidden' : ''} fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold`} data-testid="rotate">
         Tourne l’écran en paysage pour jouer.
       </div>
     </div>

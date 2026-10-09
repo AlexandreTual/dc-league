@@ -42,6 +42,8 @@ const config: Config = {
     plugin(({ addVariant }) => {
       addVariant('tablet', '@media (pointer: coarse)')
       addVariant('tablet-portrait', '@media (pointer: coarse) and (orientation: portrait)')
+      // Téléphone tenu en vertical (mode test seulement : en ligne, le message « Tourne l'écran » le couvre). Déclaré après les deux autres : il l'emporte.
+      addVariant('phone', '@media (pointer: coarse) and (orientation: portrait) and (max-width: 639px)')
     }),
   ],
 }
