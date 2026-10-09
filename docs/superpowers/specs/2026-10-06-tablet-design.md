@@ -62,7 +62,9 @@ Tous les boutons de la barre font **44 px de haut** sur tablette (le texte ne ch
 
 ## 5. Tablette en portrait
 
-Sur tablette tenue en portrait, la table est remplacée par un message centré : « Tourne ta tablette en paysage pour jouer. » La partie continue (en ligne, rien n'est envoyé au serveur) ; elle réapparaît dès que la tablette est tournée.
+Sur tablette tenue en portrait, la table est remplacée par un message centré : « Tourne l’écran en paysage pour jouer. » La partie continue (en ligne, rien n'est envoyé au serveur) ; elle réapparaît dès que la tablette est tournée.
+
+Le message parle de l’écran, pas de la tablette : un téléphone tenu droit (hors cible, mais pointeur tactile lui aussi) l’affiche également. En paysage, la table n’y est pas adaptée.
 
 ## 6. Vérifications
 

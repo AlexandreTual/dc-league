@@ -95,7 +95,7 @@ async function table(tools, { width, height }) {
   check(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), `${size} : écran tactile émulé (pointer: coarse)`)
   check((await hand.count()) === 7, 'main de départ de 7 cartes')
   check(await page.evaluate(() => document.scrollingElement.scrollWidth <= innerWidth), 'pas de défilement horizontal')
-  check(!(await page.getByTestId('rotate').isVisible()), 'paysage : pas de message « Tourne ta tablette »')
+  check(!(await page.getByTestId('rotate').isVisible()), 'paysage : pas de message « Tourne l’écran »')
 
   // ── Colonne resserrée et zones tactiles ──
   const columnWidth = (await column.boundingBox()).width
@@ -191,7 +191,7 @@ try {
   await tools.page.goto(`${base}/decks/${deckId}/test`)
   const rotate = tools.page.getByTestId('rotate')
   await rotate.waitFor()
-  check((await rotate.innerText()).includes('Tourne ta tablette en paysage'), 'portrait : « Tourne ta tablette en paysage pour jouer. »')
+  check((await rotate.innerText()).includes('Tourne l’écran en paysage'), 'portrait : « Tourne l’écran en paysage pour jouer. »')
   const box = await rotate.boundingBox()
   check(box.x === 0 && box.y === 0 && box.width === 820 && box.height === 1180, 'portrait : le message couvre tout l’écran')
   await tools.capture('portrait')

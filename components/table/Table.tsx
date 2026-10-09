@@ -571,9 +571,9 @@ export default function Table({ source, notice, boardWindow }: {
       )}
       {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
-      {/* Tablette en portrait : la table ne tient qu'en paysage ; la partie continue derrière. */}
+      {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
       <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
-        Tourne ta tablette en paysage pour jouer.
+        Tourne l’écran en paysage pour jouer.
       </div>
     </div>
   )
