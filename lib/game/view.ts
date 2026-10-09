@@ -11,6 +11,7 @@ function visibleCard(state: GameState, id: string): VisibleCard {
   return {
     hidden: false, id: c.id, owner: c.owner, ref: c.ref, token: c.token, isCommander: c.isCommander,
     tapped: c.tapped, flipped: c.flipped, faceDown: c.faceDown, counters: c.counters, x: c.x, y: c.y,
+    ...(c.ptMod ? { ptMod: c.ptMod } : {}),
   }
 }
 

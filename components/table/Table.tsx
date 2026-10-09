@@ -8,7 +8,7 @@ import {
 import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
-import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { cardMenu, handMenu, libraryMenu, ptMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -90,8 +90,9 @@ export default function Table({ source, notice, boardWindow }: {
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
+  // `pt` : menu de l'encart force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
   const [menu, setMenu] = useState<{
-    x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef }
+    x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean }
     /** Image de la carte (menu ouvert au doigt). */
     preview?: ReturnType<typeof menuPreview>
   } | null>(null)
@@ -177,20 +178,20 @@ export default function Table({ source, notice, boardWindow }: {
       if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands) }
       if (e.kind === 'stepper') {
         const set = e.set
-        return { kind: 'stepper', label: e.label, value: e.value, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
+        return { kind: 'stepper', label: e.label, value: e.value, signed: e.signed, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
           onSet: set && ((n: number) => run(set(n))) }
       }
       return e
     })
 
   /** Menu d'une carte reconstruit à chaque rendu : les marqueurs affichés (et l'écart d'une valeur tapée) suivent la partie. */
-  const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef } }): MenuEntry[] => {
-    const { id, zone } = m.card ?? {}
+  const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef; pt?: boolean } }): MenuEntry[] => {
+    const { id, zone, pt } = m.card ?? {}
     if (!id || !zone || zone.zone === 'library') return m.entries
     const card = cards.get(id)
     const z = zone.zone
     if (!card || !view.players[zone.player]?.zones[z].some((c) => !c.hidden && c.id === id)) return m.entries
-    const fresh = cardMenu(menuCtx, card, zone)
+    const fresh = pt ? ptMenu(menuCtx, card) : cardMenu(menuCtx, card, zone)
     return fresh.length > 0 ? fresh : m.entries
   }
 
@@ -276,6 +277,11 @@ export default function Table({ source, notice, boardWindow }: {
       if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, preview })
     },
     onHover: (id) => setHovered(id),
+    onPtEdit: canAct ? (id, zone, at) => {
+      const card = cards.get(id)
+      const entries = card ? ptMenu(menuCtx, card) : []
+      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone, pt: true } })
+    } : undefined,
   }
 
   function onDragStart(e: DragStartEvent) {

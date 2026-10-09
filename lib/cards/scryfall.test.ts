@@ -234,6 +234,14 @@ describe('toCardRow', () => {
     expect(row.printed_name).toBeNull()
   })
 
+  it('force et endurance : de la carte, sinon du recto ; celles de chaque face ; null sans', () => {
+    expect(toCardRow({ ...collection.data[0], power: '2', toughness: '3' })).toMatchObject({ power: '2', toughness: '3' })
+    expect(toCardRow(collection.data[0])).toMatchObject({ power: null, toughness: null })
+    const row = toCardRow((fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0])
+    expect(row).toMatchObject({ power: '1', toughness: '1' })
+    expect(row.faces!.map((f) => [f.power, f.toughness])).toEqual([['1', '1'], ['3', '2']])
+  })
+
   it('nom français d’une carte recto-verso : noms imprimés des faces', () => {
     const card = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
     const fr: ScryfallCard = {

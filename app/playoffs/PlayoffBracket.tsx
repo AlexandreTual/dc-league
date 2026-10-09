@@ -1,6 +1,7 @@
 import { DbPlayoff, DbPlayer } from '@/lib/db'
 import { CheckCircle, Clock, ExternalLink, Trophy, Award } from 'lucide-react'
 import Image from 'next/image'
+import { deckSiteName } from '@/lib/cards/deck-link'
 
 type DeckInfo = {
   deck_name: string | null
@@ -65,7 +66,7 @@ function PlayerSlot({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
-                title="Voir sur Moxfield"
+                title={`Voir sur ${deckSiteName(deck.moxfield_url) ?? 'le site du deck'}`}
               >
                 <ExternalLink className="w-3 h-3" />
               </a>

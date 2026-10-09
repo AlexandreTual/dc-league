@@ -57,7 +57,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 
 ## Prochains chantiers
 
-1. Import par lien Moxfield / Archidekt — **fait** (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché).
+1. Import par lien Moxfield / Archidekt — **fait** (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché). Import en un clic : on crée le deck avec son nom et son lien (« Créer et importer »), la liste est lue puis complétée par Scryfall et enregistrée sans autre étape ; pour mettre à jour la liste, bouton « Réimporter » sur la page du deck (zone de collage si le deck n’a pas de lien).
 2. Mot de passe oublié et invitations par mail — spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md` ; tâche 1 faite, tâches 2 à 5 en issues (à enchaîner dans l'ordre).
 3. Jetons copies depuis les cartes en jeu — **fait** (clic droit sur une carte visible du champ de bataille, la sienne ou celle d'un adversaire).
 4. Sous-projet 4 : matchs de ligue en ligne — conception à faire (issue de conception).
@@ -66,6 +66,8 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 7. Colonne joueur façon MTGO (chantier #80) — **terminé** : spec `specs/2026-10-06-player-column-design.md`, plan `plans/2026-10-06-player-column.md` ; maquette https://claude.ai/artifact/SLrswVXfAH4ezsCXkK2AQj. Ma colonne avec la vie en gros, rouge à 10 ou moins, cases chiffrées et cimetière en cascade (#83) ; colonne de l'adversaire en Duel (#84) ; colonne compacte à gauche de chaque bandeau, bandeaux sur une rangée et cartes agrandies à 3 à 5 joueurs, même colonne pour l'adversaire agrandi (#85).
 8. Adaptation tablette de la table (#81) — **terminé** : spec `specs/2026-10-06-tablet-design.md`, plan `plans/2026-10-06-tablet.md`. Tablette en paysage (1180 × 820, 1024 × 768) : colonne de 188 px, −/+ et cases de 44 px, barre du haut en 44 px, aperçu de la carte dans le menu ouvert par l'appui long (bouton « Fermer »), message « Tourne ta tablette » en portrait. Le téléphone n'est plus une cible (`playtest-tablet-check` remplace `playtest-mobile-check`).
 9. Plateau d'un adversaire dans une fenêtre à part, en partie en ligne (#82) — **fait** : spec `specs/2026-10-06-board-window-design.md`, plan `plans/2026-10-06-board-window.md` ; bouton « Ouvrir dans une fenêtre » sur ordinateur (ligne portrait et bulle « ⋯ » de chaque adversaire), une fenêtre par adversaire (`/tables/<id>/plateau/<joueur>`), « Ramener » des deux côtés ; traité avant la tablette, indépendante.
+10. Vrai plein écran du navigateur (#91) — **fait** : bouton « Plein écran » / « Quitter le plein écran » dans la barre de la table (mode test et en ligne), API Fullscreen, suit Échap ; message si le navigateur refuse (iPhone notamment).
+11. Force et endurance modifiables sur la carte (#110) — **fait** : encart en bas à droite de chaque carte en jeu (imprimée, 2/2 face cachée, + marqueurs + modification ; vert / rouge), toucher l'encart pour la modifier (− / +, saisie directe, « Réinitialiser »), aussi dans le menu de la carte ; tout joueur peut modifier ; remise à zéro en quittant le champ de bataille, jamais en fin de tour. Force et endurance enregistrées à l'import (migration 0012), rattrapées chez Scryfall pour les decks déjà importés à l'ouverture du mode test ou au lancement d'une partie.
 
 ## Idées pour plus tard
 
@@ -80,4 +82,6 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 - Nouvelle table : vérifier sur son écran (et en Duel comme à 4) la taille des vignettes de piles et le réglage « Taille des cartes » avec les vraies images de cartes.
 - Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
 - Fenêtre à part (#82) : sur deux écrans réels, sortir le plateau d'un adversaire, le déplacer sur le second écran, jouer quelques tours, puis le ramener ; vérifier aussi le message quand le navigateur bloque la fenêtre.
+- Force et endurance (#110) : ouvrir le mode test d'un deck importé avant la mise en ligne (la première ouverture relit les cartes chez Scryfall, un peu plus lente) et vérifier les valeurs de quelques créatures, d'une carte recto verso transformée et d'une carte à force variable (`*`) ; en partie en ligne, modifier la force d'une créature adverse depuis son téléphone.
+- Plein écran (#91) : sur ordinateur et sur Android, entrer puis sortir (bouton et Échap) ; sur iPhone, vérifier que le message de refus s'affiche.
 - Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).

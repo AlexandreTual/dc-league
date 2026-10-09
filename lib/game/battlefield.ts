@@ -5,11 +5,12 @@ import type { CardView, Catalog, VisibleCard } from './types'
 export type Stack = { key: string; cards: VisibleCard[]; count: number }
 export type BattlefieldRows = { creatures: Stack[]; others: Stack[]; lands: Stack[]; hidden: number }
 
-/** Cartes identiques dans le même état : même propriétaire, même carte (ou jeton), même engagement, face, marqueurs. */
+/** Cartes identiques dans le même état : même propriétaire, même carte (ou jeton), même engagement, face, marqueurs, force/endurance. */
 function stackKey(card: VisibleCard): string {
   const what = card.ref !== null ? `r${card.ref}` : `t:${card.token?.name ?? ''}`
   const { plus, minus, other } = card.counters
-  return [card.owner, what, card.tapped, card.flipped, card.faceDown, plus, minus, other].join('|')
+  const pt = card.ptMod ? `${card.ptMod.power}/${card.ptMod.toughness}` : ''
+  return [card.owner, what, card.tapped, card.flipped, card.faceDown, plus, minus, other, pt].join('|')
 }
 
 function rowOf(card: VisibleCard, catalogs: Record<string, Catalog>): 'creatures' | 'others' | 'lands' {

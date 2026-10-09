@@ -196,3 +196,93 @@ export function GraveyardLast(props: ZoneProps & { onOpen: () => void }) {
     </div>
   )
 }
+
+/** Une vignette au format carte, avec son nom et son nombre dessous (piles à côté de la main). */
+function Tile(props: { label: string; count: number; span?: number; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="relative h-[calc(100%-14px)]" style={{ aspectRatio: `${63 * (props.span ?? 1)} / 88` }}>
+        {props.children}
+      </div>
+      <span className="text-[10px] leading-none text-dc-muted whitespace-nowrap">{props.label} {props.count}</span>
+    </>
+  )
+}
+
+const emptyTile = <div className="h-full aspect-[63/88] rounded-[6%] border border-dashed border-dc-border" />
+const tileClass = 'relative h-full shrink-0 flex flex-col items-center gap-0.5 rounded-lg'
+
+/**
+ * Bibliothèque, cimetière, exil et commandement en vignettes au format carte, à droite de ma main (façon Moxfield,
+ * disposition par défaut ; réglage « Piles dans la colonne » pour revenir à l'ancienne). Chacune est une cible de dépôt. Bibliothèque : carte du dessus (glissable,
+ * double-clic pour piocher, menu au clic droit) ; cimetière et exil : dernière carte arrivée, un clic ouvre la pile ;
+ * commandement : les commandants avec leur taxe.
+ */
+export function PileTiles(props: ZoneProps & {
+  me: string | null
+  onLibraryMenu: (at: MenuPoint) => void
+  onPile: (zone: 'graveyard' | 'exile') => void
+  className?: string
+}) {
+  const { view, player, catalogs, lang, me, onLibraryMenu, onPile } = props
+  const zones = view.players[player].zones
+  const library = useZone({ player, zone: 'library' })
+  const graveyard = useZone({ player, zone: 'graveyard' })
+  const exile = useZone({ player, zone: 'exile' })
+  const command = useZone({ player, zone: 'command' })
+  const libraryRef: ZoneRef = { player, zone: 'library' }
+  const commandRef: ZoneRef = { player, zone: 'command' }
+  const top = libraryTop(view, player)
+  const canDrawTop = zones.library.count > 0 && player === me && props.interactive
+  const hoverTop = top ? (h: boolean) => props.handlers.onHover(h ? top.id : null) : undefined
+  const face = top ? <GameCard card={top} catalog={catalogs[top.owner]} lang={lang} className="h-full" /> : <CardBack className="h-full" />
+  const commanders = visible(zones.command)
+  const span = 1 + COMMANDER_SHIFT * Math.max(0, commanders.length - 1)
+  // Dernière carte arrivée : face visible si elle est connue, dos sinon (exil face cachée).
+  const last = (zone: 'graveyard' | 'exile') => {
+    const card = zones[zone][zones[zone].length - 1]
+    if (!card) return emptyTile
+    if (card.hidden) return <CardBack className="h-full" />
+    return (
+      <Draggable {...cardProps(card.id, { player, zone }, props)} className="h-full">
+        <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
+      </Draggable>
+    )
+  }
+
+  return (
+    <div className={`flex justify-end gap-1.5 ${props.className ?? ''}`} data-pile-tiles={player}>
+      <div ref={library.setNodeRef} data-zone="library" data-player={player} data-count={zones.library.count}
+        className={`${tileClass} cursor-context-menu ${longPressClass} ${library.highlight}`} title="Bibliothèque" {...menuGesture(onLibraryMenu)}>
+        <Tile label="Bib." count={zones.library.count}>
+          {zones.library.count === 0 ? emptyTile : canDrawTop ? (
+            <Draggable id={topId(player)} from={libraryRef} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
+              {face}
+            </Draggable>
+          ) : (
+            <div className="h-full" onMouseEnter={() => hoverTop?.(true)} onMouseLeave={() => hoverTop?.(false)}>{face}</div>
+          )}
+        </Tile>
+      </div>
+      <div ref={graveyard.setNodeRef} data-zone="graveyard" data-player={player} data-count={zones.graveyard.length}
+        className={`${tileClass} cursor-pointer ${graveyard.highlight}`} title="Cimetière" onClick={() => onPile('graveyard')}>
+        <Tile label="Cim." count={zones.graveyard.length}>{last('graveyard')}</Tile>
+      </div>
+      <div ref={exile.setNodeRef} data-zone="exile" data-player={player} data-count={zones.exile.length}
+        className={`${tileClass} cursor-pointer ${exile.highlight}`} title="Exil" onClick={() => onPile('exile')}>
+        <Tile label="Exil" count={zones.exile.length}>{last('exile')}</Tile>
+      </div>
+      <div ref={command.setNodeRef} data-zone="command" data-player={player} data-count={zones.command.length}
+        className={`${tileClass} ${command.highlight}`} title="Zone de commandement">
+        <Tile label="Cmd" count={zones.command.length} span={span}>
+          {commanders.length === 0 && emptyTile}
+          {commanders.map((card, i) => (
+            <Draggable key={card.id} {...cardProps(card.id, commandRef, props)} className="absolute top-0 h-full" style={{ left: `${(i * COMMANDER_SHIFT * 100) / span}%` }}>
+              <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} tax={taxOf(view, card.id)} className="h-full" />
+            </Draggable>
+          ))}
+        </Tile>
+      </div>
+    </div>
+  )
+}

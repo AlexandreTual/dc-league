@@ -7,7 +7,7 @@ import { menuPosition, touchTarget, type menuPreview } from './touch'
 
 export type MenuItem =
   | { kind: 'action'; label: string; onSelect: () => void }
-  | { kind: 'stepper'; label: string; value: number | string; onChange: (delta: number) => void; onSet?: (value: number) => void }
+  | { kind: 'stepper'; label: string; value: number | string; onChange: (delta: number) => void; onSet?: (value: number) => void; signed?: boolean }
   | { kind: 'separator' }
   | { kind: 'title'; label: string }
 
@@ -92,7 +92,7 @@ function menuItems(items: MenuItem[], onClose: () => void) {
               <span className="flex-1">{item.label}</span>
               <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(-1)} aria-label={`${item.label} moins`}><Minus className="w-3 h-3" /></button>
               {item.onSet
-                ? <NumberField key={`${item.label}:${item.value}`} label={item.label} value={item.value} onSet={item.onSet} />
+                ? <NumberField key={`${item.label}:${item.value}`} label={item.label} value={item.value} onSet={item.onSet} signed={item.signed} />
                 : <span className="w-6 text-center">{item.value}</span>}
               <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(1)} aria-label={`${item.label} plus`}><Plus className="w-3 h-3" /></button>
             </div>
@@ -118,9 +118,10 @@ function menuItems(items: MenuItem[], onClose: () => void) {
 
 /**
  * Valeur d'un compteur modifiable au clavier : sélectionnée au focus, appliquée par Entrée ou en quittant
- * le champ, annulée par Échap (qui ferme le menu). Pavé numérique sur téléphone.
+ * le champ, annulée par Échap (qui ferme le menu). Pavé numérique sur téléphone ; `signed` : signe moins
+ * accepté (force, endurance), avec un clavier qui l'offre.
  */
-function NumberField({ label, value, onSet }: { label: string; value: number | string; onSet: (value: number) => void }) {
+function NumberField({ label, value, onSet, signed = false }: { label: string; value: number | string; onSet: (value: number) => void; signed?: boolean }) {
   const [draft, setDraft] = useState(String(value))
   const commit = () => {
     const n = Number.parseInt(draft, 10)
@@ -130,13 +131,13 @@ function NumberField({ label, value, onSet }: { label: string; value: number | s
   return (
     <input
       type="text"
-      inputMode="numeric"
-      pattern="[0-9]*"
+      inputMode={signed ? 'text' : 'numeric'}
+      pattern={signed ? undefined : '[0-9]*'}
       aria-label={`${label} : nombre`}
       className="w-9 rounded bg-dc-bg border border-dc-border text-center text-dc-text focus:outline-none focus:border-dc-gold [@media(pointer:coarse)]:min-h-8"
       value={draft}
       onFocus={(e) => e.currentTarget.select()}
-      onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+      onChange={(e) => setDraft(signed ? signedDraft(e.target.value) : e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -146,4 +147,10 @@ function NumberField({ label, value, onSet }: { label: string; value: number | s
       }}
     />
   )
+}
+
+/** Saisie d'une valeur signée : un signe moins en tête au plus, puis trois chiffres. */
+function signedDraft(text: string): string {
+  const sign = /^\s*[-−]/.test(text) ? '-' : ''
+  return sign + text.replace(/[^0-9]/g, '').slice(0, 3)
 }
