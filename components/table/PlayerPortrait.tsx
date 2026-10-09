@@ -18,9 +18,9 @@ const SIZES = {
   header: { portrait: 'w-8 h-8', life: 'text-[40px]', name: 'text-xs' },
 }
 
-const lifeButton = `w-6 h-5 flex items-center justify-center rounded border border-dc-border bg-dc-border/50 hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`
-/** Sur tablette : −, + et « ⋯ » en grand sous la ligne portrait (44 px de haut). */
-const bigButton = 'h-11 flex items-center justify-center rounded-lg border border-dc-border bg-dc-border/50 disabled:opacity-30'
+/** −, + et « ⋯ » : petits à la souris ; sur tablette, en grand (44 px de haut) sur une rangée sous la ligne portrait. */
+const lifeButton = `w-6 h-5 tablet:w-auto tablet:h-11 flex items-center justify-center rounded tablet:rounded-lg border border-dc-border bg-dc-border/50 hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`
+const lifeIcon = 'w-3 h-3 tablet:w-5 tablet:h-5'
 
 /**
  * Ligne portrait d'un joueur (colonne ou en-tête de bandeau) : portrait, nom, − et +, vie en gros chiffres
@@ -58,16 +58,6 @@ export default function PlayerPortrait(props: {
   const image = portrait ? cardInfo(catalogs[portrait.owner], portrait, lang) : null
   const badges = playerBadges(view, player, commanderName)
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
-  /** −, + et « ⋯ » : mêmes noms accessibles à la souris et au doigt (un seul jeu affiché à la fois). */
-  const controls = (button: string, icon: string, more = '') => (
-    <>
-      <button className={button} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label="moins : points de vie"><Minus className={icon} /></button>
-      <button className={button} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label="plus : points de vie"><Plus className={icon} /></button>
-      <button className={`${button} ${more}`} aria-label={`Compteurs de ${p.name}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <MoreHorizontal className={icon} />
-      </button>
-    </>
-  )
 
   useEffect(() => {
     if (!open) return
@@ -88,14 +78,15 @@ export default function PlayerPortrait(props: {
 
   return (
     <div className={`relative ${p.eliminated ? 'opacity-50' : ''}`} data-panel={player} ref={ref}>
-      <div className={`flex items-center gap-2 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
+      {/* Grille : portrait | nom | vie, puis −, + et « ⋯ » sous le nom (souris) ou sur toute la largeur (tablette). Un seul jeu de boutons. */}
+      <div className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
         {image && !image.hidden && image.image ? (
-          <div className={`${s.portrait} shrink-0 rounded-md bg-dc-surface bg-no-repeat`} title={image.name}
+          <div className={`${s.portrait} row-span-2 tablet:row-span-1 shrink-0 rounded-md bg-dc-surface bg-no-repeat`} title={image.name}
             style={{ backgroundImage: `url(${image.image})`, backgroundSize: '160% auto', backgroundPosition: '50% 20%' }} />
         ) : (
-          <div className={`${s.portrait} shrink-0 rounded-md bg-dc-purple flex items-center justify-center font-fantasy text-dc-gold`}>{p.name.slice(0, 1).toUpperCase()}</div>
+          <div className={`${s.portrait} row-span-2 tablet:row-span-1 shrink-0 rounded-md bg-dc-purple flex items-center justify-center font-fantasy text-dc-gold`}>{p.name.slice(0, 1).toUpperCase()}</div>
         )}
-        <div className="flex-1 min-w-0 flex flex-col gap-1">
+        <div className="col-start-2 row-start-1 min-w-0 flex flex-col gap-1">
           <div className={`flex items-center gap-1 ${s.name} text-dc-text min-w-0`}>
             {online && <span className={`w-2 h-2 shrink-0 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? 'en ligne' : 'hors ligne'} />}
             {rank > 0 && (
@@ -113,11 +104,16 @@ export default function PlayerPortrait(props: {
           </div>
           {p.eliminated && <span className="text-[10px] text-dc-red-light">éliminé</span>}
           {!p.kept && !p.eliminated && <span className="text-[10px] text-dc-muted italic">choisit sa main…</span>}
-          <div className="flex items-center gap-1 tablet:hidden">{controls(lifeButton, 'w-3 h-3', 'ml-auto')}</div>
         </div>
-        <span className={`${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'}`} data-testid="player-life">{p.life}</span>
+        <span className={`col-start-3 row-start-1 row-span-2 tablet:row-span-1 ${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'}`} data-testid="player-life">{p.life}</span>
+        <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] items-center gap-1 text-dc-text">
+          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label="moins : points de vie"><Minus className={lifeIcon} /></button>
+          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label="plus : points de vie"><Plus className={lifeIcon} /></button>
+          <button className={`${lifeButton} ml-auto tablet:ml-0`} aria-label={`Compteurs de ${p.name}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <MoreHorizontal className={lifeIcon} />
+          </button>
+        </div>
       </div>
-      <div className="hidden tablet:grid grid-cols-[1fr_1fr_44px] gap-1 mt-1 text-dc-text">{controls(bigButton, 'w-5 h-5')}</div>
       {badges.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
           {badges.map((b) => (
