@@ -13,20 +13,30 @@ export function validatePassword(s: string): string | null {
 const REDIRECT_BASE = 'https://dc-league.invalid'
 
 /**
- * Chemin de redirection interne uniquement, sinon /profil.
+ * Chemin de redirection interne uniquement, sinon le salon.
  * Les navigateurs ignorent tabulations et retours à la ligne et lisent `\` comme `/` :
  * on les refuse, puis on vérifie que le chemin reste sur la même origine.
  */
 export function safeRedirectPath(from: string | null | undefined): string {
-  if (!from || !from.startsWith('/') || from.startsWith('//')) return '/profil'
+  const fallback = '/salon'
+  if (!from || !from.startsWith('/') || from.startsWith('//')) return fallback
   // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f\u007f\\]/.test(from)) return '/profil'
+  if (/[\u0000-\u001f\u007f\\]/.test(from)) return fallback
   try {
-    if (new URL(from, REDIRECT_BASE).origin !== REDIRECT_BASE) return '/profil'
+    if (new URL(from, REDIRECT_BASE).origin !== REDIRECT_BASE) return fallback
   } catch {
-    return '/profil'
+    return fallback
   }
   return from
+}
+
+/** Pages d'où l'on ne revient pas après connexion (on y est déjà connecté ou elles n'ont plus de sens). */
+const NO_RETURN = ['/connexion', '/invitation', '/mot-de-passe-oublie']
+
+/** Lien « Connexion » qui ramène sur la page en cours une fois connecté. */
+export function loginHref(pathname: string | null | undefined): string {
+  if (!pathname || NO_RETURN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return '/connexion'
+  return `/connexion?from=${encodeURIComponent(pathname)}`
 }
 
 /** Adresse saisie sans les espaces autour ; vide → null. */
