@@ -65,7 +65,7 @@ export default function ManaPool({ pool, keep = false, editable, send, openUp = 
 
   return (
     <span className="relative inline-flex">
-      <button className="inline-flex items-center gap-1 rounded px-1 hover:bg-dc-border" onClick={() => setOpen((o) => !o)} aria-label="Réserve de mana" aria-expanded={open}>
+      <button className="inline-flex items-center gap-1 rounded px-1 hover:bg-dc-border tablet:min-h-11" onClick={() => setOpen((o) => !o)} aria-label="Réserve de mana" aria-expanded={open}>
         {summary}
       </button>
       {open && (

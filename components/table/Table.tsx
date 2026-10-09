@@ -37,6 +37,7 @@ import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
 import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
+import { cardPreview } from '@/lib/game/card-preview'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
 const CARD_RATIO = 63 / 88
@@ -91,7 +92,13 @@ export default function Table({ source, notice, boardWindow }: {
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
   // `pt` : menu de l'encart force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
-  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean } } | null>(null)
+  const [menu, setMenu] = useState<{
+    x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean }
+    /** Ouvert au doigt : l'image de la carte est dans le menu. */
+    touch?: boolean
+    /** Menu de la bibliothèque de ce joueur : l'image est celle de la carte du dessus, si elle est visible. */
+    library?: string
+  } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
@@ -191,8 +198,18 @@ export default function Table({ source, notice, boardWindow }: {
     return fresh.length > 0 ? fresh : m.entries
   }
 
-  const openMenu = (entries: MenuEntry[], at: MenuPoint) => {
-    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries })
+  const openMenu = (entries: MenuEntry[], at: MenuPoint, library?: string) => {
+    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, touch: at.touch, library })
+  }
+
+  /**
+   * Image du menu ouvert au doigt, recalculée à chaque rendu comme l'aperçu au survol : une carte devenue
+   * cachée (retournée, rendue en main) ou une carte du dessus piochée disparaît du menu resté ouvert.
+   */
+  const menuImage = (m: NonNullable<typeof menu>) => {
+    if (!m.touch) return null
+    const card = m.library ? libraryTop(view, m.library) ?? undefined : m.card && cards.get(m.card.id)
+    return cardPreview(card, catalogs[card?.owner ?? ''], lang)
   }
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
@@ -268,7 +285,9 @@ export default function Table({ source, notice, boardWindow }: {
     onContextMenu: (id, zone, at) => {
       const card = cards.get(id)
       const entries = card ? cardMenu(menuCtx, card, zone) : []
-      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone } })
+      // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
+      const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang) : null
+      if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
     onHover: (id) => setHovered(id),
     onPtEdit: canAct ? (id, zone, at) => {
@@ -351,7 +370,7 @@ export default function Table({ source, notice, boardWindow }: {
     setLang(next)
     saveLang(next)
   }
-  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at)
+  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
   return (
@@ -497,7 +516,7 @@ export default function Table({ source, notice, boardWindow }: {
               player={me}
               me={me}
               portrait={portraitFor(me, 'column', true)}
-              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
+              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at, me)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
             />
@@ -522,7 +541,7 @@ export default function Table({ source, notice, boardWindow }: {
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} preview={menuImage(menu)} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}
@@ -552,6 +571,10 @@ export default function Table({ source, notice, boardWindow }: {
       )}
       {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
+      {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
+      <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
+        Tourne l’écran en paysage pour jouer.
+      </div>
     </div>
   )
 }

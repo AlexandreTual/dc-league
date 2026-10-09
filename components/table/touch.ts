@@ -5,8 +5,8 @@
 export const LONG_PRESS_MS = 450
 export const LONG_PRESS_TOLERANCE = 8
 
-/** Point où ouvrir un menu (clic droit ou appui long). */
-export type MenuPoint = { clientX: number; clientY: number }
+/** Point où ouvrir un menu (clic droit ou appui long) ; `touch` : ouvert par un appui long au doigt. */
+export type MenuPoint = { clientX: number; clientY: number; touch?: boolean }
 
 /** Minuterie d'appui long : déclenchée après `delay` si le doigt n'a pas bougé de plus de `tolerance` px. */
 export function createLongPress(onFire: (x: number, y: number) => void, delay = LONG_PRESS_MS, tolerance = LONG_PRESS_TOLERANCE) {
@@ -56,7 +56,11 @@ const SMALL_HEIGHT = 480
 const PREVIEW_MARGIN = 16
 const CARD_RATIO = 63 / 88
 
-/** Aperçu sur petit écran : centré, au format d'une carte, dans l'écran ; null sur grand écran (place habituelle). */
+/**
+ * Aperçu sur petit écran : centré, au format d'une carte, dans l'écran ; null sur grand écran (place habituelle).
+ * Sert à la souris dans une fenêtre étroite (moins de 640 × 480) : au doigt, l'aperçu au survol est masqué
+ * (l'image est dans le menu de la carte) et le téléphone n'est plus une cible de la table.
+ */
 export function previewBox(screen: Size): { left: number; top: number; width: number; height: number } | null {
   if (screen.width >= SMALL_WIDTH && screen.height >= SMALL_HEIGHT) return null
   const width = Math.min(PREVIEW_WIDTH, screen.width - 2 * PREVIEW_MARGIN, (screen.height - 2 * PREVIEW_MARGIN) * CARD_RATIO)
@@ -122,7 +126,7 @@ function firePress(x: number, y: number) {
   lastLongPress = Date.now()
   cancelDrag()
   swallowNextClick()
-  fire?.({ clientX: x, clientY: y })
+  fire?.({ clientX: x, clientY: y, touch: true })
 }
 
 function startPress(x: number, y: number, open: (at: MenuPoint) => void) {
