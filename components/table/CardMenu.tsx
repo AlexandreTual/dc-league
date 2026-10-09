@@ -19,7 +19,7 @@ const PREVIEW_PX = 224
  * Menu contextuel positionné au pointeur, gardé dans l'écran (jamais au-dessus du bord haut, défilement
  * interne s'il est plus haut que l'écran), fermé au clic extérieur ou par Échap.
  * `preview` (appui long au doigt) : grande image de la carte à gauche des entrées (au-dessus si la largeur
- * manque) et bouton « Fermer ».
+ * manque, centrée et entrées sur toute la largeur sur téléphone en vertical) et bouton « Fermer ».
  */
 export default function CardMenu({ x, y, items, preview, onClose }: {
   x: number
@@ -60,7 +60,7 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
     <div
       ref={ref}
       role="menu"
-      className={`fixed z-[60] ${preview ? 'w-max flex flex-wrap gap-2' : 'w-60'} max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm`}
+      className={`fixed z-[60] ${preview ? 'w-max flex flex-wrap phone:justify-center gap-2' : 'w-60'} max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 text-sm`}
       style={pos}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -71,7 +71,7 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
           className="rounded-xl shadow-card shrink-0 aspect-[63/88] object-cover" style={{ width: PREVIEW_PX }} data-testid="menu-preview" />
       )}
       {preview ? (
-        <div className="w-60 flex flex-col">
+        <div className="w-60 phone:w-full flex flex-col">
           <button className="self-end h-11 px-3 flex items-center gap-1.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onClose}>
             <X className="w-4 h-4" /> Fermer
           </button>

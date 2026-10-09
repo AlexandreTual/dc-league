@@ -104,6 +104,8 @@ try {
   await phone.page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), `deck-${ANA.id}`)
   await phone.page.goto(`${base}/decks/deck-${ANA.id}/test`)
   await phone.page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
+  // Téléphone en vertical : « Jeton » est dans le menu « ⋯ » de la barre.
+  await phone.page.getByTestId('bar-more').tap()
   await phone.page.getByRole('button', { name: 'Jeton', exact: true }).tap()
   await phone.page.getByRole('dialog', { name: 'Créer un jeton' }).getByRole('button', { name: /Plante/ }).tap()
   const phoneCard = '[data-zone="battlefield"] [data-card-id="t1"]'

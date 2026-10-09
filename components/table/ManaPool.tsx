@@ -72,7 +72,7 @@ export default function ManaPool({ pool, keep = false, editable, send, openUp = 
         <>
           <span className="fixed inset-0 z-[57]" onClick={() => setOpen(false)} />
           <div
-            className={`absolute ${alignRight ? 'right-0' : 'left-0'} ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-60 rounded-xl border border-dc-border bg-dc-surface p-3 space-y-2 shadow-card text-xs text-dc-text`}
+            className={`absolute ${alignRight ? 'right-0' : 'left-0'} ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-60 phone:fixed phone:inset-x-2 phone:top-[60px] phone:w-auto rounded-xl border border-dc-border bg-dc-surface p-3 space-y-2 shadow-card text-xs text-dc-text`}
             role="dialog" aria-label="Réserve de mana"
           >
             <div className="grid grid-cols-3 gap-1.5">

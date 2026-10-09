@@ -14,12 +14,15 @@ import { touchTarget } from './touch'
 const BADGE_COLORS = { normal: 'border-dc-border text-dc-text', warn: 'border-dc-gold/50 text-dc-gold', lethal: 'border-dc-red-light/60 text-dc-red-light font-semibold' }
 
 const SIZES = {
-  column: { portrait: 'w-11 h-11 tablet:w-10 tablet:h-10', life: 'text-[52px] tablet:text-[48px]', name: 'text-xs' },
+  column: { portrait: 'w-11 h-11 tablet:w-10 tablet:h-10 phone:w-11 phone:h-11', life: 'text-[52px] tablet:text-[48px] phone:text-[34px]', name: 'text-xs' },
   header: { portrait: 'w-8 h-8', life: 'text-[40px]', name: 'text-xs' },
 }
 
-/** −, + et « ⋯ » : petits à la souris ; sur tablette, en grand (44 px de haut) sur une rangée sous la ligne portrait. */
-const lifeButton = `w-6 h-5 tablet:w-auto tablet:h-11 flex items-center justify-center rounded tablet:rounded-lg border border-dc-border bg-dc-border/50 hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`
+/**
+ * −, + et « ⋯ » : petits à la souris ; sur tablette, en grand (44 px de haut) sur une rangée sous la ligne portrait ;
+ * sur téléphone en vertical, carrés de 44 px au bout de la ligne portrait (une seule ligne).
+ */
+const lifeButton = `w-6 h-5 tablet:w-auto tablet:h-11 phone:w-11 flex items-center justify-center rounded tablet:rounded-lg border border-dc-border bg-dc-border/50 hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`
 const lifeIcon = 'w-3 h-3 tablet:w-5 tablet:h-5'
 
 /**
@@ -78,8 +81,9 @@ export default function PlayerPortrait(props: {
 
   return (
     <div className={`relative ${p.eliminated ? 'opacity-50' : ''}`} data-panel={player} ref={ref}>
-      {/* Grille : portrait | nom | vie, puis −, + et « ⋯ » sous le nom (souris) ou sur toute la largeur (tablette). Un seul jeu de boutons. */}
-      <div className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
+      {/* Grille : portrait | nom | vie, puis −, + et « ⋯ » sous le nom (souris), sur toute la largeur (tablette)
+          ou au bout de la ligne (téléphone en vertical). Un seul jeu de boutons. */}
+      <div className={`grid grid-cols-[auto_minmax(0,1fr)_auto] phone:grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
         {image && !image.hidden && image.image ? (
           <div className={`${s.portrait} row-span-2 tablet:row-span-1 shrink-0 rounded-md bg-dc-surface bg-no-repeat`} title={image.name}
             style={{ backgroundImage: `url(${image.image})`, backgroundSize: '160% auto', backgroundPosition: '50% 20%' }} />
@@ -106,7 +110,7 @@ export default function PlayerPortrait(props: {
           {!p.kept && !p.eliminated && <span className="text-[10px] text-dc-muted italic">choisit sa main…</span>}
         </div>
         <span className={`col-start-3 row-start-1 row-span-2 tablet:row-span-1 ${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'}`} data-testid="player-life">{p.life}</span>
-        <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] items-center gap-1 text-dc-text">
+        <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 phone:col-start-4 phone:col-span-1 phone:row-start-1 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] phone:flex items-center gap-1 text-dc-text">
           <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label="moins : points de vie"><Minus className={lifeIcon} /></button>
           <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label="plus : points de vie"><Plus className={lifeIcon} /></button>
           <button className={`${lifeButton} ml-auto tablet:ml-0`} aria-label={`Compteurs de ${p.name}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>

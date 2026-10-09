@@ -221,6 +221,7 @@ const tileClass = 'relative h-full shrink-0 flex flex-col items-center gap-0.5 r
  * commandement : les commandants avec leur taxe.
  * Sur tablette, seule la bibliothèque reste à côté de la main : cimetière, exil et commandement sont rangés dans un
  * menu ouvert par le bouton juste au-dessus (avec leurs nombres), et ce menu s'ouvre de lui-même pendant un glisser.
+ * Sur téléphone en vertical, le bouton est à gauche de la bibliothèque, sur la même rangée.
  */
 export function PileTiles(props: ZoneProps & {
   me: string | null
@@ -277,13 +278,13 @@ export function PileTiles(props: ZoneProps & {
   }
 
   return (
-    <div ref={ref} className={`relative flex justify-end gap-1.5 tablet:flex-col tablet:items-center tablet:gap-1 ${props.className ?? ''}`} data-pile-tiles={player}>
+    <div ref={ref} className={`relative flex justify-end gap-1.5 tablet:flex-col tablet:items-center tablet:gap-1 phone:flex-row phone:justify-center phone:gap-3 ${props.className ?? ''}`} data-pile-tiles={player}>
       <button className="hidden tablet:flex h-11 shrink-0 items-center gap-1 px-2 rounded-lg border border-dc-border bg-dc-bg/60 text-xs text-dc-text whitespace-nowrap tabular-nums"
         aria-expanded={shown} aria-label="Cimetière, exil et commandement" onClick={() => setOpen((o) => !o)} data-testid="piles-toggle">
         Cim. {zones.graveyard.length} · Exil {zones.exile.length} · Cmd {zones.command.length}
       </button>
       <div ref={library.setNodeRef} data-zone="library" data-player={player} data-count={zones.library.count}
-        className={`${tileClass} tablet:h-auto tablet:flex-1 tablet:min-h-0 cursor-context-menu ${longPressClass} ${library.highlight}`} title="Bibliothèque" {...menuGesture(onLibraryMenu)}>
+        className={`${tileClass} tablet:h-auto tablet:flex-1 tablet:min-h-0 phone:h-full phone:flex-none cursor-context-menu ${longPressClass} ${library.highlight}`} title="Bibliothèque" {...menuGesture(onLibraryMenu)}>
         <Tile label="Bib." count={zones.library.count}>
           {zones.library.count === 0 ? emptyTile : canDrawTop ? (
             <Draggable id={topId(player)} from={libraryRef} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
@@ -295,7 +296,7 @@ export function PileTiles(props: ZoneProps & {
         </Tile>
       </div>
       {/* À la souris, les vignettes suivent la bibliothèque ; sur tablette, menu au-dessus du bouton. */}
-      <div className={`contents tablet:absolute tablet:bottom-full tablet:right-0 tablet:mb-1 tablet:z-[55] tablet:h-44 tablet:gap-1.5 tablet:p-1.5 tablet:rounded-xl tablet:border tablet:border-dc-border tablet:bg-dc-surface tablet:shadow-card ${shown ? 'tablet:flex' : 'tablet:hidden'}`}
+      <div className={`contents tablet:absolute tablet:bottom-full tablet:right-0 tablet:mb-1 tablet:z-[55] tablet:h-44 phone:h-36 tablet:gap-1.5 tablet:p-1.5 tablet:rounded-xl tablet:border tablet:border-dc-border tablet:bg-dc-surface tablet:shadow-card ${shown ? 'tablet:flex' : 'tablet:hidden'}`}
         data-testid="piles-menu">
       <div ref={graveyard.setNodeRef} data-zone="graveyard" data-player={player} data-count={zones.graveyard.length}
         className={`${tileClass} cursor-pointer ${graveyard.highlight}`} title="Cimetière" onClick={() => onPile('graveyard')}>

@@ -140,7 +140,7 @@ async function table(tools, { width, height }) {
   check(/Cim\. 0 · Exil 0 · Cmd 1/.test(await toggle.innerText()), 'bouton : nombres des piles (Cim. 0 · Exil 0 · Cmd 1)')
   const handWidth = (await page.locator('[data-board] [data-zone="hand"]').first().boundingBox()).width
   check(handWidth >= width * 0.55, `main sur presque toute la largeur (${Math.round(handWidth)} px)`)
-  const barHeights = await page.getByTestId('top-bar').locator('a, button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))
+  const barHeights = await page.getByTestId('top-bar').locator('a, button').evaluateAll((els) => els.filter((e) => e.checkVisibility()).map((e) => e.getBoundingClientRect().height))
   check(barHeights.length > 0 && barHeights.every((h) => h >= TOUCH), `boutons de la barre d’au moins ${TOUCH} px (${Math.round(Math.min(...barHeights))} px)`)
   await capture('depart')
 

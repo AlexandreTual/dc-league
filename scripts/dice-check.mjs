@@ -43,6 +43,7 @@ try {
   await solo.page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), `deck-${ANA.id}`)
   await solo.page.goto(`${base}/decks/deck-${ANA.id}/test`)
   await solo.page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
+  await solo.page.getByTestId('bar-more').click() // téléphone en vertical : « Dés » est dans le menu « ⋯ »
   await solo.page.getByRole('button', { name: 'Dés' }).click()
   await solo.page.getByRole('dialog', { name: 'Lancer les dés' }).waitFor()
   for (let i = 0; i < 2; i++) await solo.page.getByRole('button', { name: 'Un dé de plus' }).click()
@@ -53,6 +54,7 @@ try {
   check(/Lance 3d6 : [1-6], [1-6], [1-6] \(total \d+\)/.test(soloText), `mode test : résultat affiché sur la table (« ${soloText} »)`)
   check(await solo.page.getByTestId('mulligan-banner').isVisible(), 'mode test : lancer pendant la main de départ, main pas gardée')
   await capture(solo.page, 'resultat-telephone')
+  await solo.page.getByTestId('bar-more').click() // téléphone en vertical : « Annuler » et « Dés » sont dans le menu « ⋯ »
   check(await solo.page.getByRole('button', { name: 'Annuler' }).isDisabled(), 'mode test : un lancer ne s’annule pas')
   await solo.page.getByRole('button', { name: 'Dés' }).click()
   check((await solo.page.getByTestId('dice-count').innerText()) === '3', 'mode test : le nombre de dés est retenu')
