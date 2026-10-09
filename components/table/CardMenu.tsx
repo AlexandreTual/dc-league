@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Minus, Plus, X } from 'lucide-react'
 import { cardSrcSet } from '@/lib/cards/images'
-import { menuPosition, touchTarget, type menuPreview } from './touch'
+import type { CardPreview } from '@/lib/game/card-preview'
+import { menuPosition, touchTarget } from './touch'
 
 export type MenuItem =
   | { kind: 'action'; label: string; onSelect: () => void }
@@ -24,7 +25,7 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
   x: number
   y: number
   items: MenuItem[]
-  preview?: ReturnType<typeof menuPreview>
+  preview?: CardPreview | null
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)

@@ -35,8 +35,9 @@ import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type Tabl
 import type { GameSource } from './source'
 import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
-import { menuPreview, type MenuPoint } from './touch'
+import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
+import { cardPreview } from '@/lib/game/card-preview'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
 const CARD_RATIO = 63 / 88
@@ -208,7 +209,7 @@ export default function Table({ source, notice, boardWindow }: {
   const menuImage = (m: NonNullable<typeof menu>) => {
     if (!m.touch) return null
     const card = m.library ? libraryTop(view, m.library) ?? undefined : m.card && cards.get(m.card.id)
-    return menuPreview(card, catalogs[card?.owner ?? ''], lang)
+    return cardPreview(card, catalogs[card?.owner ?? ''], lang)
   }
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
@@ -285,7 +286,7 @@ export default function Table({ source, notice, boardWindow }: {
       const card = cards.get(id)
       const entries = card ? cardMenu(menuCtx, card, zone) : []
       // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
-      const preview = at.touch ? menuPreview(card, catalogs[card?.owner ?? ''], lang) : null
+      const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang) : null
       if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
     onHover: (id) => setHovered(id),
