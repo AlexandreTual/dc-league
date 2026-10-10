@@ -14,7 +14,7 @@ export default function ErrorPage({ reset }: { error: Error & { digest?: string 
         >
           Réessayer
         </button>
-        <Link href="/" className="text-dc-gold text-sm hover:underline">Retour au classement</Link>
+        <Link href="/" className="text-dc-gold text-sm hover:underline">Retour à l&apos;accueil</Link>
       </div>
     </div>
   )
