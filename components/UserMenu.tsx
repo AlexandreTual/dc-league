@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Layers, LogOut, User } from 'lucide-react'
+import { ChevronDown, LogOut, Shield, User } from 'lucide-react'
 import type { CurrentUser } from '@/lib/auth/types'
+import { accountLinks } from '@/lib/nav'
 import { sendJson } from './formStyles'
 
 export default function UserMenu({ user }: { user: CurrentUser }) {
@@ -55,16 +56,14 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
 
       {open && (
         <div className="absolute right-0 mt-2 w-48 bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 z-50">
-          {!user.isBootstrap && (
-            <>
-              <Link href="/profil" className={itemClass} onClick={() => setOpen(false)}>
-                <User className="w-4 h-4" /> Mon profil
+          {accountLinks(user).map(({ href, label }) => {
+            const Icon = href === '/admin' ? Shield : User
+            return (
+              <Link key={href} href={href} className={itemClass} onClick={() => setOpen(false)}>
+                <Icon className="w-4 h-4" /> {label}
               </Link>
-              <Link href="/profil/decks" className={itemClass} onClick={() => setOpen(false)}>
-                <Layers className="w-4 h-4" /> Mes decks
-              </Link>
-            </>
-          )}
+            )
+          })}
           <button onClick={logout} className={itemClass}>
             <LogOut className="w-4 h-4" /> Déconnexion
           </button>
