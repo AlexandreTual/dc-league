@@ -67,7 +67,8 @@ export default function AdminDashboard({
       (playoffs.length > 0 && playoffs.every((p) => p.is_completed)))
 
   async function handleResetMatches() {
-    const { ok } = await call('/api/matches/generate', 'DELETE')
+    if (!league) return
+    const { ok } = await call(`/api/leagues/${league.id}/matches`, 'DELETE')
     if (!ok) return
     setMatches([])
     setPlayoffs([])
@@ -95,7 +96,7 @@ export default function AdminDashboard({
     if (!newLeagueName.trim()) return
     setCreateLeagueLoading(true)
     try {
-      const { ok, data } = await call<DbLeague>('/api/leagues', 'POST', { name: newLeagueName.trim() })
+      const { ok, data } = await call<DbLeague>('/api/leagues', 'POST', { name: newLeagueName.trim(), visibility: 'public' })
       if (!ok) return
       const created = data as DbLeague
       const warning = await reloadPlayers()
@@ -209,6 +210,7 @@ export default function AdminDashboard({
       {/* Sections : génération de la ligue et matchs */}
       <RoundRobinPanel
         api={api}
+        leagueId={league?.id ?? ''}
         matches={matches}
         setMatches={setMatches}
         playerMap={playerMap}
@@ -221,6 +223,7 @@ export default function AdminDashboard({
       {leagueStarted && (allRRCompleted || playoffs.length > 0) && (
         <PlayoffsPanel
           api={api}
+          leagueId={league?.id ?? ''}
           playoffs={playoffs}
           setPlayoffs={setPlayoffs}
           playerMap={playerMap}

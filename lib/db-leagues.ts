@@ -452,3 +452,17 @@ export async function getLeagueDetail(
     return err((e as Error).message)
   }
 }
+
+/** Ligue d'un match de round-robin ou de playoffs (null si le match n'existe pas). */
+export async function getItemLeagueId(
+  db: D1Database,
+  table: 'matches' | 'playoffs',
+  id: string,
+): Promise<Result<string | null>> {
+  try {
+    const row = await db.prepare(`SELECT league_id FROM ${table} WHERE id = ?`).bind(id).first<{ league_id: string | null }>()
+    return ok(row?.league_id ?? null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
