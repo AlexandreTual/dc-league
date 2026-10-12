@@ -5,7 +5,6 @@ import { cardInfo } from '@/lib/game/apply'
 import type { ClientAction } from '@/lib/game/room'
 import { COMMANDER_DAMAGE_LETHAL, POISON_LETHAL, type Catalog, type PlayerView, type VisibleCard } from '@/lib/game/types'
 import type { Lang } from './GameCard'
-import ManaPool from './ManaPool'
 import { touchTarget } from './touch'
 
 const stepBtn = `p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent ${touchTarget}`
@@ -76,8 +75,6 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
         {p.eliminated && <span className="text-dc-red-light flex items-center gap-0.5"><Skull className="w-3 h-3" /> éliminé</span>}
         {!p.kept && !p.eliminated && <span className="text-dc-muted italic">choisit sa main…</span>}
         <span className="ml-auto flex items-center gap-2 text-sm">
-          {/* Ma réserve est en bas à droite de l'écran : son détail s'ouvre vers le haut, aligné à droite. */}
-          <span className="text-xs"><ManaPool pool={p.mana} keep={p.keepMana} editable={canAct && player === view.me} send={send} openUp={player === view.me} alignRight /></span>
           <Stepper
             label={<Heart className="w-3.5 h-3.5 text-dc-red-light" />}
             value={p.life}

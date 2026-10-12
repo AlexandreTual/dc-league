@@ -365,6 +365,11 @@ export default function Table({ source, notice, boardWindow }: {
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
       canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach} />
   )
+  /** Réserve de mana d'un joueur, posée sur son champ de bataille : modifiable pour la mienne, lecture seule sinon. */
+  const manaOf = (player: string) => {
+    const p = view.players[player]
+    return p && <ManaPool pool={p.mana} keep={p.keepMana} editable={canAct && player === me} send={send} />
+  }
   const toggleLang = () => {
     const next = lang === 'fr' ? 'en' : 'fr'
     setLang(next)
@@ -407,7 +412,6 @@ export default function Table({ source, notice, boardWindow }: {
         onDice={() => setDiceOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
-        mana={source.mode === 'local' && mine ? <ManaPool pool={mine.mana} keep={mine.keepMana} editable={canAct} send={send} /> : undefined}
         onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
         extra={source.online && me && !finished && (
           <>
@@ -480,6 +484,7 @@ export default function Table({ source, notice, boardWindow }: {
               <OpponentBoard
                 {...zoneProps} player={boardWindow.player} me={me}
                 portrait={portraitFor(boardWindow.player)}
+                mana={manaOf(boardWindow.player)}
                 onLibraryMenu={libraryMenuOf(boardWindow.player)}
                 onPile={pileOf(boardWindow.player)}
               />
@@ -493,6 +498,7 @@ export default function Table({ source, notice, boardWindow }: {
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
                     stacked={shownOpponents.length >= 3}
+                    mana={manaOf(p)}
                     header={(
                       <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus, detachOf(p))}
                         onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />
@@ -503,6 +509,7 @@ export default function Table({ source, notice, boardWindow }: {
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
                     portrait={portraitFor(p, 'column', false, undefined, detachOf(p))}
+                    mana={manaOf(p)}
                     onLibraryMenu={libraryMenuOf(p)}
                     onPile={pileOf(p)}
                   />
@@ -516,6 +523,7 @@ export default function Table({ source, notice, boardWindow }: {
               player={me}
               me={me}
               portrait={portraitFor(me, 'column', true)}
+              mana={manaOf(me)}
               onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at, me)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
