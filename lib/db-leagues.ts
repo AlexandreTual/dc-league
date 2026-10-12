@@ -1,6 +1,9 @@
 import type { DbMatch, DbPlayoff } from './db'
+import type { Viewer } from './leagues/access'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export type LeagueVisibility = 'public' | 'private'
 
 export type DbLeague = {
   id: string
@@ -8,7 +11,13 @@ export type DbLeague = {
   started_at: string
   ended_at: string | null
   is_active: boolean
+  /** Organisateur ; null pour une ligue gérée par les admins (ligues d'avant la refonte). */
+  owner_player_id: string | null
+  owner_name: string | null
+  visibility: LeagueVisibility
 }
+
+export const LEAGUE_NOT_FOUND = 'Ligue introuvable.'
 
 export type DbLeaguePlayer = {
   league_id: string
@@ -43,6 +52,9 @@ function normalizeLeague(row: Record<string, unknown>): DbLeague {
     started_at: row.started_at as string,
     ended_at: (row.ended_at as string) ?? null,
     is_active: Number(row.is_active) === 1,
+    owner_player_id: (row.owner_player_id as string) ?? null,
+    owner_name: (row.owner_name as string) ?? null,
+    visibility: row.visibility === 'private' ? 'private' : 'public',
   }
 }
 
@@ -70,11 +82,19 @@ function normalizeLeaguePlayerWithName(row: Record<string, unknown>): DbLeaguePl
 
 // ── Leagues ───────────────────────────────────────────────────────────────────
 
+/** Lecture d'une ligue avec le nom de son organisateur. */
+const LEAGUE_SELECT = 'SELECT l.*, o.name AS owner_name FROM leagues l LEFT JOIN players o ON o.id = l.owner_player_id'
+
+/** Ligue visible par le visiteur : admin, publique, organisée par lui ou dont il est inscrit. */
+const VISIBLE_TO = `(? = 1 OR l.visibility = 'public' OR l.owner_player_id = ?
+  OR EXISTS (SELECT 1 FROM league_players vp WHERE vp.league_id = l.id AND vp.player_id = ?))`
+
+const visibleBinds = (viewer: Viewer) => [viewer?.isAdmin ? 1 : 0, viewer?.playerId ?? '', viewer?.playerId ?? '']
+
+/** Toutes les ligues (sans filtre de visibilité). Remplacée par listLeaguesFor dans les routes. */
 export async function listLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
   try {
-    const { results } = await db
-      .prepare('SELECT * FROM leagues ORDER BY started_at DESC')
-      .all<Record<string, unknown>>()
+    const { results } = await db.prepare(`${LEAGUE_SELECT} ORDER BY l.started_at DESC`).all<Record<string, unknown>>()
     return ok(results.map(normalizeLeague))
   } catch (e) {
     return err((e as Error).message)
@@ -84,7 +104,7 @@ export async function listLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
 export async function listArchivedLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
   try {
     const { results } = await db
-      .prepare('SELECT * FROM leagues WHERE is_active = 0 ORDER BY ended_at DESC')
+      .prepare(`${LEAGUE_SELECT} WHERE l.is_active = 0 ORDER BY l.ended_at DESC`)
       .all<Record<string, unknown>>()
     return ok(results.map(normalizeLeague))
   } catch (e) {
@@ -92,10 +112,11 @@ export async function listArchivedLeagues(db: D1Database): Promise<Result<DbLeag
   }
 }
 
+/** Ligue en cours la plus récente, toutes visibilités confondues (ancien modèle à ligue unique). */
 export async function getActiveLeague(db: D1Database): Promise<Result<DbLeague | null>> {
   try {
     const row = await db
-      .prepare('SELECT * FROM leagues WHERE is_active = 1 LIMIT 1')
+      .prepare(`${LEAGUE_SELECT} WHERE l.is_active = 1 ORDER BY l.started_at DESC LIMIT 1`)
       .first<Record<string, unknown>>()
     return ok(row ? normalizeLeague(row) : null)
   } catch (e) {
@@ -103,20 +124,139 @@ export async function getActiveLeague(db: D1Database): Promise<Result<DbLeague |
   }
 }
 
-export async function createLeague(db: D1Database, name: string): Promise<Result<DbLeague>> {
+export async function getLeague(db: D1Database, id: string): Promise<Result<DbLeague | null>> {
+  try {
+    const row = await db.prepare(`${LEAGUE_SELECT} WHERE l.id = ?`).bind(id).first<Record<string, unknown>>()
+    return ok(row ? normalizeLeague(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Ligues que le visiteur peut voir, la plus récente d'abord. */
+export async function listLeaguesFor(db: D1Database, viewer: Viewer): Promise<Result<DbLeague[]>> {
+  try {
+    const { results } = await db
+      .prepare(`${LEAGUE_SELECT} WHERE ${VISIBLE_TO} ORDER BY l.started_at DESC`)
+      .bind(...visibleBinds(viewer))
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizeLeague))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Ligue mise en avant : la ligue en cours la plus récente du joueur, sinon la publique en cours la plus récente. */
+export async function getFeaturedLeague(db: D1Database, viewer: Viewer): Promise<Result<DbLeague | null>> {
+  try {
+    const mine = viewer
+      ? await db
+          .prepare(
+            `${LEAGUE_SELECT} WHERE l.is_active = 1 AND (l.owner_player_id = ?
+               OR EXISTS (SELECT 1 FROM league_players lp WHERE lp.league_id = l.id AND lp.player_id = ?))
+             ORDER BY l.started_at DESC LIMIT 1`,
+          )
+          .bind(viewer.playerId, viewer.playerId)
+          .first<Record<string, unknown>>()
+      : null
+    const row = mine ?? await db
+      .prepare(`${LEAGUE_SELECT} WHERE l.is_active = 1 AND l.visibility = 'public' ORDER BY l.started_at DESC LIMIT 1`)
+      .first<Record<string, unknown>>()
+    return ok(row ? normalizeLeague(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function createLeague(
+  db: D1Database,
+  data: { name: string; ownerPlayerId: string | null; visibility: LeagueVisibility },
+): Promise<Result<DbLeague>> {
   try {
     const id = uuid()
-    // Vérification et insertion dans la même requête : un double clic ne crée pas deux ligues actives.
-    const { meta } = await db
+    await db
       .prepare(
-        `INSERT INTO leagues (id, name, started_at, is_active) SELECT ?, ?, datetime('now'), 1
-         WHERE NOT EXISTS (SELECT 1 FROM leagues WHERE is_active = 1)`,
+        `INSERT INTO leagues (id, name, started_at, is_active, owner_player_id, visibility)
+         VALUES (?, ?, datetime('now'), 1, ?, ?)`,
       )
-      .bind(id, name)
+      .bind(id, data.name, data.ownerPlayerId, data.visibility)
       .run()
-    if (!meta.changes) return err('Une ligue est déjà active.')
-    const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').bind(id).first<Record<string, unknown>>()
-    return ok(normalizeLeague(row!))
+    const { data: league, error } = await getLeague(db, id)
+    return error === null ? ok(league!) : err(error)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function updateLeague(
+  db: D1Database,
+  id: string,
+  data: { name?: string; visibility?: LeagueVisibility },
+): Promise<Result<DbLeague>> {
+  try {
+    const { meta } = await db
+      .prepare('UPDATE leagues SET name = COALESCE(?, name), visibility = COALESCE(?, visibility) WHERE id = ?')
+      .bind(data.name ?? null, data.visibility ?? null, id)
+      .run()
+    if (!meta.changes) return err(LEAGUE_NOT_FOUND)
+    const { data: league, error } = await getLeague(db, id)
+    return error === null ? ok(league!) : err(error)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function isLeagueMember(db: D1Database, leagueId: string, playerId: string): Promise<Result<boolean>> {
+  try {
+    const row = await db
+      .prepare('SELECT 1 FROM league_players WHERE league_id = ? AND player_id = ?')
+      .bind(leagueId, playerId)
+      .first()
+    return ok(!!row)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Nouveau jeton du lien d'invitation : l'ancien lien cesse de marcher. */
+export async function renewInviteToken(db: D1Database, leagueId: string): Promise<Result<string>> {
+  try {
+    const token = crypto.randomUUID().replaceAll('-', '')
+    const { meta } = await db.prepare('UPDATE leagues SET invite_token = ? WHERE id = ?').bind(token, leagueId).run()
+    return meta.changes ? ok(token) : err(LEAGUE_NOT_FOUND)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Jeton actuel du lien d'invitation (null s'il n'a pas encore été créé). */
+export async function getInviteToken(db: D1Database, leagueId: string): Promise<Result<string | null>> {
+  try {
+    const row = await db.prepare('SELECT invite_token FROM leagues WHERE id = ?').bind(leagueId).first<{ invite_token: string | null }>()
+    return ok(row?.invite_token ?? null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+export async function getLeagueByInviteToken(db: D1Database, token: string): Promise<Result<DbLeague | null>> {
+  if (!token) return ok(null)
+  try {
+    const row = await db.prepare(`${LEAGUE_SELECT} WHERE l.invite_token = ?`).bind(token).first<Record<string, unknown>>()
+    return ok(row ? normalizeLeague(row) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Matchs de round-robin dont le score est saisi. */
+export async function countScoredMatches(db: D1Database, leagueId: string): Promise<Result<number>> {
+  try {
+    const row = await db
+      .prepare('SELECT COUNT(*) AS n FROM matches WHERE league_id = ? AND is_completed = 1')
+      .bind(leagueId)
+      .first<{ n: number }>()
+    return ok(Number(row?.n ?? 0))
   } catch (e) {
     return err((e as Error).message)
   }
@@ -125,7 +265,7 @@ export async function createLeague(db: D1Database, name: string): Promise<Result
 export async function deleteLeague(db: D1Database, id: string): Promise<Result<true>> {
   try {
     const existing = await db.prepare('SELECT id FROM leagues WHERE id = ?').bind(id).first()
-    if (!existing) return err('Ligue introuvable.')
+    if (!existing) return err(LEAGUE_NOT_FOUND)
     await db.batch([
       db.prepare('DELETE FROM playoffs WHERE league_id = ?').bind(id),
       db.prepare('DELETE FROM matches WHERE league_id = ?').bind(id),
@@ -149,8 +289,8 @@ export async function closeLeague(db: D1Database, id: string): Promise<Result<Db
       .prepare(`UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = ?`)
       .bind(id)
       .run()
-    const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').bind(id).first<Record<string, unknown>>()
-    return ok(normalizeLeague(row!))
+    const { data, error } = await getLeague(db, id)
+    return error === null ? ok(data!) : err(error)
   } catch (e) {
     return err((e as Error).message)
   }
@@ -261,7 +401,7 @@ export async function getLeagueDetail(
 } | null>> {
   try {
     const leagueRow = await db
-      .prepare('SELECT * FROM leagues WHERE id = ?')
+      .prepare(`${LEAGUE_SELECT} WHERE l.id = ?`)
       .bind(id)
       .first<Record<string, unknown>>()
     if (!leagueRow) return ok(null)

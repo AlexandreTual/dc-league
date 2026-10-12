@@ -17,7 +17,7 @@ export function POST(req: NextRequest) {
   return apiRoute(req, 'admin', async ({ db, body }) => {
     const name = requiredText(body.name, 'Le nom de la saison', MAX_LENGTH.leagueName)
     if (!name.ok) return badRequest(name.error)
-    const { data, error } = await createLeague(db, name.value)
+    const { data, error } = await createLeague(db, { name: name.value, ownerPlayerId: null, visibility: 'public' })
     if (error !== null) return resultError(error, { 'Une ligue est déjà active.': 409 })
     return NextResponse.json(data, { status: 201 })
   })
