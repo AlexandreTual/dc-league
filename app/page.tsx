@@ -4,7 +4,8 @@ import { BarChart2, BookOpen, Calendar, Layers, Lock, LogIn, Play, Sword, Trophy
 import { getCurrentUser } from '@/lib/auth/session'
 import { computeLeaderboard } from '@/lib/leaderboard'
 import { listPlayers, listCompletedMatches, countMatches, listPlayoffs } from '@/lib/db'
-import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
+import { getFeaturedLeague, listLeaguePlayers } from '@/lib/db-leagues'
+import { viewerOf, type Viewer } from '@/lib/leagues/access'
 import { listTables } from '@/lib/db-games'
 import { features, seasonProgress, type Feature } from '@/lib/home'
 
@@ -29,9 +30,9 @@ const buttonClass = (primary: boolean) =>
       : 'border border-dc-gold/40 text-dc-gold hover:bg-dc-gold/10'
   }`
 
-/** Saison en cours : avancement et podium. Rien de bloquant : une erreur de chargement masque seulement le bloc. */
-async function loadSeason(db: D1Database) {
-  const { data: league, error } = await getActiveLeague(db)
+/** Ligue mise en avant : avancement et podium. Rien de bloquant : une erreur de chargement masque seulement le bloc. */
+async function loadSeason(db: D1Database, viewer: Viewer) {
+  const { data: league, error } = await getFeaturedLeague(db, viewer)
   if (error) return { state: 'failed' as const }
   if (!league) return { state: 'none' as const }
   const [players, completed, total, enrolled, playoffs] = await Promise.all([
@@ -64,7 +65,7 @@ export default async function HomePage() {
   const isPlayer = !!user && !user.isBootstrap
 
   const [season, tables] = await Promise.all([
-    loadSeason(db),
+    loadSeason(db, viewerOf(user)),
     isPlayer ? listTables(db) : Promise.resolve({ data: null }),
   ])
   const openTables = (tables.data ?? []).filter((t) => t.status === 'open').length
@@ -101,8 +102,8 @@ export default async function HomePage() {
                   <LogIn className="w-4 h-4" /> Se connecter
                 </Link>
               )}
-              <Link href="/classement" className={buttonClass(!!user)}>
-                <Trophy className="w-4 h-4" /> Voir le classement
+              <Link href="/ligues" className={buttonClass(!!user)}>
+                <Trophy className="w-4 h-4" /> Voir les ligues
               </Link>
             </>
           )}
@@ -119,24 +120,27 @@ export default async function HomePage() {
       <section aria-labelledby="saison" className="bg-dc-surface border border-dc-border rounded-2xl p-5 md:p-6 shadow-card space-y-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="saison" className="font-fantasy text-xl font-bold text-dc-gold">
-            {season.state === 'ok' ? season.league.name : 'Saison en cours'}
+            {season.state === 'ok' ? season.league.name : 'Ligues en cours'}
           </h2>
-          {season.state === 'ok' && (
-            <p className="text-dc-muted text-xs">Duel Commander · Round Robin · Top 4</p>
-          )}
+          <Link href="/ligues" className="text-dc-gold text-xs hover:underline">Toutes les ligues →</Link>
         </div>
 
         {season.state === 'failed' ? (
           <p className="text-dc-muted text-sm">La saison n&apos;a pas pu être chargée. Réessaie dans un instant.</p>
         ) : season.state === 'none' ? (
           <p className="text-dc-muted text-sm">
-            Pas de saison en cours pour le moment. Les saisons passées sont dans{' '}
-            <Link href="/history" className="text-dc-gold hover:underline">l&apos;historique</Link>.
+            Pas de ligue en cours pour le moment.{' '}
+            {isPlayer ? (
+              <Link href="/ligues/nouvelle" className="text-dc-gold hover:underline">Crée la tienne</Link>
+            ) : (
+              <Link href="/ligues" className="text-dc-gold hover:underline">Voir les ligues terminées</Link>
+            )}
+            .
           </p>
         ) : (
           <>
             {season.hasPlayoffs && (
-              <Link href="/playoffs" className="flex items-center gap-2 rounded-xl border border-dc-gold/40 bg-dc-gold/10 px-4 py-3 text-sm text-dc-gold hover:bg-dc-gold/15">
+              <Link href={`/ligues/${season.league.id}/playoffs`} className="flex items-center gap-2 rounded-xl border border-dc-gold/40 bg-dc-gold/10 px-4 py-3 text-sm text-dc-gold hover:bg-dc-gold/15">
                 <Trophy className="w-4 h-4 shrink-0" />
                 <span>La phase finale est lancée : voir le tableau du Top 4 →</span>
               </Link>
@@ -180,10 +184,10 @@ export default async function HomePage() {
             )}
 
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              <Link href="/classement" className="inline-flex items-center gap-1.5 text-dc-gold hover:underline">
+              <Link href={`/ligues/${season.league.id}/classement`} className="inline-flex items-center gap-1.5 text-dc-gold hover:underline">
                 <Trophy className="w-4 h-4" /> Classement complet
               </Link>
-              <Link href="/calendar" className="inline-flex items-center gap-1.5 text-dc-gold hover:underline">
+              <Link href={`/ligues/${season.league.id}/calendrier`} className="inline-flex items-center gap-1.5 text-dc-gold hover:underline">
                 <Calendar className="w-4 h-4" /> Calendrier des matchs
               </Link>
             </div>
@@ -225,8 +229,8 @@ export default async function HomePage() {
         <section className="text-center space-y-2 border-t border-dc-border pt-8">
           <h2 className="font-fantasy text-lg font-semibold text-dc-gold">Rejoindre la ligue</h2>
           <p className="text-sm text-dc-muted max-w-md mx-auto">
-            Les comptes se créent sur invitation : demande ton lien à l&apos;admin de la ligue, puis importe ton deck
-            pour t&apos;inscrire à la prochaine saison.
+            Les comptes se créent sur invitation : demande ton lien à l&apos;admin du site, puis importe ton deck
+            et rejoins une ligue.
           </p>
         </section>
       )}

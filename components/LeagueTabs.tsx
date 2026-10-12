@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { isActive, leagueTabs } from '@/lib/nav'
 
-/** Onglets des pages de la ligue, défilables sur téléphone. */
-export default function LeagueTabs({ hasPlayoffs }: { hasPlayoffs: boolean }) {
+/** Onglets d'une ligue, défilables sur téléphone. */
+export default function LeagueTabs(props: { leagueId: string; hasPlayoffs: boolean; canManage: boolean }) {
   const pathname = usePathname()
   return (
     <nav aria-label="Pages de la ligue" className="-mx-4 px-4 overflow-x-auto">
       <div className="flex gap-1 border-b border-dc-border min-w-max">
-        {leagueTabs({ hasPlayoffs }).map(({ href, label }) => {
+        {leagueTabs(props).map(({ href, label }) => {
           const active = isActive(href, pathname, 'tab')
           return (
             <Link

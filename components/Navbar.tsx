@@ -9,7 +9,7 @@ import { isActive, mainLinks } from '@/lib/nav'
 import UserMenu from './UserMenu'
 
 const icons: Record<string, typeof Sword> = {
-  '/classement': Trophy,
+  '/ligues': Trophy,
   '/salon': Users,
   '/profil/decks': Layers,
   '/rules': BookOpen,

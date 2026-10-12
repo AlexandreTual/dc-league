@@ -4,12 +4,9 @@
 export type NavUser = { isAdmin: boolean; isBootstrap: boolean }
 export type NavLink = { href: string; label: string }
 
-/** Pages regroupées sous « Ligue » (onglets en haut de chacune). */
-const LEAGUE_PAGES = ['/classement', '/calendar', '/playoffs', '/stats', '/history']
-
 /** Pages rattachées à un lien de la barre en plus du lien lui-même. */
 const SECTIONS: Record<string, string[]> = {
-  '/classement': LEAGUE_PAGES,
+  '/ligues': ['/ligues'],
   '/salon': ['/salon', '/tables'],
   '/profil/decks': ['/profil/decks', '/decks'],
 }
@@ -18,7 +15,7 @@ const SECTIONS: Record<string, string[]> = {
 export function mainLinks(user: NavUser | null): NavLink[] {
   const player = user && !user.isBootstrap
   return [
-    { href: '/classement', label: 'Ligue' },
+    { href: '/ligues', label: 'Ligue' },
     ...(player ? [{ href: '/salon', label: 'Jouer' }, { href: '/profil/decks', label: 'Mes decks' }] : []),
     { href: '/rules', label: 'Règles' },
   ]
@@ -32,14 +29,14 @@ export function accountLinks(user: NavUser): NavLink[] {
   ]
 }
 
-/** Onglets de la ligue ; « Playoffs » n'apparaît qu'une fois la phase finale lancée. */
-export function leagueTabs({ hasPlayoffs }: { hasPlayoffs: boolean }): NavLink[] {
+/** Onglets d'une ligue ; « Playoffs » une fois la phase finale lancée, « Gérer » pour l'organisateur et les admins. */
+export function leagueTabs({ leagueId, hasPlayoffs, canManage }: { leagueId: string; hasPlayoffs: boolean; canManage: boolean }): NavLink[] {
+  const base = `/ligues/${leagueId}`
   return [
-    { href: '/classement', label: 'Classement' },
-    { href: '/calendar', label: 'Calendrier' },
-    ...(hasPlayoffs ? [{ href: '/playoffs', label: 'Playoffs' }] : []),
-    { href: '/stats', label: 'Statistiques' },
-    { href: '/history', label: 'Historique' },
+    { href: `${base}/classement`, label: 'Classement' },
+    { href: `${base}/calendrier`, label: 'Calendrier' },
+    ...(hasPlayoffs ? [{ href: `${base}/playoffs`, label: 'Playoffs' }] : []),
+    ...(canManage ? [{ href: `${base}/gerer`, label: 'Gérer' }] : []),
   ]
 }
 

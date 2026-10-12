@@ -14,7 +14,8 @@ describe('features', () => {
     expect(f.decks).toMatchObject({ href: '/connexion?from=/profil/decks', locked: true })
     expect(f.test).toMatchObject({ href: '/connexion?from=/profil/decks', locked: true })
     expect(f.enligne).toMatchObject({ href: '/connexion?from=/salon', locked: true })
-    expect(f.ligue).toMatchObject({ href: '/classement', locked: false })
+    expect(f.ligue).toMatchObject({ href: '/ligues', locked: false })
+    expect(f.stats).toMatchObject({ href: '/ligues/statistiques', locked: false })
     expect(f.regles).toMatchObject({ href: '/rules', locked: false })
   })
 

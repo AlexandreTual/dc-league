@@ -11,9 +11,10 @@ import type { AdminApi } from './useAdminApi'
 
 /** Génération de la ligue (avant le premier match) puis matchs Round Robin par round. */
 export default function RoundRobinPanel({
-  api, matches, setMatches, playerMap, enrolledCount, leagueStarted, canGenerate,
+  api, leagueId, matches, setMatches, playerMap, enrolledCount, leagueStarted, canGenerate,
 }: {
   api: AdminApi
+  leagueId: string
   matches: Match[]
   setMatches: Dispatch<SetStateAction<Match[]>>
   playerMap: Record<string, Player>
@@ -36,7 +37,7 @@ export default function RoundRobinPanel({
     setGenerateError('')
 
     try {
-      const { error, data } = await sendJson('/api/matches/generate', 'POST')
+      const { error, data } = await sendJson(`/api/leagues/${leagueId}/matches`, 'POST')
       if (error) {
         setGenerateError(error)
       } else {
