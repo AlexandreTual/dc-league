@@ -3,11 +3,11 @@ import { Lock, Trophy } from 'lucide-react'
 import type { DbLeague } from '@/lib/db-leagues'
 import { formatDate, organizerLabel, statusLabel } from './format'
 
-/** Une ligue dans la liste /ligues. */
-export default function LeagueCard({ league }: { league: DbLeague }) {
+/** Une ligue dans une liste ; `manage` mène à sa gestion (page d'administration). */
+export default function LeagueCard({ league, manage = false }: { league: DbLeague; manage?: boolean }) {
   return (
     <Link
-      href={`/ligues/${league.id}/classement`}
+      href={`/ligues/${league.id}/${manage ? 'gerer' : 'classement'}`}
       className="flex items-center justify-between gap-3 bg-dc-surface border border-dc-border rounded-xl p-4 hover:border-dc-gold/40 transition-all group"
     >
       <div className="min-w-0">

@@ -1,4 +1,3 @@
-import type { DbMatch, DbPlayoff } from './db'
 import type { Viewer } from './leagues/access'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -91,34 +90,11 @@ const VISIBLE_TO = `(? = 1 OR l.visibility = 'public' OR l.owner_player_id = ?
 
 const visibleBinds = (viewer: Viewer) => [viewer?.isAdmin ? 1 : 0, viewer?.playerId ?? '', viewer?.playerId ?? '']
 
-/** Toutes les ligues (sans filtre de visibilité). Remplacée par listLeaguesFor dans les routes. */
+/** Toutes les ligues, privées comprises (administration). */
 export async function listLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
   try {
     const { results } = await db.prepare(`${LEAGUE_SELECT} ORDER BY l.started_at DESC`).all<Record<string, unknown>>()
     return ok(results.map(normalizeLeague))
-  } catch (e) {
-    return err((e as Error).message)
-  }
-}
-
-export async function listArchivedLeagues(db: D1Database): Promise<Result<DbLeague[]>> {
-  try {
-    const { results } = await db
-      .prepare(`${LEAGUE_SELECT} WHERE l.is_active = 0 ORDER BY l.ended_at DESC`)
-      .all<Record<string, unknown>>()
-    return ok(results.map(normalizeLeague))
-  } catch (e) {
-    return err((e as Error).message)
-  }
-}
-
-/** Ligue en cours la plus récente, toutes visibilités confondues (ancien modèle à ligue unique). */
-export async function getActiveLeague(db: D1Database): Promise<Result<DbLeague | null>> {
-  try {
-    const row = await db
-      .prepare(`${LEAGUE_SELECT} WHERE l.is_active = 1 ORDER BY l.started_at DESC LIMIT 1`)
-      .first<Record<string, unknown>>()
-    return ok(row ? normalizeLeague(row) : null)
   } catch (e) {
     return err((e as Error).message)
   }
@@ -383,71 +359,6 @@ export async function removeLeaguePlayer(
       .bind(leagueId, playerId)
       .run()
     return ok(true)
-  } catch (e) {
-    return err((e as Error).message)
-  }
-}
-
-// ── History Detail ─────────────────────────────────────────────────────────────
-
-export async function getLeagueDetail(
-  db: D1Database,
-  id: string
-): Promise<Result<{
-  league: DbLeague
-  leaguePlayers: DbLeaguePlayerWithName[]
-  matches: DbMatch[]
-  playoffs: DbPlayoff[]
-} | null>> {
-  try {
-    const leagueRow = await db
-      .prepare(`${LEAGUE_SELECT} WHERE l.id = ?`)
-      .bind(id)
-      .first<Record<string, unknown>>()
-    if (!leagueRow) return ok(null)
-
-    const STAGE_ORDER = ['semi1', 'semi2', 'final', 'third_place']
-
-    const [
-      leaguePlayersResult,
-      matchesResult,
-      playoffsResult,
-    ] = await db.batch<Record<string, unknown>>([
-      db.prepare(LEAGUE_PLAYERS_SQL).bind(id),
-      db.prepare('SELECT * FROM matches WHERE league_id = ? ORDER BY round_number ASC, created_at ASC').bind(id),
-      db.prepare('SELECT * FROM playoffs WHERE league_id = ? ORDER BY created_at ASC').bind(id),
-    ])
-
-    const matches: DbMatch[] = matchesResult.results.map((row) => ({
-      id: row.id as string,
-      player1_id: row.player1_id as string,
-      player2_id: row.player2_id as string,
-      score_p1: row.score_p1 != null ? Number(row.score_p1) : null,
-      score_p2: row.score_p2 != null ? Number(row.score_p2) : null,
-      is_completed: Number(row.is_completed) === 1,
-      round_number: Number(row.round_number),
-      created_at: row.created_at as string,
-    }))
-
-    const playoffs: DbPlayoff[] = playoffsResult.results
-      .map((row) => ({
-        id: row.id as string,
-        stage: row.stage as DbPlayoff['stage'],
-        player1_id: (row.player1_id as string) ?? null,
-        player2_id: (row.player2_id as string) ?? null,
-        score_p1: row.score_p1 != null ? Number(row.score_p1) : null,
-        score_p2: row.score_p2 != null ? Number(row.score_p2) : null,
-        is_completed: Number(row.is_completed) === 1,
-        created_at: row.created_at as string,
-      }))
-      .sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage))
-
-    return ok({
-      league: normalizeLeague(leagueRow),
-      leaguePlayers: leaguePlayersResult.results.map(normalizeLeaguePlayerWithName),
-      matches,
-      playoffs,
-    })
   } catch (e) {
     return err((e as Error).message)
   }

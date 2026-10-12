@@ -10,3 +10,13 @@ export function joinRefusal(league: { is_active: boolean }, matchCount: number):
   if (matchCount > 0) return JOIN_TOO_LATE
   return null
 }
+
+/** Lien complet à partager pour rejoindre une ligue. */
+export function inviteUrl(origin: string, token: string): string {
+  return `${origin}/ligues/rejoindre/${encodeURIComponent(token)}`
+}
+
+/** La page de connexion explique qu'il faut un compte quand on arrive d'un lien de ligue. */
+export function isLeagueInvitePath(from: string | null | undefined): boolean {
+  return !!from && from.startsWith('/ligues/rejoindre/')
+}

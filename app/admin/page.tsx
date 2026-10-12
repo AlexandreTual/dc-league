@@ -1,8 +1,7 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
-import { listPlayers, listMatches, listPlayoffs, countMatches, countCompletedMatches, getPlayerIdsWithHistory } from '@/lib/db'
-import { Player, Match } from '@/lib/leaderboard'
-import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
-import { listAllDecksGrouped } from '@/lib/db-decks'
+import { listPlayers } from '@/lib/db'
+import { Player } from '@/lib/leaderboard'
+import { listLeagues } from '@/lib/db-leagues'
 import { listAccountStatuses } from '@/lib/db-auth'
 import { getCurrentUser, isAdminAuthenticated } from '@/lib/auth/session'
 import { redirect } from 'next/navigation'
@@ -18,56 +17,18 @@ export default async function AdminPage() {
   if (!currentUser) redirect('/connexion?from=/admin')
   if (!(await isAdminAuthenticated())) redirect('/')
 
-  const { env } = getRequestContext<CloudflareEnv>()
-  const db = env.DB
-
-  const first = await Promise.all([
-    getActiveLeague(db),
-    listPlayers(db),
-    listAllDecksGrouped(db),
-    getPlayerIdsWithHistory(db),
-    listAccountStatuses(db, new Date()),
-  ])
-  const [
-    { data: activeLeague },
-    { data: players },
-    { data: decks },
-    { data: playerIdsWithHistory },
-    { data: accountStatuses },
-  ] = first
-
-  const second = await Promise.all([
-    activeLeague ? listMatches(db, activeLeague.id, true) : Promise.resolve({ data: [] }),
-    activeLeague ? listPlayoffs(db, activeLeague.id) : Promise.resolve({ data: [] }),
-    activeLeague ? countMatches(db, activeLeague.id) : Promise.resolve({ data: 0 }),
-    activeLeague ? countCompletedMatches(db, activeLeague.id) : Promise.resolve({ data: 0 }),
-    activeLeague ? listLeaguePlayers(db, activeLeague.id) : Promise.resolve({ data: [] }),
-  ])
-  // Sans ces données, l'admin proposerait par erreur de créer une saison ou afficherait une ligue vide.
-  if (loadFailed(...first, ...second)) return <LoadError what="l'administration" />
-  const [
-    { data: matches },
-    { data: playoffs },
-    { data: total },
-    { data: completed },
-    { data: leaguePlayers },
-  ] = second
-
-  const allRRCompleted = (total ?? 0) > 0 && total === completed
+  const db = getRequestContext<CloudflareEnv>().env.DB
+  const results = await Promise.all([listPlayers(db), listAccountStatuses(db, new Date()), listLeagues(db)])
+  if (loadFailed(...results)) return <LoadError what="l'administration" />
+  const [players, statuses, leagues] = results
 
   return (
     <AdminDashboard
-      initialPlayers={(players ?? []) as unknown as Player[]}
-      initialMatches={(matches ?? []) as unknown as Match[]}
-      initialPlayoffs={playoffs ?? []}
-      allRRCompleted={allRRCompleted}
-      activeLeague={activeLeague ?? null}
-      leaguePlayers={leaguePlayers ?? []}
-      initialDecks={decks ?? {}}
-      playerIdsWithHistory={playerIdsWithHistory ?? []}
-      accountStatuses={accountStatuses ?? {}}
-      currentUserId={currentUser?.id ?? null}
-      isBootstrap={currentUser?.isBootstrap ?? false}
+      players={(players.data ?? []) as unknown as Player[]}
+      accountStatuses={statuses.data ?? {}}
+      leagues={leagues.data ?? []}
+      currentUserId={currentUser.id}
+      isBootstrap={currentUser.isBootstrap}
     />
   )
 }

@@ -3,6 +3,8 @@ import { computeLeaderboard } from '@/lib/leaderboard'
 import { listPlayers, listCompletedMatches, countMatches } from '@/lib/db'
 import { listLeaguePlayers } from '@/lib/db-leagues'
 import { loadVisibleLeague } from '@/lib/leagues/load'
+import { listPlayerDecks } from '@/lib/db-decks'
+import MyEntry from '@/components/leagues/MyEntry'
 import LeaderboardTable from '@/components/LeaderboardTable'
 import LoadError from '@/components/LoadError'
 import { loadFailed } from '@/lib/load'
@@ -19,14 +21,16 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
   const access = await loadVisibleLeague(id)
   if (!access) return <LoadError what="le classement" />
 
-  const [playersRes, completedRes, countRes, leaguePlayersRes] = await Promise.all([
+  const me = access.isMember && access.viewer ? access.viewer.playerId : null
+  const [playersRes, completedRes, countRes, leaguePlayersRes, myDecksRes] = await Promise.all([
     listPlayers(db),
     listCompletedMatches(db, id),
     countMatches(db, id),
     listLeaguePlayers(db, id),
+    me ? listPlayerDecks(db, me) : Promise.resolve({ data: [], error: null }),
   ])
   const players = playersRes.data
-  if (loadFailed(playersRes, completedRes, countRes, leaguePlayersRes)) {
+  if (loadFailed(playersRes, completedRes, countRes, leaguePlayersRes, myDecksRes)) {
     return <LoadError what="le classement" />
   }
   const completedMatches = completedRes.data
@@ -48,8 +52,19 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
     }
   })
 
+  const myEntry = me ? (leaguePlayers ?? []).find((lp) => lp.player_id === me) : undefined
+
   return (
     <div className="space-y-8">
+      {me && myEntry && access.league.is_active && (
+        <MyEntry
+          leagueId={id}
+          playerId={me}
+          decks={(myDecksRes.data ?? []).map((d) => ({ id: d.id, name: d.name }))}
+          deckId={myEntry.deck_id}
+          canLeave={(totalMatchCount ?? 0) === 0}
+        />
+      )}
       <div className="text-center space-y-3">
         <p className="text-dc-muted text-sm">Duel Commander · Round Robin · Top 4</p>
 
