@@ -175,6 +175,15 @@ describe('inscriptions', () => {
     expect((await json(bad)).error).toBe("Ce deck n'appartient pas à ce joueur.")
   })
 
+  it('ligue terminée : ni changement de deck ni désinscription (l’historique reste attribué au bon deck)', async () => {
+    await ctx.db.prepare("UPDATE leagues SET is_active = 0 WHERE id = 'priv'").run()
+    as(user('mem'))
+    const deck = await entry.PATCH(req('PATCH', '/api/leagues/priv/players/mem', { deck_id: 'd-mem' }), params({ id: 'priv', playerId: 'mem' }))
+    expect(deck.status).toBe(400)
+    expect((await json(deck)).error).toBe('Cette ligue est terminée.')
+    expect((await entry.DELETE(req('DELETE', '/api/leagues/priv/players/mem'), params({ id: 'priv', playerId: 'mem' }))).status).toBe(400)
+  })
+
   it('un joueur ne touche pas à l’inscription d’un autre', async () => {
     as(user('mem'))
     expect((await entry.PATCH(req('PATCH', '/api/leagues/priv/players/org', { deck_id: null }), params({ id: 'priv', playerId: 'org' }))).status).toBe(403)

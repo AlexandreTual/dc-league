@@ -4,6 +4,7 @@ import { upsertLeaguePlayer, removeLeaguePlayer, isLeagueMember } from '@/lib/db
 import { getDeck } from '@/lib/db-decks'
 import { countMatches } from '@/lib/db'
 import { leagueFor, MANAGE_REFUSED } from '@/lib/leagues/route-access'
+import { LEAGUE_FINISHED } from '@/lib/leagues/join'
 
 export const runtime = 'edge'
 
@@ -11,13 +12,14 @@ type Params = { params: Promise<{ id: string; playerId: string }> }
 
 const NOT_ENROLLED = "Ce joueur n'est pas inscrit dans cette ligue."
 
-/** L'organisateur, un admin, ou le joueur lui-même. */
+/** L'organisateur, un admin, ou le joueur lui-même, sur une ligue en cours (une ligue terminée garde ses decks). */
 async function entryAccess(db: D1Database, id: string, playerId: string, user: Parameters<typeof leagueFor>[2]) {
   const access = await leagueFor(db, id, user, 'view')
   if (access instanceof NextResponse) return access
   if (!access.canManage && access.viewer?.playerId !== playerId) {
     return NextResponse.json({ error: MANAGE_REFUSED }, { status: 403 })
   }
+  if (!access.league.is_active) return badRequest(LEAGUE_FINISHED)
   return access
 }
 
