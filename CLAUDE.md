@@ -42,14 +42,17 @@ node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lan
 node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
 node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, téléphone, en ligne)
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
+node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
 ```
 
-Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`.
+Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`, ligue publique `league-e2e` (« Saison e2e », sans organisateur, `e2e-1`…`e2e-4` inscrits).
+Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `CHROME` (ex. `CHROME=/usr/bin/google-chrome`).
 
 ## Architecture (repères)
 
 - Next.js 15 en runtime edge sur Cloudflare Pages (`@cloudflare/next-on-pages` épinglé, patché au `postinstall`), base D1 (`migrations/`), Tailwind.
 - `lib/auth/` : comptes, sessions, invitations (`service.ts` = logique, `lib/db-auth.ts` = requêtes).
+- `lib/leagues/` : ligues créées par les joueurs : droits (`access.ts` : voir, gérer), chargement avec droits pour routes et pages (`route-access.ts`, `load.ts`), lien d'invitation (`join.ts`). Pages sous `/ligues/<id>/…`.
 - `lib/cards/` : import de decks (texte, liens Moxfield/Archidekt), Scryfall, cartes en français.
 - `lib/game/` : moteur de partie pur (`applyAction`, `canApply`, `viewFor` sans fuite d'information cachée), menus, rangées.
 - `workers/game/` : Worker + Durable Object des parties en ligne (déployé par `.github/workflows/deploy-game-worker.yml`).

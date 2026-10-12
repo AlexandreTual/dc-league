@@ -51,7 +51,7 @@ export default function InvitePanel({ leagueId, initialToken, api }: { leagueId:
           <input
             readOnly
             value={url}
-            aria-label="Lien d'invitation"
+            aria-label="Lien à partager"
             onFocus={(e) => e.currentTarget.select()}
             className="w-full bg-dc-bg border border-dc-border rounded-xl px-3 py-2 text-dc-text text-xs font-mono"
           />

@@ -28,7 +28,7 @@ Cette spec ne couvre que la partie 1. Le format reste celui d'aujourd'hui : roun
 
 ## Décisions
 
-1. **Création** : tout compte joueur (pas la session de démarrage) crée une ligue avec un **nom** et une **visibilité**. Il en devient l'**organisateur**. Il peut y avoir autant de ligues actives qu'on veut, et un joueur peut être inscrit dans plusieurs.
+1. **Création** : tout compte joueur (pas la session de démarrage) crée une ligue avec un **nom** et une **visibilité**. Il en devient l'**organisateur** et y est inscrit d'office (il peut se désinscrire depuis la gestion s'il ne joue pas). Il peut y avoir autant de ligues actives qu'on veut, et un joueur peut être inscrit dans plusieurs.
 2. **Gestion** : l'organisateur fait sur *sa* ligue tout ce que l'admin fait aujourd'hui : inscrire et désinscrire (avant la génération des matchs), choisir le deck d'un inscrit, générer ou réinitialiser les matchs, saisir ou effacer un score, générer ou réinitialiser les playoffs, clôturer, supprimer. Un **admin du site** peut faire tout cela sur **toutes** les ligues.
 3. **Entrer dans une ligue**, de deux façons :
    - l'organisateur ajoute un joueur parmi les comptes existants ;

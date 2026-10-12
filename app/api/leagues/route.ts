@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { MAX_LENGTH, requiredText } from '@/lib/auth/validation'
-import { listLeaguesFor, createLeague } from '@/lib/db-leagues'
+import { listLeaguesFor, createLeague, enrollLeaguePlayer } from '@/lib/db-leagues'
 import { viewerOf } from '@/lib/leagues/access'
 import { parseVisibility } from '@/lib/leagues/validation'
 
@@ -16,7 +16,7 @@ export function GET(req: NextRequest) {
   })
 }
 
-/** Tout joueur crée une ligue et en devient l'organisateur. */
+/** Tout joueur crée une ligue : il en devient l'organisateur et y est inscrit (il peut se désinscrire). */
 export function POST(req: NextRequest) {
   return apiRoute(req, 'player', async ({ db, body, user }) => {
     const name = requiredText(body.name, 'Le nom de la ligue', MAX_LENGTH.leagueName)
@@ -25,6 +25,8 @@ export function POST(req: NextRequest) {
     if (!visibility.ok) return badRequest(visibility.error)
     const { data, error } = await createLeague(db, { name: name.value, ownerPlayerId: user!.playerId, visibility: visibility.value })
     if (error !== null) return resultError(error)
+    const enrolled = await enrollLeaguePlayer(db, data.id, user!.playerId)
+    if (enrolled.error !== null) return resultError(enrolled.error)
     return NextResponse.json(data, { status: 201 })
   })
 }

@@ -47,11 +47,13 @@ beforeEach(async () => {
 })
 
 describe('POST /api/leagues', () => {
-  it('un joueur crée une ligue et en devient l’organisateur', async () => {
+  it('un joueur crée une ligue, en devient l’organisateur et y est inscrit', async () => {
     as(user('out'))
     const res = await leagues.POST(req('POST', '/api/leagues', { name: '  Ligue des potes ', visibility: 'private' }))
     expect(res.status).toBe(201)
-    expect(await json(res)).toMatchObject({ name: 'Ligue des potes', owner_player_id: 'out', visibility: 'private', is_active: true })
+    const created = await json(res)
+    expect(created).toMatchObject({ name: 'Ligue des potes', owner_player_id: 'out', visibility: 'private', is_active: true })
+    expect((await isLeagueMember(ctx.db, created.id as string, 'out')).data).toBe(true)
   })
 
   it('publique par défaut ; visibilité invalide refusée', async () => {
