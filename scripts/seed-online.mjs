@@ -68,4 +68,11 @@ for (const p of PLAYERS) {
 lines.push(`DELETE FROM game_seats WHERE table_id IN (SELECT id FROM game_tables WHERE host_player_id LIKE 'e2e-%');`)
 lines.push(`DELETE FROM game_tables WHERE host_player_id LIKE 'e2e-%';`)
 
+// Ligue publique du site (sans organisateur), avec les quatre premiers joueurs : pour home-nav-check.mjs.
+export const SEED_LEAGUE = 'league-e2e'
+lines.push(`INSERT OR IGNORE INTO leagues (id, name, visibility) VALUES (${q(SEED_LEAGUE)}, 'Saison e2e', 'public');`)
+for (const p of PLAYERS.slice(0, 4)) {
+  lines.push(`INSERT OR IGNORE INTO league_players (league_id, player_id, deck_id) VALUES (${q(SEED_LEAGUE)}, ${q(p.id)}, ${q(`deck-${p.id}`)});`)
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) console.log(lines.join('\n'))

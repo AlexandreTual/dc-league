@@ -1,7 +1,7 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayers, listMatches } from '@/lib/db'
 import { DbMatch, DbPlayer } from '@/lib/db'
-import { getActiveLeague } from '@/lib/db-leagues'
+import { loadVisibleLeague } from '@/lib/leagues/load'
 import { Match, Player } from '@/lib/leaderboard'
 import MatchCard from '@/components/MatchCard'
 import { Calendar, CheckCircle, Clock } from 'lucide-react'
@@ -10,20 +10,20 @@ import LoadError from '@/components/LoadError'
 export const runtime = 'edge'
 export const revalidate = 0
 
-export default async function CalendarPage() {
+export default async function CalendarPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const [{ data: players, error: playersError }, { data: activeLeague, error: leagueError }] = await Promise.all([
+  const access = await loadVisibleLeague(id)
+  if (!access) return <LoadError what="le calendrier" />
+
+  const [{ data: players, error: playersError }, { data: matches, error: matchesError }] = await Promise.all([
     listPlayers(db),
-    getActiveLeague(db),
+    listMatches(db, id, true),
   ])
 
-  const { data: matches, error: matchesError } = activeLeague
-    ? await listMatches(db, activeLeague.id, true)
-    : { data: [], error: null }
-
-  if (playersError || leagueError || matchesError) return <LoadError what="le calendrier" />
+  if (playersError || matchesError) return <LoadError what="le calendrier" />
 
   if (!matches || matches.length === 0) {
     return (
@@ -31,7 +31,7 @@ export default async function CalendarPage() {
         <Calendar className="w-12 h-12 text-dc-muted mx-auto opacity-40" />
         <p className="text-dc-muted">La ligue n&apos;a pas encore été générée.</p>
         <p className="text-dc-muted text-sm">
-          L&apos;admin doit d&apos;abord ajouter les joueurs et générer les matchs.
+          L&apos;organisateur doit d&apos;abord inscrire les joueurs et générer les matchs.
         </p>
       </div>
     )
@@ -60,7 +60,7 @@ export default async function CalendarPage() {
           <Calendar className="w-6 h-6 text-dc-gold" />
           <div className="gold-divider w-16" />
         </div>
-        <h1 className="font-fantasy text-3xl font-bold text-dc-gold">Calendrier</h1>
+        <h2 className="font-fantasy text-2xl font-bold text-dc-gold">Calendrier</h2>
 
         <div className="flex items-center justify-center gap-4 text-sm">
           <span className="flex items-center gap-1.5 text-dc-green-light">

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import {
   createLeague, getLeague, updateLeague, listLeaguesFor, getFeaturedLeague,
-  renewInviteToken, getLeagueByInviteToken, isLeagueMember, countScoredMatches, enrollLeaguePlayer,
+  renewInviteToken, getLeagueByInviteToken, isLeagueMember, countScoredMatches, enrollLeaguePlayer, listMyLeagueIds,
 } from './db-leagues'
 
 let db: D1Database
@@ -134,5 +134,16 @@ describe('countScoredMatches', () => {
       db.prepare("INSERT INTO matches (id, player1_id, player2_id, league_id, score_p1, score_p2, is_completed) VALUES ('m2', 'p1', 'p3', ?, 2, 0, 1)").bind(id),
     ])
     expect((await countScoredMatches(db, id)).data).toBe(1)
+  })
+})
+
+describe('listMyLeagueIds', () => {
+  it('ligues organisées et ligues où l’on est inscrit', async () => {
+    const own = (await createLeague(db, { name: 'A', ownerPlayerId: 'p1', visibility: 'public' })).data!.id
+    const other = (await createLeague(db, { name: 'B', ownerPlayerId: 'p2', visibility: 'public' })).data!.id
+    await createLeague(db, { name: 'C', ownerPlayerId: 'p2', visibility: 'public' })
+    await enrollLeaguePlayer(db, other, 'p1')
+    await enrollLeaguePlayer(db, own, 'p1')
+    expect((await listMyLeagueIds(db, 'p1')).data!.sort()).toEqual([own, other].sort())
   })
 })

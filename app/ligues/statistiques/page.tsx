@@ -1,5 +1,6 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
-import { BarChart2, ExternalLink, Swords, Trophy, TrendingUp } from 'lucide-react'
+import Link from 'next/link'
+import { BarChart2, ChevronLeft, ExternalLink, Swords, Trophy, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 import { listMatchStats, computeAllStats, type PlayerRecord, type H2HEntry } from '@/lib/db-stats'
 import { deckSiteName } from '@/lib/cards/deck-link'
@@ -333,6 +334,9 @@ export default async function StatsPage() {
 
   return (
     <div className="space-y-12">
+      <Link href="/ligues" className="inline-flex items-center gap-1 text-xs text-dc-muted hover:text-dc-gold">
+        <ChevronLeft className="w-3.5 h-3.5" /> Toutes les ligues
+      </Link>
       {/* Header */}
       <div className="text-center space-y-3">
         <div className="flex items-center justify-center gap-3">
@@ -346,6 +350,7 @@ export default async function StatsPage() {
             ? `${totalMatches} match${totalMatches > 1 ? 's' : ''} joué${totalMatches > 1 ? 's' : ''} · ${players.length} joueur${players.length > 1 ? 's' : ''}`
             : 'Aucun match joué pour le moment'}
         </p>
+        <p className="text-dc-muted text-xs">Toutes les ligues publiques confondues.</p>
       </div>
 
       {!hasData ? (

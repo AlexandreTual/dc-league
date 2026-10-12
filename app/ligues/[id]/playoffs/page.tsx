@@ -1,6 +1,7 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayoffs, listPlayers, DbPlayoff, DbPlayer } from '@/lib/db'
-import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
+import { listLeaguePlayers } from '@/lib/db-leagues'
+import { loadVisibleLeague } from '@/lib/leagues/load'
 import { Trophy } from 'lucide-react'
 import PlayoffBracket from './PlayoffBracket'
 import LoadError from '@/components/LoadError'
@@ -8,22 +9,24 @@ import LoadError from '@/components/LoadError'
 export const runtime = 'edge'
 export const revalidate = 0
 
-export default async function PlayoffsPage() {
+export default async function PlayoffsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const { data: activeLeague, error: leagueError } = await getActiveLeague(db)
+  const access = await loadVisibleLeague(id)
+  if (!access) return <LoadError what="les playoffs" />
 
   const [
     { data: playoffs, error: playoffsError },
     { data: players, error: playersError },
     { data: leaguePlayers, error: leaguePlayersError },
   ] = await Promise.all([
-    activeLeague ? listPlayoffs(db, activeLeague.id) : Promise.resolve({ data: [], error: null }),
+    listPlayoffs(db, id),
     listPlayers(db),
-    activeLeague ? listLeaguePlayers(db, activeLeague.id) : Promise.resolve({ data: [], error: null }),
+    listLeaguePlayers(db, id),
   ])
-  if (leagueError || playoffsError || playersError || leaguePlayersError) return <LoadError what="les playoffs" />
+  if (playoffsError || playersError || leaguePlayersError) return <LoadError what="les playoffs" />
 
   const playerMap: Record<string, DbPlayer> = {}
   for (const p of players ?? []) playerMap[p.id] = p
@@ -45,10 +48,10 @@ export default async function PlayoffsPage() {
           <Trophy className="w-6 h-6 text-dc-gold" />
           <div className="gold-divider w-16" />
         </div>
-        <h1 className="font-fantasy text-3xl md:text-4xl font-bold text-dc-gold">
+        <h2 className="font-fantasy text-2xl md:text-3xl font-bold text-dc-gold">
           Playoffs — Top 4
-        </h1>
-        <p className="text-dc-muted text-sm">Phase finale · Commander League</p>
+        </h2>
+        <p className="text-dc-muted text-sm">Phase finale</p>
       </div>
 
       <PlayoffBracket playoffs={playoffs ?? [] as DbPlayoff[]} playerMap={playerMap} deckMap={deckMap} />

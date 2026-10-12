@@ -1,7 +1,8 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { computeLeaderboard } from '@/lib/leaderboard'
 import { listPlayers, listCompletedMatches, countMatches } from '@/lib/db'
-import { getActiveLeague, listLeaguePlayers } from '@/lib/db-leagues'
+import { listLeaguePlayers } from '@/lib/db-leagues'
+import { loadVisibleLeague } from '@/lib/leagues/load'
 import LeaderboardTable from '@/components/LeaderboardTable'
 import LoadError from '@/components/LoadError'
 import { loadFailed } from '@/lib/load'
@@ -10,23 +11,22 @@ import { Sword, Trophy } from 'lucide-react'
 export const runtime = 'edge'
 export const revalidate = 0
 
-export default async function ClassementPage() {
+export default async function ClassementPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const [leagueRes, playersRes] = await Promise.all([
-    getActiveLeague(db),
-    listPlayers(db),
-  ])
-  const league = leagueRes.data
-  const players = playersRes.data
+  const access = await loadVisibleLeague(id)
+  if (!access) return <LoadError what="le classement" />
 
-  const [completedRes, countRes, leaguePlayersRes] = await Promise.all([
-    league ? listCompletedMatches(db, league.id) : Promise.resolve({ data: [] }),
-    league ? countMatches(db, league.id) : Promise.resolve({ data: 0 }),
-    league ? listLeaguePlayers(db, league.id) : Promise.resolve({ data: [] }),
+  const [playersRes, completedRes, countRes, leaguePlayersRes] = await Promise.all([
+    listPlayers(db),
+    listCompletedMatches(db, id),
+    countMatches(db, id),
+    listLeaguePlayers(db, id),
   ])
-  if (loadFailed(leagueRes, playersRes, completedRes, countRes, leaguePlayersRes)) {
+  const players = playersRes.data
+  if (loadFailed(playersRes, completedRes, countRes, leaguePlayersRes)) {
     return <LoadError what="le classement" />
   }
   const completedMatches = completedRes.data
@@ -51,17 +51,7 @@ export default async function ClassementPage() {
   return (
     <div className="space-y-8">
       <div className="text-center space-y-3">
-        <div className="flex items-center justify-center gap-3">
-          <div className="gold-divider w-16" />
-          <Trophy className="w-6 h-6 text-dc-gold" />
-          <div className="gold-divider w-16" />
-        </div>
-        <h1 className="font-fantasy text-3xl md:text-4xl font-bold text-dc-gold">
-          Commander League
-        </h1>
-        <p className="text-dc-muted text-sm">
-          {league ? `${league.name} · ` : ''}Duel Commander · Round Robin · Top 4
-        </p>
+        <p className="text-dc-muted text-sm">Duel Commander · Round Robin · Top 4</p>
 
         {(totalMatchCount ?? 0) > 0 && (
           <div className="inline-flex items-center gap-2 bg-dc-surface border border-dc-border rounded-full px-4 py-1.5 text-sm">
@@ -74,15 +64,11 @@ export default async function ClassementPage() {
         )}
       </div>
 
-      {!league ? (
-        <div className="text-center py-16 text-dc-muted">
-          <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p>Aucune saison active pour le moment.</p>
-        </div>
-      ) : (totalMatchCount ?? 0) === 0 ? (
+      {(totalMatchCount ?? 0) === 0 ? (
         <div className="text-center py-16 text-dc-muted">
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
           <p>La ligue n&apos;a pas encore démarré.</p>
+          <p className="text-sm mt-1">{enrolledPlayers.length} joueur{enrolledPlayers.length > 1 ? 's' : ''} inscrit{enrolledPlayers.length > 1 ? 's' : ''}.</p>
         </div>
       ) : (
         <LeaderboardTable

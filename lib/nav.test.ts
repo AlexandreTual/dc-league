@@ -8,11 +8,11 @@ const hrefs = (links: { href: string }[]) => links.map((l) => l.href)
 
 describe('mainLinks', () => {
   it('visiteur : la ligue et les règles seulement', () => {
-    expect(hrefs(mainLinks(null))).toEqual(['/classement', '/rules'])
+    expect(hrefs(mainLinks(null))).toEqual(['/ligues', '/rules'])
   })
 
   it('joueur connecté : la ligue, le salon, ses decks et les règles', () => {
-    expect(hrefs(mainLinks(player))).toEqual(['/classement', '/salon', '/profil/decks', '/rules'])
+    expect(hrefs(mainLinks(player))).toEqual(['/ligues', '/salon', '/profil/decks', '/rules'])
   })
 
   it("l'administration n'est jamais dans la barre", () => {
@@ -21,7 +21,7 @@ describe('mainLinks', () => {
   })
 
   it('compte de démarrage (sans joueur) : ni salon ni decks', () => {
-    expect(hrefs(mainLinks(bootstrap))).toEqual(['/classement', '/rules'])
+    expect(hrefs(mainLinks(bootstrap))).toEqual(['/ligues', '/rules'])
   })
 })
 
@@ -40,25 +40,32 @@ describe('accountLinks', () => {
 })
 
 describe('leagueTabs', () => {
-  it('sans playoffs : classement, calendrier, statistiques, historique', () => {
-    expect(hrefs(leagueTabs({ hasPlayoffs: false }))).toEqual(['/classement', '/calendar', '/stats', '/history'])
+  const tabs = (o: { hasPlayoffs?: boolean; canManage?: boolean }) =>
+    hrefs(leagueTabs({ leagueId: 'l1', hasPlayoffs: false, canManage: false, ...o }))
+
+  it('sans playoffs : classement et calendrier de la ligue', () => {
+    expect(tabs({})).toEqual(['/ligues/l1/classement', '/ligues/l1/calendrier'])
   })
 
   it('avec playoffs : l’onglet apparaît après le calendrier', () => {
-    expect(hrefs(leagueTabs({ hasPlayoffs: true }))).toEqual(['/classement', '/calendar', '/playoffs', '/stats', '/history'])
+    expect(tabs({ hasPlayoffs: true })).toEqual(['/ligues/l1/classement', '/ligues/l1/calendrier', '/ligues/l1/playoffs'])
+  })
+
+  it('« Gérer » seulement pour qui gère la ligue', () => {
+    expect(tabs({ canManage: true })).toEqual(['/ligues/l1/classement', '/ligues/l1/calendrier', '/ligues/l1/gerer'])
   })
 })
 
 describe('isActive', () => {
-  it('« Ligue » reste actif sur toutes les pages de la ligue', () => {
-    for (const path of ['/classement', '/calendar', '/playoffs', '/stats', '/history', '/history/abc']) {
-      expect(isActive('/classement', path)).toBe(true)
+  it('« Ligue » reste actif sur toutes les pages des ligues', () => {
+    for (const path of ['/ligues', '/ligues/l1/classement', '/ligues/l1/gerer', '/ligues/statistiques', '/ligues/rejoindre/abc']) {
+      expect(isActive('/ligues', path)).toBe(true)
     }
   })
 
   it('« Ligue » n’est pas actif sur l’accueil ni sur les règles', () => {
-    expect(isActive('/classement', '/')).toBe(false)
-    expect(isActive('/classement', '/rules')).toBe(false)
+    expect(isActive('/ligues', '/')).toBe(false)
+    expect(isActive('/ligues', '/rules')).toBe(false)
   })
 
   it('« Jouer » reste actif sur une table en ligne', () => {
@@ -72,8 +79,7 @@ describe('isActive', () => {
   })
 
   it('un onglet de la ligue ne s’allume que sur sa page', () => {
-    expect(isActive('/history', '/history/abc', 'tab')).toBe(true)
-    expect(isActive('/classement', '/calendar', 'tab')).toBe(false)
-    expect(isActive('/calendar', '/calendar', 'tab')).toBe(true)
+    expect(isActive('/ligues/l1/classement', '/ligues/l1/calendrier', 'tab')).toBe(false)
+    expect(isActive('/ligues/l1/calendrier', '/ligues/l1/calendrier', 'tab')).toBe(true)
   })
 })

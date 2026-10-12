@@ -17,9 +17,9 @@ export function features(user: NavUser | null): Feature[] {
   const gated = (href: string) => (player ? href : `/connexion?from=${href}`)
   return [
     {
-      key: 'ligue', locked: false, href: '/classement', cta: 'Voir le classement',
-      title: 'La ligue',
-      text: 'Une saison en Duel Commander : tout le monde affronte tout le monde, puis les 4 premiers jouent la phase finale. Classement et calendrier à jour.',
+      key: 'ligue', locked: false, href: '/ligues', cta: 'Voir les ligues',
+      title: 'Les ligues',
+      text: 'Crée ta ligue entre amis, publique ou privée, et invite tes joueurs par un lien. En Duel Commander : tout le monde affronte tout le monde, puis les 4 premiers jouent la phase finale.',
     },
     {
       key: 'decks', locked: !player, href: gated('/profil/decks'), cta: 'Mes decks',
@@ -37,9 +37,9 @@ export function features(user: NavUser | null): Feature[] {
       text: 'Ouvre une table au salon et joue de 2 à 5 joueurs, en Commander ou en Duel Commander : points de vie, blessures de commandant, jetons, dés.',
     },
     {
-      key: 'stats', locked: false, href: '/stats', cta: 'Voir les statistiques',
+      key: 'stats', locked: false, href: '/ligues/statistiques', cta: 'Voir les statistiques',
       title: 'Statistiques et historique',
-      text: 'Palmarès toutes saisons confondues, face-à-face entre joueurs et résultats des saisons archivées.',
+      text: 'Palmarès de toutes les ligues publiques, face-à-face entre joueurs et résultats des ligues terminées.',
     },
     {
       key: 'regles', locked: false, href: '/rules', cta: 'Lire les règles',

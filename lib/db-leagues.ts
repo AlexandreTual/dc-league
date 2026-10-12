@@ -466,3 +466,19 @@ export async function getItemLeagueId(
     return err((e as Error).message)
   }
 }
+
+/** Ligues dont le joueur est inscrit ou organisateur. */
+export async function listMyLeagueIds(db: D1Database, playerId: string): Promise<Result<string[]>> {
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT id FROM leagues WHERE owner_player_id = ?1
+         UNION SELECT league_id AS id FROM league_players WHERE player_id = ?1`,
+      )
+      .bind(playerId)
+      .all<{ id: string }>()
+    return ok(results.map((r) => r.id))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
