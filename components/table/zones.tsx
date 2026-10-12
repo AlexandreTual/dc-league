@@ -66,7 +66,11 @@ export function ptEdit(handlers: CardHandlers, id: string, zone: ZoneRef): ((at:
   return open && ((at) => open(id, zone, at))
 }
 
-export function Battlefield(props: ZoneProps & { label?: string }) {
+/**
+ * Champ de bataille d'un joueur ; `corner` : contenu en bas à gauche (sa réserve de mana).
+ * Le coin ne capte pas les événements (seul son contenu interactif les prend) : dépôt et glisser restent libres autour.
+ */
+export function Battlefield(props: ZoneProps & { label?: string; corner?: React.ReactNode }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'battlefield' }
   const { setNodeRef, highlight } = useZone(ref)
@@ -86,6 +90,7 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
           <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} />
         </Draggable>
       ))}
+      {props.corner && <div className="absolute bottom-1.5 left-1.5 z-[5] pointer-events-none">{props.corner}</div>}
     </div>
   )
 }
