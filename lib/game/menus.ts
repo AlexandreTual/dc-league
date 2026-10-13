@@ -1,6 +1,7 @@
 // Menus clic droit de la table : quelles entrées pour quelle carte, selon qui regarde.
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
+import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
 import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
 import type { ClientAction } from './room'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
@@ -115,11 +116,40 @@ function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   return entries
 }
 
-/** Menu de l'encart force/endurance d'une carte en jeu (toucher l'encart) ; vide pour un spectateur ou une partie finie. */
-export function ptMenu(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+/**
+ * Loyauté d'un planeswalker en jeu, modifiable par tout joueur : valeur affichée, nombre tapé = nouvelle valeur
+ * (ou nouvel écart quand la loyauté imprimée est inconnue), « Réinitialiser » quand elle a été modifiée.
+ */
+function loyaltyEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+  const catalog = ctx.catalogs[card.owner]
+  if (!hasLoyalty(catalog, card)) return []
+  const id = card.id
+  const shown = loyaltyStats(catalog, card)
+  const mod = card.loyaltyMod ?? 0
+  const current = shown ? (shown.value ?? shown.delta) : 0
+  const change = (delta: number) => act({ type: 'loyalty', id, delta })
+  const entries: MenuEntry[] = [{
+    kind: 'stepper', label: 'Loyauté', value: shown?.text ?? '+0', signed: shown?.value == null, minus: change(-1), plus: change(1),
+    set: (n) => {
+      if (!Number.isFinite(n)) return []
+      // L'écart visé, borné comme le fera le moteur (jamais sous 0 marqueur).
+      const delta = clampLoyalty(baseLoyalty(catalog, card), mod + Math.trunc(n) - current) - mod
+      return delta === 0 ? [] : [change(delta)]
+    },
+  }]
+  if (mod !== 0) entries.push(item('Réinitialiser la loyauté', change(-mod)))
+  return entries
+}
+
+/**
+ * Menu de l'encart d'une carte en jeu (toucher l'encart) : la loyauté d'un planeswalker qui en affiche une,
+ * sinon force et endurance. Vide pour un spectateur ou une partie finie.
+ */
+export function statMenu(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (!ctx.me || ctx.readOnly) return []
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
-  return [{ kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }, ...ptEntries(ctx, card)]
+  const entries = loyaltyStats(ctx.catalogs[card.owner], card) ? loyaltyEntries(ctx, card) : ptEntries(ctx, card)
+  return [{ kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }, ...entries]
 }
 
 function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
@@ -146,7 +176,7 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
   }
   entries.push({ kind: 'separator' },
     counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
-    ...ptEntries(ctx, card))
+    ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card))
   return entries
 }
 

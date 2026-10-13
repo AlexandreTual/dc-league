@@ -35,7 +35,7 @@ export function basePT(catalog: Catalog | undefined, card: Pick<CardInstance, 'r
   return pair(entry.en.power, entry.en.toughness)
 }
 
-function valueOf(base: string | null, delta: number): PtValue {
+export function valueOf(base: string | null, delta: number): PtValue {
   if (base === null) return { text: signed(delta), delta, value: null }
   if (/^-?\d+$/.test(base)) {
     const value = Number(base) + delta

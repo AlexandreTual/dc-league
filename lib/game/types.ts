@@ -93,6 +93,8 @@ export type CardInstance = {
   counters: Counters
   /** Absent : aucune modification (0/0), et toujours absent hors du champ de bataille. */
   ptMod?: PtMod
+  /** Marqueurs loyauté ajoutés (ou retirés) depuis la loyauté imprimée ; absent : aucun écart, et toujours hors du champ de bataille. */
+  loyaltyMod?: number
   /** Pivotée à 180° (ex. jeton imprimé tête-bêche) ; absent sinon, et toujours hors du champ de bataille. */
   rotated?: true
   x: number
@@ -155,6 +157,7 @@ export type GameAction =
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
   /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
+  | { type: 'loyalty'; actor: string; id: string; delta: number }
   | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number; copy?: boolean }
   | { type: 'life'; actor: string; target: string; delta: number }
   | { type: 'poison'; actor: string; target: string; delta: number }
@@ -191,6 +194,8 @@ export type VisibleCard = {
   counters: Counters
   /** Absent : aucune modification, ou serveur de jeu plus ancien. */
   ptMod?: PtMod
+  /** Absent : aucun écart de loyauté, ou serveur de jeu plus ancien. */
+  loyaltyMod?: number
   /** Absent : non pivotée, ou serveur de jeu plus ancien. */
   rotated?: true
   x: number

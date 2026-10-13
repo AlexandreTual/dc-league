@@ -8,7 +8,7 @@ import {
 import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
-import { cardMenu, handMenu, libraryMenu, ptMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -91,7 +91,7 @@ export default function Table({ source, notice, boardWindow }: {
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
-  // `pt` : menu de l'encart force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
+  // `pt` : menu de l'encart loyauté ou force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
   const [menu, setMenu] = useState<{
     x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean }
     /** Ouvert au doigt : l'image de la carte est dans le menu. */
@@ -194,7 +194,7 @@ export default function Table({ source, notice, boardWindow }: {
     const card = cards.get(id)
     const z = zone.zone
     if (!card || !view.players[zone.player]?.zones[z].some((c) => !c.hidden && c.id === id)) return m.entries
-    const fresh = pt ? ptMenu(menuCtx, card) : cardMenu(menuCtx, card, zone)
+    const fresh = pt ? statMenu(menuCtx, card) : cardMenu(menuCtx, card, zone)
     return fresh.length > 0 ? fresh : m.entries
   }
 
@@ -292,7 +292,7 @@ export default function Table({ source, notice, boardWindow }: {
     onHover: (id) => setHovered(id),
     onPtEdit: canAct ? (id, zone, at) => {
       const card = cards.get(id)
-      const entries = card ? ptMenu(menuCtx, card) : []
+      const entries = card ? statMenu(menuCtx, card) : []
       if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone, pt: true } })
     } : undefined,
   }
