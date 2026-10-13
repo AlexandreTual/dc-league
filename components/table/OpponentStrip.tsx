@@ -39,7 +39,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       key={card.id}
       data-strip-card={card.id}
       className={`relative ${cardHeight} shrink-0 ${longPressClass} ${highlighted?.has(card.id) ? 'ring-2 ring-dc-gold rounded-[6%]' : ''}`}
-      style={{ transform: card.tapped ? 'rotate(90deg)' : undefined, margin: card.tapped ? (stacked ? '0 8px' : '0 12px') : undefined }}
+      style={{ transform: card.tapped || card.rotated ? `rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)` : undefined, margin: card.tapped ? (stacked ? '0 8px' : '0 12px') : undefined }}
       title={cardInfo(catalogs[card.owner], card, lang).name}
       onDoubleClick={() => handlers.onDoubleClick(card.id, battlefield)}
       {...menuGesture((at) => handlers.onContextMenu(card.id, battlefield, at))}
