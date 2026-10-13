@@ -37,18 +37,30 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
     ? <span className={statClass(loyalty)}>{loyalty.text}</span>
     : <><span className={statClass(stats!.power)}>{stats!.power.text}</span>/<span className={statClass(stats!.toughness)}>{stats!.toughness.text}</span></>
   // À l'échelle de la carte (cqw = % de sa largeur) pour couvrir l'encart imprimé, 10 px au moins sur les petites cartes.
-  // Loyauté : bas arrondi, comme le bouclier imprimé.
-  const shape = loyalty ? 'min-w-[15cqw] rounded-t rounded-b-[45%]' : 'min-w-[20cqw] rounded'
-  const box = `absolute bottom-[4.5%] right-[4%] ${shape} px-[0.35em] bg-black border border-dc-gold/50 text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap`
+  // Loyauté : bouclier dessiné en SVG (haut droit, bas en pointe), comme l'encart imprimé.
+  const shape = loyalty
+    ? 'bottom-[3%] right-[3.5%] w-[max(22px,16cqw)] aspect-[10/11] flex items-start justify-center pt-[0.2em] group'
+    : 'bottom-[4.5%] right-[4%] min-w-[20cqw] px-[0.35em] rounded bg-black border border-dc-gold/50'
+  const box = `absolute ${shape} text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap`
+  const shield = loyalty && (
+    <svg viewBox="0 0 100 110" className="absolute inset-0 w-full h-full -z-10 overflow-visible" aria-hidden="true">
+      <path
+        d="M5 5 H95 V60 C95 85 72 98 50 106 C28 98 5 85 5 60 Z"
+        className="fill-black stroke-dc-gold/50 group-hover:stroke-dc-gold"
+        strokeWidth="5"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  )
   // Calque aux dimensions de la carte, conteneur des unités cqw.
   const layer = (child: React.ReactNode) => <div className="absolute inset-0 pointer-events-none [container-type:size]">{child}</div>
-  if (!onEdit) return layer(<span className={box} {...data}>{content}</span>)
+  if (!onEdit) return layer(<span className={`${box} isolate`} {...data}>{shield}{content}</span>)
   // Ni glisser (dnd-kit écoute mousedown / touchstart), ni appui long, ni double-clic (engager) depuis l'encart.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
   return layer(
     <button
       type="button"
-      className={`${box} pointer-events-auto cursor-pointer hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6`}
+      className={`${box} isolate pointer-events-auto cursor-pointer ${loyalty ? '[@media(pointer:coarse)]:w-[max(2rem,18cqw)]' : 'hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6'}`}
       {...data}
       aria-label={`${label} : modifier`}
       onPointerDown={stop}
@@ -60,6 +72,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
         onEdit({ clientX: e.clientX, clientY: e.clientY })
       }}
     >
+      {shield}
       {content}
     </button>,
   )
