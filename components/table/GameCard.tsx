@@ -33,14 +33,17 @@ function PtBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalog;
       <span className={statClass(stats.power)}>{stats.power.text}</span>/<span className={statClass(stats.toughness)}>{stats.toughness.text}</span>
     </>
   )
-  const box = 'absolute bottom-[3%] right-[3%] px-1 rounded bg-black/80 border border-dc-gold/50 text-white text-[10px] leading-4 font-bold whitespace-nowrap'
-  if (!onEdit) return <span className={`${box} pointer-events-none`} data-pt={text}>{content}</span>
+  // À l'échelle de la carte (cqw = % de sa largeur) pour couvrir l'encart imprimé, 10 px au moins sur les petites cartes.
+  const box = 'absolute bottom-[4.5%] right-[4%] min-w-[20cqw] px-[0.35em] rounded bg-black border border-dc-gold/50 text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap'
+  // Calque aux dimensions de la carte, conteneur des unités cqw.
+  const layer = (child: React.ReactNode) => <div className="absolute inset-0 pointer-events-none [container-type:size]">{child}</div>
+  if (!onEdit) return layer(<span className={box} data-pt={text}>{content}</span>)
   // Ni glisser (dnd-kit écoute mousedown / touchstart), ni appui long, ni double-clic (engager) depuis l'encart.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
-  return (
+  return layer(
     <button
       type="button"
-      className={`${box} cursor-pointer hover:border-dc-gold [@media(pointer:coarse)]:min-w-8 [@media(pointer:coarse)]:min-h-6`}
+      className={`${box} pointer-events-auto cursor-pointer hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6`}
       data-pt={text}
       aria-label={`Force et endurance ${text} : modifier`}
       onPointerDown={stop}
@@ -53,7 +56,7 @@ function PtBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalog;
       }}
     >
       {content}
-    </button>
+    </button>,
   )
 }
 
