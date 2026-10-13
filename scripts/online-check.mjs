@@ -270,8 +270,9 @@ try {
   for (let i = 0; i < 3; i++) await anaStripPanel.getByRole('button', { name: 'moins' }).first().click()
   await chloe.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()
   await board(chloe, ANA.id).getByRole('button', { name: `Compteurs de ${ANA.name}` }).click()
-  const damage = chloe.page.locator(`[data-bubble="${ANA.id}"]`).getByTestId(`commander-damage-${CHLOE.id}`)
-  for (let i = 0; i < 5; i++) await damage.locator('xpath=following-sibling::button').click()
+  const damage = chloe.page.locator(`[data-bubble="${ANA.id}"] [data-marker]`).filter({ has: chloe.page.getByTestId(`commander-damage-${CHLOE.id}`) })
+  check((await chloe.page.locator(`[data-bubble="${ANA.id}"] [data-marker^="counter:"]`).count()) === 4, 'bulle d’Ana : les 4 marqueurs prédéfinis listés')
+  for (let i = 0; i < 5; i++) await damage.getByRole('button', { name: /^plus : blessures de / }).click()
   // La vie se règle encore depuis la pastille pendant que la bulle est ouverte (le voile ne doit pas l'intercepter).
   const anaPillMinus = board(chloe, ANA.id).locator(`[data-panel="${ANA.id}"]`).getByRole('button', { name: 'moins' }).first()
   await anaPillMinus.click()

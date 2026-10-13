@@ -394,6 +394,40 @@ try {
   await lifeButton('plus : points de vie').click()
   check((await life.innerText()) === '11' && !(await life.getAttribute('class')).includes('text-dc-red-light'), 'vie à 11 : couleur normale')
 
+  // ── Marqueurs en liste (bulle « ⋯ ») : poison, prédéfinis à 0, ajout à la volée, interrupteurs ──
+  await page.locator('[data-column]').getByRole('button', { name: /^Compteurs de / }).click()
+  const bubble = page.locator('[data-bubble]')
+  const marker = (key) => bubble.locator(`[data-marker="${key}"]`)
+  const markerValue = async (key) => Number(await marker(key).getByTestId(`marker-${key}`).innerText())
+  const presets = ['Énergie', 'Expérience', 'Rad', 'Tickets']
+  check((await marker('poison').count()) === 1 && (await Promise.all(presets.map((n) => markerValue(`counter:${n}`)))).every((v) => v === 0),
+    'liste : poison et les 4 marqueurs prédéfinis, à 0')
+  await marker('counter:Énergie').getByRole('button', { name: 'plus : Énergie' }).click()
+  await marker('counter:Énergie').getByRole('button', { name: 'plus : Énergie' }).click({ modifiers: ['Shift'] })
+  check((await markerValue('counter:Énergie')) === 6, 'Énergie : + puis Maj+ = 6')
+  check((await page.locator('[data-column] [data-badge="counter:Énergie"]').innerText()) === 'Énergie 6', 'badge « Énergie 6 » sous le portrait')
+  check((await page.locator('[data-column] [data-badge="counter:Rad"]').count()) === 0, 'pas de badge pour un marqueur à 0')
+  const newMarker = bubble.getByRole('textbox', { name: 'Nouveau marqueur' })
+  await newMarker.fill('Éclat')
+  await newMarker.press('Enter')
+  await marker('counter:Éclat').waitFor()
+  check((await markerValue('counter:Éclat')) === 1 && (await newMarker.inputValue()) === '', 'nouveau marqueur « Éclat » créé à 1 (Entrée), champ vidé')
+  const rowsBefore = await bubble.locator('[data-marker]').count()
+  await newMarker.fill('energie')
+  await bubble.getByRole('button', { name: 'Ajouter le marqueur' }).click()
+  check((await bubble.getByTestId('marker-error').innerText()) === 'Le marqueur « Énergie » existe déjà.' && (await bubble.locator('[data-marker]').count()) === rowsBefore,
+    'doublon « energie » : message, rien de créé')
+  await newMarker.fill('   ')
+  await newMarker.press('Enter')
+  check((await bubble.locator('[data-marker]').count()) === rowsBefore && (await bubble.getByTestId('marker-error').count()) === 0, 'nom vide : rien de créé, sans message')
+  const monarch = bubble.getByRole('switch', { name: 'Monarque' })
+  await monarch.click()
+  check((await monarch.getAttribute('aria-checked')) === 'true' && (await page.locator('[data-column] [data-badge="monarch"]').count()) === 1, 'interrupteur Monarque : activé, badge affiché')
+  await capture('marqueurs')
+  await monarch.click()
+  check((await monarch.getAttribute('aria-checked')) === 'false', 'interrupteur Monarque : désactivé')
+  await page.keyboard.press('Escape')
+
   // ── Réserve de mana : en bas à gauche de mon champ de bataille, les 6 couleurs même à 0 ──
   const pool = page.locator('[data-board] [data-zone="battlefield"] [data-testid="mana-pool"]')
   const manaCount = async (c) => Number(await pool.locator(`[data-mana="${c}"]`).getAttribute('data-count'))
