@@ -1,7 +1,7 @@
 # Design — Assistant IA pour les cartes (interactions et explications)
 
 **Date :** 2026-10-13
-**Statut :** Choix validés avec l'utilisateur en conversation (où, fournisseur, quota) ; spec à relire avant le plan.
+**Statut :** Validé avec l'utilisateur (13 octobre : choix en conversation, puis les six propositions ci-dessous acceptées).
 **Dépend de :** fenêtre « Oracle et règles » (issue #70 : `lib/cards/oracle.ts`, `lib/cards/rulings.ts`, `components/OracleModal.tsx`).
 
 ---
@@ -20,7 +20,7 @@ L'IA ne cherche rien sur Internet : le serveur lui envoie le **texte Oracle** et
 | Quota | **20 questions par joueur et par jour** ; chaque message envoyé dans le chat compte pour une question |
 | Ce qu'on envoie à l'IA | texte Oracle anglais, texte imprimé français s'il existe, type, règles officielles de chaque carte ; pas le lien Gatherer (l'IA ne le lirait pas de façon fiable) |
 
-## Décisions proposées dans cette spec (à confirmer à la relecture)
+## Décisions complémentaires (proposées dans la spec, acceptées)
 
 | Sujet | Proposition |
 |---|---|
