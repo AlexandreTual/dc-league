@@ -74,6 +74,47 @@ describe('cartes', () => {
     expect(shifted.cards[delver('p1')].ptMod).toEqual({ power: 1, toughness: 1 })
   })
 
+  /** Sol Ring de p1 devenu Teferi (loyauté 4, ou pas encore lue), en jeu. */
+  function withWalker(read = true): GameState {
+    const s = game()
+    const entries = s.catalogs.p1.entries.map((e) => (e.ref === 2
+      ? { ...e, fr: null, en: { ...e.en, name: 'Teferi, Time Raveler', type_line: 'Legendary Planeswalker — Teferi', loyalty: read ? '4' : undefined } }
+      : e))
+    return { ...s, catalogs: { ...s.catalogs, p1: { ...s.catalogs.p1, entries } } }
+  }
+  const teferi = card('p1', 2)
+
+  it('loyauté : tout joueur la modifie, écarts cumulés, journal, vue', () => {
+    let s = apply(withWalker(), { type: 'loyalty', actor: 'p1', id: teferi, delta: 1 }, { type: 'loyalty', actor: 'p2', id: teferi, delta: 2 })
+    expect(s.cards[teferi].loyaltyMod).toBe(3)
+    expect(s.log.at(-1)).toMatchObject({ actor: 'p2', text: 'Teferi, Time Raveler : loyauté 7' })
+    expect(viewFor(s, 'p3').players.p1.zones.battlefield.find((c) => !c.hidden && c.id === teferi)).toMatchObject({ loyaltyMod: 3 })
+    s = applyAction(s, { type: 'loyalty', actor: 'p1', id: teferi, delta: -3 })
+    expect(s.cards[teferi]).not.toHaveProperty('loyaltyMod')
+    expect(lastText(s)).toBe('Teferi, Time Raveler : loyauté 4')
+  })
+
+  it('loyauté : jamais sous 0, rien de changé sans effet, inconnue = écart seul', () => {
+    let s = applyAction(withWalker(), { type: 'loyalty', actor: 'p1', id: teferi, delta: -10 })
+    expect(s.cards[teferi].loyaltyMod).toBe(-4)
+    expect(lastText(s)).toBe('Teferi, Time Raveler : loyauté 0')
+    expect(applyAction(s, { type: 'loyalty', actor: 'p1', id: teferi, delta: -1 })).toBe(s)
+    s = applyAction(withWalker(false), { type: 'loyalty', actor: 'p1', id: teferi, delta: 2 })
+    expect(lastText(s)).toBe('Teferi, Time Raveler : loyauté +2')
+  })
+
+  it('loyauté : ni face cachée, ni hors du champ de bataille ; perdue en le quittant', () => {
+    const hidden = applyAction(withWalker(), { type: 'faceDown', actor: 'p1', id: teferi })
+    expect(applyAction(hidden, { type: 'loyalty', actor: 'p1', id: teferi, delta: 1 })).toBe(hidden)
+    const s = withWalker()
+    expect(applyAction(s, { type: 'loyalty', actor: 'p1', id: kenrith('p1'), delta: 1 })).toBe(s)
+    const modified = applyAction(s, { type: 'loyalty', actor: 'p1', id: teferi, delta: 1 })
+    const moved = applyAction(modified, { type: 'move', actor: 'p1', id: teferi, to: { player: 'p1', zone: 'exile' } })
+    expect(moved.cards[teferi]).not.toHaveProperty('loyaltyMod')
+    const shifted = applyAction(modified, { type: 'move', actor: 'p1', id: teferi, to: { player: 'p1', zone: 'battlefield' }, x: 10, y: 10 })
+    expect(shifted.cards[teferi].loyaltyMod).toBe(1)
+  })
+
   it('jetons : sur le champ de bataille de l’auteur, identifiants partagés', () => {
     const s = apply(
       game(),

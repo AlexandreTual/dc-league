@@ -17,7 +17,7 @@ export type CardHandlers = {
   /** Clic droit ou appui long sur une carte. */
   onContextMenu: (id: string, zone: ZoneRef, at: MenuPoint) => void
   onHover: (id: string | null) => void
-  /** Toucher l'encart force/endurance d'une carte en jeu ; absent : encart en lecture seule. */
+  /** Toucher l'encart loyauté ou force/endurance d'une carte en jeu ; absent : encart en lecture seule. */
   onPtEdit?: (id: string, zone: ZoneRef, at: MenuPoint) => void
 }
 
@@ -60,7 +60,7 @@ export function cardProps(id: string, zone: ZoneRef, props: ZoneProps) {
   }
 }
 
-/** Ouverture de la modification de force/endurance d'une carte en jeu, si la table la permet. */
+/** Ouverture de la modification de loyauté ou de force/endurance d'une carte en jeu, si la table la permet. */
 export function ptEdit(handlers: CardHandlers, id: string, zone: ZoneRef): ((at: MenuPoint) => void) | undefined {
   const open = handlers.onPtEdit
   return open && ((at) => open(id, zone, at))

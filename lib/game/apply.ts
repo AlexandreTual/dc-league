@@ -1,4 +1,5 @@
 import { rollDice, rollText } from './dice'
+import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
 import { MAX_PT_MOD, NO_PT, ptLog } from './pt'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
@@ -125,6 +126,13 @@ function withoutPt(state: GameState, id: string): GameState {
   return { ...state, cards: { ...state.cards, [id]: card } }
 }
 
+/** La carte sans écart de loyauté (champ retiré plutôt que mis à 0). */
+function withoutLoyalty(state: GameState, id: string): GameState {
+  if (state.cards[id].loyaltyMod === undefined) return state
+  const { loyaltyMod: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
 /** La carte remise droite (champ retiré). */
 function withoutRotation(state: GameState, id: string): GameState {
   if (!state.cards[id].rotated) return state
@@ -232,7 +240,7 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     patch.y = clampPct(action.y ?? 50)
   }
   next = setCard(next, action.id, patch)
-  if (from.zone === 'battlefield') next = withoutRotation(withoutPt(next, action.id), action.id)
+  if (from.zone === 'battlefield') next = withoutRotation(withoutLoyalty(withoutPt(next, action.id), action.id), action.id)
 
   if (card.isCommander && from.zone === 'command' && to.zone !== 'command') {
     next = { ...next, commanderCasts: { ...next.commanderCasts, [action.id]: (next.commanderCasts[action.id] ?? 0) + 1 } }
@@ -346,6 +354,18 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const s = ptMod.power === 0 && ptMod.toughness === 0 ? withoutPt(state, action.id) : setCard(state, action.id, { ptMod })
       const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
       return log(s, action.actor, `${name} : ${ptLog(state.catalogs[card.owner], s.cards[action.id])}`)
+    }
+
+    case 'loyalty': {
+      const card = state.cards[action.id]
+      // Face cachée, ce n'est qu'une créature 2/2 : pas de loyauté (et son nom ne doit pas paraître au journal).
+      if (card.faceDown) return state
+      const catalog = state.catalogs[card.owner]
+      const loyaltyMod = clampLoyalty(baseLoyalty(catalog, card), (card.loyaltyMod ?? 0) + action.delta)
+      if (loyaltyMod === (card.loyaltyMod ?? 0)) return state
+      const s = loyaltyMod === 0 ? withoutLoyalty(state, action.id) : setCard(state, action.id, { loyaltyMod })
+      const shown = loyaltyStats(catalog, s.cards[action.id])
+      return log(s, action.actor, `${cardName(state, action.id)} : ${shown ? `loyauté ${shown.text}` : 'loyauté d’origine'}`)
     }
 
     case 'createToken': {

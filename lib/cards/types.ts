@@ -26,6 +26,8 @@ export type CardFace = {
   /** Force et endurance imprimées de la face ; absentes des cartes enregistrées avant leur ajout. */
   power?: string | null
   toughness?: string | null
+  /** Loyauté imprimée de la face (planeswalker) ; absente des cartes enregistrées avant son ajout. */
+  loyalty?: string | null
 }
 
 export type CardRow = {
@@ -57,6 +59,11 @@ export type CardRow = {
    */
   power?: string | null
   toughness?: string | null
+  /**
+   * Loyauté imprimée (celle du recto), null si la carte n'en a pas. Absente (undefined) : pas encore lue chez
+   * Scryfall (carte enregistrée avant la migration 0014, ou catalogue d'un serveur de jeu plus ancien).
+   */
+  loyalty?: string | null
 }
 
 export type CardLookup = { key: string; en_card_id: string | null; fr_card_id: string | null }

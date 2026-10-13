@@ -31,11 +31,13 @@ const bear = cardRow({ id: 'bear', name: 'Grizzly Bears', power: undefined, toug
 const ring = cardRow({ id: 'ring', power: undefined, toughness: undefined })
 const delver = cardRow({ id: 'delver', power: undefined, toughness: undefined, faces: [face('Delver'), face('Aberration')] })
 const fresh = cardRow({ id: 'fresh', power: '4', toughness: '4' })
+// Carte relue après la migration 0012, mais avant la 0014 : loyauté jamais lue.
+const teferi = cardRow({ id: 'teferi', name: 'Teferi, Time Raveler', loyalty: undefined })
 
 let db: D1Database
 beforeEach(async () => {
   db = createTestDb()
-  await upsertCards(db, [bear, ring, delver, fresh, cardRow({ id: 'bear-fr', lang: 'fr', power: undefined, toughness: undefined })], now)
+  await upsertCards(db, [bear, ring, delver, fresh, teferi, cardRow({ id: 'bear-fr', lang: 'fr', power: undefined, toughness: undefined })], now)
 })
 
 const deck = () => [
@@ -44,6 +46,7 @@ const deck = () => [
   deckCardView(3, delver),
   deckCardView(4, fresh),
   deckCardView(5, null, { name: 'Inconnue' }),
+  deckCardView(6, teferi),
 ]
 
 const answers: Fake = {
@@ -52,6 +55,7 @@ const answers: Fake = {
       scry({ id: 'bear', power: '2', toughness: '2' }),
       scry({ id: 'ring' }),
       scry({ id: 'delver', card_faces: [{ name: 'Delver', power: '1', toughness: '1' }, { name: 'Aberration', power: '3', toughness: '2' }] }),
+      scry({ id: 'teferi', loyalty: '4' }),
     ],
   },
 }
@@ -61,15 +65,20 @@ describe('fillCardStats', () => {
     const { c, calls } = client([answers])
     const cards = await fillCardStats(db, c, deck())
     expect(calls).toHaveLength(1)
-    expect(calls[0].body).toEqual({ identifiers: [{ id: 'bear' }, { id: 'ring' }, { id: 'delver' }] })
+    expect(calls[0].body).toEqual({ identifiers: [{ id: 'bear' }, { id: 'ring' }, { id: 'delver' }, { id: 'teferi' }] })
 
-    expect(cards.map((x) => [x.en?.power, x.en?.toughness])).toEqual([['2', '2'], [null, null], ['1', '1'], ['4', '4'], [undefined, undefined]])
-    // Faces : force et endurance ajoutées, le reste (images…) gardé.
-    expect(cards[2].en!.faces).toEqual([{ ...face('Delver'), power: '1', toughness: '1' }, { ...face('Aberration'), power: '3', toughness: '2' }])
+    expect(cards.map((x) => [x.en?.power, x.en?.toughness])).toEqual([['2', '2'], [null, null], ['1', '1'], ['4', '4'], [undefined, undefined], [null, null]])
+    expect(cards.map((x) => x.en?.loyalty)).toEqual([null, null, null, null, undefined, '4'])
+    // Faces : force, endurance et loyauté ajoutées, le reste (images…) gardé.
+    expect(cards[2].en!.faces).toEqual([
+      { ...face('Delver'), power: '1', toughness: '1', loyalty: null },
+      { ...face('Aberration'), power: '3', toughness: '2', loyalty: null },
+    ])
     expect(cards[0].fr).toEqual(deck()[0].fr)
 
-    const saved = (await getCards(db, ['bear', 'ring', 'delver'])).data!
+    const saved = (await getCards(db, ['bear', 'ring', 'delver', 'teferi'])).data!
     expect([saved.bear.power, saved.ring.power, saved.delver.faces?.[1].toughness]).toEqual(['2', null, '2'])
+    expect([saved.teferi.loyalty, saved.bear.loyalty]).toEqual(['4', null])
   })
 
   it('deck déjà à jour : aucun appel', async () => {
