@@ -168,6 +168,24 @@ async function table(tools, { width, height }) {
   await column.getByRole('button', { name: 'moins : points de vie' }).tap()
   await page.waitForTimeout(400)
 
+  // ── Bulle des marqueurs au doigt : boutons de 44 px, ajout d'un marqueur ──
+  await column.getByRole('button', { name: /^Compteurs de / }).tap()
+  const bubble = page.locator('[data-bubble]')
+  await bubble.waitFor()
+  const bubbleHeights = await bubble.locator('[data-testid="markers"] button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))
+  check(bubbleHeights.length > 0 && bubbleHeights.every((h) => h >= TOUCH), `marqueurs : boutons d’au moins ${TOUCH} px (${Math.round(Math.min(...bubbleHeights))} px)`)
+  await bubble.locator('[data-marker="poison"]').getByRole('button', { name: 'plus : Poison' }).tap()
+  await page.waitForTimeout(300)
+  check((await bubble.getByTestId('marker-poison').innerText()) === '1', 'poison au doigt : 1')
+  await bubble.getByRole('textbox', { name: 'Nouveau marqueur' }).fill('Éclat')
+  await bubble.getByRole('button', { name: 'Ajouter le marqueur' }).tap()
+  await bubble.locator('[data-marker="counter:Éclat"]').waitFor()
+  check(true, 'marqueur « Éclat » ajouté au doigt')
+  await capture('marqueurs')
+  await bubble.locator('[data-marker="poison"]').getByRole('button', { name: 'moins : Poison' }).tap()
+  await column.getByRole('button', { name: /^Compteurs de / }).tap()
+  await page.waitForTimeout(300)
+
   // ── Réserve de mana au doigt : toucher +1, appui long pour le détail ──
   const pool = page.locator('[data-board] [data-zone="battlefield"] [data-testid="mana-pool"]')
   const manaCount = async (c) => Number(await pool.locator(`[data-mana="${c}"]`).getAttribute('data-count'))
