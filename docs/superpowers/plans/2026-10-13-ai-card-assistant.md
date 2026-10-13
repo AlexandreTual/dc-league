@@ -1,6 +1,6 @@
 # Assistant IA pour les cartes — plan d'implémentation
 
-> **Pour les agents :** une issue GitHub par tâche, dans l'ordre (chaque issue indique ses dépendances). Tests d'abord, cases à cocher (`- [ ]`).
+> **Pour les agents :** chantier #137, une issue par tâche (#138 à #143), dans l'ordre (chaque issue indique ses dépendances). Tests d'abord, cases à cocher (`- [ ]`).
 
 **Objectif :** poser une question à Gemini sur une carte ou sur l'interaction entre plusieurs cartes, depuis la liste d'un deck, le mode test et la partie en ligne, et continuer dans un petit chat ; 20 questions par joueur et par jour.
 
