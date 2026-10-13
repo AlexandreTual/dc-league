@@ -196,6 +196,35 @@ export async function findCardIdByOracle(db: D1Database, oracleId: string): Prom
   }
 }
 
+/**
+ * Cartes connues du site par oracle_id : une impression anglaise (texte Oracle) et, si elle existe, une
+ * française. Un oracle_id sans impression anglaise est absent du résultat.
+ */
+export async function getCardsByOracle(
+  db: D1Database,
+  oracleIds: string[],
+): Promise<Result<Record<string, { en: CardRow; fr: CardRow | null }>>> {
+  try {
+    const out: Record<string, { en: CardRow; fr: CardRow | null }> = {}
+    const fr: Record<string, CardRow> = {}
+    for (const part of chunks([...new Set(oracleIds)], IN_CHUNK)) {
+      const { results } = await db
+        .prepare(`SELECT * FROM cards WHERE oracle_id IN (${placeholders(part.length)}) AND lang IN ('en', 'fr')`)
+        .bind(...part)
+        .all<Record<string, unknown>>()
+      for (const row of results) {
+        const card = normalizeCard(row)
+        if (card.lang === 'en') out[card.oracle_id] ??= { en: card, fr: null }
+        else fr[card.oracle_id] ??= card
+      }
+    }
+    for (const [oracleId, entry] of Object.entries(out)) entry.fr = fr[oracleId] ?? null
+    return ok(out)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export type StoredRulings = { rulings: Ruling[]; fetched_at: string }
 
 export async function getStoredRulings(db: D1Database, oracleId: string): Promise<Result<StoredRulings | null>> {
