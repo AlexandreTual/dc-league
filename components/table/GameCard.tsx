@@ -37,18 +37,17 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
     ? <span className={statClass(loyalty)}>{loyalty.text}</span>
     : <><span className={statClass(stats!.power)}>{stats!.power.text}</span>/<span className={statClass(stats!.toughness)}>{stats!.toughness.text}</span></>
   // À l'échelle de la carte (cqw = % de sa largeur) pour couvrir l'encart imprimé, 10 px au moins sur les petites cartes.
-  // Loyauté : bouclier dessiné en SVG (haut droit, bas en pointe), comme l'encart imprimé.
+  // Loyauté : écusson dessiné en SVG comme l'encart imprimé (plus large que haut, haut creusé, bas en pointe douce, liseré clair).
   const shape = loyalty
-    ? 'bottom-[3%] right-[3.5%] w-[max(22px,16cqw)] aspect-[10/11] flex items-start justify-center pt-[0.2em] group'
+    ? 'bottom-[3.5%] right-[2.5%] w-[max(26px,16cqw)] aspect-[6/5] flex items-center justify-center pb-[0.1em] group'
     : 'bottom-[4.5%] right-[4%] min-w-[20cqw] px-[0.35em] rounded bg-black border border-dc-gold/50'
   const box = `absolute ${shape} text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap`
   const shield = loyalty && (
-    <svg viewBox="0 0 100 110" className="absolute inset-0 w-full h-full -z-10 overflow-visible" aria-hidden="true">
+    <svg viewBox="0 0 120 100" className="absolute inset-0 w-full h-full -z-10 overflow-visible" aria-hidden="true">
       <path
-        d="M5 5 H95 V60 C95 85 72 98 50 106 C28 98 5 85 5 60 Z"
-        className="fill-black stroke-dc-gold/50 group-hover:stroke-dc-gold"
+        d="M5 5 Q60 24 115 5 V68 L60 95 L5 68 Z"
+        className="fill-black stroke-white/85 group-hover:stroke-dc-gold-light"
         strokeWidth="5"
-        vectorEffect="non-scaling-stroke"
       />
     </svg>
   )
@@ -60,7 +59,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
   return layer(
     <button
       type="button"
-      className={`${box} isolate pointer-events-auto cursor-pointer ${loyalty ? '[@media(pointer:coarse)]:w-[max(2rem,18cqw)]' : 'hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6'}`}
+      className={`${box} isolate pointer-events-auto cursor-pointer ${loyalty ? '[@media(pointer:coarse)]:w-[max(2.25rem,18cqw)]' : 'hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6'}`}
       {...data}
       aria-label={`${label} : modifier`}
       onPointerDown={stop}
