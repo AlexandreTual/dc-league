@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Crown, ExternalLink, Minus, MoreHorizontal, Plus } from 'lucide-react'
 import { cardInfo } from '@/lib/game/apply'
 import { playerBadges } from '@/lib/game/player-badges'
@@ -46,6 +46,8 @@ export default function PlayerPortrait(props: {
   const { view, player, catalogs, lang, host, online, canAct, send, onTitleClick } = panelProps
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState<{ up: boolean; maxHeight?: number }>({ up })
   const p = view.players[player]
   const active = view.activePlayer === player
   const s = SIZES[size]
@@ -72,6 +74,17 @@ export default function PlayerPortrait(props: {
       window.removeEventListener('keydown', onKey)
     }
   }, [open])
+
+  // Bulle du côté demandé si elle y tient, sinon du côté où il y a le plus de place ; hauteur bornée à la place disponible (défilement).
+  useLayoutEffect(() => {
+    if (!open || !ref.current || !bubbleRef.current) return
+    const rect = ref.current.getBoundingClientRect()
+    const above = rect.top - 8
+    const below = window.innerHeight - rect.bottom - 8
+    const height = bubbleRef.current.scrollHeight
+    const side = height <= (up ? above : below) ? up : above > below
+    setPlace({ up: side, maxHeight: Math.max(120, side ? above : below) })
+  }, [open, up])
 
   // Rang dans l'ordre du tour (1 = premier joueur), à partir de 2 joueurs.
   const rank = Object.keys(view.players).length > 1 ? (view.turnOrder?.indexOf(player) ?? -1) + 1 : 0
@@ -122,7 +135,8 @@ export default function PlayerPortrait(props: {
         </div>
       )}
       {open && (
-        <div className={`absolute left-0 ${up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] bg-dc-surface rounded-xl shadow-card`} data-bubble={player}>
+        <div ref={bubbleRef} className={`absolute left-0 ${place.up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] overflow-y-auto bg-dc-surface rounded-xl shadow-card`}
+          style={{ maxHeight: place.maxHeight }} data-bubble={player}>
           <PlayerPanel {...panelProps} />
           {onDetach && (
             <button className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 border-t border-dc-border text-dc-text hover:text-dc-gold"
