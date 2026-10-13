@@ -85,7 +85,7 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
           key={card.id}
           {...cardProps(card.id, ref, props)}
           className="absolute"
-          style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${card.tapped ? 90 : 0}deg)`, transition: 'transform 150ms' }}
+          style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
           <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} />
         </Draggable>

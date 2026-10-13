@@ -137,7 +137,13 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
   })
   const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
-  if (controller) entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })))
+  if (controller) {
+    entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })),
+      item('Pivoter à 180°', act({ type: 'rotate', id })),
+      // Dans l'ordre du champ de bataille, le dessous (fin de liste) est affiché devant.
+      item('Mettre devant', act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'bottom' })),
+      item('Mettre derrière', act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'top' })))
+  }
   entries.push({ kind: 'separator' },
     counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
     ...ptEntries(ctx, card))

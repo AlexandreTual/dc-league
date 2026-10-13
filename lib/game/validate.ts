@@ -88,6 +88,7 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   tap: { id },
   untapAll: {},
   flip: { id },
+  rotate: { id },
   faceDown: { id },
   counter: { id, kind: oneOf(['plus', 'minus', 'other']), delta },
   pt: { id, power: delta, toughness: delta },

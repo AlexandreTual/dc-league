@@ -35,7 +35,7 @@ describe('cardMenu', () => {
     const entries = cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))
     expect(entries[0]).toEqual({ kind: 'title', label: 'Delver of Secrets // Insectile Aberration' })
     expect(labels(entries)).toEqual([
-      'Engager', 'Retourner', 'Face cachée', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Créer un jeton copie', 'Créer des jetons copies…',
+      'Engager', 'Retourner', 'Face cachée', 'Pivoter à 180°', 'Mettre devant', 'Mettre derrière', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Créer un jeton copie', 'Créer des jetons copies…',
       'Donner le contrôle à Bob', 'Donner le contrôle à Chloé',
       'Main', 'Cimetière', 'Exil', 'Zone de commandement', 'Dessus de la bibliothèque', 'Dessous de la bibliothèque',
       'Oracle et règles',
