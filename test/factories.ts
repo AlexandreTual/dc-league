@@ -24,6 +24,7 @@ export function cardRow(overrides: Partial<CardRow> = {}): CardRow {
     faces: null,
     power: null,
     toughness: null,
+    loyalty: null,
     ...overrides,
   }
 }

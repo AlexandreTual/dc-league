@@ -45,7 +45,7 @@ describe('cache de cartes', () => {
   it('base pas encore migrée (sans image_large) : la carte est enregistrée quand même', async () => {
     const old = createTestDb(MIGRATIONS.filter((f) => f < '0011'))
     expect((await upsertCards(old, [cardRow()], now)).error).toBeNull()
-    expect((await getCards(old, ['sol-c21-en'])).data!['sol-c21-en']).toEqual(cardRow({ image_large: null, power: undefined, toughness: undefined }))
+    expect((await getCards(old, ['sol-c21-en'])).data!['sol-c21-en']).toEqual(cardRow({ image_large: null, power: undefined, toughness: undefined, loyalty: undefined }))
   })
 
   it('force et endurance : relues telles quelles, null sans, undefined pas encore lues', async () => {
@@ -56,10 +56,22 @@ describe('cache de cartes', () => {
     expect([cards.old.power, cards.old.toughness]).toEqual([undefined, undefined])
   })
 
+  it('loyauté : relue telle quelle, null sans, undefined pas encore lue', async () => {
+    await upsertCards(db, [cardRow({ id: 'teferi', loyalty: '4' }), cardRow(), cardRow({ id: 'old', loyalty: undefined })], now)
+    const cards = (await getCards(db, ['teferi', 'sol-c21-en', 'old'])).data!
+    expect([cards.teferi.loyalty, cards['sol-c21-en'].loyalty, cards.old.loyalty]).toEqual(['4', null, undefined])
+  })
+
+  it('base sans la colonne loyalty : la carte est enregistrée quand même', async () => {
+    const old = createTestDb(MIGRATIONS.filter((f) => f < '0014'))
+    expect((await upsertCards(old, [cardRow({ loyalty: '4' })], now)).error).toBeNull()
+    expect((await getCards(old, ['sol-c21-en'])).data!['sol-c21-en']).toEqual(cardRow({ loyalty: undefined }))
+  })
+
   it('saveCardStats rattrape force, endurance et faces d’une carte enregistrée', async () => {
     await upsertCards(db, [cardRow({ id: 'old', power: undefined, toughness: undefined })], now)
-    expect((await saveCardStats(db, [{ id: 'old', power: '3', toughness: '3', faces: null }])).error).toBeNull()
-    expect((await getCards(db, ['old'])).data!.old).toMatchObject({ power: '3', toughness: '3', name: 'Sol Ring' })
+    expect((await saveCardStats(db, [{ id: 'old', power: '3', toughness: '3', loyalty: '5', faces: null }])).error).toBeNull()
+    expect((await getCards(db, ['old'])).data!.old).toMatchObject({ power: '3', toughness: '3', loyalty: '5', name: 'Sol Ring' })
     const before = createTestDb(MIGRATIONS.filter((f) => f < '0012'))
     expect((await saveCardStats(before, [{ id: 'old', power: '3', toughness: '3', faces: null }])).error).not.toBeNull()
   })
