@@ -41,11 +41,12 @@ node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # imp
 node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lancer de dés (mode test et en ligne)
 node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
 node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, téléphone, en ligne)
+node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loyauté d'un planeswalker sur la carte (mode test, tablette, en ligne)
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
 ```
 
-Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`, ligue publique `league-e2e` (« Saison e2e », sans organisateur, `e2e-1`…`e2e-4` inscrits).
+Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>` (avec Teferi, Time Raveler, loyauté 4), ligue publique `league-e2e` (« Saison e2e », sans organisateur, `e2e-1`…`e2e-4` inscrits).
 Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `CHROME` (ex. `CHROME=/usr/bin/google-chrome`).
 
 ## Architecture (repères)

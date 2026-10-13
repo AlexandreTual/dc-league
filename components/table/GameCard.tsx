@@ -2,6 +2,7 @@
 
 import type { Catalog, CardView, VisibleCard } from '@/lib/game/types'
 import { cardInfo, tokenBadge } from '@/lib/game/apply'
+import { loyaltyStats } from '@/lib/game/loyalty'
 import { ptStats, type PtValue } from '@/lib/game/pt'
 import type { MenuPoint } from './touch'
 
@@ -21,31 +22,35 @@ const badgeClass = 'text-white text-[9px] font-semibold uppercase tracking-wide 
 const statClass = (v: PtValue) => (v.delta > 0 ? 'text-dc-green-light' : v.delta < 0 ? 'text-dc-red-light' : 'text-white')
 
 /**
- * Encart force/endurance, en bas à droite comme sur une vraie carte : vert si augmentée, rouge si diminuée.
- * Avec `onEdit`, un bouton qui ouvre sa modification sans déclencher le glisser ni le menu de la carte.
+ * Encart en bas à droite, comme sur une vraie carte : loyauté d'un planeswalker, sinon force/endurance ;
+ * vert si augmentée, rouge si diminuée. Avec `onEdit`, un bouton qui ouvre sa modification sans déclencher
+ * le glisser ni le menu de la carte.
  */
-function PtBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalog; onEdit?: (at: MenuPoint) => void }) {
-  const stats = ptStats(catalog, card)
-  if (!stats) return null
-  const text = `${stats.power.text}/${stats.toughness.text}`
-  const content = (
-    <>
-      <span className={statClass(stats.power)}>{stats.power.text}</span>/<span className={statClass(stats.toughness)}>{stats.toughness.text}</span>
-    </>
-  )
+function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalog; onEdit?: (at: MenuPoint) => void }) {
+  const loyalty = loyaltyStats(catalog, card)
+  const stats = loyalty ? null : ptStats(catalog, card)
+  if (!loyalty && !stats) return null
+  const text = loyalty ? loyalty.text : `${stats!.power.text}/${stats!.toughness.text}`
+  const label = loyalty ? `Loyauté ${text}` : `Force et endurance ${text}`
+  const data = loyalty ? { 'data-loyalty': text } : { 'data-pt': text }
+  const content = loyalty
+    ? <span className={statClass(loyalty)}>{loyalty.text}</span>
+    : <><span className={statClass(stats!.power)}>{stats!.power.text}</span>/<span className={statClass(stats!.toughness)}>{stats!.toughness.text}</span></>
   // À l'échelle de la carte (cqw = % de sa largeur) pour couvrir l'encart imprimé, 10 px au moins sur les petites cartes.
-  const box = 'absolute bottom-[4.5%] right-[4%] min-w-[20cqw] px-[0.35em] rounded bg-black border border-dc-gold/50 text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap'
+  // Loyauté : bas arrondi, comme le bouclier imprimé.
+  const shape = loyalty ? 'min-w-[15cqw] rounded-t rounded-b-[45%]' : 'min-w-[20cqw] rounded'
+  const box = `absolute bottom-[4.5%] right-[4%] ${shape} px-[0.35em] bg-black border border-dc-gold/50 text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap`
   // Calque aux dimensions de la carte, conteneur des unités cqw.
   const layer = (child: React.ReactNode) => <div className="absolute inset-0 pointer-events-none [container-type:size]">{child}</div>
-  if (!onEdit) return layer(<span className={box} data-pt={text}>{content}</span>)
+  if (!onEdit) return layer(<span className={box} {...data}>{content}</span>)
   // Ni glisser (dnd-kit écoute mousedown / touchstart), ni appui long, ni double-clic (engager) depuis l'encart.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
   return layer(
     <button
       type="button"
       className={`${box} pointer-events-auto cursor-pointer hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6`}
-      data-pt={text}
-      aria-label={`Force et endurance ${text} : modifier`}
+      {...data}
+      aria-label={`${label} : modifier`}
       onPointerDown={stop}
       onMouseDown={stop}
       onTouchStart={stop}
@@ -62,7 +67,7 @@ function PtBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalog;
 
 /**
  * Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe.
- * `pt` : encart force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
+ * `pt` : encart loyauté ou force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
  */
 export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit }: {
   card: CardView | null | undefined
@@ -76,7 +81,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   if (!card) return null
   if (card.hidden) return <CardBack className={className} />
   const data = cardInfo(catalog, card, lang)
-  const ptBox = pt && <PtBox card={card} catalog={catalog} onEdit={onPtEdit} />
+  const ptBox = pt && <StatBox card={card} catalog={catalog} onEdit={onPtEdit} />
   if (data.hidden) {
     // Carte face cachée vue par qui la connaît : son dos, et sa force 2/2 modifiable.
     if (!ptBox) return <CardBack className={className} />
