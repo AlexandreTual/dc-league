@@ -29,6 +29,7 @@ describe('diffViews', () => {
     const s = game()
     expect(step(s, { type: 'tap', actor: 'p2', id: card('p2', 2) }).diff.changed).toEqual([card('p2', 2)])
     expect(step(s, { type: 'counter', actor: 'p2', id: card('p2', 2), kind: 'plus', delta: 1 }).diff.changed).toEqual([card('p2', 2)])
+    expect(step(s, { type: 'pt', actor: 'p2', id: card('p2', 2), power: 1, toughness: 0 }).diff.changed).toEqual([card('p2', 2)])
     const delver = place(s, [{ id: card('p2', 4), player: 'p2', zone: 'battlefield' }])
     expect(step(delver, { type: 'flip', actor: 'p2', id: card('p2', 4) }).diff.changed).toEqual([card('p2', 4)])
   })

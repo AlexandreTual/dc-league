@@ -8,7 +8,7 @@ import {
 import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { shortcutFor } from '@/lib/game/keyboard'
-import { cardMenu, handMenu, libraryMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -30,6 +30,7 @@ import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
 import OracleModal from '@/components/OracleModal'
+import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
@@ -37,6 +38,7 @@ import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
 import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers } from './zones'
+import { cardPreview } from '@/lib/game/card-preview'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
 const CARD_RATIO = 63 / 88
@@ -90,7 +92,14 @@ export default function Table({ source, notice, boardWindow }: {
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef } } | null>(null)
+  // `pt` : menu de l'encart loyauté ou force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
+  const [menu, setMenu] = useState<{
+    x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean }
+    /** Ouvert au doigt : l'image de la carte est dans le menu. */
+    touch?: boolean
+    /** Menu de la bibliothèque de ce joueur : l'image est celle de la carte du dessus, si elle est visible. */
+    library?: string
+  } | null>(null)
   const [pile, setPile] = useState<PileState | null>(null)
   const [tokenOpen, setTokenOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
@@ -114,7 +123,8 @@ export default function Table({ source, notice, boardWindow }: {
   const status = source.online?.status ?? 'open'
   const canAct = me !== null && !finished && status === 'open'
   const cards = useMemo(() => visibleCards(view), [view])
-  const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct }
+  const ai = useAi()
+  const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct, ai: ai !== null }
   const send = source.send
 
   useEffect(() => setLang(readLang()), [])
@@ -160,38 +170,52 @@ export default function Table({ source, notice, boardWindow }: {
       if (command.kind === 'action') send(command.action)
       else if (command.kind === 'openPile') setPile({ title: command.title, player: command.player, zone: command.zone, mode: command.mode })
       else if (command.kind === 'oracle') setOracle({ owner: command.owner, ref: command.ref })
+      else if (command.kind === 'askAi') {
+        const entry = catalogs[command.owner]?.entries.find((e) => e.ref === command.ref)
+        if (entry && ai) ai.addCard(aiCardRef(entry.en, entry.fr))
+      }
       else {
         const answer = prompt(command.question, String(command.fallback))
         const n = answer === null ? NaN : Number.parseInt(answer, 10)
         if (Number.isFinite(n) && n > 0) run(command.then(n))
       }
     }
-  }, [send])
+  }, [send, catalogs, ai])
 
   const toItems = (entries: MenuEntry[]): MenuItem[] =>
     entries.map((e) => {
       if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands) }
       if (e.kind === 'stepper') {
         const set = e.set
-        return { kind: 'stepper', label: e.label, value: e.value, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
+        return { kind: 'stepper', label: e.label, value: e.value, signed: e.signed, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
           onSet: set && ((n: number) => run(set(n))) }
       }
       return e
     })
 
   /** Menu d'une carte reconstruit à chaque rendu : les marqueurs affichés (et l'écart d'une valeur tapée) suivent la partie. */
-  const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef } }): MenuEntry[] => {
-    const { id, zone } = m.card ?? {}
+  const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef; pt?: boolean } }): MenuEntry[] => {
+    const { id, zone, pt } = m.card ?? {}
     if (!id || !zone || zone.zone === 'library') return m.entries
     const card = cards.get(id)
     const z = zone.zone
     if (!card || !view.players[zone.player]?.zones[z].some((c) => !c.hidden && c.id === id)) return m.entries
-    const fresh = cardMenu(menuCtx, card, zone)
+    const fresh = pt ? statMenu(menuCtx, card) : cardMenu(menuCtx, card, zone)
     return fresh.length > 0 ? fresh : m.entries
   }
 
-  const openMenu = (entries: MenuEntry[], at: MenuPoint) => {
-    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries })
+  const openMenu = (entries: MenuEntry[], at: MenuPoint, library?: string) => {
+    if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, touch: at.touch, library })
+  }
+
+  /**
+   * Image du menu ouvert au doigt, recalculée à chaque rendu comme l'aperçu au survol : une carte devenue
+   * cachée (retournée, rendue en main) ou une carte du dessus piochée disparaît du menu resté ouvert.
+   */
+  const menuImage = (m: NonNullable<typeof menu>) => {
+    if (!m.touch) return null
+    const card = m.library ? libraryTop(view, m.library) ?? undefined : m.card && cards.get(m.card.id)
+    return cardPreview(card, catalogs[card?.owner ?? ''], lang)
   }
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
@@ -267,9 +291,16 @@ export default function Table({ source, notice, boardWindow }: {
     onContextMenu: (id, zone, at) => {
       const card = cards.get(id)
       const entries = card ? cardMenu(menuCtx, card, zone) : []
-      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone } })
+      // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
+      const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang) : null
+      if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
     onHover: (id) => setHovered(id),
+    onPtEdit: canAct ? (id, zone, at) => {
+      const card = cards.get(id)
+      const entries = card ? statMenu(menuCtx, card) : []
+      if (entries.length > 0) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone, pt: true } })
+    } : undefined,
   }
 
   function onDragStart(e: DragStartEvent) {
@@ -340,12 +371,17 @@ export default function Table({ source, notice, boardWindow }: {
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
       canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach} />
   )
+  /** Réserve de mana d'un joueur, posée sur son champ de bataille : modifiable pour la mienne, lecture seule sinon. */
+  const manaOf = (player: string) => {
+    const p = view.players[player]
+    return p && <ManaPool pool={p.mana} keep={p.keepMana} editable={canAct && player === me} send={send} />
+  }
   const toggleLang = () => {
     const next = lang === 'fr' ? 'en' : 'fr'
     setLang(next)
     saveLang(next)
   }
-  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at)
+  const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
   return (
@@ -382,7 +418,6 @@ export default function Table({ source, notice, boardWindow }: {
         onDice={() => setDiceOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
-        mana={source.mode === 'local' && mine ? <ManaPool pool={mine.mana} keep={mine.keepMana} editable={canAct} send={send} /> : undefined}
         onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
         extra={source.online && me && !finished && (
           <>
@@ -455,6 +490,7 @@ export default function Table({ source, notice, boardWindow }: {
               <OpponentBoard
                 {...zoneProps} player={boardWindow.player} me={me}
                 portrait={portraitFor(boardWindow.player)}
+                mana={manaOf(boardWindow.player)}
                 onLibraryMenu={libraryMenuOf(boardWindow.player)}
                 onPile={pileOf(boardWindow.player)}
               />
@@ -468,6 +504,7 @@ export default function Table({ source, notice, boardWindow }: {
                   <OpponentStrip
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
                     stacked={shownOpponents.length >= 3}
+                    mana={manaOf(p)}
                     header={(
                       <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus, detachOf(p))}
                         onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />
@@ -478,6 +515,7 @@ export default function Table({ source, notice, boardWindow }: {
                   <OpponentBoard
                     {...zoneProps} player={p} me={me}
                     portrait={portraitFor(p, 'column', false, undefined, detachOf(p))}
+                    mana={manaOf(p)}
                     onLibraryMenu={libraryMenuOf(p)}
                     onPile={pileOf(p)}
                   />
@@ -491,7 +529,8 @@ export default function Table({ source, notice, boardWindow }: {
               player={me}
               me={me}
               portrait={portraitFor(me, 'column', true)}
-              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at)}
+              mana={manaOf(me)}
+              onLibraryMenu={(at) => openMenu(libraryMenu(menuCtx, me), at, me)}
               onHandMenu={(at) => openMenu(handMenu(menuCtx), at)}
               onPile={(zone, title) => setPile({ title, player: me, zone, mode: 'browse' })}
             />
@@ -516,7 +555,7 @@ export default function Table({ source, notice, boardWindow }: {
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} preview={menuImage(menu)} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}
@@ -544,8 +583,19 @@ export default function Table({ source, notice, boardWindow }: {
       {diceOpen && (
         <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}
-      {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
+      {oracleEntry && (
+        <OracleModal
+          en={oracleEntry.en}
+          fr={oracleEntry.fr}
+          onClose={() => setOracle(null)}
+          onAskAi={ai ? () => { ai.open(aiCardRef(oracleEntry.en, oracleEntry.fr)); setOracle(null) } : undefined}
+        />
+      )}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
+      {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
+      <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
+        Tourne l’écran en paysage pour jouer.
+      </div>
     </div>
   )
 }

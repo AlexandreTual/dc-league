@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { archidektToText, fetchDeckLink, moxfieldToText, parseDeckLink } from './deck-link'
+import { archidektToText, deckSiteName, fetchDeckLink, moxfieldToText, parseDeckLink } from './deck-link'
 import { parseDeckList } from './parse'
 
 describe('parseDeckLink', () => {
@@ -170,5 +170,13 @@ describe('fetchDeckLink', () => {
   it('deck vide → message', async () => {
     const result = await fetchDeckLink({ site: 'archidekt', id: '42' }, vi.fn().mockResolvedValue(response(200, { cards: [] })))
     expect(result).toEqual({ ok: false, error: 'Aucune carte trouvée dans ce deck Archidekt' })
+  })
+})
+
+describe('deckSiteName', () => {
+  it('nomme le site du lien enregistré', () => {
+    expect(deckSiteName('https://www.moxfield.com/decks/AbC12')).toBe('Moxfield')
+    expect(deckSiteName('https://archidekt.com/decks/42/kenrith')).toBe('Archidekt')
+    expect(deckSiteName('https://example.com/decks/1')).toBeNull()
   })
 })

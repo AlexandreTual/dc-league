@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
-import { cardMenu, handMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
+import { cardMenu, handMenu, libraryMenu, statMenu, type MenuContext, type MenuEntry } from './menus'
 import { applyAction } from './apply'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
@@ -19,7 +19,7 @@ const ctx = (s: GameState, me: string | null = 'p1', readOnly = false): MenuCont
 const visible = (s: GameState, id: string) => {
   const c = s.cards[id]
   return { hidden: false, id, owner: c.owner, ref: c.ref, token: c.token, isCommander: c.isCommander, tapped: c.tapped, flipped: c.flipped,
-    faceDown: c.faceDown, counters: c.counters, x: c.x, y: c.y } as VisibleCard
+    faceDown: c.faceDown, counters: c.counters, ...(c.ptMod ? { ptMod: c.ptMod } : {}), ...(c.loyaltyMod ? { loyaltyMod: c.loyaltyMod } : {}), x: c.x, y: c.y } as VisibleCard
 }
 const labels = (entries: MenuEntry[]) => entries.flatMap((e) => (e.kind === 'item' || e.kind === 'stepper' ? [e.label] : []))
 const item = (entries: MenuEntry[], label: string) => {
@@ -35,7 +35,7 @@ describe('cardMenu', () => {
     const entries = cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))
     expect(entries[0]).toEqual({ kind: 'title', label: 'Delver of Secrets // Insectile Aberration' })
     expect(labels(entries)).toEqual([
-      'Engager', 'Retourner', 'Face cachée', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…',
+      'Engager', 'Retourner', 'Face cachée', 'Pivoter à 180°', 'Mettre devant', 'Mettre derrière', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Créer un jeton copie', 'Créer des jetons copies…',
       'Donner le contrôle à Bob', 'Donner le contrôle à Chloé',
       'Main', 'Cimetière', 'Exil', 'Zone de commandement', 'Dessus de la bibliothèque', 'Dessous de la bibliothèque',
       'Oracle et règles',
@@ -47,7 +47,7 @@ describe('cardMenu', () => {
   it('carte d’un adversaire sur son champ de bataille', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 2)), at('p2', 'battlefield'))
-    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil', 'Oracle et règles'])
+    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil', 'Oracle et règles'])
     expect(item(entries, 'Prendre le contrôle')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p1', 'battlefield') } }])
     expect(item(entries, 'Dans son cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p2', 'graveyard') } }])
   })
@@ -70,6 +70,117 @@ describe('cardMenu', () => {
     expect(stepper('Compteur')(NaN)).toEqual([])
     const tax = entries.find((x) => x.kind === 'stepper' && x.label === 'Taxe')
     expect(tax === undefined || (tax.kind === 'stepper' && tax.set === undefined)).toBe(true)
+  })
+
+  it('force et endurance : valeur affichée, nombre tapé = nouvelle valeur, réinitialisation', () => {
+    const id = card('p2', 4)
+    let s = place(setup(), [{ id, player: 'p2', zone: 'battlefield' }])
+    s = applyAction(s, { type: 'counter', actor: 'p2', id, kind: 'plus', delta: 1 })
+    const steppers = (st: GameState) => {
+      const entries = cardMenu(ctx(st), visible(st, id), at('p2', 'battlefield'))
+      const find = (label: string) => {
+        const e = entries.find((x) => x.kind === 'stepper' && x.label === label)
+        if (!e || e.kind !== 'stepper' || !e.set) throw new Error(`saisie absente : ${label}`)
+        return e
+      }
+      return { entries, power: find('Force'), toughness: find('Endurance') }
+    }
+    let { entries, power, toughness } = steppers(s)
+    expect([power.value, toughness.value]).toEqual(['2', '2'])
+    expect(power.signed).toBe(true)
+    expect(power.plus).toEqual({ kind: 'action', action: { type: 'pt', id, power: 1, toughness: 0 } })
+    expect(toughness.minus).toEqual({ kind: 'action', action: { type: 'pt', id, power: 0, toughness: -1 } })
+    expect(power.set!(5)).toEqual([{ kind: 'action', action: { type: 'pt', id, power: 3, toughness: 0 } }])
+    expect(toughness.set!(-1)).toEqual([{ kind: 'action', action: { type: 'pt', id, power: 0, toughness: -3 } }])
+    expect(power.set!(2)).toEqual([])
+    expect(labels(entries)).not.toContain('Réinitialiser force/endurance')
+
+    s = applyAction(s, { type: 'pt', actor: 'p1', id, power: 3, toughness: -1 })
+    ;({ entries, power, toughness } = steppers(s))
+    expect([power.value, toughness.value]).toEqual(['5', '1'])
+    expect(item(entries, 'Réinitialiser force/endurance')).toEqual([{ kind: 'action', action: { type: 'pt', id, power: -3, toughness: 1 } }])
+  })
+
+  it('force et endurance d’une carte qui n’en a pas : écart affiché et tapé', () => {
+    const s = setup()
+    const id = card('p1', 2)
+    const entries = cardMenu(ctx(s), visible(s, id), at('p1', 'battlefield'))
+    const power = entries.find((x) => x.kind === 'stepper' && x.label === 'Force')
+    if (!power || power.kind !== 'stepper' || !power.set) throw new Error('Force absente')
+    expect(power.value).toBe('+0')
+    expect(power.set(2)).toEqual([{ kind: 'action', action: { type: 'pt', id, power: 2, toughness: 0 } }])
+  })
+
+  it('statMenu : seulement force et endurance, pour tout joueur, rien pour un spectateur', () => {
+    const s = setup()
+    const id = card('p1', 4)
+    const entries = statMenu(ctx(s, 'p2'), visible(s, id))
+    expect(entries[0]).toEqual({ kind: 'title', label: 'Delver of Secrets // Insectile Aberration' })
+    expect(labels(entries)).toEqual(['Force', 'Endurance'])
+    expect(statMenu(ctx(s, null), visible(s, id))).toEqual([])
+    expect(statMenu(ctx(s, 'p1', true), visible(s, id))).toEqual([])
+  })
+
+  /** Sol Ring de chaque joueur devenu Teferi (loyauté 4, ou pas encore lue). */
+  function withWalker(s: GameState, loyalty: string | undefined): GameState {
+    const catalogs = Object.fromEntries(Object.entries(s.catalogs).map(([p, c]) => [p, {
+      ...c,
+      entries: c.entries.map((e) => (e.ref === 2 ? { ...e, fr: null, en: { ...e.en, name: 'Teferi, Time Raveler', type_line: 'Legendary Planeswalker — Teferi', loyalty } } : e)),
+    }]))
+    return { ...s, catalogs }
+  }
+  const stepperOf = (entries: MenuEntry[], label: string) => {
+    const e = entries.find((x) => x.kind === 'stepper' && x.label === label)
+    if (!e || e.kind !== 'stepper' || !e.set) throw new Error(`saisie absente : ${label}`)
+    return e
+  }
+
+  it('loyauté d’un planeswalker : valeur affichée, nombre tapé = nouvelle valeur (jamais sous 0), réinitialisation', () => {
+    const id = card('p2', 2)
+    let s = withWalker(setup(), '4')
+    let entries = cardMenu(ctx(s), visible(s, id), at('p2', 'battlefield'))
+    expect(labels(entries)).toEqual(['Engager', '+1/+1', '-1/-1', 'Compteur', 'Loyauté', 'Force', 'Endurance', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil', 'Oracle et règles'])
+    let loyalty = stepperOf(entries, 'Loyauté')
+    expect(loyalty.value).toBe('4')
+    expect(loyalty.signed).toBe(false)
+    expect(loyalty.plus).toEqual({ kind: 'action', action: { type: 'loyalty', id, delta: 1 } })
+    expect(loyalty.minus).toEqual({ kind: 'action', action: { type: 'loyalty', id, delta: -1 } })
+    expect(loyalty.set!(7)).toEqual([{ kind: 'action', action: { type: 'loyalty', id, delta: 3 } }])
+    expect(loyalty.set!(-2)).toEqual([{ kind: 'action', action: { type: 'loyalty', id, delta: -4 } }])
+    expect(loyalty.set!(4)).toEqual([])
+
+    s = applyAction(s, { type: 'loyalty', actor: 'p1', id, delta: 2 })
+    entries = cardMenu(ctx(s), visible(s, id), at('p2', 'battlefield'))
+    loyalty = stepperOf(entries, 'Loyauté')
+    expect(loyalty.value).toBe('6')
+    expect(loyalty.set!(0)).toEqual([{ kind: 'action', action: { type: 'loyalty', id, delta: -6 } }])
+    expect(item(entries, 'Réinitialiser la loyauté')).toEqual([{ kind: 'action', action: { type: 'loyalty', id, delta: -2 } }])
+  })
+
+  it('loyauté pas encore lue : écart affiché et tapé ; aucune loyauté pour une autre carte', () => {
+    const s = withWalker(setup(), undefined)
+    const loyalty = stepperOf(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')), 'Loyauté')
+    expect([loyalty.value, loyalty.signed]).toEqual(['+0', true])
+    expect(loyalty.set!(3)).toEqual([{ kind: 'action', action: { type: 'loyalty', id: card('p1', 2), delta: 3 } }])
+    expect(labels(cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield')))).not.toContain('Loyauté')
+  })
+
+  it('statMenu : la loyauté d’un planeswalker, sinon force et endurance', () => {
+    const s = withWalker(setup(), '4')
+    const entries = statMenu(ctx(s, 'p2'), visible(s, card('p1', 2)))
+    expect(entries[0]).toEqual({ kind: 'title', label: 'Teferi, Time Raveler' })
+    expect(labels(entries)).toEqual(['Loyauté'])
+    const hidden = applyAction(s, { type: 'faceDown', actor: 'p1', id: card('p1', 2) })
+    expect(labels(statMenu(ctx(hidden), visible(hidden, card('p1', 2))))).toEqual(['Force', 'Endurance'])
+  })
+
+  it('jeton copie : reprend la force et l’endurance imprimées de l’original (sans marqueurs ni modification)', () => {
+    let s = setup()
+    s = applyAction(s, { type: 'counter', actor: 'p1', id: card('p1', 4), kind: 'plus', delta: 2 })
+    s = applyAction(s, { type: 'pt', actor: 'p1', id: card('p1', 4), power: 1, toughness: 1 })
+    const entries = cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))
+    const [command] = item(entries, 'Créer un jeton copie')
+    expect(command).toMatchObject({ kind: 'action', action: { type: 'createToken', token: { power: '1', toughness: '1' } } })
   })
 
   it('carte du cimetière d’un adversaire', () => {
@@ -162,7 +273,7 @@ describe('jetons copies', () => {
   it('carte transformée : nom et image de la face arrière', () => {
     const s = moved(setup(), card('p1', 4), { flipped: true })
     expect(copyOf(cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))).token)
-      .toMatchObject({ name: 'Insectile Aberration', typeLine: 'Creature — Human Insect', image: 'back.jpg' })
+      .toMatchObject({ name: 'Insectile Aberration', typeLine: 'Creature — Human Insect', image: 'back.jpg', power: '3', toughness: '2' })
   })
 
   it('copie d’un jeton : même TokenData', () => {
@@ -264,5 +375,36 @@ describe('libraryMenu et handMenu', () => {
   it('ma main : la révéler', () => {
     const s = setup()
     expect(item(handMenu(ctx(s)), 'Révéler ma main')).toEqual([{ kind: 'action', action: { type: 'reveal', ids: 'hand', to: 'all' } }])
+  })
+})
+
+describe('Ajouter à la question IA', () => {
+  const moved = (s: GameState, id: string, patch: Partial<GameState['cards'][string]>): GameState =>
+    ({ ...s, cards: { ...s.cards, [id]: { ...s.cards[id], ...patch } } })
+  const AI = 'Ajouter à la question IA'
+  const withAi = (s: GameState): MenuContext => ({ ...ctx(s), ai: true })
+
+  it('juste après « Oracle et règles », sur une carte visible, la mienne ou celle d’un adversaire', () => {
+    const s = setup()
+    const mine = labels(cardMenu(withAi(s), visible(s, card('p1', 2)), at('p1', 'battlefield')))
+    expect(mine.indexOf(AI)).toBe(mine.indexOf('Oracle et règles') + 1)
+    expect(item(cardMenu(withAi(s), visible(s, card('p2', 2)), at('p2', 'battlefield')), AI)).toEqual([{ kind: 'askAi', owner: 'p2', ref: 2 }])
+    expect(item(cardMenu(withAi(s), visible(s, card('p2', 4)), at('p2', 'graveyard')), AI)).toEqual([{ kind: 'askAi', owner: 'p2', ref: 4 }])
+    expect(labels(cardMenu(withAi(s), visible(s, s.players.p1.zones.hand[0]), at('p1', 'hand')))).toContain(AI)
+  })
+
+  it('absente sans assistant (visiteur, pas de clé, interrupteur coupé)', () => {
+    const s = setup()
+    expect(labels(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')))).not.toContain(AI)
+  })
+
+  it('jamais sur une carte cachée : face cachée, main d’un adversaire, jeton', () => {
+    const theirs = moved(setup(), card('p2', 2), { faceDown: true })
+    expect(labels(cardMenu(withAi(theirs), visible(theirs, card('p2', 2)), at('p2', 'battlefield')))).not.toContain(AI)
+    const s = setup()
+    expect(labels(cardMenu(withAi(s), visible(s, s.players.p2.zones.hand[0]), at('p2', 'hand')))).not.toContain(AI)
+    const soldier = { name: 'Soldat', typeLine: 'Token Creature — Soldier', power: '1', toughness: '1', colors: ['W'], image: null }
+    const t = run(setupFor('commander', 2), start(1), { type: 'createToken', actor: 'p1', token: soldier, x: 10, y: 10 })
+    expect(labels(cardMenu(withAi(t), visible(t, 't1'), at('p1', 'battlefield')))).not.toContain(AI)
   })
 })

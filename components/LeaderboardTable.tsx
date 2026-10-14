@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { PlayerStats } from '@/lib/leaderboard'
 import { ExternalLink, Trophy } from 'lucide-react'
+import { deckSiteName } from '@/lib/cards/deck-link'
 import PlayerName from './PlayerName'
 
 interface Props {
@@ -54,7 +55,7 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                 )}
               </div>
 
-              {/* Name + Deck + Moxfield */}
+              {/* Name + Deck + lien du deck */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <PlayerName
@@ -69,7 +70,7 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
-                      title="Voir le deck sur Moxfield"
+                      title={`Voir le deck sur ${deckSiteName(player.moxfield_url) ?? 'son site'}`}
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>

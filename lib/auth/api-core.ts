@@ -4,13 +4,16 @@ import type { CurrentUser } from './types'
 
 export const INTERNAL_ERROR = 'Erreur interne, réessaie plus tard'
 
-/** public : sans session ; user : connecté ; player : vrai compte joueur ; admin : admin ou session de démarrage. */
-export type Access = 'public' | 'user' | 'player' | 'admin'
+/**
+ * public : sans session ; viewer : ouvert à tous, session lue si présente (contenu filtré selon qui consulte) ;
+ * user : connecté ; player : vrai compte joueur ; admin : admin ou session de démarrage.
+ */
+export type Access = 'public' | 'viewer' | 'user' | 'player' | 'admin'
 
 export type ApiContext = {
   db: D1Database
   env: CloudflareEnv
-  /** null seulement pour une route publique. */
+  /** null pour une route publique, ou un visiteur sur une route « viewer ». */
   user: CurrentUser | null
   /** Corps JSON (objet), vide pour une lecture. */
   body: Record<string, unknown>
@@ -39,7 +42,7 @@ export function resultError(error: string, known: Readonly<Record<string, number
 }
 
 function checkAccess(access: Access, user: CurrentUser | null): NextResponse | null {
-  if (access === 'public') return null
+  if (access === 'public' || access === 'viewer') return null
   if (!user) return json(access === 'admin' ? 'Non autorisé' : 'Connexion requise', 401)
   if (access === 'admin' && !user.isAdmin && !user.isBootstrap) return json('Accès réservé aux admins', 403)
   if (access === 'player' && user.isBootstrap) return json('Crée ton compte avant de modifier un profil', 403)

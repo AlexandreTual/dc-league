@@ -51,7 +51,7 @@ export async function listMatchStats(db: D1Database): Promise<Result<MatchStatsR
       LEFT JOIN league_players lp2 ON lp2.league_id = m.league_id AND lp2.player_id = m.player2_id
       LEFT JOIN decks d1 ON d1.id = lp1.deck_id
       LEFT JOIN decks d2 ON d2.id = lp2.deck_id
-      WHERE m.is_completed = 1
+      WHERE m.is_completed = 1 AND l.visibility = 'public'
       ORDER BY l.started_at ASC
     `).all<Record<string, unknown>>()
 

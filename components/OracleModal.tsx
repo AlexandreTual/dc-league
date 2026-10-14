@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Sparkles } from 'lucide-react'
 import { gathererUrl, oracleFaces } from '@/lib/cards/oracle'
 import type { CardRow, Ruling } from '@/lib/cards/types'
 
@@ -15,8 +15,11 @@ function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 }
 
-/** Texte Oracle (fait foi), texte imprimé français, règles et lien Gatherer d'une carte. */
-export default function OracleModal({ en, fr, onClose }: { en: CardRow; fr: CardRow | null; onClose: () => void }) {
+/**
+ * Texte Oracle (fait foi), texte imprimé français, règles et lien Gatherer d'une carte ; « Demander à l'IA »
+ * quand l'assistant est disponible (onAskAi fourni).
+ */
+export default function OracleModal({ en, fr, onClose, onAskAi }: { en: CardRow; fr: CardRow | null; onClose: () => void; onAskAi?: () => void }) {
   const [rulings, setRulings] = useState<RulingsState>({ status: 'loading' })
   const faces = oracleFaces(en, fr)
   const title = fr?.printed_name ?? en.name
@@ -107,6 +110,11 @@ export default function OracleModal({ en, fr, onClose }: { en: CardRow; fr: Card
           >
             Fiche Gatherer <ExternalLink className="w-3.5 h-3.5" />
           </a>
+          {onAskAi && (
+            <button onClick={onAskAi} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dc-gold/40 text-dc-gold hover:bg-dc-gold/10">
+              <Sparkles className="w-3.5 h-3.5" /> Demander à l’IA
+            </button>
+          )}
           <button onClick={onClose} className="ml-auto px-3 py-1.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/40">Fermer</button>
         </div>
       </div>

@@ -234,6 +234,25 @@ describe('toCardRow', () => {
     expect(row.printed_name).toBeNull()
   })
 
+  it('force et endurance : de la carte, sinon du recto ; celles de chaque face ; null sans', () => {
+    expect(toCardRow({ ...collection.data[0], power: '2', toughness: '3' })).toMatchObject({ power: '2', toughness: '3' })
+    expect(toCardRow(collection.data[0])).toMatchObject({ power: null, toughness: null })
+    const row = toCardRow((fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0])
+    expect(row).toMatchObject({ power: '1', toughness: '1' })
+    expect(row.faces!.map((f) => [f.power, f.toughness])).toEqual([['1', '1'], ['3', '2']])
+  })
+
+  it('loyauté : de la carte, sinon du recto ; celle de chaque face ; null sans', () => {
+    expect(toCardRow({ ...collection.data[0], loyalty: '4' })).toMatchObject({ loyalty: '4' })
+    expect(toCardRow(collection.data[0])).toMatchObject({ loyalty: null })
+    const jace = toCardRow({
+      ...collection.data[0],
+      card_faces: [{ name: 'Jace, Vryn’s Prodigy', power: '0', toughness: '2' }, { name: 'Jace, Telepath Unbound', loyalty: '5' }],
+    })
+    expect(jace.loyalty).toBeNull()
+    expect(jace.faces!.map((f) => f.loyalty)).toEqual([null, '5'])
+  })
+
   it('nom français d’une carte recto-verso : noms imprimés des faces', () => {
     const card = (fixture('collection-dfc.json') as { data: ScryfallCard[] }).data[0]
     const fr: ScryfallCard = {

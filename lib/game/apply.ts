@@ -1,4 +1,6 @@
 import { rollDice, rollText } from './dice'
+import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
+import { MAX_PT_MOD, NO_PT, ptLog } from './pt'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
@@ -117,6 +119,27 @@ function setCard(state: GameState, id: string, patch: Partial<CardInstance>): Ga
   return { ...state, cards: { ...state.cards, [id]: { ...state.cards[id], ...patch } } }
 }
 
+/** La carte sans modification de force et d'endurance (champ retiré plutôt que mis à 0/0). */
+function withoutPt(state: GameState, id: string): GameState {
+  if (!state.cards[id].ptMod) return state
+  const { ptMod: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
+/** La carte sans écart de loyauté (champ retiré plutôt que mis à 0). */
+function withoutLoyalty(state: GameState, id: string): GameState {
+  if (state.cards[id].loyaltyMod === undefined) return state
+  const { loyaltyMod: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
+/** La carte remise droite (champ retiré). */
+function withoutRotation(state: GameState, id: string): GameState {
+  if (!state.cards[id].rotated) return state
+  const { rotated: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
 function insertAt(list: string[], id: string, position: Position): string[] {
   if (position === 'top') return [id, ...list]
   if (position === 'bottom') return [...list, id]
@@ -185,7 +208,11 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
   const { to } = action
 
   if (from.zone === 'battlefield' && to.zone === 'battlefield' && from.player === to.player) {
-    return setCard(state, action.id, { x: clampPct(action.x ?? card.x), y: clampPct(action.y ?? card.y) })
+    // L'ordre du champ de bataille est celui d'affichage : la dernière carte passe devant les autres.
+    // Déplacée, la carte passe devant ; `top` la met derrière toutes les autres.
+    const others = state.players[from.player].zones.battlefield.filter((id) => id !== action.id)
+    const next = setZone(state, from, insertAt(others, action.id, action.position ?? 'bottom'))
+    return setCard(next, action.id, { x: clampPct(action.x ?? card.x), y: clampPct(action.y ?? card.y) })
   }
 
   const willBeHidden = card.faceDown || !!action.faceDown || HIDDEN_ZONES.includes(to.zone)
@@ -213,6 +240,7 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     patch.y = clampPct(action.y ?? 50)
   }
   next = setCard(next, action.id, patch)
+  if (from.zone === 'battlefield') next = withoutRotation(withoutLoyalty(withoutPt(next, action.id), action.id), action.id)
 
   if (card.isCommander && from.zone === 'command' && to.zone !== 'command') {
     next = { ...next, commanderCasts: { ...next.commanderCasts, [action.id]: (next.commanderCasts[action.id] ?? 0) + 1 } }
@@ -318,6 +346,28 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(setCard(state, action.id, { counters: { ...card.counters, [action.kind]: value } }), action.actor, `${name} : ${label} (${value})`)
     }
 
+    case 'pt': {
+      const card = state.cards[action.id]
+      const mod = card.ptMod ?? NO_PT
+      const clamp = (n: number) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, n))
+      const ptMod = { power: clamp(mod.power + action.power), toughness: clamp(mod.toughness + action.toughness) }
+      const s = ptMod.power === 0 && ptMod.toughness === 0 ? withoutPt(state, action.id) : setCard(state, action.id, { ptMod })
+      const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
+      return log(s, action.actor, `${name} : ${ptLog(state.catalogs[card.owner], s.cards[action.id])}`)
+    }
+
+    case 'loyalty': {
+      const card = state.cards[action.id]
+      // Face cachée, ce n'est qu'une créature 2/2 : pas de loyauté (et son nom ne doit pas paraître au journal).
+      if (card.faceDown) return state
+      const catalog = state.catalogs[card.owner]
+      const loyaltyMod = clampLoyalty(baseLoyalty(catalog, card), (card.loyaltyMod ?? 0) + action.delta)
+      if (loyaltyMod === (card.loyaltyMod ?? 0)) return state
+      const s = loyaltyMod === 0 ? withoutLoyalty(state, action.id) : setCard(state, action.id, { loyaltyMod })
+      const shown = loyaltyStats(catalog, s.cards[action.id])
+      return log(s, action.actor, `${cardName(state, action.id)} : ${shown ? `loyauté ${shown.text}` : 'loyauté d’origine'}`)
+    }
+
     case 'createToken': {
       const id = `t${state.nextTokenId}`
       const token: CardInstance = {
@@ -334,6 +384,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
       return log(setCard(state, action.id, { flipped: !card.flipped }), action.actor, `Transforme ${name}`)
     }
+
+    case 'rotate':
+      return state.cards[action.id].rotated ? withoutRotation(state, action.id) : setCard(state, action.id, { rotated: true })
 
     case 'faceDown': {
       const faceDown = !state.cards[action.id].faceDown
