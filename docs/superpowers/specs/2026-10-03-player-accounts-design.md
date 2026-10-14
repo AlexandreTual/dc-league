@@ -160,7 +160,7 @@ Uniquement WebCrypto (`crypto.subtle`, `crypto.getRandomValues`), compatible ave
 ### `lib/auth/validation.ts` (pur)
 
 - `validateUsername(s)` et `validatePassword(s)` : renvoient `null` ou un message d'erreur en français.
-- `safeRedirectPath(from)` : renvoie le chemin s'il est interne (commence par `/` mais pas par `//`), sinon `/profil`.
+- `safeRedirectPath(from)` : renvoie le chemin s'il est interne (commence par `/` mais pas par `//`), sinon `/salon`. Le lien « Connexion » de la barre transmet la page en cours (`loginHref`), pour y revenir une fois connecté.
 
 ### `lib/auth/permissions.ts` (pur)
 
@@ -211,7 +211,7 @@ Les fonctions d'accès aux decks nécessaires (`getDeck`, `updateDeck`, `deleteD
 
 - `app/connexion/page.tsx` : formulaire de connexion, et le formulaire « mot de passe admin » si aucun admin n'existe.
 - `app/invitation/[token]/page.tsx` : création de compte, nouveau mot de passe ou message de lien invalide.
-- `app/profil/page.tsx` : nom affiché, URL de l'avatar, changement de mot de passe.
+- `app/profil/page.tsx` : nom affiché, URL de l'avatar, changement de mot de passe (bloc replié « Changer mon mot de passe »).
 - `app/profil/decks/page.tsx` : liste de mes decks, avec création, modification et suppression.
 - `app/admin/login/page.tsx` : redirection vers `/connexion`.
 - `components/Navbar.tsx` : reçoit l'utilisateur courant (lu dans `app/layout.tsx` côté serveur) et affiche le menu adapté.
