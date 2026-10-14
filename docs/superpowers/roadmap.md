@@ -16,7 +16,7 @@ Méthode pour chaque sous-projet : conception (spec validée) → plan → exéc
 | Comptes joueurs | `specs/2026-10-03-player-accounts-design.md` | `plans/2026-10-03-player-accounts.md` | fusionné (PR #5) |
 | Import de decks (Scryfall, cartes en français) | `specs/2026-10-04-deck-import-design.md` | `plans/2026-10-04-deck-import.md` | fusionné (PR #5) |
 | Mode test solo (type Moxfield) | `specs/2026-10-04-playtest-design.md` | `plans/2026-10-04-playtest.md` | fusionné (PR #5) |
-| Import de deck par lien (Moxfield, Archidekt) | design validé en conversation (chantier borné) | — | terminé, à vérifier en production |
+| Import de deck par lien (Moxfield, Archidekt) | design validé en conversation (chantier borné) | — | terminé, vérifié en production |
 
 ## En cours : jeu en ligne à 2–5 joueurs (option B)
 
@@ -26,7 +26,7 @@ Parties libres en Commander, et matchs de ligue en Duel Commander avec score pro
 |---|---|---|---|---|
 | 1 | Moteur multijoueur (propriétaire/contrôleur, compteurs, informations cachées, `viewFor`) | `specs/2026-10-04-multiplayer-engine-design.md` | `plans/2026-10-04-multiplayer-engine.md` | **terminé et déployé** (PR #6, mode test migré) |
 | 2 | Serveur temps réel (Worker + Durable Object) et salon | `specs/2026-10-04-game-server-lobby-design.md` | `plans/2026-10-04-game-server-lobby.md` | **terminé et déployé** (PR #6 ; partie à plusieurs pas encore testée en vrai) |
-| 3 | Interface de table multijoueur | `specs/2026-10-05-online-table-design.md` | `plans/2026-10-05-online-table.md` | **terminé** (vérifié de bout en bout : `scripts/online-check.mjs`, `scripts/playtest-check.mjs` ; PR à ouvrir) |
+| 3 | Interface de table multijoueur | `specs/2026-10-05-online-table-design.md` | `plans/2026-10-05-online-table.md` | **terminé et déployé** (vérifié de bout en bout : `scripts/online-check.mjs`, `scripts/playtest-check.mjs`) |
 | 4 | Matchs de ligue en ligne (score proposé, confirmé) | — | — | repris dans la refonte des ligues, partie 3 (#125) |
 
 ### Décisions déjà prises (jeu en ligne)
@@ -58,7 +58,7 @@ Chaque tâche est une **issue GitHub** qui cite son plan (`docs/superpowers/plan
 ## Prochains chantiers
 
 1. Import par lien Moxfield / Archidekt — **fait** (Moxfield peut refuser les requêtes du serveur : repli copier-coller affiché). Import en un clic : on crée le deck avec son nom et son lien (« Créer et importer »), la liste est lue puis complétée par Scryfall et enregistrée sans autre étape ; pour mettre à jour la liste, bouton « Réimporter » sur la page du deck (zone de collage si le deck n’a pas de lien).
-2. Mot de passe oublié et invitations par mail — **fait** (issues #12 à #15) : spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md`. Envoi depuis la Gmail de l'admin par un script Google Apps Script (Brevo abandonné : validation par SMS impossible ; Resend plus tard), « Mot de passe oublié ? » sur la connexion, adresse dans le profil, invitations par mail ; vérifié par `scripts/mail-check.mjs`. Reste à configurer le script Google en production (`docs/mails.md`).
+2. Mot de passe oublié et invitations par mail — **fait** (issues #12 à #15) : spec `specs/2026-10-05-email-accounts-design.md`, plan `plans/2026-10-05-email-accounts.md`. Envoi depuis la Gmail de l'admin par un script Google Apps Script (Brevo abandonné : validation par SMS impossible ; Resend plus tard), « Mot de passe oublié ? » sur la connexion, adresse dans le profil, invitations par mail ; vérifié par `scripts/mail-check.mjs`. Script Google configuré en production.
 3. Jetons copies depuis les cartes en jeu — **fait** (clic droit sur une carte visible du champ de bataille, la sienne ou celle d'un adversaire).
 4. Sous-projet 4 : matchs de ligue en ligne — repris dans la refonte des ligues (#117, partie 3 : #125).
 5. Texte Oracle et règles d'une carte (issue #70) — **fait** : fenêtre « Oracle et règles » depuis le menu d'une carte visible en jeu et depuis la liste d'un deck ; règles en cache D1 (`card_rulings`, migration 0009), rafraîchies après 7 jours.
@@ -96,14 +96,6 @@ Décisions : il faut déjà un compte pour rejoindre une ligue (le site reste su
 
 ## Vérifications à faire après déploiement (par l'utilisateur)
 
-- Assistant IA : sur un vrai deck, poser une vraie question (Teferi, Time Raveler face à un contre-sort, puis une interaction à deux cartes) et juger la qualité du français et des règles ; vérifier dans AI Studio que le quota gratuit du modèle par défaut suffit (sinon `GEMINI_MODEL`) ; couper puis rallumer l'assistant depuis l'administration.
-- Recherche de jetons sur Scryfall (l'import et les images de cartes sont confirmés).
-- Jeu en ligne : tester une vraie partie à plusieurs (second compte ou ami).
-- Nouvelle table : vérifier sur son écran (et en Duel comme à 4) la taille des vignettes de piles et le réglage « Taille des cartes » avec les vraies images de cartes.
-- Import par lien : essayer un deck Moxfield et un deck Archidekt (le serveur de test n'a pas accès à ces sites).
-- Mails : créer et publier le script Google, puis renseigner `GOOGLE_SCRIPT_URL` et `GOOGLE_SCRIPT_SECRET` (`docs/mails.md`), puis un vrai « Mot de passe oublié ? » et une invitation avec adresse.
-- Fenêtre à part (#82) : sur deux écrans réels, sortir le plateau d'un adversaire, le déplacer sur le second écran, jouer quelques tours, puis le ramener ; vérifier aussi le message quand le navigateur bloque la fenêtre.
-- Force et endurance (#110) : ouvrir le mode test d'un deck importé avant la mise en ligne (la première ouverture relit les cartes chez Scryfall, un peu plus lente) et vérifier les valeurs de quelques créatures, d'une carte recto verso transformée et d'une carte à force variable (`*`) ; en partie en ligne, modifier la force d'une créature adverse depuis son téléphone.
-- Loyauté : ouvrir le mode test d'un deck importé avant la mise en ligne qui contient un planeswalker (la première ouverture relit les cartes chez Scryfall) et vérifier sa loyauté, ainsi que celle d'un planeswalker recto verso transformé (Jace, Vryn's Prodigy) ; en partie en ligne, modifier la loyauté d'un planeswalker adverse.
-- Plein écran (#91) : sur ordinateur et sur Android, entrer puis sortir (bouton et Échap) ; sur iPhone, vérifier que le message de refus s'affiche.
-- Oracle et règles : vérifier que les règles s'affichent (Scryfall non joignable depuis le serveur de test) et que le lien Gatherer mène à la bonne carte, notamment pour `Urza's Saga`, `Kenrith, the Returned King`, `Lim-Dûl the Necromancer`, `Fire // Ice` et une carte recto verso (Gatherer non joignable non plus).
+- Jeu en ligne : jouer une vraie partie à plusieurs, avec des amis (une partie avec de faux comptes fonctionne).
+
+Vérifié en production le 14 octobre : assistant IA (réponses justes), Oracle et règles, import par lien Moxfield et Archidekt, réimport, jetons du deck, force, endurance et loyauté (tous les decks ont été réimportés, il n'y a plus d'ancien deck), ainsi que le reste de la liste précédente. Le plein écran sur iPhone et Android ne sera pas testé : le téléphone n'est pas une cible.
