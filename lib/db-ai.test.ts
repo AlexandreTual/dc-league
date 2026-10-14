@@ -44,3 +44,15 @@ describe('compteur de questions IA', () => {
     expect((await getAiUsage(old, 'u1', DAY)).error).not.toBeNull()
   })
 })
+
+describe('utilisation du jour', () => {
+  it('compte les questions et les joueurs du jour seulement', async () => {
+    const { getAiUsageOfDay } = await import('./db-ai')
+    expect((await getAiUsageOfDay(db, DAY)).data).toEqual({ questions: 0, players: 0 })
+    await takeAiQuestion(db, 'u1', DAY, 20)
+    await takeAiQuestion(db, 'u1', DAY, 20)
+    await takeAiQuestion(db, 'u2', DAY, 20)
+    await takeAiQuestion(db, 'u3', '2026-10-12', 20)
+    expect((await getAiUsageOfDay(db, DAY)).data).toEqual({ questions: 3, players: 2 })
+  })
+})

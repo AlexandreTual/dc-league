@@ -44,3 +44,16 @@ export async function giveBackAiQuestion(db: D1Database, userId: string, day: st
     return { data: null, error: message(e) }
   }
 }
+
+/** Utilisation d'un jour, tous comptes confondus (tableau de bord admin). */
+export async function getAiUsageOfDay(db: D1Database, day: string): Promise<Result<{ questions: number; players: number }>> {
+  try {
+    const row = await db
+      .prepare('SELECT COALESCE(SUM(count), 0) AS questions, COUNT(*) AS players FROM ai_usage WHERE day = ? AND count > 0')
+      .bind(day)
+      .first<{ questions: number; players: number }>()
+    return { data: { questions: Number(row?.questions ?? 0), players: Number(row?.players ?? 0) }, error: null }
+  } catch (e) {
+    return { data: null, error: message(e) }
+  }
+}

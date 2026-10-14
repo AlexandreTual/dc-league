@@ -10,7 +10,7 @@ export function POST(req: NextRequest) {
   return apiRoute(req, 'user', async ({ env, user, body }) => {
     const parsed = parseAskBody(body)
     if (!parsed.ok) return badRequest(parsed.error)
-    const { status, ...result } = await askAi(askDeps(env, new Date()), user!.id, parsed.oracleIds, parsed.messages)
+    const { status, ...result } = await askAi(await askDeps(env, new Date()), user!.id, parsed.oracleIds, parsed.messages)
     return NextResponse.json(result, { status })
   })
 }
