@@ -41,7 +41,7 @@ node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # imp
 node scripts/mail-check.mjs http://localhost:8788 <dossier>                # mails (MAIL_TEST=1 dans .dev.vars)
 node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lancer de dés (mode test et en ligne)
 node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
-node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, téléphone, en ligne)
+node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, tablette, en ligne)
 node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loyauté d'un planeswalker sur la carte (mode test, tablette, en ligne)
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
