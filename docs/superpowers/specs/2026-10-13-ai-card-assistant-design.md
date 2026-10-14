@@ -31,6 +31,7 @@ L'IA ne cherche rien sur Internet : le serveur lui envoie le **texte Oracle** et
 | Conversation | gardée dans la page (pas en base) ; fermer le panneau la garde jusqu'au rechargement ; bouton « Nouvelle question » pour repartir de zéro |
 | Modèle | un modèle Gemini « Flash » de l'offre gratuite, nom dans `GEMINI_MODEL` (valeur par défaut choisie au moment du plan, les noms et quotas de Google changent) |
 | Sans clé | si `GEMINI_API_KEY` est absent, la fonction est désactivée : aucun bouton affiché, la route répond 503 « Assistant IA indisponible » |
+| Interrupteur admin (ajouté le 14 octobre) | section « Assistant IA » du tableau de bord admin : activer / désactiver sans redéployer (effet immédiat), activé par défaut ; l'assistant n'est disponible que si la clé est présente **et** l'interrupteur activé ; à côté, l'utilisation du jour (questions posées, nombre de joueurs) |
 
 ## Interface
 
@@ -97,6 +98,13 @@ CREATE TABLE ai_usage (
 ```
 
 Seul le nombre de questions est gardé : ni questions ni réponses en base. Juste après la fusion, si la table n'existe pas encore (site déployé avant la migration), la route répond 503 propre.
+
+### Interrupteur et utilisation du jour (administration)
+
+- Table `site_settings (key, value, updated_at)` (migration `0016_site_settings.sql`), clé `ai_enabled` (`'1'` / `'0'`). Ligne absente ou table pas encore créée : activé.
+- `GET /api/admin/ai` → `{ enabled, keyPresent, today: { questions, players } }` ; `PATCH /api/admin/ai` `{ enabled: boolean }`. Réservées aux admins.
+- Désactivé : `/api/ai/quota` répond `enabled: false` (boutons masqués au prochain chargement de page), `/api/ai/ask` répond 503 « Assistant IA indisponible » sans compter la question.
+- Section « Assistant IA » du tableau de bord : état (« Activé », « Désactivé », ou « Clé Gemini absente » avec renvoi vers `docs/assistant-ia.md`), bouton « Désactiver » / « Activer », ligne « Aujourd'hui : N questions par M joueurs (20 par joueur et par jour) ».
 
 ## Règles du projet
 

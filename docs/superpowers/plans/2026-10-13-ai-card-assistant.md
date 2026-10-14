@@ -1,6 +1,6 @@
 # Assistant IA pour les cartes — plan d'implémentation
 
-> **Pour les agents :** chantier #137, une issue par tâche (#138 à #143), dans l'ordre (chaque issue indique ses dépendances). Tests d'abord, cases à cocher (`- [ ]`).
+> **Pour les agents :** chantier #137, une issue par tâche (#138 à #143, plus la tâche 4 bis #148 ajoutée le 14 octobre), dans l'ordre (chaque issue indique ses dépendances). Tests d'abord, cases à cocher (`- [ ]`).
 
 **Objectif :** poser une question à Gemini sur une carte ou sur l'interaction entre plusieurs cartes, depuis la liste d'un deck, le mode test et la partie en ligne, et continuer dans un petit chat ; 20 questions par joueur et par jour.
 
@@ -164,6 +164,37 @@ useAi(): { enabled: boolean; open(card?: AiCardRef): void; addCard(card: AiCardR
 - [ ] **Étape 2 : fournisseur et panneau** selon la spec : `GET /api/ai/quota` à l'ouverture (désactivé → rien d'affiché) ; pastilles des cartes (nom français si connu) avec croix ; suggestions ; bulles (texte brut, `whitespace-pre-line`, listes `- ` rendues en liste, jamais de HTML interprété) ; liens Gatherer des cartes choisies sous chaque réponse ; `AI_DISCLAIMER` fixe ; compteur « N questions restantes aujourd'hui » ; à 0 saisie désactivée et `AI_QUOTA_REACHED` ; « L'IA réfléchit… » et envoi désactivé pendant l'attente ; erreur affichée dans le fil, la question reste dans la saisie. Panneau à droite (largeur 380 px, `z-index` au-dessus de la table) sur ordinateur et tablette, plein écran sous 640 px ; « Fermer » garde la conversation.
 - [ ] **Étape 3 : fenêtre Oracle** : prop facultative `onAskAi?: () => void` ; bouton « Demander à l'IA » affiché seulement si fournie. **Page du deck** : fournisseur si un joueur est connecté ; bouton « Assistant IA » en haut de la liste ; « Demander à l'IA » dans la fiche Oracle d'une carte.
 - [ ] **Étape 4 : vérifications** (dont `playtest-check` et `deck-link-check` pour s'assurer que rien ne casse), commit `feat(ia): panneau de l'assistant sur la page du deck`.
+
+---
+
+### Tâche 4 bis : interrupteur et utilisation du jour dans l'administration (#148)
+
+**Dépend de :** tâche 4. **Avant** la tâche 5 (décision du 14 octobre).
+
+**Fichiers :**
+- Créer : `migrations/0016_site_settings.sql`, `lib/db-settings.ts` (+ test), `lib/ai/switch.ts` (+ test), `app/api/admin/ai/route.ts`, `components/admin/AiSettingsPanel.tsx`
+- Modifier : `test/d1.ts` (MIGRATIONS), `lib/db-ai.ts` (+ test : `getAiUsageOfDay`), `lib/ai/server.ts` (disponibilité = clé **et** interrupteur), `app/api/ai/ask/route.ts`, `app/api/ai/quota/route.ts`, `app/admin/page.tsx`, `app/admin/AdminDashboard.tsx`
+
+**Interfaces produites :**
+```ts
+// lib/db-settings.ts
+getSetting(db, key): Promise<Result<string | null>>
+setSetting(db, key, value, now): Promise<Result<true>>
+// lib/ai/switch.ts
+AI_SWITCH_KEY = 'ai_enabled'
+isAiSwitchedOn(db): Promise<boolean>          // ligne absente ou base illisible → true
+setAiSwitch(db, enabled, now): Promise<Result<true>>
+// lib/db-ai.ts
+getAiUsageOfDay(db, day): Promise<Result<{ questions: number; players: number }>>
+// lib/ai/server.ts
+aiAvailable(env): Promise<boolean>             // clé présente et interrupteur activé
+askDeps(env, now): Promise<AskDeps>            // gemini null si indisponible
+```
+
+- [ ] **Étape 1 : migration** `CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)`, ajoutée à `MIGRATIONS`.
+- [ ] **Étape 2 : tests** : réglage absent → null ; écrit puis relu ; réécrit ; interrupteur par défaut activé, désactivé puis réactivé, table absente → activé ; utilisation du jour (0 / 0, puis 3 questions par 2 joueurs, autre jour ignoré) ; `askDeps` sans client Gemini quand l'interrupteur est coupé.
+- [ ] **Étape 3 : code**, route admin (`apiRoute(req, 'admin', …)`, `enabled` booléen sinon 400), section du tableau de bord (données lues côté serveur, bouton qui appelle `PATCH`, message en français).
+- [ ] **Étape 4 : vérifications** + navigateur : admin `e2e-1` coupe l'assistant → bouton « Assistant IA » absent pour `e2e-2` au rechargement, `/api/ai/ask` → 503 ; réactive → bouton de retour ; compteur du jour à jour. Commit `feat(ia): interrupteur et utilisation du jour dans l'administration`.
 
 ---
 
