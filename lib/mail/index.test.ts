@@ -19,23 +19,51 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+const GOOGLE = { GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/abc/exec', GOOGLE_SCRIPT_SECRET: 'secret-google-789' }
+
+function scriptFetch(body: unknown = { ok: true }, status = 200) {
+  return vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify(body), { status }))
+}
+
 describe('choix du service', () => {
-  it('Brevo : adresse, en-têtes et corps exacts', async () => {
-    const f = okFetch(201)
-    const m = mailerFromEnv({ BREVO_API_KEY: 'cle-brevo', MAIL_FROM: 'ligue@gmail.com' }, { fetch: f as typeof fetch })
+  it('script Google : adresse, en-têtes et corps exacts', async () => {
+    const f = scriptFetch()
+    const m = mailerFromEnv(GOOGLE, { fetch: f as typeof fetch })
     expect(await m.send(mail)).toBe('sent')
     const c = call(f)
-    expect(c.url).toBe('https://api.brevo.com/v3/smtp/email')
+    expect(c.url).toBe('https://script.google.com/macros/s/abc/exec')
     expect(c.init.method).toBe('POST')
-    expect(c.headers.get('api-key')).toBe('cle-brevo')
+    expect(c.init.redirect ?? 'follow').toBe('follow')
     expect(c.headers.get('content-type')).toBe('application/json')
     expect(c.body).toEqual({
-      sender: { name: 'Commander League', email: 'ligue@gmail.com' },
-      to: [{ email: 'ana@gmail.com' }],
+      secret: 'secret-google-789',
+      name: 'Commander League',
+      to: 'ana@gmail.com',
       subject: 'Sujet',
-      textContent: 'Texte',
-      htmlContent: '<p>Texte</p>',
+      text: 'Texte',
+      html: '<p>Texte</p>',
     })
+  })
+
+  it('script Google : MAIL_FROM inutile, MAIL_FROM_NAME pris en compte', async () => {
+    const f = scriptFetch()
+    await mailerFromEnv({ ...GOOGLE, MAIL_FROM_NAME: 'La Ligue' }, { fetch: f as typeof fetch }).send(mail)
+    expect(call(f).body.name).toBe('La Ligue')
+  })
+
+  it('script Google : adresse ou mot de passe manquant → désactivé', async () => {
+    const f = scriptFetch()
+    expect(await mailerFromEnv({ GOOGLE_SCRIPT_URL: GOOGLE.GOOGLE_SCRIPT_URL }, { fetch: f as typeof fetch }).send(mail)).toBe('disabled')
+    expect(await mailerFromEnv({ GOOGLE_SCRIPT_SECRET: 's' }, { fetch: f as typeof fetch }).send(mail)).toBe('disabled')
+    expect(f).not.toHaveBeenCalled()
+  })
+
+  it('script Google : adresse hors de script.google.com → désactivé (le mot de passe ne part pas ailleurs)', async () => {
+    const f = scriptFetch()
+    for (const url of ['https://exemple.fr/exec', 'http://script.google.com/macros/s/abc/exec', 'https://script.google.com.evil.fr/x']) {
+      expect(await mailerFromEnv({ ...GOOGLE, GOOGLE_SCRIPT_URL: url }, { fetch: f as typeof fetch }).send(mail)).toBe('disabled')
+    }
+    expect(f).not.toHaveBeenCalled()
   })
 
   it('Resend : adresse, en-têtes et corps exacts', async () => {
@@ -56,16 +84,19 @@ describe('choix du service', () => {
     })
   })
 
-  it('les deux clés : Brevo', async () => {
+  it('Resend et script Google configurés : Resend (passage au domaine sans rien supprimer)', async () => {
     const f = okFetch()
-    await mailerFromEnv({ BREVO_API_KEY: 'b', RESEND_API_KEY: 'r', MAIL_FROM: 'x@y.fr' }, { fetch: f as typeof fetch }).send(mail)
-    expect(call(f).url).toBe('https://api.brevo.com/v3/smtp/email')
+    await mailerFromEnv({ ...GOOGLE, RESEND_API_KEY: 'r', MAIL_FROM: 'x@y.fr' }, { fetch: f as typeof fetch }).send(mail)
+    expect(call(f).url).toBe('https://api.resend.com/emails')
+  })
+
+  it('Resend sans MAIL_FROM et script Google configuré : script Google', async () => {
+    const f = scriptFetch()
+    await mailerFromEnv({ ...GOOGLE, RESEND_API_KEY: 'r' }, { fetch: f as typeof fetch }).send(mail)
+    expect(call(f).url).toBe(GOOGLE.GOOGLE_SCRIPT_URL)
   })
 
   it('MAIL_FROM_NAME pris en compte', async () => {
-    const f = okFetch()
-    await mailerFromEnv({ BREVO_API_KEY: 'b', MAIL_FROM: 'x@y.fr', MAIL_FROM_NAME: 'La Ligue' }, { fetch: f as typeof fetch }).send(mail)
-    expect(call(f).body.sender).toEqual({ name: 'La Ligue', email: 'x@y.fr' })
     const g = okFetch()
     await mailerFromEnv({ RESEND_API_KEY: 'r', MAIL_FROM: 'x@y.fr', MAIL_FROM_NAME: 'La Ligue' }, { fetch: g as typeof fetch }).send(mail)
     expect(call(g).body.from).toBe('La Ligue <x@y.fr>')
@@ -79,7 +110,7 @@ describe('choix du service', () => {
 
   it('clé sans MAIL_FROM : désactivé', async () => {
     const f = okFetch()
-    expect(await mailerFromEnv({ BREVO_API_KEY: 'b' }, { fetch: f as typeof fetch }).send(mail)).toBe('disabled')
+    expect(await mailerFromEnv({ RESEND_API_KEY: 'r' }, { fetch: f as typeof fetch }).send(mail)).toBe('disabled')
     expect(await mailerFromEnv({ RESEND_API_KEY: 'r', MAIL_FROM: '  ' }, { fetch: f as typeof fetch }).send(mail)).toBe('disabled')
     expect(f).not.toHaveBeenCalled()
   })
@@ -108,7 +139,8 @@ describe('choix du service', () => {
 })
 
 describe('échecs', () => {
-  const brevo = (f: unknown) => mailerFromEnv({ BREVO_API_KEY: 'cle-secrete-123', MAIL_FROM: 'x@y.fr' }, { fetch: f as typeof fetch })
+  const google = (f: unknown) =>
+    mailerFromEnv({ ...GOOGLE, GOOGLE_SCRIPT_SECRET: 'cle-secrete-123' }, { fetch: f as typeof fetch })
   const resend = (f: unknown) => mailerFromEnv({ RESEND_API_KEY: 'cle-secrete-456', MAIL_FROM: 'x@y.fr' }, { fetch: f as typeof fetch })
 
   function journal() {
@@ -119,7 +151,7 @@ describe('échecs', () => {
   it.each([400, 401, 500])('réponse %i : failed, clé absente du journal', async (status) => {
     const logs = journal()
     const body = new Response('{"message":"Key cle-secrete-123 is invalid"}', { status })
-    expect(await brevo(vi.fn(async () => body)).send(mail)).toBe('failed')
+    expect(await google(vi.fn(async () => body)).send(mail)).toBe('failed')
     expect(await resend(vi.fn(async () => new Response('cle-secrete-456', { status }))).send(mail)).toBe('failed')
     expect(logs()).not.toContain('cle-secrete')
     expect(logs()).toContain(String(status))
@@ -130,7 +162,7 @@ describe('échecs', () => {
     const f = vi.fn(async () => {
       throw new Error('réseau coupé (cle-secrete-123)')
     })
-    expect(await brevo(f).send(mail)).toBe('failed')
+    expect(await google(f).send(mail)).toBe('failed')
     expect(logs()).not.toContain('cle-secrete')
   })
 
@@ -151,6 +183,29 @@ describe('échecs', () => {
     await vi.advanceTimersByTimeAsync(1)
     expect(signal?.aborted).toBe(true)
     expect(await pending).toBe('failed')
+  })
+
+  it.each([
+    ['refus du script', { ok: false, error: 'secret' }, 'secret'],
+    ['quota Gmail atteint', { ok: false, error: 'quota' }, 'quota'],
+  ])('script Google, %s : failed, raison journalisée sans le mot de passe', async (_cas, body, raison) => {
+    const logs = journal()
+    expect(await google(scriptFetch(body)).send(mail)).toBe('failed')
+    expect(logs()).toContain(raison)
+    expect(logs()).not.toContain('cle-secrete')
+  })
+
+  it('script Google, raison inattendue : non recopiée dans le journal', async () => {
+    const logs = journal()
+    expect(await google(scriptFetch({ ok: false, error: 'cle-secrete-123 <b>' })).send(mail)).toBe('failed')
+    expect(logs()).not.toContain('cle-secrete')
+  })
+
+  it('script Google, page HTML au lieu de JSON (accès non public, erreur du script) : failed', async () => {
+    const logs = journal()
+    const f = vi.fn(async () => new Response('<html>Connexion Google</html>', { status: 200 }))
+    expect(await google(f).send(mail)).toBe('failed')
+    expect(logs()).toContain('google')
   })
 
   it('boîte de test en erreur : failed', async () => {

@@ -8,7 +8,9 @@ interface CloudflareEnv extends Record<string, unknown> {
   GEMINI_MODEL?: string
   /** Adresse de l'API Gemini, réservée aux tests (faux serveur local). */
   GEMINI_BASE_URL?: string
-  BREVO_API_KEY?: string
+  /** Envoi des mails (docs/mails.md) : script Google, ou Resend avec un domaine. */
+  GOOGLE_SCRIPT_URL?: string
+  GOOGLE_SCRIPT_SECRET?: string
   RESEND_API_KEY?: string
   MAIL_FROM?: string
   MAIL_FROM_NAME?: string

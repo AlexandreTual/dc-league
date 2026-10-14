@@ -57,7 +57,7 @@ node scripts/seed-online.mjs > /tmp/seed.sql && npx wrangler d1 execute dc-leagu
 - « Lien de réinitialisation » (admin) : lien de 7 jours, envoyé par mail si le compte a une adresse.
 - « **Mot de passe oublié ?** » (page de connexion) : par pseudo ou adresse, lien d'une heure envoyé à l'adresse du compte, 3 demandes par heure au plus ; la réponse est la même que le compte existe ou non.
 - Chaque joueur saisit son adresse dans **Mon profil** ; elle n'est visible que par lui et les admins.
-- Envoi par Brevo (ou Resend plus tard) : configuration pas à pas dans [docs/mails.md](docs/mails.md). Sans configuration, l'admin copie le lien comme avant.
+- Envoi depuis la Gmail de l'admin par un script Google (ou Resend plus tard, avec un domaine) : configuration pas à pas dans [docs/mails.md](docs/mails.md). Sans configuration, l'admin copie le lien comme avant.
 - En local, `MAIL_TEST=1` dans `.dev.vars` : les mails sont lisibles sur `/api/test/mails` au lieu de partir.
 
 ---
