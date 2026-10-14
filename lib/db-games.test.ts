@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { MIGRATIONS, createTestDb, readMigration } from '@/test/d1'
 import {
   chooseDeck, claimStart, createTable, deleteTable, finishTable, getTable, joinTable, leaveTable, listTables, markPlaying,
-  playingTables, releaseStart, removeSeat, setHost, staleTables, startCheck, touchActivity,
+  playingTables, releaseStart, removeSeat, setHost, staleTables, startCheck, touchActivity, unfinishedTables,
 } from './db-games'
 
 let db: D1Database
@@ -165,6 +165,22 @@ describe('cycle de vie', () => {
     expect((await listTables(db)).data!.map((t) => t.id)).toEqual([b, a])
     expect((await playingTables(db)).data).toEqual([b])
     expect((await getTable(db, c)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p1' })
+  })
+
+  it('tables non terminées pour l’admin : starting compris, les plus anciennes en activité d’abord', async () => {
+    const a = (await commander()).data!.id
+    const b = (await commander()).data!.id
+    const c = (await commander()).data!.id
+    const d = (await commander()).data!.id
+    await touchActivity(db, a, new Date('2026-01-05T10:00:00Z'))
+    await claimStart(db, b, 'p1')
+    await touchActivity(db, b, new Date('2026-01-01T10:00:00Z'))
+    await markPlaying(db, c)
+    await touchActivity(db, c, new Date('2026-01-03T10:00:00Z'))
+    await finishTable(db, d, null)
+    const tables = (await unfinishedTables(db)).data!
+    expect(tables.map((t) => [t.id, t.status])).toEqual([[b, 'starting'], [c, 'playing'], [a, 'open']])
+    expect(tables[0].players.map((p) => p.name)).toEqual(['Alex'])
   })
 
   it('activité, tables périmées, hôte, suppression en cascade', async () => {

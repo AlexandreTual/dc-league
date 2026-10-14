@@ -9,19 +9,22 @@ import { useAdminApi } from '@/components/admin/useAdminApi'
 import LeagueCard from '@/components/leagues/LeagueCard'
 import AiSettingsPanel from '@/components/admin/AiSettingsPanel'
 import type { AiAdminStatus } from '@/lib/ai/admin'
+import GamesPanel from '@/components/admin/GamesPanel'
+import type { GameTable } from '@/lib/db-games'
 
 interface Props {
   players: Player[]
   accountStatuses: Record<string, AccountStatus>
   leagues: DbLeague[]
   ai: AiAdminStatus
+  tables: GameTable[]
   currentUserId: string | null
   isBootstrap: boolean
 }
 
-/** Administration du site : comptes et invitations, gestion de toutes les ligues, assistant IA. */
-export default function AdminDashboard({ players, accountStatuses, leagues, ai, currentUserId, isBootstrap }: Props) {
-  const { toast, showToast } = useAdminApi()
+/** Administration du site : comptes et invitations, gestion de toutes les ligues, parties en cours, assistant IA. */
+export default function AdminDashboard({ players, accountStatuses, leagues, ai, tables, currentUserId, isBootstrap }: Props) {
+  const { toast, showToast, call } = useAdminApi()
 
   return (
     <div className="space-y-8">
@@ -59,6 +62,8 @@ export default function AdminDashboard({ players, accountStatuses, leagues, ai, 
           <div className="space-y-2">{leagues.map((l) => <LeagueCard key={l.id} league={l} manage />)}</div>
         )}
       </section>
+
+      <GamesPanel initial={tables} call={call} onToast={showToast} />
 
       <AiSettingsPanel initial={ai} onToast={showToast} />
     </div>
