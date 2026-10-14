@@ -5,7 +5,6 @@ import {
   ERREURS_LIGUE, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
   statusForError, updateMatchScore, updatePlayoffScore,
 } from './db'
-import { createLeague } from './db-leagues'
 
 let db: D1Database
 
@@ -45,14 +44,6 @@ describe('doubles clics', () => {
     ])
     expect([a.error, b.error].filter(Boolean)).toEqual([ERREURS_LIGUE.playoffsExist])
     expect((await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)).toEqual(['semi1', 'semi2'])
-  })
-
-  it('createLeague ne crée qu’une ligue active', async () => {
-    await db.prepare("UPDATE leagues SET is_active = 0 WHERE id = 'l1'").run()
-    const [a, b] = await Promise.all([createLeague(db, 'Saison 2'), createLeague(db, 'Saison 2 bis')])
-    expect([a.error, b.error].filter(Boolean)).toEqual(['Une ligue est déjà active.'])
-    const row = await db.prepare('SELECT COUNT(*) AS n FROM leagues WHERE is_active = 1').first<{ n: number }>()
-    expect(row?.n).toBe(1)
   })
 
   it('la finale n’est créée qu’une fois quand les deux demi-finales sont saisies en même temps', async () => {

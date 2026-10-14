@@ -4,6 +4,7 @@ import { LogIn } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
 import { safeRedirectPath } from '@/lib/auth/validation'
 import { countAdmins } from '@/lib/db-auth'
+import { isLeagueInvitePath } from '@/lib/leagues/join'
 import LoginForm from './LoginForm'
 
 export const runtime = 'edge'
@@ -25,6 +26,11 @@ export default async function ConnexionPage({ searchParams }: { searchParams: Pr
           </div>
           <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Connexion</h1>
           <p className="text-dc-muted text-sm">Connecte-toi avec le pseudo choisi lors de ton invitation</p>
+          {isLeagueInvitePath(target) && (
+            <p className="text-dc-text text-sm bg-dc-gold/10 border border-dc-gold/30 rounded-lg px-3 py-2">
+              Connecte-toi pour rejoindre la ligue. Pas encore de compte ? Demande une invitation à l&apos;administrateur.
+            </p>
+          )}
         </div>
         <LoginForm target={target} showBootstrap={admins === 0} />
       </div>

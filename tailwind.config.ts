@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import plugin from 'tailwindcss/plugin'
 
 const config: Config = {
   content: [
@@ -36,7 +37,13 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Tablette : le doigt est le pointeur principal (un ordinateur tactile utilisé à la souris n'est pas concerné).
+    plugin(({ addVariant }) => {
+      addVariant('tablet', '@media (pointer: coarse)')
+      addVariant('tablet-portrait', '@media (pointer: coarse) and (orientation: portrait)')
+    }),
+  ],
 }
 
 export default config

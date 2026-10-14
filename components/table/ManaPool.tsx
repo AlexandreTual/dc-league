@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Minus } from 'lucide-react'
 import type { ClientAction } from '@/lib/game/room'
 import { MANA_COLORS, type ManaColor, type ManaPool as Pool } from '@/lib/game/types'
+import { boardColors, clickDelta, detailPosition, manaTotal } from './manaPool'
+import { longPressClass, menuGesture } from './touch'
 
 const COLORS: Record<ManaColor, { name: string; className: string }> = {
   W: { name: 'Blanc', className: 'bg-[#f3ead0] text-black' },
@@ -16,63 +19,100 @@ const COLORS: Record<ManaColor, { name: string; className: string }> = {
 
 function ManaSymbol({ color, small = false }: { color: ManaColor; small?: boolean }) {
   return (
-    <span className={`inline-flex items-center justify-center rounded-full font-bold ${small ? 'w-3.5 h-3.5 text-[8px]' : 'w-5 h-5 text-[10px]'} ${COLORS[color].className}`}>
+    <span className={`inline-flex items-center justify-center rounded-full font-bold shrink-0 ${small ? 'w-4 h-4 text-[9px]' : 'w-5 h-5 text-[10px]'} ${COLORS[color].className}`}>
       {color}
     </span>
   )
 }
 
 /**
- * Réserve de mana d'un joueur : pastilles des couleurs non nulles, visibles de tous.
- * Pour sa propre réserve, un clic ouvre le détail : + (Maj : +5), − ou clic droit, Vider, et l'option de garde.
+ * Réserve de mana d'un joueur, en bas à gauche de son champ de bataille (façon Moxfield), visible de tous.
+ * Ma réserve : les 6 symboles, même à 0 ; clic +1, Maj+clic +5, clic droit −1 ; au doigt, toucher +1 et appui long
+ * pour le détail (−, Vider, garde au changement de tour), ouvert aussi par le bouton du total.
+ * Celle d'un autre : lecture seule, couleurs non nulles. Seuls les symboles captent les événements (dépôt et glisser libres autour).
  */
-export default function ManaPool({ pool, keep = false, editable, send, openUp = false, alignRight = false }: {
+export default function ManaPool({ pool, keep = false, editable, send }: {
   /** Absente quand le serveur de jeu n'a pas encore la réserve de mana (déployé avant elle) : rien n'est affiché. */
   pool: Pool | undefined
   keep: boolean | undefined
   editable: boolean
   send: (action: ClientAction) => void
-  /** Ouvrir le détail vers le haut (réserve placée en bas de l'écran). */
-  openUp?: boolean
-  /** Aligner le détail sur le bord droit (réserve placée à droite de l'écran). */
-  alignRight?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [detail, setDetail] = useState<{ left: number; bottom: number; root: Element } | null>(null)
+  const anchor = useRef<HTMLDivElement>(null)
+  /** Type du dernier pointeur posé : le clic droit de la souris retire 1, l'appui long au doigt ouvre le détail. */
+  const pointer = useRef('mouse')
   useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    if (!detail) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetail(null) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
-  if (!pool) return null
-  const total = MANA_COLORS.reduce((n, c) => n + pool[c], 0)
-  const filled = MANA_COLORS.filter((c) => pool[c] > 0)
-  const add = (color: ManaColor, delta: number) => send({ type: 'mana', color, delta })
+  }, [detail])
 
-  const summary = (
-    <span className="inline-flex items-center gap-1" data-testid="mana-pool">
-      {filled.length === 0
-        ? <span className="text-dc-muted">Mana : 0</span>
-        : filled.map((c) => (
-          <span key={c} className="inline-flex items-center gap-0.5" title={`${COLORS[c].name} : ${pool[c]}`} data-mana={c}>
-            <ManaSymbol color={c} small /> {pool[c]}
-          </span>
-        ))}
-      {keep && <span className="text-dc-muted" title="Réserve gardée au changement de tour">⟳</span>}
-    </span>
-  )
-  if (!editable) return summary
+  const colors = boardColors(pool, editable)
+  if (!pool || colors.length === 0) return null
+  const total = manaTotal(pool)
+  const add = (color: ManaColor, delta: number) => send({ type: 'mana', color, delta })
+  const openDetail = () => {
+    const el = anchor.current
+    if (!el) return
+    // Détail rendu dans la table (plein écran, au-dessus du site) : le champ de bataille le couperait (overflow-hidden).
+    const root = el.closest('[data-table-root]') ?? document.body
+    setDetail({ ...detailPosition(el.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }), root })
+  }
+  const press = menuGesture(openDetail)
 
   return (
-    <span className="relative inline-flex">
-      <button className="inline-flex items-center gap-1 rounded px-1 hover:bg-dc-border" onClick={() => setOpen((o) => !o)} aria-label="Réserve de mana" aria-expanded={open}>
-        {summary}
-      </button>
-      {open && (
+    <div
+      ref={anchor}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-black/55 px-1.5 py-1 text-xs text-dc-text pointer-events-auto"
+      data-testid="mana-pool"
+    >
+      {colors.map((c) => {
+        const symbol = (
+          <>
+            <ManaSymbol color={c} small={!editable} />
+            <span className={`min-w-[0.75rem] text-center tabular-nums ${pool[c] === 0 ? 'text-dc-muted' : 'font-semibold'}`}>{pool[c]}</span>
+          </>
+        )
+        return editable ? (
+          <button
+            key={c}
+            className={`inline-flex items-center justify-center gap-0.5 rounded-full hover:ring-2 hover:ring-dc-gold/60 tablet:min-h-11 tablet:min-w-11 ${longPressClass}`}
+            data-mana={c} data-count={pool[c]}
+            title={`${COLORS[c].name} : ${pool[c]} — clic +1, Maj +5, clic droit −1`}
+            aria-label={`${COLORS[c].name} plus`}
+            onPointerDown={(e) => { pointer.current = e.pointerType; press.onPointerDown?.(e) }}
+            onClick={(e) => add(c, clickDelta(e))}
+            onContextMenu={(e) => {
+              if (pointer.current !== 'mouse') return press.onContextMenu?.(e)
+              e.preventDefault()
+              if (pool[c] > 0) add(c, -1)
+            }}
+          >
+            {symbol}
+          </button>
+        ) : (
+          <span key={c} className="inline-flex items-center gap-0.5" data-mana={c} data-count={pool[c]} title={`${COLORS[c].name} : ${pool[c]}`}>{symbol}</span>
+        )
+      })}
+      {keep && <span className="text-dc-muted" title="Réserve gardée au changement de tour">⟳</span>}
+      {editable && (
+        <button
+          className="ml-0.5 rounded px-1 text-dc-muted hover:bg-dc-border hover:text-dc-text tablet:min-h-11"
+          onClick={() => (detail ? setDetail(null) : openDetail())}
+          aria-label="Réserve de mana" aria-expanded={!!detail} title="Détail de la réserve"
+          data-testid="mana-total"
+        >
+          Σ {total}
+        </button>
+      )}
+      {detail && editable && createPortal(
         <>
-          <span className="fixed inset-0 z-[57]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[57]" onClick={() => setDetail(null)} />
           <div
-            className={`absolute ${alignRight ? 'right-0' : 'left-0'} ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-60 rounded-xl border border-dc-border bg-dc-surface p-3 space-y-2 shadow-card text-xs text-dc-text`}
+            className="fixed z-[58] w-60 rounded-xl border border-dc-border bg-dc-surface p-3 space-y-2 shadow-card text-xs text-dc-text"
+            style={{ left: detail.left, bottom: detail.bottom }}
             role="dialog" aria-label="Réserve de mana"
           >
             <div className="grid grid-cols-3 gap-1.5">
@@ -80,15 +120,15 @@ export default function ManaPool({ pool, keep = false, editable, send, openUp = 
                 <div key={c} className="flex items-center gap-1" data-mana-color={c}>
                   <button
                     className="rounded-full hover:ring-2 hover:ring-dc-gold/60"
-                    onClick={(e) => add(c, e.shiftKey ? 5 : 1)}
-                    onContextMenu={(e) => { e.preventDefault(); add(c, -1) }}
-                    aria-label={`${COLORS[c].name} plus`}
+                    onClick={(e) => add(c, clickDelta(e))}
+                    onContextMenu={(e) => { e.preventDefault(); if (pool[c] > 0) add(c, -1) }}
+                    aria-label={`${COLORS[c].name} plus (détail)`}
                     title={`${COLORS[c].name} : clic +1, Maj +5, clic droit −1`}
                   >
                     <ManaSymbol color={c} />
                   </button>
                   <span className="min-w-[1.25rem] text-center">{pool[c]}</span>
-                  <button className="p-0.5 rounded hover:bg-dc-border disabled:opacity-30" disabled={pool[c] === 0} onClick={() => add(c, -1)} aria-label={`${COLORS[c].name} moins`}>
+                  <button className="p-0.5 rounded hover:bg-dc-border disabled:opacity-30 tablet:p-1.5" disabled={pool[c] === 0} onClick={() => add(c, -1)} aria-label={`${COLORS[c].name} moins`}>
                     <Minus className="w-3 h-3" />
                   </button>
                 </div>
@@ -105,8 +145,9 @@ export default function ManaPool({ pool, keep = false, editable, send, openUp = 
               Garder ma réserve au changement de tour
             </label>
           </div>
-        </>
+        </>,
+        detail.root,
       )}
-    </span>
+    </div>
   )
 }

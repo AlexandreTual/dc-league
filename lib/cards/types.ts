@@ -23,6 +23,11 @@ export type CardFace = {
   /** Image « large » (672 px) ; absente des cartes enregistrées avant son ajout. */
   image_large?: string | null
   image_small: string | null
+  /** Force et endurance imprimées de la face ; absentes des cartes enregistrées avant leur ajout. */
+  power?: string | null
+  toughness?: string | null
+  /** Loyauté imprimée de la face (planeswalker) ; absente des cartes enregistrées avant son ajout. */
+  loyalty?: string | null
 }
 
 export type CardRow = {
@@ -47,6 +52,18 @@ export type CardRow = {
   image_large?: string | null
   image_small: string | null
   faces: CardFace[] | null
+  /**
+   * Force et endurance imprimées (celles du recto pour une carte à plusieurs faces), null si la carte n'en a pas.
+   * Absentes (undefined) : pas encore lues chez Scryfall (carte enregistrée avant la migration 0012,
+   * ou catalogue d'un serveur de jeu plus ancien).
+   */
+  power?: string | null
+  toughness?: string | null
+  /**
+   * Loyauté imprimée (celle du recto), null si la carte n'en a pas. Absente (undefined) : pas encore lue chez
+   * Scryfall (carte enregistrée avant la migration 0014, ou catalogue d'un serveur de jeu plus ancien).
+   */
+  loyalty?: string | null
 }
 
 export type CardLookup = { key: string; en_card_id: string | null; fr_card_id: string | null }

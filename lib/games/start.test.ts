@@ -60,6 +60,17 @@ describe('startTable', () => {
     expect(setup.players[0].catalog.entries.map((e) => [e.en.name, e.quantity])).toEqual([['Sol Ring', 1], ['Forest', 2]])
   })
 
+  it('force et endurance des cartes importées avant leur ajout : relues chez Scryfall pour la partie', async () => {
+    const stats = createScryfallClient({
+      fetch: (async () => new Response(JSON.stringify({ data: [{ id: 'en-1', lang: 'en', name: 'Forest', set: 'tst', collector_number: '1' }] }))) as unknown as typeof fetch,
+      sleep: async () => {},
+    })
+    await db.prepare("UPDATE cards SET power = NULL, toughness = NULL WHERE id = 'en-1'").run()
+    await startTable(db, okInit, tableId, 'p1', undefined, stats)
+    const forest = calls[0].body.setup.players[0].catalog.entries.find((e) => e.en.id === 'en-1')!
+    expect([forest.en.power, forest.en.toughness]).toEqual([null, null])
+  })
+
   it('premier joueur choisi par l’hôte : transmis au serveur de jeu', async () => {
     await startTable(db, okInit, tableId, 'p1', 'p2')
     expect(calls[0].body.firstPlayer).toBe('p2')

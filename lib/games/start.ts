@@ -1,4 +1,6 @@
 import { listDeckCards } from '@/lib/db-cards'
+import type { ScryfallClient } from '@/lib/cards/scryfall'
+import { fillCardStats } from '@/lib/cards/stats'
 import { INTERNAL_ERROR, claimStart, getTable, markPlaying, releaseStart, startCheck, type GameTable } from '@/lib/db-games'
 import type { Result } from '@/lib/db'
 import { buildCatalog } from '@/lib/game/catalog'
@@ -14,8 +16,11 @@ export type GameInit = (tableId: string, body: { setup: GameSetup; hostId: strin
  * La table est d'abord réservée (`starting`) : plus personne ne rejoint, ne part ni ne change de deck pendant
  * la création de la partie, et deux démarrages simultanés n'en créent qu'un. En cas d'échec, elle redevient ouverte.
  * `firstPlayer` : joueur de la table choisi par l'hôte pour commencer ; absent : tirage au sort.
+ * `scryfall` : pour rattraper la force et l'endurance des cartes importées avant leur ajout (voir fillCardStats).
  */
-export async function startTable(db: D1Database, init: GameInit, tableId: string, playerId: string, firstPlayer?: string): Promise<Result<GameTable>> {
+export async function startTable(
+  db: D1Database, init: GameInit, tableId: string, playerId: string, firstPlayer?: string, scryfall?: ScryfallClient,
+): Promise<Result<GameTable>> {
   const { data: table, error } = await getTable(db, tableId)
   if (error !== null) return { data: null, error: INTERNAL_ERROR }
   if (!table) return { data: null, error: 'Table introuvable' }
@@ -32,7 +37,7 @@ export async function startTable(db: D1Database, init: GameInit, tableId: string
 
   let started = false
   try {
-    const result = await createGame(db, init, tableId, firstPlayer)
+    const result = await createGame(db, init, tableId, firstPlayer, scryfall)
     started = result.error === null
     return result
   } finally {
@@ -42,7 +47,7 @@ export async function startTable(db: D1Database, init: GameInit, tableId: string
 }
 
 /** Table réservée : relue (places désormais figées), partie créée, table passée en cours. */
-async function createGame(db: D1Database, init: GameInit, tableId: string, firstPlayer?: string): Promise<Result<GameTable>> {
+async function createGame(db: D1Database, init: GameInit, tableId: string, firstPlayer?: string, scryfall?: ScryfallClient): Promise<Result<GameTable>> {
   const { data: table, error } = await getTable(db, tableId)
   if (error !== null || !table) return { data: null, error: INTERNAL_ERROR }
   const reason = startCheck({ ...table, status: 'open' })
@@ -50,8 +55,9 @@ async function createGame(db: D1Database, init: GameInit, tableId: string, first
 
   const players: GameSetup['players'] = []
   for (const p of table.players) {
-    const { data: cards, error: cardsError } = await listDeckCards(db, p.deckId!)
+    const { data: listed, error: cardsError } = await listDeckCards(db, p.deckId!)
     if (cardsError !== null) return { data: null, error: INTERNAL_ERROR }
+    const cards = scryfall ? await fillCardStats(db, scryfall, listed) : listed
     players.push({ id: p.playerId, name: p.name, catalog: buildCatalog(p.deckId!, cards).catalog })
   }
   const setup: GameSetup = { format: table.format, players, options: { eliminatedSeeAll: table.eliminatedSeeAll } }

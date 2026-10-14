@@ -30,6 +30,8 @@ describe('groupBattlefield', () => {
     expect(names(rows(s).lands)).toEqual([[3, 3], [3, 1]])
     s = apply(s, { type: 'counter', actor: 'p1', id: f3, kind: 'plus', delta: 1 })
     expect(rows(s).lands.map((st) => st.count)).toEqual([2, 1, 1])
+    s = apply(s, { type: 'pt', actor: 'p1', id: f4, power: 1, toughness: 1 })
+    expect(rows(s).lands.map((st) => st.count)).toEqual([1, 1, 1, 1])
   })
 
   it('jeton selon sa ligne de type, carte face cachée dans les autres permanents', () => {

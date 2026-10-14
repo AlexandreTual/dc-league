@@ -122,3 +122,15 @@ Une issue par tâche, dans cet ordre (mêmes fichiers de la table) :
 1. **Ma colonne** (#83) : module pur, composants de la colonne et des cases, ma colonne dans mon plateau (mode test et en ligne), fin de ma pastille et de mes vignettes de piles.
 2. **Adversaire en Duel** (#84) : sa colonne à gauche de son plateau.
 3. **En-têtes à 3 à 5 joueurs** (#85) : en-tête des bandeaux et de l'adversaire agrandi, bandeaux sur une rangée, fin de la pastille ; feuille de route.
+
+---
+
+## Mise à jour du 9 octobre : piles à côté de la main (façon Moxfield)
+
+Après essai (PR #109), l'utilisateur a choisi une disposition à la Moxfield **par défaut** pour **mon** plateau :
+
+- bibliothèque, cimetière, exil et commandement en vignettes au format carte, **à droite de ma main** (au-dessus de la main sous 640 px), avec nom court et nombre dessous ; toutes sont des cibles de dépôt ;
+- Bib. : carte du dessus glissable, double-clic pour piocher, menu au clic droit ; Cim. et Exil : dernière carte arrivée, un clic ouvre la pile ; Cmd : commandants avec leur taxe ;
+- ma colonne ne garde que la ligne portrait (vie, compteurs).
+
+Le réglage de la table **« Piles dans la colonne (ancienne disposition) »** rétablit la colonne décrite au §2 (cases chiffrées, commandant, cimetière en cascade). Il est mémorisé sur l'appareil ; une sauvegarde d'avant (sans ce réglage) prend la nouvelle disposition. Le plateau de l'adversaire et les bandeaux ne changent pas.

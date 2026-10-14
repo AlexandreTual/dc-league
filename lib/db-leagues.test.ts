@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
-import { getLeagueDetail, listLeaguePlayers } from './db-leagues'
+import { listLeaguePlayers } from './db-leagues'
 
 let db: D1Database
 
@@ -21,9 +21,5 @@ const flags = (players: { player_id: string; deck_has_cards: boolean }[]) =>
 describe('deck_has_cards', () => {
   it('listLeaguePlayers indique si le deck a une liste importée', async () => {
     expect(flags((await listLeaguePlayers(db, 'l1')).data!)).toEqual({ p1: true, p2: false, p3: false })
-  })
-
-  it('getLeagueDetail aussi', async () => {
-    expect(flags((await getLeagueDetail(db, 'l1')).data!.leaguePlayers)).toEqual({ p1: true, p2: false, p3: false })
   })
 })

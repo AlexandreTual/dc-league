@@ -3,6 +3,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getTable } from '@/lib/db-games'
 import BoardWindow from '@/components/online/BoardWindow'
+import AiProvider from '@/components/ai/AiProvider'
 
 export const runtime = 'edge'
 
@@ -19,5 +20,9 @@ export default async function BoardWindowPage({ params }: { params: Promise<{ id
   // Partie pas encore commencée : la salle d'attente, sur la table.
   if (table.status === 'open' || table.status === 'starting') redirect(`/tables/${id}`)
 
-  return <BoardWindow tableId={table.id} player={decodeURIComponent(joueur)} />
+  return (
+    <AiProvider signedIn>
+      <BoardWindow tableId={table.id} player={decodeURIComponent(joueur)} />
+    </AiProvider>
+  )
 }

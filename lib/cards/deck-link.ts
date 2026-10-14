@@ -6,6 +6,12 @@ export type DeckLinkResult = { ok: true; text: string; name: string | null } | {
 const SITE_NAMES = { moxfield: 'Moxfield', archidekt: 'Archidekt' } as const
 const FETCH_TIMEOUT_MS = 10_000
 
+/** Nom du site d'un lien de deck (« Moxfield », « Archidekt »), null s'il n'est pas reconnu. */
+export function deckSiteName(url: string): string | null {
+  const link = parseDeckLink(url)
+  return link ? SITE_NAMES[link.site] : null
+}
+
 /** Reconnaît un lien de deck Moxfield (`/decks/<id>`) ou Archidekt (`/decks/<numéro>`), sinon null. */
 export function parseDeckLink(input: string): DeckLink | null {
   const raw = input.trim()

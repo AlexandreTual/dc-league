@@ -29,6 +29,14 @@ function parseJson<T>(value: unknown, fallback: T): T {
   }
 }
 
+/** Force ou endurance enregistrée : '' = la carte n'en a pas (null) ; NULL = pas encore lue (undefined). */
+function storedStat(value: unknown): string | null | undefined {
+  if (typeof value !== 'string') return undefined
+  return value === '' ? null : value
+}
+
+const statValue = (value: string | null | undefined) => (value === undefined ? null : value ?? '')
+
 function normalizeCard(row: Record<string, unknown>): CardRow {
   return {
     id: row.id as string,
@@ -51,6 +59,9 @@ function normalizeCard(row: Record<string, unknown>): CardRow {
     image_large: (row.image_large as string) ?? null,
     image_small: (row.image_small as string) ?? null,
     faces: parseJson<CardRow['faces']>(row.faces, null),
+    power: storedStat(row.power),
+    toughness: storedStat(row.toughness),
+    loyalty: storedStat(row.loyalty),
   }
 }
 
@@ -65,11 +76,12 @@ function cardValues(c: CardRow, now: Date): Record<string, unknown> {
     colors: JSON.stringify(c.colors), color_identity: JSON.stringify(c.color_identity),
     image_normal: c.image_normal, image_large: c.image_large ?? null, image_small: c.image_small,
     faces: c.faces ? JSON.stringify(c.faces) : null, fetched_at: now.toISOString(),
+    power: statValue(c.power), toughness: statValue(c.toughness), loyalty: statValue(c.loyalty),
   }
 }
 
-/** Colonne ajoutée par une migration récente : le site peut tourner une ou deux minutes avant elle. */
-const RECENT_COLUMNS = ['image_large']
+/** Colonnes ajoutées par une migration récente : le site peut tourner une ou deux minutes avant elle. */
+const RECENT_COLUMNS = ['image_large', 'power', 'toughness', 'loyalty']
 
 async function writeCards(db: D1Database, cards: CardRow[], now: Date, columns: string[]) {
   const updates = columns.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')
@@ -109,6 +121,22 @@ export async function getCards(db: D1Database, ids: string[]): Promise<Result<Re
       for (const row of results) out[row.id as string] = normalizeCard(row)
     }
     return ok(out)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Force, endurance et loyauté relues chez Scryfall pour une carte déjà enregistrée (faces comprises). */
+export type CardStats = Pick<CardRow, 'id' | 'power' | 'toughness' | 'loyalty' | 'faces'>
+
+/** Rattrapage des cartes enregistrées avant les migrations 0012 et 0014 ; échoue (sans rien écrire) si l'une n'est pas encore appliquée. */
+export async function saveCardStats(db: D1Database, cards: CardStats[]): Promise<Result<true>> {
+  if (cards.length === 0) return ok(true)
+  try {
+    await db.batch(cards.map((c) =>
+      db.prepare('UPDATE cards SET power = ?, toughness = ?, loyalty = ?, faces = ? WHERE id = ?')
+        .bind(statValue(c.power), statValue(c.toughness), statValue(c.loyalty), c.faces ? JSON.stringify(c.faces) : null, c.id)))
+    return ok(true)
   } catch (e) {
     return err((e as Error).message)
   }
@@ -163,6 +191,35 @@ export async function findCardIdByOracle(db: D1Database, oracleId: string): Prom
       .bind(oracleId)
       .first<string>('id')
     return ok(id ?? null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/**
+ * Cartes connues du site par oracle_id : une impression anglaise (texte Oracle) et, si elle existe, une
+ * française. Un oracle_id sans impression anglaise est absent du résultat.
+ */
+export async function getCardsByOracle(
+  db: D1Database,
+  oracleIds: string[],
+): Promise<Result<Record<string, { en: CardRow; fr: CardRow | null }>>> {
+  try {
+    const out: Record<string, { en: CardRow; fr: CardRow | null }> = {}
+    const fr: Record<string, CardRow> = {}
+    for (const part of chunks([...new Set(oracleIds)], IN_CHUNK)) {
+      const { results } = await db
+        .prepare(`SELECT * FROM cards WHERE oracle_id IN (${placeholders(part.length)}) AND lang IN ('en', 'fr')`)
+        .bind(...part)
+        .all<Record<string, unknown>>()
+      for (const row of results) {
+        const card = normalizeCard(row)
+        if (card.lang === 'en') out[card.oracle_id] ??= { en: card, fr: null }
+        else fr[card.oracle_id] ??= card
+      }
+    }
+    for (const [oracleId, entry] of Object.entries(out)) entry.fr = fr[oracleId] ?? null
+    return ok(out)
   } catch (e) {
     return err((e as Error).message)
   }

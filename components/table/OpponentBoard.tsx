@@ -14,8 +14,10 @@ export default function OpponentBoard(props: ZoneProps & {
   portrait: React.ReactNode
   onLibraryMenu: (at: MenuPoint) => void
   onPile: (zone: 'graveyard' | 'exile', title: string) => void
+  /** Sa réserve de mana (lecture seule), en bas à gauche de son champ de bataille. */
+  mana?: React.ReactNode
 }) {
-  const { portrait, onLibraryMenu, onPile, me, ...zoneProps } = props
+  const { portrait, onLibraryMenu, onPile, me, mana, ...zoneProps } = props
   const name = zoneProps.view.players[zoneProps.player].name
   return (
     <div className="h-full min-h-0 flex flex-col sm:flex-row gap-2" data-board={zoneProps.player}>
@@ -23,7 +25,7 @@ export default function OpponentBoard(props: ZoneProps & {
         onPile={(zone, title) => onPile(zone, `${title} de ${name}`)} />
       <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-1.5">
         <OpponentHand {...zoneProps} />
-        <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} />
+        <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} corner={mana} />
       </div>
     </div>
   )
