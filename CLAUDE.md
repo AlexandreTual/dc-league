@@ -38,6 +38,7 @@ node scripts/playtest-tablet-check.mjs http://localhost:8788 <deckId> <dossier> 
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
 node scripts/board-window-check.mjs http://localhost:8788 <dossier>        # plateau d'un adversaire en fenêtre à part
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
+node scripts/mail-check.mjs http://localhost:8788 <dossier>                # mails (MAIL_TEST=1 dans .dev.vars)
 node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lancer de dés (mode test et en ligne)
 node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
 node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, téléphone, en ligne)
