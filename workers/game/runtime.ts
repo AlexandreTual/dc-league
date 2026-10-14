@@ -2,7 +2,7 @@
 // Testable sans Cloudflare : le stockage, les sockets, l'horloge et le hasard sont fournis.
 import { finishTable, setHost, touchActivity } from '../../lib/db-games'
 import {
-  createRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, restoreRoom, viewMessageFor,
+  createRoom, gameTiming, handleConnect, handleDisconnect, handleMessage, mergeCards, restoreRoom, viewMessageFor,
   type CardDataMap, type ClientMessage, type Outcome, type RoomState, type ServerMessage,
 } from '../../lib/game/room'
 import type { GameAction, GameSetup, Seed } from '../../lib/game/types'
@@ -26,8 +26,11 @@ export type SocketInfo = { playerId: string | null }
 /** `firstPlayer` : premier joueur choisi par l'hôte ; absent : tirage au sort. */
 export type InitBody = { tableId: string; setup: GameSetup; hostId: string; firstPlayer?: string }
 
-/** `finishPending` : fin de partie pas encore enregistrée en D1, à retenter (connexion suivante ou nettoyage). */
-type Meta = { tableId: string; hostId: string; finished: boolean; winner: string | null; finishPending?: boolean }
+/**
+ * `finishPending` : fin de partie pas encore enregistrée en D1, à retenter (connexion suivante ou nettoyage).
+ * `finishedAt` : instant de fin (ms), pour la durée ; absent des parties finies avant le minuteur.
+ */
+type Meta = { tableId: string; hostId: string; finished: boolean; winner: string | null; finishedAt?: number; finishPending?: boolean }
 
 /** Joueur → instant depuis lequel il est absent ; enregistré pour survivre à l'hibernation. */
 type Presence = Record<string, number>
@@ -201,8 +204,9 @@ export class RoomRuntime {
     for (let i = before; i < after; i++) await this.storage.put(actionKey(i), room.history.actions[i])
     for (let i = after; i < before; i++) await this.storage.delete(actionKey(i))
     const meta = this.meta!
-    if (meta.hostId !== room.hostId || meta.finished !== room.finished || meta.winner !== room.winner) {
-      const next = { ...meta, hostId: room.hostId, finished: room.finished, winner: room.winner }
+    if (meta.hostId !== room.hostId || meta.finished !== room.finished || meta.winner !== room.winner || meta.finishedAt !== room.finishedAt) {
+      const next: Meta = { ...meta, hostId: room.hostId, finished: room.finished, winner: room.winner }
+      if (room.finishedAt !== undefined) next.finishedAt = room.finishedAt
       await this.storage.put('meta', next)
       this.meta = next
     }
@@ -222,7 +226,7 @@ export class RoomRuntime {
     const room = this.room!
     let pending: boolean
     try {
-      pending = (await finishTable(this.db, room.tableId, room.winner)).error !== null
+      pending = (await finishTable(this.db, room.tableId, room.winner, gameTiming(room))).error !== null
     } catch {
       pending = true
     }
@@ -271,7 +275,7 @@ export class RoomRuntime {
 
   private sendView(socket: Socket, info: SocketInfo): void {
     const s = this.socketState(socket)
-    const message = viewMessageFor(this.room!, info.playerId, s.sent)
+    const message = viewMessageFor(this.room!, info.playerId, s.sent, this.clock())
     s.sent = mergeCards(s.sent, message.cards)
     this.send(socket, message)
   }

@@ -4,7 +4,7 @@ import { createRng } from './random'
 import { applyAction } from './apply'
 import { replay } from './replay'
 import { isVisibleTo, zoneOf } from './rules'
-import { createRoom, restoreRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, onlinePlayers, viewMessageFor, type CardDataMap, type ClientAction, type ClientMessage, type RoomState } from './room'
+import { createRoom, gameTiming, restoreRoom, handleConnect, handleDisconnect, handleMessage, mergeCards, onlinePlayers, viewMessageFor, type CardDataMap, type ClientAction, type ClientMessage, type RoomState } from './room'
 import { PLAYER_ZONES, type GameAction, type PlayerZone } from './types'
 
 const ctx = (seed = 77, now = 0) => ({ now, seed: () => seed })
@@ -18,7 +18,7 @@ const state = (r: RoomState) => r.history.state
 describe('createRoom', () => {
   it('démarre la partie avec une graine par joueur, tirées par le serveur', () => {
     const r = room()
-    expect(r.history.actions).toEqual([{ type: 'start', actor: 'server', seed: 'g0', seeds: { p1: 'g1', p2: 'g2', p3: 'g3' } }])
+    expect(r.history.actions).toEqual([{ type: 'start', actor: 'server', seed: 'g0', seeds: { p1: 'g1', p2: 'g2', p3: 'g3' }, at: 0 }])
     expect(r.seats.map((s) => s.name)).toEqual(['Alex', 'Bob', 'Chloé'])
     expect(r).toMatchObject({ hostId: 'p1', finished: false, winner: null })
   })
@@ -108,7 +108,7 @@ describe('actions', () => {
 describe('viewMessageFor', () => {
   it('vue du joueur avec les données de ses cartes visibles seulement', () => {
     const r = room()
-    const msg = viewMessageFor(r, 'p2', {})
+    const msg = viewMessageFor(r, 'p2', {}, 0)
     expect(msg).toMatchObject({ type: 'view', host: 'p1', finished: false, winner: null })
     expect(msg.view.me).toBe('p2')
     const handRefs = state(r).players.p2.zones.hand.map((id) => state(r).cards[id].ref)
@@ -120,13 +120,13 @@ describe('viewMessageFor', () => {
 
   it('n’envoie pas deux fois les mêmes données', () => {
     const r = room()
-    const first = viewMessageFor(r, 'p2', {})
-    expect(viewMessageFor(r, 'p2', first.cards).cards).toEqual({})
+    const first = viewMessageFor(r, 'p2', {}, 0)
+    expect(viewMessageFor(r, 'p2', first.cards, 0).cards).toEqual({})
   })
 
   it('spectateur : vue publique', () => {
     const r = room()
-    const msg = viewMessageFor(r, null, {})
+    const msg = viewMessageFor(r, null, {}, 0)
     expect(msg.view.players.p1.zones.hand.every((c) => c.hidden)).toBe(true)
     expect(Object.keys(msg.cards)).toEqual(['p1', 'p2', 'p3'])
     for (const p of ['p1', 'p2', 'p3']) expect(Object.keys(msg.cards[p])).toEqual(['1'])
@@ -184,7 +184,7 @@ describe('anti-fuite', () => {
       changed++
       const s = state(r)
       for (const viewer of viewers) {
-        const out = viewMessageFor(r, viewer, sent.get(viewer)!)
+        const out = viewMessageFor(r, viewer, sent.get(viewer)!, 0)
         sent.set(viewer, mergeCards(sent.get(viewer)!, out.cards))
         for (const [owner, refs] of Object.entries(out.cards)) {
           for (const ref of Object.keys(refs).map(Number)) {
@@ -295,7 +295,7 @@ describe('fin de partie', () => {
     const out = host(r, 'p1', 'eliminate', 'p3')
     expect(out.events).toEqual([{ type: 'finished', winner: 'p1' }])
     expect(r).toMatchObject({ finished: true, winner: 'p1' })
-    expect(viewMessageFor(r, 'p1', {})).toMatchObject({ finished: true, winner: 'p1' })
+    expect(viewMessageFor(r, 'p1', {}, 0)).toMatchObject({ finished: true, winner: 'p1' })
     expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'La partie est terminée' })
   })
 
@@ -318,5 +318,72 @@ describe('passage de tour par l’hôte au journal', () => {
     const next = state(r).activePlayer
     act(r, next, { type: 'endTurn', byHost: true } as ClientAction)
     expect(state(r).log.at(-1)?.text).not.toMatch(/passé par l’hôte/)
+  })
+})
+
+describe('minuteur', () => {
+  /** Partie à 2 joueurs créée à l'instant 1000, mains gardées. */
+  function timed() {
+    const r = room(2, 1000)
+    keepAll(r)
+    const [a, b] = state(r).turnOrder
+    return { r, a, b }
+  }
+
+  it('horodate start, endTurn et eliminate avec l’heure du serveur, ignore celle du navigateur', () => {
+    const { r, a } = timed()
+    act(r, a, { type: 'endTurn', at: 1 } as ClientAction, ctx(77, 5000))
+    expect(r.history.actions.at(-1)).toEqual({ type: 'endTurn', actor: a, at: 5000 })
+    act(r, a, { type: 'draw', count: 1 }, ctx(77, 6000))
+    expect(r.history.actions.at(-1)).toEqual({ type: 'draw', actor: a, count: 1 })
+  })
+
+  it('envoie le début de partie, le début du tour et l’heure du serveur', () => {
+    const { r, a } = timed()
+    act(r, a, { type: 'endTurn' }, ctx(77, 5000))
+    expect(viewMessageFor(r, 'p1', {}, 7000).clock).toEqual({ now: 7000, startedAt: 1000, turnStartedAt: 5000 })
+  })
+
+  it('l’annulation d’une fin de tour rend le début du tour précédent', () => {
+    const { r, a } = timed()
+    act(r, a, { type: 'endTurn' }, ctx(77, 5000))
+    handleMessage(r, a, { type: 'undo' }, ctx(77, 6000))
+    expect(viewMessageFor(r, 'p1', {}, 7000).clock).toMatchObject({ turnStartedAt: 1000 })
+  })
+
+  it('fin de partie : durée figée, plus de temps de tour, temps de jeu par joueur', () => {
+    const { r, a, b } = timed()
+    act(r, a, { type: 'endTurn' }, ctx(77, 5000))
+    handleMessage(r, a, { type: 'concede' }, ctx(77, 12_000))
+    expect(r).toMatchObject({ finished: true, winner: b, finishedAt: 12_000 })
+    expect(viewMessageFor(r, 'p1', {}, 20_000).clock).toEqual({ now: 20_000, startedAt: 1000, finishedAt: 12_000 })
+    expect(gameTiming(r)).toEqual({ duration: 11, playTime: { [a]: 4, [b]: 7 } })
+  })
+
+  it('clôture par l’hôte : le tour en cours compte jusqu’à la clôture', () => {
+    const { r, a } = timed()
+    host(r, 'p1', 'close', undefined, 61_000)
+    expect(gameTiming(r)).toEqual({ duration: 60, playTime: { p1: 0, p2: 0, [a]: 60 } })
+  })
+
+  it('un joueur qui n’a jamais eu son tour compte 0 s', () => {
+    const r = room(3, 1000)
+    keepAll(r)
+    const [a, b, c] = state(r).turnOrder
+    host(r, 'p1', 'close', undefined, 31_000)
+    expect(gameTiming(r).playTime).toEqual({ [a]: 30, [b]: 0, [c]: 0 })
+  })
+
+  it('restaurée, la partie garde son instant de fin', () => {
+    const { r } = timed()
+    host(r, 'p1', 'close', undefined, 61_000)
+    const back = restoreRoom('t1', setupFor('commander', 2), 'p1', [...r.history.actions], { finished: true, winner: null, finishedAt: 61_000 }, 0)
+    expect(gameTiming(back).duration).toBe(60)
+  })
+
+  it('partie sans horodatage : ni minuteur ni durée', () => {
+    const r = restoreRoom('t1', setupFor('commander', 2), 'p1', [{ type: 'start', actor: 'server', seed: 1 }], { finished: false, winner: null }, 0)
+    expect(viewMessageFor(r, 'p1', {}, 0)).not.toHaveProperty('clock')
+    expect(gameTiming(r)).toEqual({ duration: null, playTime: {} })
   })
 })

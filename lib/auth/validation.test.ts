@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   validateUsername,
   validatePassword,
+  loginHref,
   safeRedirectPath,
   normalizeEmail,
   validateEmail,
@@ -99,23 +100,37 @@ describe('validatePassword', () => {
 
 describe('safeRedirectPath', () => {
   it.each([
-    [null, '/profil'],
-    [undefined, '/profil'],
-    ['', '/profil'],
-    ['//evil.com', '/profil'],
-    ['https://evil.com', '/profil'],
-    ['/\\evil.com', '/profil'],
-    ['/\t/evil.com', '/profil'],
-    ['/\n/evil.com', '/profil'],
-    ['/\r/evil.com', '/profil'],
+    [null, '/salon'],
+    [undefined, '/salon'],
+    ['', '/salon'],
+    ['//evil.com', '/salon'],
+    ['https://evil.com', '/salon'],
+    ['/\\evil.com', '/salon'],
+    ['/\t/evil.com', '/salon'],
+    ['/\n/evil.com', '/salon'],
+    ['/\r/evil.com', '/salon'],
     ['/%09/evil.com', '/%09/evil.com'],
-    ['/a\\b', '/profil'],
-    ['/\u0000x', '/profil'],
-    ['/\u007f', '/profil'],
+    ['/a\\b', '/salon'],
+    ['/\u0000x', '/salon'],
+    ['/\u007f', '/salon'],
     ['/admin', '/admin'],
     ['/profil/decks?x=1', '/profil/decks?x=1'],
   ])('safeRedirectPath(%s) = %s', (input, expected) => {
     expect(safeRedirectPath(input)).toBe(expected)
+  })
+})
+
+describe('loginHref', () => {
+  it.each([
+    ['/', '/connexion?from=%2F'],
+    ['/calendar', '/connexion?from=%2Fcalendar'],
+    ['/tables/abc', '/connexion?from=%2Ftables%2Fabc'],
+    ['/connexion', '/connexion'],
+    ['/invitation/jeton', '/connexion'],
+    ['/mot-de-passe-oublie', '/connexion'],
+    [null, '/connexion'],
+  ])('loginHref(%s) = %s', (input, expected) => {
+    expect(loginHref(input)).toBe(expected)
   })
 })
 
