@@ -377,3 +377,34 @@ describe('libraryMenu et handMenu', () => {
     expect(item(handMenu(ctx(s)), 'Révéler ma main')).toEqual([{ kind: 'action', action: { type: 'reveal', ids: 'hand', to: 'all' } }])
   })
 })
+
+describe('Ajouter à la question IA', () => {
+  const moved = (s: GameState, id: string, patch: Partial<GameState['cards'][string]>): GameState =>
+    ({ ...s, cards: { ...s.cards, [id]: { ...s.cards[id], ...patch } } })
+  const AI = 'Ajouter à la question IA'
+  const withAi = (s: GameState): MenuContext => ({ ...ctx(s), ai: true })
+
+  it('juste après « Oracle et règles », sur une carte visible, la mienne ou celle d’un adversaire', () => {
+    const s = setup()
+    const mine = labels(cardMenu(withAi(s), visible(s, card('p1', 2)), at('p1', 'battlefield')))
+    expect(mine.indexOf(AI)).toBe(mine.indexOf('Oracle et règles') + 1)
+    expect(item(cardMenu(withAi(s), visible(s, card('p2', 2)), at('p2', 'battlefield')), AI)).toEqual([{ kind: 'askAi', owner: 'p2', ref: 2 }])
+    expect(item(cardMenu(withAi(s), visible(s, card('p2', 4)), at('p2', 'graveyard')), AI)).toEqual([{ kind: 'askAi', owner: 'p2', ref: 4 }])
+    expect(labels(cardMenu(withAi(s), visible(s, s.players.p1.zones.hand[0]), at('p1', 'hand')))).toContain(AI)
+  })
+
+  it('absente sans assistant (visiteur, pas de clé, interrupteur coupé)', () => {
+    const s = setup()
+    expect(labels(cardMenu(ctx(s), visible(s, card('p1', 2)), at('p1', 'battlefield')))).not.toContain(AI)
+  })
+
+  it('jamais sur une carte cachée : face cachée, main d’un adversaire, jeton', () => {
+    const theirs = moved(setup(), card('p2', 2), { faceDown: true })
+    expect(labels(cardMenu(withAi(theirs), visible(theirs, card('p2', 2)), at('p2', 'battlefield')))).not.toContain(AI)
+    const s = setup()
+    expect(labels(cardMenu(withAi(s), visible(s, s.players.p2.zones.hand[0]), at('p2', 'hand')))).not.toContain(AI)
+    const soldier = { name: 'Soldat', typeLine: 'Token Creature — Soldier', power: '1', toughness: '1', colors: ['W'], image: null }
+    const t = run(setupFor('commander', 2), start(1), { type: 'createToken', actor: 'p1', token: soldier, x: 10, y: 10 })
+    expect(labels(cardMenu(withAi(t), visible(t, 't1'), at('p1', 'battlefield')))).not.toContain(AI)
+  })
+})

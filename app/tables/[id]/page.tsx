@@ -5,6 +5,7 @@ import { getTable } from '@/lib/db-games'
 import { listPlayerDecks } from '@/lib/db-decks'
 import { countDeckCards } from '@/lib/db-cards'
 import TableView from '@/components/online/TableView'
+import AiProvider from '@/components/ai/AiProvider'
 
 export const runtime = 'edge'
 
@@ -22,5 +23,9 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
   // Seuls les decks dont la liste est importée peuvent être joués.
   const playable = (decks ?? []).filter((d) => (counts?.[d.id] ?? 0) > 0).map((d) => ({ id: d.id, name: d.name }))
 
-  return <TableView me={user.playerId} initialTable={table} myDecks={playable} />
+  return (
+    <AiProvider signedIn>
+      <TableView me={user.playerId} initialTable={table} myDecks={playable} />
+    </AiProvider>
+  )
 }

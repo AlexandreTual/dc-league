@@ -30,6 +30,7 @@ import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ManaPool from './ManaPool'
 import OracleModal from '@/components/OracleModal'
+import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
@@ -122,7 +123,8 @@ export default function Table({ source, notice, boardWindow }: {
   const status = source.online?.status ?? 'open'
   const canAct = me !== null && !finished && status === 'open'
   const cards = useMemo(() => visibleCards(view), [view])
-  const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct }
+  const ai = useAi()
+  const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct, ai: ai !== null }
   const send = source.send
 
   useEffect(() => setLang(readLang()), [])
@@ -168,13 +170,17 @@ export default function Table({ source, notice, boardWindow }: {
       if (command.kind === 'action') send(command.action)
       else if (command.kind === 'openPile') setPile({ title: command.title, player: command.player, zone: command.zone, mode: command.mode })
       else if (command.kind === 'oracle') setOracle({ owner: command.owner, ref: command.ref })
+      else if (command.kind === 'askAi') {
+        const entry = catalogs[command.owner]?.entries.find((e) => e.ref === command.ref)
+        if (entry && ai) ai.addCard(aiCardRef(entry.en, entry.fr))
+      }
       else {
         const answer = prompt(command.question, String(command.fallback))
         const n = answer === null ? NaN : Number.parseInt(answer, 10)
         if (Number.isFinite(n) && n > 0) run(command.then(n))
       }
     }
-  }, [send])
+  }, [send, catalogs, ai])
 
   const toItems = (entries: MenuEntry[]): MenuItem[] =>
     entries.map((e) => {
@@ -577,7 +583,14 @@ export default function Table({ source, notice, boardWindow }: {
       {diceOpen && (
         <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}
-      {oracleEntry && <OracleModal en={oracleEntry.en} fr={oracleEntry.fr} onClose={() => setOracle(null)} />}
+      {oracleEntry && (
+        <OracleModal
+          en={oracleEntry.en}
+          fr={oracleEntry.fr}
+          onClose={() => setOracle(null)}
+          onAskAi={ai ? () => { ai.open(aiCardRef(oracleEntry.en, oracleEntry.fr)); setOracle(null) } : undefined}
+        />
+      )}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
       {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
       <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">

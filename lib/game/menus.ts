@@ -12,6 +12,8 @@ export type MenuCommand =
   | { kind: 'openPile'; player: string; zone: 'library' | 'graveyard' | 'exile'; mode: 'look' | 'search' | 'browse'; title: string }
   /** Fenêtre « Oracle et règles » d'une carte du catalogue de son propriétaire. */
   | { kind: 'oracle'; owner: string; ref: number }
+  /** Ajoute la carte (catalogue de son propriétaire) à la question de l'assistant IA, côté navigateur seulement. */
+  | { kind: 'askAi'; owner: string; ref: number }
 
 export type MenuEntry =
   | { kind: 'title'; label: string }
@@ -30,6 +32,8 @@ export type MenuContext = {
   lang: 'fr' | 'en'
   /** Partie terminée : plus aucune action. */
   readOnly: boolean
+  /** Assistant IA disponible pour ce joueur (facultatif : absent = pas d'entrée). */
+  ai?: boolean
 }
 
 const DESTINATIONS: { label: string; zone: PlayerZone; position?: Position }[] = [
@@ -79,13 +83,16 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
 }
 
 /**
- * « Oracle et règles » : seulement pour une carte que le joueur voit (jamais face cachée) et qui vient
- * d'un deck (un jeton n'a ni Oracle ni règles), données de carte reçues.
+ * « Oracle et règles », puis « Ajouter à la question IA » si l'assistant est disponible : seulement pour une
+ * carte que le joueur voit (jamais face cachée) et qui vient d'un deck (un jeton n'a ni Oracle ni règles),
+ * données de carte reçues.
  */
 function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (card.faceDown || card.token || card.ref === null) return []
   if (!ctx.catalogs[card.owner]?.entries.some((e) => e.ref === card.ref)) return []
-  return [{ kind: 'separator' }, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  const entries = [{ kind: 'separator' } as const, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  if (ctx.ai) entries.push(item('Ajouter à la question IA', { kind: 'askAi', owner: card.owner, ref: card.ref }))
+  return entries
 }
 
 /**
