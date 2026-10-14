@@ -17,7 +17,7 @@ function check(condition, message) {
 }
 
 async function openAs(player, viewport = { width: 1280, height: 900 }) {
-  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 500 })
+  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 1200 })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
   page.on('pageerror', (e) => errors.push(`${player.name} : ${e.message}`))
@@ -72,7 +72,7 @@ try {
   // ── Premier joueur choisi par l'hôte (3 joueurs) ──
   const ana = await openAs(ANA)
   const bastien = await openAs(BASTIEN)
-  const chloe = await openAs(CHLOE, { width: 375, height: 812 })
+  const chloe = await openAs(CHLOE, { width: 1180, height: 820 })
   await startTable(ana, [bastien, chloe], CHLOE)
   for (const who of [ana, bastien, chloe]) {
     await who.page.getByTestId('start-draw-first').waitFor({ timeout: 10_000 })
@@ -82,7 +82,7 @@ try {
     const order = await who.page.getByTestId('start-draw-order').locator('li').allInnerTexts()
     check(order.length === 3 && order[0].includes(CHLOE.name), `${who.name} : ordre du tour affiché, Chloé en 1`)
   }
-  await capture(chloe.page, 'choix-hote-telephone')
+  await capture(chloe.page, 'choix-hote-tablette')
   await chloe.page.getByRole('button', { name: "C'est parti" }).click()
   check(!(await chloe.page.getByTestId('start-draw').isVisible()), 'Chloé : « C’est parti » ferme la fenêtre')
   await ana.page.keyboard.press('Escape')

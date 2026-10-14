@@ -101,6 +101,10 @@ try {
   await ana.page.getByRole('button', { name: 'Démarrer la partie' }).click()
   for (const who of [ana, bastien, chloe]) {
     await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
+    // « Qui commence ? » (vérifié par first-player-check.mjs) : fermé pour la suite.
+    await who.page.getByTestId('start-draw').waitFor({ timeout: 10_000 })
+    await who.page.keyboard.press('Escape')
+    await who.page.getByTestId('start-draw').waitFor({ state: 'detached' })
     await who.page.getByRole('button', { name: 'Garder' }).click()
     await who.page.getByRole('button', { name: 'Garder' }).waitFor({ state: 'detached' })
   }

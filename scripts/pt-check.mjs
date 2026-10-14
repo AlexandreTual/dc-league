@@ -1,5 +1,5 @@
 // Force et endurance modifiables sur la carte (issue #110) dans de vrais navigateurs :
-// mode test à la souris, mode test sur téléphone (375 × 812, tactile), puis partie en ligne à 2.
+// mode test à la souris, mode test sur tablette (1180 × 820, tactile), puis partie en ligne à 2.
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs).
 // Usage : node scripts/pt-check.mjs <url-de-base> <dossier-captures>
 import { chromium } from 'playwright-core'
@@ -18,11 +18,11 @@ function check(condition, message) {
 }
 
 async function openAs(player, viewport = { width: 1280, height: 900 }) {
-  const mobile = viewport.width < 500
+  const mobile = viewport.width < 1200
   const context = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
-  page.on('pageerror', (e) => errors.push(`${player.name} : ${e.message}`))
+  page.on('pageerror', (e) => errors.push(`${player.name} : ${page.url()} : ${e.message}`))
   page.on('dialog', (d) => d.accept(d.defaultValue()))
   return { ...player, page }
 }
@@ -110,31 +110,31 @@ try {
   check(wideBox.x + wideBox.width <= cardBox.x + cardBox.width && wideBox.y + wideBox.height <= cardBox.y + cardBox.height, 'grand écran : encart dans la carte')
   await capture(wide.page, 'grand-ecran')
 
-  // ── Mode test, sur téléphone : jeton Plante (0/1) du deck ──
-  const phone = await openAs(ANA, { width: 375, height: 812 })
-  await phone.page.goto(`${base}/decks/deck-${ANA.id}`)
-  await phone.page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), `deck-${ANA.id}`)
-  await phone.page.goto(`${base}/decks/deck-${ANA.id}/test`)
-  await phone.page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
-  await phone.page.getByRole('button', { name: 'Jeton', exact: true }).tap()
-  await phone.page.getByRole('dialog', { name: 'Créer un jeton' }).getByRole('button', { name: /Plante/ }).tap()
-  const phoneCard = '[data-zone="battlefield"] [data-card-id="t1"]'
-  const phoneField = phone.page.locator(phoneCard)
-  await phoneField.waitFor()
-  check((await ptText(phoneField)) === '0/1', 'téléphone : jeton Plante en jeu, encart 0/1')
-  const box = await phoneField.locator('[data-pt]').boundingBox()
-  check(box.width >= 30 && box.height >= 22, `téléphone : encart assez grand pour le doigt (${Math.round(box.width)} × ${Math.round(box.height)} px)`)
-  await phone.page.waitForTimeout(400)
-  await phoneField.locator('[data-pt]').tap()
-  const phoneMenu = phone.page.getByRole('menu')
-  await phoneMenu.waitFor()
-  await phoneMenu.getByRole('button', { name: 'Force plus' }).tap()
-  await waitPt(phone.page, phoneCard, '1/1')
-  check(true, 'téléphone : toucher l’encart puis « + » : 1/1')
-  const menuBox = await phoneMenu.boundingBox()
-  check(menuBox.x >= 0 && menuBox.x + menuBox.width <= 375 && menuBox.y >= 0, 'téléphone : menu dans l’écran')
-  await capture(phone.page, 'telephone')
-  await phone.page.touchscreen.tap(360, 120)
+  // ── Mode test, sur tablette : jeton Plante (0/1) du deck ──
+  const tab = await openAs(ANA, { width: 1180, height: 820 })
+  await tab.page.goto(`${base}/decks/deck-${ANA.id}`)
+  await tab.page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), `deck-${ANA.id}`)
+  await tab.page.goto(`${base}/decks/deck-${ANA.id}/test`)
+  await tab.page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
+  await tab.page.getByRole('button', { name: 'Jeton', exact: true }).tap()
+  await tab.page.getByRole('dialog', { name: 'Créer un jeton' }).getByRole('button', { name: /Plante/ }).tap()
+  const tabCard = '[data-zone="battlefield"] [data-card-id="t1"]'
+  const tabField = tab.page.locator(tabCard)
+  await tabField.waitFor()
+  check((await ptText(tabField)) === '0/1', 'tablette : jeton Plante en jeu, encart 0/1')
+  const box = await tabField.locator('[data-pt]').boundingBox()
+  check(box.width >= 30 && box.height >= 22, `tablette : encart assez grand pour le doigt (${Math.round(box.width)} × ${Math.round(box.height)} px)`)
+  await tab.page.waitForTimeout(400)
+  await tabField.locator('[data-pt]').tap()
+  const tabMenu = tab.page.getByRole('menu')
+  await tabMenu.waitFor()
+  await tabMenu.getByRole('button', { name: 'Force plus' }).tap()
+  await waitPt(tab.page, tabCard, '1/1')
+  check(true, 'tablette : toucher l’encart puis « + » : 1/1')
+  const menuBox = await tabMenu.boundingBox()
+  check(menuBox.x >= 0 && menuBox.x + menuBox.width <= 1180 && menuBox.y >= 0, 'tablette : menu dans l’écran')
+  await capture(tab.page, 'tablette')
+  await tab.page.touchscreen.tap(360, 120)
 
   // ── En ligne, à 2 ──
   const ana = await openAs(ANA)

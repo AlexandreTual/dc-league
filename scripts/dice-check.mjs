@@ -17,7 +17,7 @@ function check(condition, message) {
 }
 
 async function openAs(player, viewport = { width: 1280, height: 900 }) {
-  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 500 })
+  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 1200 })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
   page.on('pageerror', (e) => errors.push(`${player.name} : ${e.message}`))
@@ -36,8 +36,8 @@ async function capture(page, label) {
 const rollLine = (page) => page.getByTestId('activity-roll').last()
 
 try {
-  // ── Mode test, sur téléphone ──
-  const solo = await openAs(ANA, { width: 375, height: 812 })
+  // ── Mode test, sur tablette ──
+  const solo = await openAs(ANA, { width: 1180, height: 820 })
   // Effacer une éventuelle sauvegarde avant d'ouvrir la page de test (même origine).
   await solo.page.goto(`${base}/decks/deck-${ANA.id}`)
   await solo.page.evaluate((id) => localStorage.removeItem(`dc-playtest-${id}`), `deck-${ANA.id}`)
@@ -47,12 +47,12 @@ try {
   await solo.page.getByRole('dialog', { name: 'Lancer les dés' }).waitFor()
   for (let i = 0; i < 2; i++) await solo.page.getByRole('button', { name: 'Un dé de plus' }).click()
   check((await solo.page.getByTestId('dice-count').innerText()) === '3', 'mode test : 3 dés choisis')
-  await capture(solo.page, 'fenetre-telephone')
+  await capture(solo.page, 'fenetre-tablette')
   await solo.page.getByTestId('roll-d6').click()
   const soloText = await rollLine(solo.page).innerText()
   check(/Lance 3d6 : [1-6], [1-6], [1-6] \(total \d+\)/.test(soloText), `mode test : résultat affiché sur la table (« ${soloText} »)`)
   check(await solo.page.getByTestId('mulligan-banner').isVisible(), 'mode test : lancer pendant la main de départ, main pas gardée')
-  await capture(solo.page, 'resultat-telephone')
+  await capture(solo.page, 'resultat-tablette')
   check(await solo.page.getByRole('button', { name: 'Annuler' }).isDisabled(), 'mode test : un lancer ne s’annule pas')
   await solo.page.getByRole('button', { name: 'Dés' }).click()
   check((await solo.page.getByTestId('dice-count').innerText()) === '3', 'mode test : le nombre de dés est retenu')
