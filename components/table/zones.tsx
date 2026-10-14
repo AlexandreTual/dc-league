@@ -17,7 +17,7 @@ export type CardHandlers = {
   /** Clic droit ou appui long sur une carte. */
   onContextMenu: (id: string, zone: ZoneRef, at: MenuPoint) => void
   onHover: (id: string | null) => void
-  /** Toucher l'encart force/endurance d'une carte en jeu ; absent : encart en lecture seule. */
+  /** Toucher l'encart loyauté ou force/endurance d'une carte en jeu ; absent : encart en lecture seule. */
   onPtEdit?: (id: string, zone: ZoneRef, at: MenuPoint) => void
 }
 
@@ -60,13 +60,17 @@ export function cardProps(id: string, zone: ZoneRef, props: ZoneProps) {
   }
 }
 
-/** Ouverture de la modification de force/endurance d'une carte en jeu, si la table la permet. */
+/** Ouverture de la modification de loyauté ou de force/endurance d'une carte en jeu, si la table la permet. */
 export function ptEdit(handlers: CardHandlers, id: string, zone: ZoneRef): ((at: MenuPoint) => void) | undefined {
   const open = handlers.onPtEdit
   return open && ((at) => open(id, zone, at))
 }
 
-export function Battlefield(props: ZoneProps & { label?: string }) {
+/**
+ * Champ de bataille d'un joueur ; `corner` : contenu en bas à gauche (sa réserve de mana).
+ * Le coin ne capte pas les événements (seul son contenu interactif les prend) : dépôt et glisser restent libres autour.
+ */
+export function Battlefield(props: ZoneProps & { label?: string; corner?: React.ReactNode }) {
   const { view, player, catalogs, lang } = props
   const ref: ZoneRef = { player, zone: 'battlefield' }
   const { setNodeRef, highlight } = useZone(ref)
@@ -81,11 +85,12 @@ export function Battlefield(props: ZoneProps & { label?: string }) {
           key={card.id}
           {...cardProps(card.id, ref, props)}
           className="absolute"
-          style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${card.tapped ? 90 : 0}deg)`, transition: 'transform 150ms' }}
+          style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
           <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} />
         </Draggable>
       ))}
+      {props.corner && <div className="absolute bottom-1.5 left-1.5 z-[5] pointer-events-none">{props.corner}</div>}
     </div>
   )
 }

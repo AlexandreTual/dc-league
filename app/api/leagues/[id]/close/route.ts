@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { closeLeague } from '@/lib/db-leagues'
+import { leagueFor } from '@/lib/leagues/route-access'
 import { countMatches, countCompletedMatches, hasPlayoffs, listPlayoffs } from '@/lib/db'
 
 export const runtime = 'edge'
 
 export function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return apiRoute(req, 'admin', async ({ db }) => {
+  return apiRoute(req, 'user', async ({ db, user }) => {
     const { id } = await params
+    const access = await leagueFor(db, id, user, 'manage')
+    if (access instanceof NextResponse) return access
 
     const total = await countMatches(db, id)
     if (total.error !== null) return resultError(total.error)

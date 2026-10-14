@@ -98,6 +98,18 @@ try {
   await page.getByRole('button', { name: 'Fermer le journal' }).click()
   await capture(page, 'mode-test')
 
+  // ── Mode test, sur écran 4K : l'encart (police comprise) grandit avec la carte et couvre celui imprimé ──
+  const wide = await openAs(ANA, { width: 3840, height: 2160 })
+  const wideCard = wide.page.locator(await playtestWithCommander(wide))
+  const cardBox = await wideCard.boundingBox()
+  const wideBox = await wideCard.locator('[data-pt]').boundingBox()
+  check(
+    wideBox.width >= cardBox.width * 0.19 && wideBox.height >= cardBox.width * 0.085,
+    `grand écran : encart à l’échelle de la carte (${Math.round(wideBox.width)} × ${Math.round(wideBox.height)} px pour une carte de ${Math.round(cardBox.width)} px)`,
+  )
+  check(wideBox.x + wideBox.width <= cardBox.x + cardBox.width && wideBox.y + wideBox.height <= cardBox.y + cardBox.height, 'grand écran : encart dans la carte')
+  await capture(wide.page, 'grand-ecran')
+
   // ── Mode test, sur téléphone : jeton Plante (0/1) du deck ──
   const phone = await openAs(ANA, { width: 375, height: 812 })
   await phone.page.goto(`${base}/decks/deck-${ANA.id}`)

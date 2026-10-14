@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, X } from 'lucide-react'
+import { BookOpen, BotMessageSquare, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, X } from 'lucide-react'
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
@@ -16,6 +16,7 @@ import { importDeckFromLink, type ImportProgress } from '@/components/decks/impo
 import type { ImportSummary } from '@/lib/cards/types'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import OracleModal from '@/components/OracleModal'
+import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
 export default function DeckView({ deck, playerName, cards, canEdit }: {
@@ -25,6 +26,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   canEdit: boolean
 }) {
   const router = useRouter()
+  const ai = useAi()
   const [lang, setLang] = useState<Lang>('fr')
   const [view, setView] = useState<DeckViewMode>('images')
   const [hover, setHover] = useState<{ card: DeckCardView; x: number; y: number } | null>(null)
@@ -145,6 +147,11 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
           {canEdit && cards.length > 0 && (
             <button onClick={updateTokens} disabled={tokensStatus === 'Recherche des jetons…'} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50">
               <Sparkles className="w-3.5 h-3.5" /> Mettre à jour les jetons
+            </button>
+          )}
+          {ai && cards.length > 0 && (
+            <button onClick={() => ai.open()} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold">
+              <BotMessageSquare className="w-3.5 h-3.5" /> Assistant IA
             </button>
           )}
           {cards.length > 0 && (
@@ -281,7 +288,14 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
         </>
       )}
 
-      {oracle?.en && <OracleModal en={oracle.en} fr={oracle.fr} onClose={() => setOracle(null)} />}
+      {oracle?.en && (
+        <OracleModal
+          en={oracle.en}
+          fr={oracle.fr}
+          onClose={() => setOracle(null)}
+          onAskAi={ai ? () => { ai.open(aiCardRef(oracle.en!, oracle.fr)); setOracle(null) } : undefined}
+        />
+      )}
 
       {view === 'list' && hover && hoverImage && !selected && !oracle && (
         // eslint-disable-next-line @next/next/no-img-element

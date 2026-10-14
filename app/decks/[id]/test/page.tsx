@@ -7,6 +7,8 @@ import { createScryfallClient } from '@/lib/cards/scryfall'
 import { fillCardStats } from '@/lib/cards/stats'
 import { buildCatalog } from '@/lib/game/catalog'
 import LocalTable from '@/components/table/LocalTable'
+import AiProvider from '@/components/ai/AiProvider'
+import { getCurrentUser } from '@/lib/auth/session'
 
 export const runtime = 'edge'
 
@@ -15,7 +17,11 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
   const { env } = getRequestContext<CloudflareEnv>()
   const { data: deck } = await getDeck(env.DB, id)
   if (!deck) notFound()
-  const [{ data: cards }, { data: tokens }] = await Promise.all([listDeckCards(env.DB, deck.id), listDeckTokens(env.DB, deck.id)])
+  const [{ data: cards }, { data: tokens }, user] = await Promise.all([
+    listDeckCards(env.DB, deck.id),
+    listDeckTokens(env.DB, deck.id),
+    getCurrentUser(),
+  ])
   // Force et endurance des cartes importées avant leur ajout : relues une fois chez Scryfall.
   const scryfall = createScryfallClient({ fetch, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) })
   const { catalog, excluded } = buildCatalog(deck.id, await fillCardStats(env.DB, scryfall, cards ?? []))
@@ -31,8 +37,10 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
 
   // Le plateau couvre toute la fenêtre, barre du site comprise ; « ← nom du deck » ramène au site.
   return (
-    <div className="fixed inset-0 z-[60] bg-dc-bg" data-table-root>
-      <LocalTable catalog={catalog} excluded={excluded} deckName={deck.name} deckTokens={tokens ?? []} />
-    </div>
+    <AiProvider signedIn={!!user}>
+      <div className="fixed inset-0 z-[60] bg-dc-bg" data-table-root>
+        <LocalTable catalog={catalog} excluded={excluded} deckName={deck.name} deckTokens={tokens ?? []} />
+      </div>
+    </AiProvider>
   )
 }

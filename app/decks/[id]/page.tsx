@@ -6,6 +6,7 @@ import { getPlayer } from '@/lib/db'
 import { getDeck } from '@/lib/db-decks'
 import { listDeckCards } from '@/lib/db-cards'
 import DeckView from './DeckView'
+import AiProvider from '@/components/ai/AiProvider'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
@@ -25,11 +26,13 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
   if (playerError || cardsError) return <LoadError what="ce deck" />
 
   return (
-    <DeckView
-      deck={deck}
-      playerName={player?.name ?? ''}
-      cards={cards ?? []}
-      canEdit={!!user && canEditDeck(user, deck)}
-    />
+    <AiProvider signedIn={!!user}>
+      <DeckView
+        deck={deck}
+        playerName={player?.name ?? ''}
+        cards={cards ?? []}
+        canEdit={!!user && canEditDeck(user, deck)}
+      />
+    </AiProvider>
   )
 }

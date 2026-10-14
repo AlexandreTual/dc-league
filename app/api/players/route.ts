@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { MAX_LENGTH, requiredId, requiredText } from '@/lib/auth/validation'
-import { listPlayers, insertPlayer, deletePlayer, countMatches, PLAYER_ERR } from '@/lib/db'
-import { getActiveLeague, enrollLeaguePlayer } from '@/lib/db-leagues'
+import { listPlayers, insertPlayer, deletePlayer, PLAYER_ERR } from '@/lib/db'
 
 export const runtime = 'edge'
 
@@ -21,17 +20,6 @@ export function POST(req: NextRequest) {
 
     const { data: player, error: playerErr } = await insertPlayer(db, { name: name.value })
     if (playerErr !== null) return resultError(playerErr)
-
-    const { data: league, error: leagueErr } = await getActiveLeague(db)
-    if (leagueErr !== null) return resultError(leagueErr)
-    if (league) {
-      const { data: count, error: countErr } = await countMatches(db, league.id)
-      if (countErr !== null) return resultError(countErr)
-      if (count === 0) {
-        const { error: enrollErr } = await enrollLeaguePlayer(db, league.id, player.id)
-        if (enrollErr !== null) return resultError(enrollErr)
-      }
-    }
 
     return NextResponse.json(player, { status: 201 })
   })

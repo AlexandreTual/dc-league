@@ -13,7 +13,7 @@ const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terr
  * Bandeau d'un adversaire (vue « Tous ») : sa colonne compacte à gauche (ligne portrait, cases chiffrées,
  * commandement, dernière carte au cimetière), puis son champ de bataille trié en trois rangées sur toute la hauteur.
  */
-export default function OpponentStrip({ view, player, catalogs, lang, handlers, highlighted, header, stacked = false }: {
+export default function OpponentStrip({ view, player, catalogs, lang, handlers, highlighted, header, stacked = false, mana }: {
   view: PlayerView
   player: string
   catalogs: Record<string, Catalog>
@@ -24,6 +24,8 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   header: React.ReactNode
   /** Bandeau étroit (3 adversaires ou plus) : les trois rangées l'une sous l'autre plutôt que côte à côte. */
   stacked?: boolean
+  /** Sa réserve de mana (lecture seule), en bas à gauche de son champ de bataille. */
+  mana?: React.ReactNode
 }) {
   const zones = view.players[player].zones
   const rows = groupBattlefield(zones.battlefield, catalogs)
@@ -37,7 +39,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       key={card.id}
       data-strip-card={card.id}
       className={`relative ${cardHeight} shrink-0 ${longPressClass} ${highlighted?.has(card.id) ? 'ring-2 ring-dc-gold rounded-[6%]' : ''}`}
-      style={{ transform: card.tapped ? 'rotate(90deg)' : undefined, margin: card.tapped ? (stacked ? '0 8px' : '0 12px') : undefined }}
+      style={{ transform: card.tapped || card.rotated ? `rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)` : undefined, margin: card.tapped ? (stacked ? '0 8px' : '0 12px') : undefined }}
       title={cardInfo(catalogs[card.owner], card, lang).name}
       onDoubleClick={() => handlers.onDoubleClick(card.id, battlefield)}
       {...menuGesture((at) => handlers.onContextMenu(card.id, battlefield, at))}
@@ -53,6 +55,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   return (
     <div className={`h-full min-h-0 flex gap-2 rounded-xl border bg-dc-surface/30 p-1.5 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`} data-strip={player}>
       {header}
+      <div className="relative flex-1 min-w-0 min-h-0 flex">
       <div className={`flex-1 min-w-0 min-h-0 gap-2 overflow-y-auto ${stacked ? 'flex flex-col' : 'grid grid-cols-[2fr_1fr_1fr]'}`} data-zone="battlefield" data-player={player}>
         {ROWS.map(([key, label]) => (
           <div key={key} className="min-w-0 flex flex-col gap-0.5" data-row={key}>
@@ -63,6 +66,8 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
             </div>
           </div>
         ))}
+      </div>
+      {mana && <div className="absolute bottom-0 left-0 z-[5] pointer-events-none">{mana}</div>}
       </div>
     </div>
   )

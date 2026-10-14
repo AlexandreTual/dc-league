@@ -195,6 +195,19 @@ try {
   await ana.page.waitForTimeout(1700)
   check(!/ring-2/.test(await playedInStrip.getAttribute('class')), 'la surbrillance s’éteint après 1,5 s')
 
+  // ── Réserve de mana sur le champ de bataille : Bastien ajoute 2 rouges, vus par Ana (lecture seule, couleurs non nulles) ──
+  const bastienPool = board(bastien, BASTIEN.id).locator('[data-zone="battlefield"] [data-testid="mana-pool"]')
+  check((await bastienPool.locator('[data-mana]').count()) === 6, 'Bastien : 6 symboles de mana sur son champ de bataille')
+  check((await bastien.page.locator('[data-panel] [data-testid="mana-pool"]').count()) === 0, 'réserve : plus dans la ligne du nom')
+  await bastienPool.getByRole('button', { name: 'Rouge plus', exact: true }).click()
+  await bastienPool.getByRole('button', { name: 'Rouge plus', exact: true }).click()
+  const bastienPoolAtAna = ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-testid="mana-pool"]`)
+  await bastienPoolAtAna.locator('[data-mana="R"][data-count="2"]').waitFor()
+  check((await bastienPoolAtAna.locator('[data-mana]').count()) === 1 && (await bastienPoolAtAna.getByRole('button').count()) === 0,
+    'Ana voit les 2 rouges de Bastien, seuls, en lecture seule')
+  check((await ana.page.locator(`[data-strip="${CHLOE.id}"] [data-testid="mana-pool"]`).count()) === 0, 'réserve vide de Chloé : rien chez Ana')
+  await capture(ana, 'mana-adversaire')
+
   // ── Bastien prend une carte du cimetière d'Ana ──
   const dumped = await myHand(ana).first().getAttribute('data-card-id')
   await drag(ana, myHand(ana).first(), board(ana, ANA.id).locator('[data-zone="graveyard"]'))
@@ -243,6 +256,9 @@ try {
   const handBefore = await myHand(ana).count()
   await ana.page.locator(`[data-strip="${BASTIEN.id}"] [data-testid="player-name"]`).click()
   await board(ana, BASTIEN.id).waitFor()
+  const bastienBoardPool = board(ana, BASTIEN.id).locator('[data-zone="battlefield"] [data-testid="mana-pool"]')
+  check((await bastienBoardPool.locator('[data-mana="R"][data-count="2"]').count()) === 1 && (await bastienBoardPool.getByRole('button').count()) === 0,
+    'vue agrandie : réserve de Bastien en bas de son champ de bataille, lecture seule')
   await drag(ana, myHand(ana).first(), board(ana, BASTIEN.id).locator('[data-zone="battlefield"]'))
   await ana.page.getByTestId('activity-error').waitFor()
   check(true, `dépôt refusé, message affiché : « ${await ana.page.getByTestId('activity-error').innerText()} »`)
@@ -254,8 +270,9 @@ try {
   for (let i = 0; i < 3; i++) await anaStripPanel.getByRole('button', { name: 'moins' }).first().click()
   await chloe.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()
   await board(chloe, ANA.id).getByRole('button', { name: `Compteurs de ${ANA.name}` }).click()
-  const damage = chloe.page.locator(`[data-bubble="${ANA.id}"]`).getByTestId(`commander-damage-${CHLOE.id}`)
-  for (let i = 0; i < 5; i++) await damage.locator('xpath=following-sibling::button').click()
+  const damage = chloe.page.locator(`[data-bubble="${ANA.id}"] [data-marker]`).filter({ has: chloe.page.getByTestId(`commander-damage-${CHLOE.id}`) })
+  check((await chloe.page.locator(`[data-bubble="${ANA.id}"] [data-marker^="counter:"]`).count()) === 4, 'bulle d’Ana : les 4 marqueurs prédéfinis listés')
+  for (let i = 0; i < 5; i++) await damage.getByRole('button', { name: /^plus : blessures de / }).click()
   // La vie se règle encore depuis la pastille pendant que la bulle est ouverte (le voile ne doit pas l'intercepter).
   const anaPillMinus = board(chloe, ANA.id).locator(`[data-panel="${ANA.id}"]`).getByRole('button', { name: 'moins' }).first()
   await anaPillMinus.click()

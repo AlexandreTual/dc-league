@@ -1,5 +1,7 @@
 # Design — Mots de passe oubliés et invitations par mail
 
+> **Révision du 2026-10-14 — Brevo remplacé par un script Google.** La validation du compte Brevo par SMS n'aboutit pas : l'envoi passe par un script Google Apps Script publié par l'admin, qui envoie depuis sa Gmail (`MailApp`, ~100 destinataires/jour). Le site l'appelle en `POST` JSON `{ secret, name, to, subject, text, html }` sur `GOOGLE_SCRIPT_URL` (refusée si l'origine n'est pas `https://script.google.com`) ; le script répond `{ ok: true }` ou `{ ok: false, error: 'secret' | 'requete' | 'quota' | 'envoi' }` (toujours HTTP 200 : le résultat est lu dans le corps, une page HTML vaut échec). Mot de passe partagé : `GOOGLE_SCRIPT_SECRET` (secret Cloudflare, 16 caractères au moins côté script). Ordre de choix : Resend (`RESEND_API_KEY` + `MAIL_FROM`) → script Google → boîte de test → désactivé ; `MAIL_FROM` n'est plus utile au script Google. Code du script : `scripts/google-apps-script-mail.js`, recopié dans `docs/mails.md`. Les mentions de Brevo ci-dessous sont remplacées par ce qui précède.
+
 **Date :** 2026-10-05
 **Statut :** En relecture
 **Projet :** comptes joueurs (suite de `2026-10-03-player-accounts-design.md`)

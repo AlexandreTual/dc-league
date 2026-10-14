@@ -10,10 +10,10 @@ export const barButton =
   'flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-dc-border rounded-lg text-dc-text hover:border-dc-gold/50 disabled:opacity-40 disabled:cursor-not-allowed tablet:min-h-11'
 
 /**
- * Barre du haut de la table. En mode test : réserve de mana et « Nouvelle partie » (la vie est dans ma colonne).
+ * Barre du haut de la table. En mode test : « Nouvelle partie » (la vie est dans ma colonne, la réserve de mana sur mon champ de bataille).
  * En ligne : joueur actif, « Piocher », et les commandes passées dans `extra` (abandon, hôte).
  */
-export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, onNextTurn, onDraw, onLang, onUndo, onNewGame, onToken, onDice, onLog, onSettings, mana, extra }: {
+export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, canEndTurn, onNextTurn, onDraw, onLang, onUndo, onNewGame, onToken, onDice, onLog, onSettings, extra }: {
   back: { href: string; label: string }
   turn: number
   activeName?: string
@@ -30,8 +30,6 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
   onDice: () => void
   onLog: () => void
   onSettings: () => void
-  /** Ma réserve de mana (mode test ; en ligne, elle est dans mon panneau). */
-  mana?: React.ReactNode
   extra?: React.ReactNode
 }) {
   return (
@@ -41,7 +39,6 @@ export default function TopBar({ back, turn, activeName, lang, canAct, canUndo, 
       {activeName && <span className="text-xs text-dc-muted" data-testid="active-player">Joueur actif : <span className="text-dc-text">{activeName}</span></span>}
       <button className={barButton} onClick={onNextTurn} disabled={!canEndTurn} title="Fin de tour (N)"><SkipForward className="w-3.5 h-3.5" /> Fin de tour</button>
       {onDraw && <button className={barButton} onClick={onDraw} disabled={!canAct} title="Piocher (D)"><Layers className="w-3.5 h-3.5" /> Piocher</button>}
-      {mana && <span className="text-xs text-dc-text ml-2">{mana}</span>}
       <div className="flex flex-wrap items-center gap-2 ml-auto">
         <button className={barButton} onClick={onLang} aria-label="Langue des cartes">
           <span className={lang === 'fr' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>FR</span>/

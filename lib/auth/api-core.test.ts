@@ -84,6 +84,15 @@ describe('handleApi', () => {
     log.mockRestore()
   })
 
+  it('viewer : ouvert aux visiteurs, mais transmet la session quand elle existe', async () => {
+    const anon = await handleApi(req('GET'), 'viewer', async (ctx) => NextResponse.json({ user: ctx.user }), deps())
+    expect(anon.status).toBe(200)
+    expect(await anon.json()).toEqual({ user: null })
+    const current = user()
+    const logged = await handleApi(req('GET'), 'viewer', async (ctx) => NextResponse.json({ id: ctx.user?.id }), deps(current))
+    expect(await logged.json()).toEqual({ id: 'u1' })
+  })
+
   it('transmet la base et le joueur au traitement', async () => {
     const current = user({ isAdmin: true })
     await handleApi(req('POST', '{}'), 'admin', async (ctx) => {

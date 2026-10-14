@@ -136,19 +136,21 @@ export function canApply(state: GameState, action: GameAction): string | null {
 
     case 'tap':
     case 'counter':
-    case 'pt': {
+    case 'pt':
+    case 'loyalty': {
       const where = zoneOf(state, action.id)
       if (!where) return MSG.unknownCard
       return where.zone === 'battlefield' ? null : MSG.notOnBattlefield
     }
 
     case 'flip':
+    case 'rotate':
     case 'faceDown': {
       const where = zoneOf(state, action.id)
       if (!where) return MSG.unknownCard
       if (where.zone !== 'battlefield') return MSG.notOnBattlefield
       if (where.player !== action.actor) return MSG.notController
-      if (action.type === 'faceDown') return null
+      if (action.type !== 'flip') return null
       const card = state.cards[action.id]
       const faces = state.catalogs[card.owner]?.entries.find((e) => e.ref === card.ref)?.en.faces
       return card.ref !== null && (faces?.length ?? 0) > 1 ? null : MSG.oneFace

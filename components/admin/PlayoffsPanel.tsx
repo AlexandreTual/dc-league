@@ -19,9 +19,10 @@ const STAGE_LABELS: Record<string, string> = {
 
 /** Top 4 : génération des demi-finales, puis matchs de playoffs et leurs scores. */
 export default function PlayoffsPanel({
-  api, playoffs, setPlayoffs, playerMap, allRRCompleted, enrolledCount,
+  api, leagueId, playoffs, setPlayoffs, playerMap, allRRCompleted, enrolledCount,
 }: {
   api: AdminApi
+  leagueId: string
   playoffs: DbPlayoff[]
   setPlayoffs: Dispatch<SetStateAction<DbPlayoff[]>>
   playerMap: Record<string, Player>
@@ -40,7 +41,7 @@ export default function PlayoffsPanel({
     setPlayoffLoading(true)
     setPlayoffError('')
     try {
-      const { error, data } = await sendJson('/api/playoffs', 'POST')
+      const { error, data } = await sendJson(`/api/leagues/${leagueId}/playoffs`, 'POST')
       if (error) {
         setPlayoffError(error)
       } else {
@@ -55,7 +56,7 @@ export default function PlayoffsPanel({
 
   async function handleResetPlayoffs() {
     setConfirmResetPlayoffs(false)
-    const { ok } = await call('/api/playoffs', 'DELETE')
+    const { ok } = await call(`/api/leagues/${leagueId}/playoffs`, 'DELETE')
     if (!ok) return
     setPlayoffs([])
     showToast('Playoffs réinitialisés')

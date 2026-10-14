@@ -43,6 +43,7 @@ type ScryfallFace = {
   colors?: string[]
   power?: string
   toughness?: string
+  loyalty?: string
   image_uris?: ImageUris
   oracle_id?: string
 }
@@ -66,6 +67,7 @@ export type ScryfallCard = {
   color_identity?: string[]
   power?: string
   toughness?: string
+  loyalty?: string
   image_uris?: ImageUris
   /** « placeholder » : image anglaise barrée de « Localized Image Not Available » ; « missing » : aucune. */
   image_status?: string
@@ -209,6 +211,7 @@ function toFace(face: ScryfallFace, hasImage: boolean): CardFace {
     image_small: hasImage ? face.image_uris?.small ?? null : null,
     power: face.power ?? null,
     toughness: face.toughness ?? null,
+    loyalty: face.loyalty ?? null,
   }
 }
 
@@ -250,6 +253,7 @@ export function toCardRow(card: ScryfallCard): CardRow {
     // Carte à plusieurs faces : celles du recto (une carte d'aventure ou recto-verso n'en a pas à la racine).
     power: card.power ?? front?.power ?? null,
     toughness: card.toughness ?? front?.toughness ?? null,
+    loyalty: card.loyalty ?? front?.loyalty ?? null,
   }
 }
 

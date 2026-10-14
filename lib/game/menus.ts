@@ -1,6 +1,7 @@
 // Menus clic droit de la table : quelles entrées pour quelle carte, selon qui regarde.
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
+import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
 import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
 import type { ClientAction } from './room'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
@@ -11,6 +12,8 @@ export type MenuCommand =
   | { kind: 'openPile'; player: string; zone: 'library' | 'graveyard' | 'exile'; mode: 'look' | 'search' | 'browse'; title: string }
   /** Fenêtre « Oracle et règles » d'une carte du catalogue de son propriétaire. */
   | { kind: 'oracle'; owner: string; ref: number }
+  /** Ajoute la carte (catalogue de son propriétaire) à la question de l'assistant IA, côté navigateur seulement. */
+  | { kind: 'askAi'; owner: string; ref: number }
 
 export type MenuEntry =
   | { kind: 'title'; label: string }
@@ -29,6 +32,8 @@ export type MenuContext = {
   lang: 'fr' | 'en'
   /** Partie terminée : plus aucune action. */
   readOnly: boolean
+  /** Assistant IA disponible pour ce joueur (facultatif : absent = pas d'entrée). */
+  ai?: boolean
 }
 
 const DESTINATIONS: { label: string; zone: PlayerZone; position?: Position }[] = [
@@ -78,13 +83,16 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
 }
 
 /**
- * « Oracle et règles » : seulement pour une carte que le joueur voit (jamais face cachée) et qui vient
- * d'un deck (un jeton n'a ni Oracle ni règles), données de carte reçues.
+ * « Oracle et règles », puis « Ajouter à la question IA » si l'assistant est disponible : seulement pour une
+ * carte que le joueur voit (jamais face cachée) et qui vient d'un deck (un jeton n'a ni Oracle ni règles),
+ * données de carte reçues.
  */
 function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (card.faceDown || card.token || card.ref === null) return []
   if (!ctx.catalogs[card.owner]?.entries.some((e) => e.ref === card.ref)) return []
-  return [{ kind: 'separator' }, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  const entries = [{ kind: 'separator' } as const, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  if (ctx.ai) entries.push(item('Ajouter à la question IA', { kind: 'askAi', owner: card.owner, ref: card.ref }))
+  return entries
 }
 
 /**
@@ -115,11 +123,40 @@ function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   return entries
 }
 
-/** Menu de l'encart force/endurance d'une carte en jeu (toucher l'encart) ; vide pour un spectateur ou une partie finie. */
-export function ptMenu(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+/**
+ * Loyauté d'un planeswalker en jeu, modifiable par tout joueur : valeur affichée, nombre tapé = nouvelle valeur
+ * (ou nouvel écart quand la loyauté imprimée est inconnue), « Réinitialiser » quand elle a été modifiée.
+ */
+function loyaltyEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
+  const catalog = ctx.catalogs[card.owner]
+  if (!hasLoyalty(catalog, card)) return []
+  const id = card.id
+  const shown = loyaltyStats(catalog, card)
+  const mod = card.loyaltyMod ?? 0
+  const current = shown ? (shown.value ?? shown.delta) : 0
+  const change = (delta: number) => act({ type: 'loyalty', id, delta })
+  const entries: MenuEntry[] = [{
+    kind: 'stepper', label: 'Loyauté', value: shown?.text ?? '+0', signed: shown?.value == null, minus: change(-1), plus: change(1),
+    set: (n) => {
+      if (!Number.isFinite(n)) return []
+      // L'écart visé, borné comme le fera le moteur (jamais sous 0 marqueur).
+      const delta = clampLoyalty(baseLoyalty(catalog, card), mod + Math.trunc(n) - current) - mod
+      return delta === 0 ? [] : [change(delta)]
+    },
+  }]
+  if (mod !== 0) entries.push(item('Réinitialiser la loyauté', change(-mod)))
+  return entries
+}
+
+/**
+ * Menu de l'encart d'une carte en jeu (toucher l'encart) : la loyauté d'un planeswalker qui en affiche une,
+ * sinon force et endurance. Vide pour un spectateur ou une partie finie.
+ */
+export function statMenu(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (!ctx.me || ctx.readOnly) return []
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
-  return [{ kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }, ...ptEntries(ctx, card)]
+  const entries = loyaltyStats(ctx.catalogs[card.owner], card) ? loyaltyEntries(ctx, card) : ptEntries(ctx, card)
+  return [{ kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }, ...entries]
 }
 
 function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
@@ -137,10 +174,16 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
   })
   const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
-  if (controller) entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })))
+  if (controller) {
+    entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })),
+      item('Pivoter à 180°', act({ type: 'rotate', id })),
+      // Dans l'ordre du champ de bataille, le dessous (fin de liste) est affiché devant.
+      item('Mettre devant', act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'bottom' })),
+      item('Mettre derrière', act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'top' })))
+  }
   entries.push({ kind: 'separator' },
     counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
-    ...ptEntries(ctx, card))
+    ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card))
   return entries
 }
 

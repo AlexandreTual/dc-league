@@ -8,12 +8,16 @@ import type { DbLeague, DbLeaguePlayerWithName } from '@/lib/db-leagues'
 import { sendJson } from '@/components/formStyles'
 import type { AdminApi } from './useAdminApi'
 
-/** Inscriptions de la saison : joueurs existants (avec leur deck) et ajout d'un joueur. */
+/**
+ * Inscriptions de la ligue : joueurs existants (avec leur deck).
+ * Réservé aux admins : créer un joueur, lui créer un deck, le supprimer.
+ */
 export default function ParticipantsPanel({
   league, api, players, setPlayers, leaguePlayers, setLeaguePlayers,
-  playerDecks, setPlayerDecks, playerIdsWithHistory,
+  playerDecks, setPlayerDecks, playerIdsWithHistory, isAdmin,
 }: {
   league: DbLeague
+  isAdmin: boolean
   api: AdminApi
   players: Player[]
   setPlayers: Dispatch<SetStateAction<Player[]>>
@@ -111,6 +115,12 @@ export default function ParticipantsPanel({
       const data = created as Player
 
       setPlayers((prev) => [...prev, data])
+      const enrolled = await sendJson(`/api/leagues/${league.id}/players`, 'POST', { player_id: data.id })
+      if (enrolled.error) {
+        setAddPlayerError(`${data.name} est ajouté, mais n'a pas pu être inscrit : ${enrolled.error}`)
+        setNewPlayerName('')
+        return
+      }
 
       let newLp: DbLeaguePlayerWithName = {
         league_id: league.id,
@@ -191,7 +201,7 @@ export default function ParticipantsPanel({
                     type="checkbox"
                     checked={isEnrolled}
                     onChange={() => handleToggleEnroll(player, isEnrolled)}
-                    aria-label={`Inscrire ${player.name} à la saison`}
+                    aria-label={`Inscrire ${player.name} à la ligue`}
                     className="w-4 h-4 accent-dc-gold cursor-pointer"
                   />
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -223,11 +233,11 @@ export default function ParticipantsPanel({
                         {decksForPlayer.map((d) => (
                           <option key={d.id} value={d.id}>{d.name}</option>
                         ))}
-                        <option value="__new__">+ Nouveau deck</option>
+                        {isAdmin && <option value="__new__">+ Nouveau deck</option>}
                       </select>
                     </div>
                   )}
-                  <button
+                  {isAdmin && <button
                     onClick={() => handleDeletePlayer(player.id, player.name)}
                     aria-label={`Supprimer ${player.name}`}
                     disabled={historySet.has(player.id)}
@@ -241,7 +251,7 @@ export default function ParticipantsPanel({
                     className="text-dc-muted hover:text-dc-red-light transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                   >
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </button>}
                 </div>
 
                 {isCreatingDeck && (
@@ -309,10 +319,11 @@ export default function ParticipantsPanel({
         </div>
       )}
 
+      {isAdmin && <>
       <div className="border-t border-dc-border/50" />
 
       <div className="space-y-3">
-        <p className="text-dc-muted text-xs uppercase tracking-wide">Nouveau joueur</p>
+        <p className="text-dc-muted text-xs uppercase tracking-wide">Nouveau joueur (sans compte)</p>
         <form onSubmit={handleAddNewPlayer} className="space-y-3">
           <div className="flex gap-3">
             <input
@@ -395,6 +406,7 @@ export default function ParticipantsPanel({
           </p>
         )}
       </div>
+      </>}
     </div>
   )
 }

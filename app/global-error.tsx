@@ -18,7 +18,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
               Réessayer
             </button>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- la mise en page racine a planté : rechargement complet voulu */}
-            <a href="/" className="text-dc-gold text-sm hover:underline">Retour au classement</a>
+            <a href="/" className="text-dc-gold text-sm hover:underline">Retour à l&apos;accueil</a>
           </div>
         </main>
       </body>
