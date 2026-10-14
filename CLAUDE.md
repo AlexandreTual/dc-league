@@ -44,7 +44,10 @@ node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # for
 node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loyauté d'un planeswalker sur la carte (mode test, tablette, en ligne)
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
+node scripts/ai-check.mjs http://localhost:8788 <dossier>                  # assistant IA avec un faux Gemini (deck, mode test, en ligne, admin, quota, téléphone)
 ```
+
+Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.
 
 Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>` (avec Teferi, Time Raveler, loyauté 4), ligue publique `league-e2e` (« Saison e2e », sans organisateur, `e2e-1`…`e2e-4` inscrits).
 Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `CHROME` (ex. `CHROME=/usr/bin/google-chrome`).
@@ -54,6 +57,7 @@ Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `C
 - Next.js 15 en runtime edge sur Cloudflare Pages (`@cloudflare/next-on-pages` épinglé, patché au `postinstall`), base D1 (`migrations/`), Tailwind.
 - `lib/auth/` : comptes, sessions, invitations (`service.ts` = logique, `lib/db-auth.ts` = requêtes).
 - `lib/leagues/` : ligues créées par les joueurs : droits (`access.ts` : voir, gérer), chargement avec droits pour routes et pages (`route-access.ts`, `load.ts`), lien d'invitation (`join.ts`). Pages sous `/ligues/<id>/…`.
+- `lib/ai/` : assistant IA (consigne, client Gemini, quota de 20 questions par jour, interrupteur admin) ; panneau dans `components/ai/`.
 - `lib/cards/` : import de decks (texte, liens Moxfield/Archidekt), Scryfall, cartes en français.
 - `lib/game/` : moteur de partie pur (`applyAction`, `canApply`, `viewFor` sans fuite d'information cachée), menus, rangées.
 - `workers/game/` : Worker + Durable Object des parties en ligne (déployé par `.github/workflows/deploy-game-worker.yml`).
