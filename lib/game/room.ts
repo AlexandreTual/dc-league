@@ -9,7 +9,7 @@ import { parseClientAction } from './validate'
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 /** Action envoyée par un navigateur : l'auteur et les graines sont fixés par le serveur. */
-export type ClientAction = DistributiveOmit<Exclude<GameAction, { type: 'start' }>, 'actor' | 'seed'>
+export type ClientAction = DistributiveOmit<Exclude<GameAction, { type: 'start' }>, 'actor' | 'seed' | 'at'>
 
 export type ClientMessage =
   | { type: 'action'; action: ClientAction }
@@ -21,6 +21,12 @@ export type ClientMessage =
 /** Données de cartes : propriétaire → ref → entrée du catalogue. */
 export type CardDataMap = Record<string, Record<number, CatalogEntry>>
 
+/**
+ * Minuteur, en millisecondes du serveur : `now` sert au navigateur à corriger l'écart avec sa propre horloge.
+ * Absent avec un serveur de jeu plus ancien ou pour une partie commencée avant l'horodatage.
+ */
+export type GameClock = { now: number; startedAt?: number; turnStartedAt?: number; finishedAt?: number }
+
 export type ViewMessage = {
   type: 'view'
   view: PlayerView
@@ -29,6 +35,7 @@ export type ViewMessage = {
   online: string[]
   finished: boolean
   winner: string | null
+  clock?: GameClock
 }
 
 export type ServerMessage = ViewMessage | { type: 'rejected'; error: string }
@@ -42,6 +49,8 @@ export type RoomState = {
   absentSince: Record<string, number>
   finished: boolean
   winner: string | null
+  /** Instant de fin (ms) ; absent pour une partie finie avant l'horodatage. */
+  finishedAt?: number
 }
 
 export type RoomEvent = { type: 'hostChanged'; hostId: string } | { type: 'finished'; winner: string | null }
@@ -90,7 +99,7 @@ function baseRoom(
 /** `firstPlayer` : premier joueur choisi par l'hôte ; ignoré s'il n'est pas à la table (tirage au sort). */
 export function createRoom(tableId: string, setup: GameSetup, hostId: string, seed: () => Seed, now: number, firstPlayer?: string): RoomState {
   const ids = setup.players.map((p) => p.id)
-  const start = startAction(ids, seed, firstPlayer !== undefined && ids.includes(firstPlayer) ? firstPlayer : undefined)
+  const start = { ...startAction(ids, seed, firstPlayer !== undefined && ids.includes(firstPlayer) ? firstPlayer : undefined), at: now }
   return baseRoom(tableId, setup, hostId, new GameHistory(setup, [start]), now)
 }
 
@@ -99,11 +108,13 @@ export function restoreRoom(
   setup: GameSetup,
   hostId: string,
   actions: GameAction[],
-  meta: { finished: boolean; winner: string | null },
+  meta: { finished: boolean; winner: string | null; finishedAt?: number },
   now: number,
   absentSince: Record<string, number> = {},
 ): RoomState {
-  return { ...baseRoom(tableId, setup, hostId, new GameHistory(setup, actions), now, absentSince), ...meta }
+  const { finished, winner, finishedAt } = meta
+  const room = { ...baseRoom(tableId, setup, hostId, new GameHistory(setup, actions), now, absentSince), finished, winner }
+  return finishedAt === undefined ? room : { ...room, finishedAt }
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
@@ -125,19 +136,23 @@ function serverAction(raw: unknown, actor: string, seed: () => Seed): GameAction
   return full
 }
 
+/** Actions qui peuvent changer de tour : horodatées pour le minuteur. */
+const STAMPED = new Set<GameAction['type']>(['endTurn', 'eliminate'])
+
 /** Joue une action ; termine la partie s'il ne reste qu'un joueur en lice (à partir de 2 joueurs). */
-function play(room: RoomState, action: GameAction): Outcome {
-  const error = room.history.push(action)
+function play(room: RoomState, action: GameAction, now: number): Outcome {
+  const error = room.history.push(STAMPED.has(action.type) ? { ...action, at: now } : action)
   if (error !== null) return refused(error)
   const players = Object.values(room.history.state.players)
   const alive = players.filter((p) => !p.eliminated)
-  if (players.length >= 2 && alive.length <= 1) return finish(room, alive[0]?.id ?? null)
+  if (players.length >= 2 && alive.length <= 1) return finish(room, alive[0]?.id ?? null, now)
   return done()
 }
 
-function finish(room: RoomState, winner: string | null): Outcome {
+function finish(room: RoomState, winner: string | null, now: number): Outcome {
   room.finished = true
   room.winner = winner
+  room.finishedAt = now
   return done([{ type: 'finished', winner }])
 }
 
@@ -157,12 +172,12 @@ function checkHost(room: RoomState, now: number): RoomEvent[] {
   return []
 }
 
-function hostCommand(room: RoomState, from: string, msg: Extract<ClientMessage, { type: 'host' }>): Outcome {
+function hostCommand(room: RoomState, from: string, msg: Extract<ClientMessage, { type: 'host' }>, now: number): Outcome {
   if (from !== room.hostId) return refused(MSG.notHost)
-  if (msg.op === 'close') return finish(room, null)
-  if (msg.op === 'eliminate') return play(room, { type: 'eliminate', actor: from, target: msg.target })
+  if (msg.op === 'close') return finish(room, null, now)
+  if (msg.op === 'eliminate') return play(room, { type: 'eliminate', actor: from, target: msg.target }, now)
   if (room.history.state.activePlayer !== msg.target) return refused(MSG.notTheirTurn)
-  return play(room, { type: 'endTurn', actor: msg.target, byHost: true })
+  return play(room, { type: 'endTurn', actor: msg.target, byHost: true }, now)
 }
 
 function dispatch(room: RoomState, from: string, msg: ClientMessage, ctx: RoomContext): Outcome {
@@ -170,14 +185,14 @@ function dispatch(room: RoomState, from: string, msg: ClientMessage, ctx: RoomCo
   switch (msg.type) {
     case 'action': {
       const action = serverAction(msg.action, from, ctx.seed)
-      return typeof action === 'string' ? refused(action) : play(room, action)
+      return typeof action === 'string' ? refused(action) : play(room, action, ctx.now)
     }
     case 'undo':
       return room.history.undo(from) ? done() : refused(MSG.nothingToUndo)
     case 'concede':
-      return play(room, { type: 'eliminate', actor: from, target: from })
+      return play(room, { type: 'eliminate', actor: from, target: from }, ctx.now)
     case 'host':
-      return hostCommand(room, from, msg)
+      return hostCommand(room, from, msg, ctx.now)
     default:
       return refused(MSG.unknown)
   }
@@ -238,10 +253,43 @@ function newCardData(room: RoomState, view: PlayerView, alreadySent: CardDataMap
   return out
 }
 
+// ── Minuteur ──────────────────────────────────────────────────────────────────
+
+/** Minuteur de la partie à l'instant `now`, ou rien si aucune action n'est horodatée. */
+export function gameClock(room: RoomState, now: number): GameClock | undefined {
+  const { startedAt, turnStartedAt } = room.history.state
+  if (startedAt === undefined && turnStartedAt === undefined) return undefined
+  const clock: GameClock = { now }
+  if (startedAt !== undefined) clock.startedAt = startedAt
+  if (turnStartedAt !== undefined && !room.finished) clock.turnStartedAt = turnStartedAt
+  if (room.finishedAt !== undefined) clock.finishedAt = room.finishedAt
+  return clock
+}
+
+/**
+ * Bilan d'une partie finie, en secondes : durée totale et temps de jeu de chaque joueur (tour en cours compris
+ * jusqu'à la fin). `duration` nul si le début n'est pas horodaté ; `playTime` vide si aucun tour ne l'est.
+ */
+export function gameTiming(room: RoomState): { duration: number | null; playTime: Record<string, number> } {
+  const { startedAt, turnStartedAt, activePlayer, playTime = {} } = room.history.state
+  const end = room.finishedAt
+  if (end === undefined) return { duration: null, playTime: {} }
+  // Partie chronométrée : chaque joueur part de 0, même s'il n'a jamais eu son tour (0 s ≠ non mesuré).
+  const timed = startedAt !== undefined || turnStartedAt !== undefined
+  const ms: Record<string, number> = timed ? { ...Object.fromEntries(room.seats.map((s) => [s.playerId, 0])), ...playTime } : {}
+  if (turnStartedAt !== undefined) ms[activePlayer] = (ms[activePlayer] ?? 0) + Math.max(0, end - turnStartedAt)
+  const seconds = (n: number) => Math.round(n / 1000)
+  return {
+    duration: startedAt === undefined ? null : seconds(Math.max(0, end - startedAt)),
+    playTime: Object.fromEntries(Object.entries(ms).map(([p, n]) => [p, seconds(n)])),
+  }
+}
+
 /** Message de vue pour un joueur (ou un spectateur : `viewer` nul). */
-export function viewMessageFor(room: RoomState, viewer: string | null, alreadySent: CardDataMap): ViewMessage {
+export function viewMessageFor(room: RoomState, viewer: string | null, alreadySent: CardDataMap, now: number): ViewMessage {
   const me = isSeated(room, viewer) ? viewer : ''
   const view = viewFor(room.history.state, me, me !== '' && room.history.canUndo(me))
+  const clock = gameClock(room, now)
   return {
     type: 'view',
     view,
@@ -250,5 +298,6 @@ export function viewMessageFor(room: RoomState, viewer: string | null, alreadySe
     online: onlinePlayers(room),
     finished: room.finished,
     winner: room.winner,
+    ...(clock ? { clock } : {}),
   }
 }
