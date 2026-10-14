@@ -33,8 +33,7 @@ describe('removeTable', () => {
     expect((await getTable(db, tableId)).data).not.toBeNull()
   })
 
-  it('table inconnue', async () => {
-    const res = await removeTable(db, async () => true, 'nope')
-    expect(res.error).toBe('Table introuvable')
+  it('table déjà supprimée : sans erreur', async () => {
+    expect(await removeTable(db, async () => true, 'nope')).toEqual({ data: null, error: null })
   })
 })

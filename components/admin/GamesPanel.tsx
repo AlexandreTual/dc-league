@@ -76,7 +76,7 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
                   </Link>
                   <p className="text-dc-muted text-xs">
                     {STATUS[t.status]} · {t.format === 'duel' ? 'Duel' : 'Commander'} ·{' '}
-                    <span className={since > IDLE_AFTER_MS ? 'text-dc-red-light' : undefined}>activité {idleLabel(since)}</span>
+                    <span className={since > IDLE_AFTER_MS ? 'text-dc-red-light' : undefined} suppressHydrationWarning>activité {idleLabel(since)}</span>
                   </p>
                 </div>
                 <button

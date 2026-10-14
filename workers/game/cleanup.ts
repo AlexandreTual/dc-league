@@ -1,4 +1,5 @@
 import { playingTables, staleTables } from '../../lib/db-games'
+import { destroyGame } from '../../lib/games/binding'
 import { removeTable } from '../../lib/games/remove'
 
 /** Durée sans activité au-delà de laquelle une table est supprimée. */
@@ -29,7 +30,7 @@ export async function cleanupStale(env: CleanupEnv, now: Date): Promise<number> 
 
   const { data: ids, error } = await staleTables(env.DB, new Date(now.getTime() - STALE_AFTER_MS))
   if (error !== null) throw new Error(error)
-  const destroy = async (id: string) => (await stub(env, id).fetch(`https://game/tables/${id}`, { method: 'DELETE' })).ok
+  const destroy = destroyGame(env)
   let deleted = 0
   for (const id of ids) {
     const { error: removeError } = await removeTable(env.DB, destroy, id)
