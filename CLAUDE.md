@@ -45,6 +45,7 @@ node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loy
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
 node scripts/ai-check.mjs http://localhost:8788 <dossier>                  # assistant IA avec un faux Gemini (deck, mode test, en ligne, admin, quota, téléphone)
+node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin : parties en cours, suppression (vide les tables locales)
 ```
 
 Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.

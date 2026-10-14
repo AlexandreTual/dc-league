@@ -135,16 +135,21 @@ export async function createTable(
   })
 }
 
-/** Tables ouvertes ou en cours, les plus récentes d'abord. */
-export async function listTables(db: D1Database): Promise<Result<GameTable[]>> {
+async function selectTables(db: D1Database, sql: string): Promise<Result<GameTable[]>> {
   return guard(async () => {
-    const { results } = await db
-      .prepare("SELECT * FROM game_tables WHERE status IN ('open', 'playing') ORDER BY created_at DESC, rowid DESC")
-      .all<Record<string, unknown>>()
+    const { results } = await db.prepare(sql).all<Record<string, unknown>>()
     const players = await loadPlayers(db, results.map((r) => r.id as string))
     return ok(results.map((r) => normalize(r, players.get(r.id as string)!)))
   })
 }
+
+/** Tables ouvertes ou en cours, les plus récentes d'abord. */
+export const listTables = (db: D1Database) =>
+  selectTables(db, "SELECT * FROM game_tables WHERE status IN ('open', 'playing') ORDER BY created_at DESC, rowid DESC")
+
+/** Tables non terminées (démarrage en cours compris), les plus longtemps inactives d'abord : vue de l'admin. */
+export const unfinishedTables = (db: D1Database) =>
+  selectTables(db, "SELECT * FROM game_tables WHERE status != 'finished' ORDER BY last_activity_at, rowid")
 
 /** Prend la place suivante en une seule requête : table ouverte, place libre et pas déjà assis, vérifiés à l'insertion. */
 export async function joinTable(db: D1Database, id: string, playerId: string): Promise<Result<GameTable>> {

@@ -9,6 +9,7 @@ import AdminDashboard from './AdminDashboard'
 import LoadError from '@/components/LoadError'
 import { loadFailed } from '@/lib/load'
 import { aiAdminStatus } from '@/lib/ai/admin'
+import { unfinishedTables } from '@/lib/db-games'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -21,11 +22,11 @@ export default async function AdminPage() {
   const env = getRequestContext<CloudflareEnv>().env
   const db = env.DB
   const [results, ai] = await Promise.all([
-    Promise.all([listPlayers(db), listAccountStatuses(db, new Date()), listLeagues(db)]),
+    Promise.all([listPlayers(db), listAccountStatuses(db, new Date()), listLeagues(db), unfinishedTables(db)]),
     aiAdminStatus(env, new Date()),
   ])
   if (loadFailed(...results)) return <LoadError what="l'administration" />
-  const [players, statuses, leagues] = results
+  const [players, statuses, leagues, tables] = results
 
   return (
     <AdminDashboard
@@ -33,6 +34,7 @@ export default async function AdminPage() {
       accountStatuses={statuses.data ?? {}}
       leagues={leagues.data ?? []}
       ai={ai}
+      tables={tables.data ?? []}
       currentUserId={currentUser.id}
       isBootstrap={currentUser.isBootstrap}
     />
