@@ -285,12 +285,13 @@ export function PileTiles(props: ZoneProps & {
       <div ref={library.setNodeRef} data-zone="library" data-player={player} data-count={zones.library.count}
         className={`${tileClass} tablet:h-auto tablet:flex-1 tablet:min-h-0 cursor-context-menu ${longPressClass} ${library.highlight}`} title="Bibliothèque" {...menuGesture(onLibraryMenu)}>
         <Tile label="Bib." count={zones.library.count}>
+          {/* Taille figée (contain:size) : face visible, l'image ne doit pas élargir la vignette ni rétrécir la main (tablette). */}
           {zones.library.count === 0 ? emptyTile : canDrawTop ? (
-            <Draggable id={topId(player)} from={libraryRef} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
+            <Draggable id={topId(player)} from={libraryRef} className="h-full [contain:size]" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
               {face}
             </Draggable>
           ) : (
-            <div className="h-full" onMouseEnter={() => hoverTop?.(true)} onMouseLeave={() => hoverTop?.(false)}>{face}</div>
+            <div className="h-full [contain:size]" onMouseEnter={() => hoverTop?.(true)} onMouseLeave={() => hoverTop?.(false)}>{face}</div>
           )}
         </Tile>
       </div>

@@ -243,6 +243,27 @@ async function table(tools, { width, height }) {
   await tapAside()
   check(!(await menu.isVisible()), 'toucher à côté ferme le menu')
 
+  // ── Carte du dessus face visible : la bibliothèque et la main gardent leur taille (#160) ──
+  {
+    const handZone = page.locator('[data-board] [data-zone="hand"]').first()
+    const sizes = async () => [await handZone.boundingBox(), await library.boundingBox()].map((b) => `${Math.round(b.width)}×${Math.round(b.height)}`).join(' / ')
+    const before = await sizes()
+    const libraryItem = async (name) => {
+      await longPress(library)
+      await page.waitForTimeout(400) // le clic qui suit de peu un appui long est ignoré (touch.ts)
+      await menu.getByRole('menuitem', { name }).tap()
+      await page.waitForTimeout(300)
+    }
+    for (const [on, off] of [['Révéler la carte du dessus', 'Mélanger'], ['Jouer avec la carte du dessus révélée', 'Cacher la carte du dessus'], ['Voir la carte du dessus (pour moi seul)', 'Ne plus voir la carte du dessus']]) {
+      await libraryItem(on)
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-board] [data-zone="library"] img')].some((i) => i.complete && i.naturalWidth > 0))
+      const after = await sizes()
+      check(after === before, `« ${on} » : main et bibliothèque de même taille (${before} → ${after})`)
+      await libraryItem(off)
+      check(!(await library.locator('img').count()), `« ${off} » : dos de carte`)
+    }
+  }
+
   // ── Menu des piles : par le bouton, puis ouvert de lui-même pendant un glisser vers le cimetière ──
   await toggle.tap()
   await page.waitForTimeout(200)
