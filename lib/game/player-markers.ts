@@ -1,5 +1,6 @@
 // Marqueurs d'un joueur, en liste (bulle « ⋯ » du portrait) : poison, blessures de commandant,
 // marqueurs prédéfinis (toujours listés, même à 0) puis marqueurs libres.
+import { foldText } from '@/lib/text'
 import { COMMANDER_DAMAGE_LETHAL, POISON_LETHAL, type PlayerView } from './types'
 
 export const PRESET_MARKERS = ['Énergie', 'Expérience', 'Rad', 'Tickets'] as const
@@ -14,7 +15,7 @@ export type MarkerRow =
 type Markers = Pick<PlayerView['players'][string], 'poison' | 'counters' | 'commanderDamage'>
 
 /** Comparaison des noms sans casse ni accents (« energie » = « Énergie »). */
-const norm = (name: string) => name.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+const norm = (name: string) => foldText(name.trim())
 export const sameMarker = (a: string, b: string) => norm(a) === norm(b)
 
 /**

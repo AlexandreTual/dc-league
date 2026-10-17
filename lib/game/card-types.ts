@@ -1,4 +1,5 @@
 // Types de cartes (Créature, Terrain…) pour filtrer une pile, d'après la ligne de type anglaise de la face visible.
+import { foldText } from '@/lib/text'
 import { cardInfo, type CardInfo } from './apply'
 import type { Catalog, VisibleCard } from './types'
 
@@ -31,13 +32,13 @@ export function countByType(cards: VisibleCard[], catalogs: Record<string, Catal
   return CARD_TYPES.filter((t) => counts.has(t.type)).map((t) => ({ type: t.type, label: t.label, count: counts.get(t.type)! }))
 }
 
-/** Filtres d'une pile : le texte (nom FR ou EN) **et** au moins un des types cochés (aucun type coché = tous). */
+/** Filtres d'une pile : le texte (nom FR ou EN, sans casse ni accents) **et** au moins un des types cochés (aucun type coché = tous). */
 export function filterPile(cards: VisibleCard[], filter: { text: string; types: CardType[] }, catalogs: Record<string, Catalog>): VisibleCard[] {
-  const q = filter.text.trim().toLowerCase()
+  const q = foldText(filter.text.trim())
   return cards.filter((card) => {
     if (q) {
       const names = [cardInfo(catalogs[card.owner], card, 'fr').name, cardInfo(catalogs[card.owner], card, 'en').name]
-      if (!names.some((n) => n.toLowerCase().includes(q))) return false
+      if (!names.some((n) => foldText(n).includes(q))) return false
     }
     return filter.types.length === 0 || typesOf(card, catalogs).some((t) => filter.types.includes(t))
   })
