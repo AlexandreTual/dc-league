@@ -1,7 +1,7 @@
 # Scores saisis par les joueurs — conception
 
 Partie 2 du chantier « Refonte des ligues » (#117), issue #124. Reprend les questions de #51.
-Décisions prises avec le propriétaire le 18 octobre.
+Décisions prises avec le propriétaire le 18 octobre (les trois compléments — effacement, égalité à 3 et plus, saisie de l’organisateur — validés le même jour).
 
 ## Aujourd'hui
 
@@ -13,7 +13,7 @@ Décisions prises avec le propriétaire le 18 octobre.
 ## Décisions
 
 1. **Saisie par les joueurs.** Chacun des deux joueurs d'un match (round-robin **et** playoffs) peut saisir son score. Le score **compte tout de suite** au classement ; en playoffs, le gagnant avance dès la saisie (même logique qu'aujourd'hui, y compris le refus de changer le vainqueur d'une demi-finale quand la finale a déjà un score).
-2. **Correction.** Les deux joueurs du match peuvent corriger un score déjà saisi, autant de fois que nécessaire tant que la ligue est ouverte. L'organisateur et les admins gardent tous leurs droits (saisir, corriger, effacer). Effacer un score reste réservé à l'organisateur et aux admins (*proposé, à valider*) : un joueur corrige, il ne remet pas un match à « non joué ».
+2. **Correction.** Les deux joueurs du match peuvent corriger un score déjà saisi, autant de fois que nécessaire tant que la ligue est ouverte. L'organisateur et les admins gardent tous leurs droits (saisir, corriger, effacer). Effacer un score reste réservé à l'organisateur et aux admins : un joueur corrige, il ne remet pas un match à « non joué ».
 3. **Physique ou en ligne.** Pas de choix à l'avance : la fenêtre de saisie demande « En physique » ou « En ligne » (obligatoire, « En physique » présélectionné). Les matchs déjà joués n'ont pas de valeur (rien d'affiché). La partie 3 (#125) remplira ce champ toute seule pour un match joué sur le site.
 4. **Prévenir l'adversaire, sur le site seulement.** Le match affiche « Saisi par Ana » (ou « Corrigé par Bastien »). Tant que l'adversaire de celui qui a saisi n'a pas vu le score, une pastille « À vérifier » apparaît pour lui sur ce match et sur l'onglet « Calendrier » (ou « Playoffs ») de la ligue. Elle disparaît quand il ouvre cet onglet. Pas de mail. Une saisie de l'organisateur ou d'un admin qui n'est pas joueur du match met la pastille aux deux joueurs.
 5. **Désaccord.** Pas de bouton « Contester » : l'adversaire corrige lui-même. Chaque saisie est gardée dans un **journal du match** (qui, quand, quel score, physique ou en ligne). L'organisateur voit, dans « Gérer », les matchs dont le score a été saisi par les deux joueurs avec des valeurs différentes (« Scores différents ») et peut trancher en corrigeant ; le journal s'affiche en dépliant le match.

@@ -83,7 +83,7 @@ Tout compte joueur crée et gère sa ligue, plusieurs ligues en parallèle ; ens
 |---|---|---|---|---|
 | 1 | Plusieurs ligues gérées par leur organisateur (publique ou privée, lien d'invitation) | `specs/2026-10-12-user-leagues-design.md` | `plans/2026-10-12-user-leagues.md` | **fait** (#118 à #122), vérifié par `scripts/leagues-check.mjs` |
 | 1 bis | Rondes suisses pour les ligues nombreuses | — | — | conception à faire (#123) |
-| 2 | Scores saisis par les joueurs, match en physique ou en ligne | — | — | conception à faire (#124, reprend #51) |
+| 2 | Scores saisis par les joueurs, match en physique ou en ligne | `specs/2026-10-18-player-scores-design.md` | `plans/2026-10-18-player-scores.md` | conçu (#124, reprend #51), tâches en issues |
 | 3 | Match de ligue en ligne en BO3, score inscrit à la fin | — | — | conception à faire (#125, ex-sous-projet 4) |
 
 Décisions : il faut déjà un compte pour rejoindre une ligue (le site reste sur invitation de l'admin) ; une ligue privée répond « introuvable » à qui n'y est pas ; le créateur est inscrit d'office ; les statistiques ne comptent que les ligues publiques ; les ligues d'avant la refonte sont publiques et gérées par les admins ; `/classement`, `/calendar`, `/playoffs`, `/history`, `/stats` redirigent.
