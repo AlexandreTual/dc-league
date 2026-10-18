@@ -55,6 +55,8 @@ export function useLocalSource(catalog: Catalog, deckName: string): LocalPhase {
     history.current = new GameHistory(setup, actions ?? [startAction([SOLO])])
     saveGame(catalog, history.current.actions)
     setSaved('none')
+    // « Nouvelle partie » en cours de jeu : `saved` vaut déjà 'none', seul ce compteur redessine la table
+    rerender()
   }, [catalog, setup])
 
   useEffect(() => {
