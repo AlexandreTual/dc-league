@@ -29,14 +29,19 @@ export function oracleFaces(en: CardRow, fr: CardRow | null): OracleFace[] {
   })
 }
 
+/**
+ * Nom de carte tel que Gatherer l'écrit dans ses adresses : minuscules, lettres accentuées gardées
+ * (Nazgûl → nazgûl, Théoden → théoden), apostrophes retirées, tout autre signe (espace, virgule, « // »)
+ * remplacé par un tiret. Encodé pour l'URL (nazg%C3%BBl).
+ */
 function slug(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+  const s = name
+    .normalize('NFC')
     .toLowerCase()
     .replace(/['’]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-|-$/g, '')
+  return encodeURIComponent(s)
 }
 
 /**
