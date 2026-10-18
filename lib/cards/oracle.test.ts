@@ -22,12 +22,28 @@ describe('gathererUrl', () => {
       .toBe('https://gatherer.wizards.com/C21/en-us/263/sol-ring')
   })
 
-  it('virgule, apostrophe et accents', () => {
+  it('virgule et apostrophe', () => {
     const url = (name: string) => gathererUrl(cardRow({ name, set_code: 'x', collector_number: '1' }))
     expect(url('Kenrith, the Returned King')).toBe('https://gatherer.wizards.com/X/en-us/1/kenrith-the-returned-king')
     expect(url('Urza\u2019s Saga')).toBe('https://gatherer.wizards.com/X/en-us/1/urzas-saga')
     expect(url("Urza's Saga")).toBe('https://gatherer.wizards.com/X/en-us/1/urzas-saga')
-    expect(url('Lim-Dûl the Necromancer')).toBe('https://gatherer.wizards.com/X/en-us/1/lim-dul-the-necromancer')
+  })
+
+  it('lettres accentuées gardées et encodées, comme sur Gatherer', () => {
+    const url = (name: string) => gathererUrl(cardRow({ name, set_code: 'ltr', collector_number: '1' }))
+    expect(url('Nazgûl')).toBe('https://gatherer.wizards.com/LTR/en-us/1/nazg%C3%BBl')
+    expect(url('Lim-Dûl the Necromancer')).toBe('https://gatherer.wizards.com/LTR/en-us/1/lim-d%C3%BBl-the-necromancer')
+    expect(url('Lim-Dûl\u2019s Hex')).toBe('https://gatherer.wizards.com/LTR/en-us/1/lim-d%C3%BBls-hex')
+    expect(url('Théoden, King of Rohan')).toBe('https://gatherer.wizards.com/LTR/en-us/1/th%C3%A9oden-king-of-rohan')
+    expect(url('Jötun Grunt')).toBe('https://gatherer.wizards.com/LTR/en-us/1/j%C3%B6tun-grunt')
+    // Accent saisi en deux caractères (u + ˆ) : même adresse.
+    expect(url('Nazgu\u0302l')).toBe('https://gatherer.wizards.com/LTR/en-us/1/nazg%C3%BBl')
+  })
+
+  it('fiche française : le nom reste l’anglais, avec ses accents', () => {
+    const en = cardRow({ name: 'Lórien Revealed', set_code: 'ltr', collector_number: '511' })
+    expect(gathererUrl(en, fr({ name: 'Lórien Revealed', set_code: 'ltr', collector_number: '60' })))
+      .toBe('https://gatherer.wizards.com/LTR/fr-fr/60/l%C3%B3rien-revealed')
   })
 
   it('numéro avec caractère spécial : encodé', () => {
