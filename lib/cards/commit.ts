@@ -3,6 +3,7 @@ import { getCards, getLookups, replaceDeckCards, replaceDeckTokens, setDeckComma
 import { lookupKey, parseDeckList } from './parse'
 import type { ScryfallClient } from './scryfall'
 import { refreshDeckTokens } from './tokens'
+import { playerVisual } from './visual'
 import type { ImportSummary } from './types'
 
 /**
@@ -48,7 +49,9 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
   if (commander) {
     const cards = await getCards(db, [commander.en_card_id!, ...(commander.fr_card_id ? [commander.fr_card_id] : [])])
     if (cards.error !== null) return { data: null, error: cards.error }
-    image = cards.data[commander.fr_card_id ?? '']?.image_normal ?? cards.data[commander.en_card_id!]?.image_normal ?? null
+    const en = cards.data[commander.en_card_id!] ?? null
+    const fr = playerVisual(cards.data[commander.fr_card_id ?? ''] ?? null, en, { set: commander.requested_set, number: commander.requested_number })
+    image = fr?.image_normal ?? en?.image_normal ?? null
   }
   const saved = await setDeckCommanderImage(db, deckId, image)
   if (saved.error !== null) return { data: null, error: saved.error }

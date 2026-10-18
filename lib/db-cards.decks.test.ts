@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { cardRow, seedCache } from '@/test/factories'
-import { countDeckCards, listDeckCards, replaceDeckCards, setCommander } from './db-cards'
+import { countDeckCards, getCards, listDeckCards, replaceDeckCards, setCommander } from './db-cards'
 
 let db: D1Database
 
@@ -49,6 +49,17 @@ describe('listDeckCards', () => {
     expect(cards[0].en).toEqual(sol)
     expect(cards[0].fr).toEqual(solFr)
     expect(cards[1]).toMatchObject({ en: null, fr: null })
+  })
+
+  it('impression demandée absente en français : texte français, images de l’impression anglaise demandée (#158)', async () => {
+    const sld = cardRow({ id: 'sol-sld', set_code: 'sld', collector_number: '1512', image_normal: 'n/sld.jpg', image_large: 'l/sld.jpg', image_small: 's/sld.jpg' })
+    await seedCache(db, [{ key: 'sol ring|sld|1512', en: sld, fr: solFr }])
+    await replaceDeckCards(db, 'd1', [{ ...row(1, 1, 'Sol Ring', sld.id, solFr.id), requested_set: 'SLD', requested_number: '1512' }])
+    const [card] = (await listDeckCards(db, 'd1')).data!
+    expect(card.en).toEqual(sld)
+    expect(card.fr).toMatchObject({ id: solFr.id, printed_name: 'Anneau solaire', image_normal: 'n/sld.jpg', image_large: 'l/sld.jpg' })
+    // Rien n'est réécrit en base : la carte française garde ses images pour les autres decks.
+    expect((await getCards(db, [solFr.id])).data![solFr.id].image_normal).toBe(solFr.image_normal)
   })
 })
 

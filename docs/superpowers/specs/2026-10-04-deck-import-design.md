@@ -34,7 +34,7 @@ Depuis le sous-projet 1, chaque joueur a un compte et gère ses decks dans `/pro
 | Sujet | Décision |
 |---|---|
 | Légalité | Aucune vérification à l'import |
-| Impression | Respecter l'édition demandée, en français si elle existe dans cette édition ; sinon impression française la plus récente ; sinon l'anglais de l'édition demandée. Sans édition : française la plus récente, sinon anglaise par défaut de Scryfall |
+| Impression | Respecter l'édition demandée, en français si elle existe dans cette édition (scan net) ; sinon nom et texte d'une impression française, **avec l'image de l'impression anglaise demandée** (visuel du deck papier, issue #158, appliqué à l'affichage : les decks déjà importés en profitent) ; sinon l'anglais de l'édition demandée. Sans édition : française la plus récente, sinon anglaise par défaut de Scryfall |
 | Après import | Résumé + page « Voir le deck » |
 | Appels Scryfall | Faits par le serveur, par paquets de 20 lignes pilotés par le navigateur (limite Cloudflare de 50 appels sortants par requête ; 20 cartes distinctes = une seule recherche Scryfall, dont la requête est tronquée à 1000 caractères) |
 | Confiance | L'enregistrement relit le texte brut et n'utilise que le cache serveur, jamais des données de cartes envoyées par le navigateur |

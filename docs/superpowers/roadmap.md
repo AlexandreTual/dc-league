@@ -96,6 +96,7 @@ Décisions : il faut déjà un compte pour rejoindre une ligue (le site reste su
 
 ## Vérifications à faire après déploiement (par l'utilisateur)
 
+- Decks : une carte d'une édition sans version française (Secret Lair, sans bordure, *showcase*…) affiche le visuel du deck papier, avec le nom et le texte en français (#158). L'image du commandant dans la liste des decks change au prochain réimport.
 - Jeu en ligne : jouer une vraie partie à plusieurs, avec des amis (une partie avec de faux comptes fonctionne).
 
 Vérifié en production le 14 octobre : assistant IA (réponses justes), Oracle et règles, import par lien Moxfield et Archidekt, réimport, jetons du deck, force, endurance et loyauté (tous les decks ont été réimportés, il n'y a plus d'ancien deck), ainsi que le reste de la liste précédente. Le plein écran sur iPhone et Android ne sera pas testé : le téléphone n'est pas une cible.
