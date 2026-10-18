@@ -1,4 +1,5 @@
 import { getLookups, saveLookups, upsertCards } from '@/lib/db-cards'
+import { foldText } from '@/lib/text'
 import { lookupKey } from './parse'
 import { pickFrenchPrint, ScryfallUnavailableError, toCardRow, toFrenchPrint, type FrenchPrint, type Identifier, type ScryfallCard, type ScryfallClient } from './scryfall'
 import type { CardFace, CardLookup, CardRow, ParsedLine, StoredCardLookup } from './types'
@@ -12,7 +13,7 @@ type Wanted = { key: string; name: string; set: string | null; number: string | 
 
 /** Nom comparable : minuscules, espaces réduits, sans accents (« Lim-Dûl » = « Lim-Dul »). */
 function plainName(name: string): string {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase()
+  return foldText(name).trim().replace(/\s+/g, ' ')
 }
 
 const frontFace = (name: string) => name.split(' // ')[0]

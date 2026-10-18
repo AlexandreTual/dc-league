@@ -80,4 +80,23 @@ describe('filterPile et countByType', () => {
     expect(filterPile([delver], { text: '', types: ['creature'] }, s.catalogs)).toEqual([delver])
     expect(countByType([delver], s.catalogs)).toEqual([{ type: 'creature', label: 'Créature', count: 1 }])
   })
+
+  it('texte sans accents, ni casse, œ = oe, apostrophes équivalentes', () => {
+    const { s } = pile()
+    const named = (id: string, name: string) => visible(s, 't1', { id, token: { ...soldier, name } })
+    const cards = [named('neron', 'Néron'), named('coeur', 'Cœur'), named('coeur2', 'Coeur'), named('ange', 'L’ange'), named('ange2', "L'ange"), named('ether', 'Ether')]
+    const find = (text: string) => names(filterPile(cards, { text, types: [] }, s.catalogs))
+    for (const text of ['neron', 'Neron', 'NÉRON', 'néron']) expect(find(text)).toEqual(['neron'])
+    expect(find('coeur')).toEqual(['coeur', 'coeur2'])
+    expect(find('cœur')).toEqual(['coeur', 'coeur2'])
+    expect(find("l'ange")).toEqual(['ange', 'ange2'])
+    expect(find('l’ange')).toEqual(['ange', 'ange2'])
+    expect(find('éther')).toEqual(['ether'])
+    expect(find('  ')).toEqual(cards.map((c) => c.id))
+  })
+
+  it('nom anglais sans accent toujours trouvé', () => {
+    const { s, cards } = pile()
+    expect(names(filterPile(cards, { text: 'SOL RING', types: [] }, s.catalogs))).toEqual([card('p1', 2)])
+  })
 })

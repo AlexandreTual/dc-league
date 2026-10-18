@@ -254,6 +254,12 @@ try {
     `filtre « Créature » : ${creatures} créatures seulement`)
   await page.getByRole('button', { name: 'Tous', exact: true }).click()
   check((await page.locator('[data-pile-card]').count()) === libraryAfter, `filtre « Tous » : toute la bibliothèque (${libraryAfter})`)
+  // Le nom se cherche sans accents ni casse : « FORET » trouve « Forêt ».
+  const nameFilter = page.getByPlaceholder('Filtrer par nom (FR ou EN)…')
+  await nameFilter.fill('FORET')
+  const shownNames = await page.locator('[data-pile-card] [title]').evaluateAll((els) => els.map((e) => e.getAttribute('title')))
+  check(shownNames.length > 0 && shownNames.every((n) => ['Forêt', 'Forest'].includes(n)), `recherche « FORET » sans accent : ${shownNames.length} Forêts`)
+  await nameFilter.fill('')
   await capture('recherche-filtre')
   await page.getByRole('dialog').getByRole('checkbox').uncheck()
   await page.getByRole('button', { name: 'Fermer', exact: true }).click()
