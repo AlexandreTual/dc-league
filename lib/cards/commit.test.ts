@@ -55,6 +55,18 @@ describe('commitDeckList', () => {
     expect(cards[0]).toMatchObject({ section: 'commander', requested_name: 'Kenrith, the Returned King' })
   })
 
+  it('commandant d’une impression sans version française : image de l’impression demandée (#158)', async () => {
+    const text = 'Commander\n1 Kenrith, the Returned King (SLD) 777'
+    const [line] = parseDeckList(text).lines
+    await seedCache(db, [{
+      key: lookupKey(line),
+      en: cardRow({ id: 'ken-sld', name: line.name, set_code: 'sld', collector_number: '777', image_normal: 'https://img/ken-sld.jpg' }),
+      fr: cardRow({ id: 'ken-eld-fr', lang: 'fr', name: line.name, set_code: 'eld', collector_number: '303', image_normal: 'https://img/ken-eld-fr.jpg' }),
+    }])
+    await commitDeckList(db, 'd1', text, scryfall())
+    expect(await deckImage()).toBe('https://img/ken-sld.jpg')
+  })
+
   it('met à jour l’image du commandant avec la version française', async () => {
     await commitDeckList(db, 'd1', fixture, scryfall())
     expect(await deckImage()).toBe('https://img/fr-0.jpg')

@@ -1,4 +1,5 @@
 import type { Result } from './db'
+import { playerVisual } from './cards/visual'
 import type { CardLookup, CardRow, DeckCardView, DeckTokenRow, Ruling, Section, StoredCardLookup } from './cards/types'
 import type { DeckToken } from './game/types'
 
@@ -293,14 +294,19 @@ export async function listDeckCards(db: D1Database, deckId: string): Promise<Res
     const cards = await getCards(db, ids)
     if (cards.error !== null) return err(cards.error)
     return ok(
-      results.map((r) => ({
-        position: Number(r.position),
-        quantity: Number(r.quantity),
-        section: r.section as Section,
-        requested_name: r.requested_name as string,
-        en: cards.data[r.en_card_id as string] ?? null,
-        fr: cards.data[r.fr_card_id as string] ?? null,
-      })),
+      results.map((r) => {
+        const en = cards.data[r.en_card_id as string] ?? null
+        const fr = cards.data[r.fr_card_id as string] ?? null
+        const asked = { set: (r.requested_set as string | null) ?? null, number: (r.requested_number as string | null) ?? null }
+        return {
+          position: Number(r.position),
+          quantity: Number(r.quantity),
+          section: r.section as Section,
+          requested_name: r.requested_name as string,
+          en,
+          fr: playerVisual(fr, en, asked),
+        }
+      }),
     )
   } catch (e) {
     return err((e as Error).message)
