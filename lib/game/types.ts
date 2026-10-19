@@ -1,5 +1,5 @@
 import type { CardFace, CardRow } from '@/lib/cards/types'
-import type { GainedAbility, Keyword } from './abilities'
+import type { AbilityChoice, GainedAbility, Keyword } from './abilities'
 
 export type { CardFace }
 
@@ -100,6 +100,8 @@ export type CardInstance = {
   loyaltyMod?: number
   /** Pivotée à 180° (ex. jeton imprimé tête-bêche) ; absent sinon, et toujours hors du champ de bataille. */
   rotated?: true
+  /** Hors phase (règle 702.26) : traitée comme absente jusqu'à son retour ; absent sinon, et toujours hors du champ de bataille. */
+  phasedOut?: true
   /** Capacités données (« Donner une capacité… ») ; absent : aucune, et toujours hors du champ de bataille. */
   gained?: GainedAbility[]
   /** Capacités imprimées perdues ; absent : aucune, et toujours hors du champ de bataille. */
@@ -171,6 +173,13 @@ export type GameAction = Stamp & (
   | { type: 'endTurn'; actor: string; byHost?: boolean }
   | { type: 'move'; actor: string; id: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
   | { type: 'moveTop'; actor: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
+  /**
+   * Plusieurs cartes d'une même zone déplacées d'un coup (sélection) : vers mon champ de bataille, sinon vers la zone
+   * de chaque propriétaire. `ids` dans l'ordre choisi : la première finit au-dessus (bibliothèque, cimetière, exil) ;
+   * `places` : position de chaque carte posée sur le champ de bataille ; `random` : ordre tiré au sort avec `seed`
+   * (posée par le serveur).
+   */
+  | { type: 'moveMany'; actor: string; ids: string[]; zone: PlayerZone; position?: 'top' | 'bottom'; places?: { x: number; y: number }[]; random?: boolean; seed?: Seed }
   | { type: 'giveControl'; actor: string; id: string; to: string }
   | { type: 'tap'; actor: string; id: string }
   | { type: 'untapAll'; actor: string }
@@ -178,12 +187,14 @@ export type GameAction = Stamp & (
   /** Pivote une carte en jeu à 180° (et retour). */
   | { type: 'rotate'; actor: string; id: string }
   | { type: 'faceDown'; actor: string; id: string }
+  /** Fait passer un permanent hors phase (et revenir en phase). */
+  | { type: 'phase'; actor: string; id: string }
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
   /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
   | { type: 'loyalty'; actor: string; id: string; delta: number }
   /** Capacités voulues du permanent (données, imprimées perdues) ; `untilEndOfTurn` : durée de celles ajoutées. */
-  | { type: 'abilities'; actor: string; id: string; gained: Keyword[]; lost: Keyword[]; untilEndOfTurn?: boolean }
+  | { type: 'abilities'; actor: string; id: string; gained: AbilityChoice[]; lost: Keyword[]; untilEndOfTurn?: boolean }
   | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number; copy?: boolean }
   | { type: 'life'; actor: string; target: string; delta: number }
   | { type: 'poison'; actor: string; target: string; delta: number }
@@ -226,6 +237,8 @@ export type VisibleCard = {
   loyaltyMod?: number
   /** Absent : non pivotée, ou serveur de jeu plus ancien. */
   rotated?: true
+  /** Absent : en phase, ou serveur de jeu plus ancien. */
+  phasedOut?: true
   /** Absent : aucune capacité donnée, ou serveur de jeu plus ancien. */
   gained?: GainedAbility[]
   /** Absent : aucune capacité imprimée perdue, ou serveur de jeu plus ancien. */

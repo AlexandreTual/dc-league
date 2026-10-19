@@ -1,6 +1,6 @@
 // Validation des actions reçues d'un navigateur : rien n'y est fiable (types, bornes, champs en trop).
 import type { ClientAction } from './room'
-import { isKeyword, KEYWORDS } from './abilities'
+import { isKeyword, isValidParam, KEYWORDS, takesParam } from './abilities'
 import { DICE_SIDES, MAX_DICE } from './dice'
 import { MANA_COLORS, PLAYER_ZONES } from './types'
 
@@ -77,6 +77,13 @@ const token = object({
 })
 /** Liste de capacités de la modale (vide permise), sans autre mot. */
 const keywords = either(when((v) => Array.isArray(v) && v.length === 0), listOf(when(isKeyword), KEYWORDS.length))
+/** Capacité donnée : un mot-clé sans précision, ou `{ keyword, param }` pour Protection et Parade (précision valable). */
+const choice: Check = (v) => {
+  if (typeof v === 'string') return isKeyword(v) && !takesParam(v) ? v : INVALID
+  if (!isObject(v) || !isKeyword(v.keyword) || !takesParam(v.keyword) || !isValidParam(v.keyword, v.param)) return INVALID
+  return { keyword: v.keyword, param: v.param }
+}
+const choices = either(when((v) => Array.isArray(v) && v.length === 0), listOf(choice, KEYWORDS.length))
 const placement = { position, x: optional(finite), y: optional(finite), faceDown: optional(bool) }
 
 /** Champs attendus pour chaque type d'action envoyée par un joueur (auteur et graine sont posés par le serveur). */
@@ -88,16 +95,24 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   endTurn: {},
   move: { id, to: zoneRef, ...placement },
   moveTop: { to: zoneRef, ...placement },
+  moveMany: {
+    ids: listOf(id, MAX_CARDS),
+    zone: oneOf(PLAYER_ZONES),
+    position: optional(oneOf(['top', 'bottom'])),
+    places: optional(listOf(object({ x: finite, y: finite }), MAX_CARDS)),
+    random: optional(bool),
+  },
   giveControl: { id, to: player },
   tap: { id },
   untapAll: {},
   flip: { id },
   rotate: { id },
   faceDown: { id },
+  phase: { id },
   counter: { id, kind: oneOf(['plus', 'minus', 'other']), delta },
   pt: { id, power: delta, toughness: delta },
   loyalty: { id, delta },
-  abilities: { id, gained: keywords, lost: keywords, untilEndOfTurn: optional(bool) },
+  abilities: { id, gained: choices, lost: keywords, untilEndOfTurn: optional(bool) },
   createToken: { token, x: finite, y: finite, copy: optional(bool) },
   life: { target: player, delta },
   poison: { target: player, delta },

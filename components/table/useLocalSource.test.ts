@@ -28,6 +28,14 @@ describe('keepsHand (mode test)', () => {
     }
   })
 
+  it('après un mulligan, plusieurs cartes de la main mises au-dessous d’un coup : la main n’est pas gardée', () => {
+    const s = mull(fresh, 1)
+    const ids = s.players.p1.zones.hand.slice(0, 2)
+    expect(keepsHand({ type: 'moveMany', ids, zone: 'library', position: 'bottom' }, s, 'p1')).toBe(false)
+    expect(keepsHand({ type: 'moveMany', ids, zone: 'library', position: 'top' }, s, 'p1')).toBe(true)
+    expect(keepsHand({ type: 'moveMany', ids, zone: 'graveyard' }, s, 'p1')).toBe(true)
+  })
+
   it('mise au-dessous avant tout mulligan (main de départ) : garde la main comme toute autre action', () => {
     expect(keepsHand(bottom(fresh.players.p1.zones.hand[0]), fresh, 'p1')).toBe(true)
   })

@@ -1,8 +1,8 @@
 // Effets des cartes en jeu, dans de vrais navigateurs : liseré doré et éclat d'arrivée des permanents légendaires,
-// flottement des créatures volantes ; mode test à la souris (réglage « Animations des cartes »), mouvement réduit,
+// entrée du commandant (halo, ondes, couronne), flottement des créatures volantes ; mode test à la souris (réglage « Animations des cartes »), mouvement réduit,
 // tablette (1180 × 820, tactile), puis partie en ligne à 2.
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs : Teferi légendaire,
-// Anneau solaire, Ange de Serra volant, jeton Esprit volant).
+// Anneau solaire, Ange de Serra volant, jeton Esprit volant, commandant Kenrith).
 // Usage : node scripts/card-effects-check.mjs <url-de-base> <dossier-captures>
 import { chromium } from 'playwright-core'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
@@ -63,6 +63,19 @@ async function onBattlefield(who, name, solo = false) {
   return card
 }
 
+/** Commandant du joueur mis sur son champ de bataille depuis la zone de commandement. Renvoie son sélecteur. */
+async function commanderOnBattlefield(who, solo = false) {
+  const { page } = who
+  const me = solo ? await page.locator('[data-zone="hand"][data-player]').first().getAttribute('data-player') : who.id
+  const commander = page.locator(`[data-zone="command"][data-player="${me}"] [data-card-id]`).first()
+  const id = await commander.getAttribute('data-card-id')
+  await commander.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Champ de bataille' }).click()
+  const card = `[data-zone="battlefield"][data-player="${me}"] [data-card-id="${id}"]`
+  await page.locator(card).waitFor()
+  return card
+}
+
 async function playtest(who) {
   await who.page.goto(`${base}/decks/deck-${who.id}`)
   await who.page.evaluate((id) => {
@@ -79,6 +92,23 @@ const fxOf = (locator) => locator.evaluate((el) => {
   const style = glint && getComputedStyle(glint)
   return { frame: !!el.querySelector('.card-legendary'), glint: !!style && style.display !== 'none' && style.animationName === 'card-glint' }
 })
+/** Entrée du commandant : en cours, ondes animées (cachées en mouvement réduit), couronne et son animation. */
+const commanderFx = (locator) => locator.evaluate((el) => {
+  const card = el.matches('[data-commander-arrival]') ? el : el.querySelector('[data-commander-arrival]')
+  const wave = el.querySelector('.card-commander-wave')
+  const crown = el.querySelector('.card-commander-crown')
+  return {
+    arrival: !!card,
+    wave: !!wave && getComputedStyle(wave).display !== 'none' && getComputedStyle(wave).animationName === 'commander-wave',
+    crown: !!crown && getComputedStyle(crown).display !== 'none',
+    crownAnimation: crown ? getComputedStyle(crown).animationName : null,
+  }
+})
+/** Attend l'entrée du commandant (posée juste après l'affichage de la carte sur le champ de bataille). */
+const arrived = async (locator) => {
+  await locator.locator('[data-commander-arrival]').waitFor({ timeout: 1500 }).catch(() => {})
+  return locator
+}
 /** Flottement d'une carte : présent, nom de l'animation (« none » en mouvement réduit) et hauteur de la carte. */
 const flightOf = (locator) => locator.evaluate((el) => {
   const lift = el.querySelector('.card-lift')
@@ -90,8 +120,8 @@ const tapSelector = (locator) => locator.evaluate((el) => `[data-card-id="${el.d
 const waitTapped = async (page, locator, tapped) =>
   page.waitForFunction(([sel, t]) => document.querySelector(sel)?.style.transform.includes('90deg') === t, [await tapSelector(locator), tapped])
 
-/** L'éclat dure 1,1 s et disparaît ensuite. */
-const afterGlint = (page) => page.waitForTimeout(1800)
+/** L'éclat dure 1,1 s, l'entrée du commandant 1,7 s ; les effets d'arrivée disparaissent au bout de 2 s. */
+const afterGlint = (page) => page.waitForTimeout(2300)
 
 async function setEffects(page, on) {
   await page.getByRole('button', { name: 'Réglages' }).click()
@@ -123,6 +153,22 @@ try {
   const tapped = await fxOf(teferi)
   check(tapped.frame && !tapped.glint, 'Teferi engagé : garde son liseré, sans nouvel éclat')
   await capture(page, 'engage')
+  check(!(await commanderFx(teferi)).arrival, 'Teferi (pas le commandant) : pas d’entrée de commandant')
+
+  // Entrée du commandant : il se pose avec un halo, deux ondes dorées et une couronne, une seule fois.
+  const kenrith = page.locator(await commanderOnBattlefield(solo, true))
+  const entrance = await commanderFx(await arrived(kenrith))
+  check(entrance.arrival && entrance.wave && entrance.crown && entrance.crownAnimation === 'commander-crown', 'commandant arrivé en jeu : halo, ondes dorées et couronne')
+  check((await fxOf(kenrith)).glint, 'commandant légendaire : son éclat aussi')
+  await page.waitForTimeout(250)
+  await page.screenshot({ path: `${outDir}/card-effects-commandant-entree.png` })
+  console.log(`📸 ${outDir}/card-effects-commandant-entree.png`)
+  await afterGlint(page)
+  const landed = await commanderFx(kenrith)
+  check(!landed.arrival && !landed.crown && (await fxOf(kenrith)).frame, 'puis plus que le liseré doré')
+  await kenrith.dblclick()
+  await waitTapped(page, kenrith, true)
+  check(!(await commanderFx(kenrith)).arrival, 'commandant engagé : pas de nouvelle entrée')
 
   // Posé au même endroit que Teferi, l'Anneau solaire le recouvre : à vérifier après le double-clic.
   const sol = page.locator(await onBattlefield(solo, SOL_RING, true))
@@ -177,6 +223,8 @@ try {
   const calmAngel = calm.page.locator(await onBattlefield(calm, ANGEL, true))
   const calmFlight = await flightOf(calmAngel)
   check(calmFlight.flying && calmFlight.animation === 'none' && calmFlight.transform !== 'none', 'mouvement réduit : l’Ange reste surélevé, immobile')
+  const calmCommander = await commanderFx(await arrived(calm.page.locator(await commanderOnBattlefield(calm, true))))
+  check(calmCommander.arrival && calmCommander.crown && calmCommander.crownAnimation === 'none' && !calmCommander.wave, 'mouvement réduit : le commandant qui arrive montre sa couronne, immobile, sans ondes')
 
   // ── Mode test, sur tablette (tactile) ──
   const tablet = await openAs(ANA, { viewport: { width: 1180, height: 820 }, mobile: true })
@@ -226,6 +274,16 @@ try {
   await afterGlint(bastien.page)
   const seen = await fxOf(seenByBastien)
   check(seen.frame && !seen.glint, 'en ligne : puis le liseré seul')
+
+  await afterGlint(ana.page)
+  const anaKenrith = await commanderOnBattlefield(ana)
+  check((await commanderFx(await arrived(ana.page.locator(anaKenrith)))).arrival, 'en ligne : Ana voit l’entrée de son commandant')
+  const kenrithId = await ana.page.locator(anaKenrith).getAttribute('data-card-id')
+  const kenrithForBastien = bastien.page.locator(`[data-zone="battlefield"][data-player="${ANA.id}"] [data-card-id="${kenrithId}"], [data-zone="battlefield"][data-player="${ANA.id}"] [data-strip-card="${kenrithId}"]`)
+  await kenrithForBastien.waitFor()
+  const kenrithSeen = await commanderFx(await arrived(kenrithForBastien))
+  check(kenrithSeen.arrival && kenrithSeen.wave && kenrithSeen.crown, 'en ligne : Bastien voit l’entrée du commandant d’Ana')
+  await capture(bastien.page, 'en-ligne-commandant')
 
   const anaAngel = await onBattlefield(ana, ANGEL)
   const angelId = await ana.page.locator(anaAngel).getAttribute('data-card-id')

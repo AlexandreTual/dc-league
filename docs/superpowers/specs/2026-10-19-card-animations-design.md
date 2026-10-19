@@ -33,6 +33,19 @@ Effet : un liseré doré fin, permanent. À l'**arrivée en jeu**, un éclat tra
   plateau). Une carte qui quitte le champ de bataille puis y revient a un nouvel éclat.
 - Une carte légendaire engagée garde son liseré.
 
+## Entrée du commandant (ajoutée le 19 octobre)
+
+Quand un **commandant** (`isCommander`, déjà dans la vue) arrive sur un champ de bataille, son entrée est remarquable, une
+seule fois (1,7 s) : la carte **se pose** depuis un peu plus haut et plus grande, un **halo doré** s'allume derrière elle,
+**deux ondes dorées** s'élargissent autour, et une **couronne** surgit au-dessus de la carte puis s'efface.
+
+- Même notion d'« arrivée en jeu » que l'éclat des légendaires : chez tous les joueurs, jamais au premier affichage, ni quand
+  la carte est engagée ou déplacée ; un commandant renvoyé puis relancé a une nouvelle entrée.
+- Un commandant légendaire a aussi son éclat, puis garde son liseré.
+- Commandant face cachée : pas d'entrée (`commanderEntrance`, `lib/game/card-effects.ts`).
+- Coupée par la case « Animations des cartes ». Mouvement réduit : seulement la couronne, immobile, le temps de l'arrivée.
+- Les effets d'arrivée restent affichés 2 s (au lieu de 1,5 s) pour laisser finir l'entrée.
+
 ## Vol : flottement (retenu)
 
 Une créature vole si elle a le vol **imprimé** et ne l'a pas perdu, ou si on le lui a **donné** (voir « Capacités données »).
@@ -100,7 +113,7 @@ Liste de départ (nom français officiel, nom Scryfall, icône Lucide), qu'on po
 | Défenseur | Defender | BrickWall |
 | Infection | Infect | Biohazard |
 
-Les capacités qui prennent un paramètre (protection contre une couleur, gardien {coût}…) sont hors champ : on pourra les ajouter
+Les capacités qui prennent un paramètre (protection contre une couleur, Parade {coût}…) sont hors champ : on pourra les ajouter
 plus tard avec une saisie libre.
 
 ### Affichage sur la carte
@@ -184,5 +197,5 @@ plus tard avec une saisie libre.
     `viewFor`.
 - **Navigateur** :
   - nouveau script `scripts/card-effects-check.mjs` : mode test, en ligne, tablette, réglage décoché, mouvement réduit,
-    modale des capacités ;
+    modale des capacités, entrée du commandant ;
   - `playtest-check` et `online-check` toujours verts.

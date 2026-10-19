@@ -1,9 +1,11 @@
 'use client'
 
 import { useDroppable } from '@dnd-kit/core'
+import { canSelectIn } from '@/lib/game/selection'
 import type { Catalog, CardView, PlayerView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack, type Lang } from './GameCard'
+import { useLasso, type Box } from './lasso'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
 import { battlefieldStyle, cardSize, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
 
@@ -21,6 +23,16 @@ export type CardHandlers = {
   onPtEdit?: (id: string, zone: ZoneRef, at: MenuPoint) => void
 }
 
+/** Sélection de plusieurs cartes (mon champ de bataille, ma main) : seulement sur mon plateau, pour un joueur. */
+export type ZoneSelection = {
+  ids: Set<string>
+  /** Cartes emportées avec celle qu'on glisse : estompées. */
+  lifted: Set<string>
+  onSelect: (zone: ZoneRef, ids: string[], additive: boolean) => void
+  onToggle: (zone: ZoneRef, id: string) => void
+  onClear: () => void
+}
+
 export type ZoneProps = {
   view: PlayerView
   player: string
@@ -35,6 +47,8 @@ export type ZoneProps = {
   settings?: TableSettings
   /** Cartes qui viennent d'arriver en jeu (éclat d'un légendaire). */
   arriving?: Set<string>
+  /** Sélection de cartes ; absente : pas de rectangle de sélection (plateaux des adversaires, spectateur). */
+  selection?: ZoneSelection
 }
 
 const visible = (cards: CardView[]) => cards.filter((c): c is VisibleCard => !c.hidden)
@@ -59,7 +73,31 @@ export function cardProps(id: string, zone: ZoneRef, props: ZoneProps) {
     onDoubleClick: () => handlers.onDoubleClick(id, zone),
     onContextMenu: (at: MenuPoint) => handlers.onContextMenu(id, zone, at),
     onHover: (h: boolean) => handlers.onHover(h ? id : null),
+    selected: props.selection?.ids.has(id) ?? false,
+    faded: props.selection?.lifted.has(id) ?? false,
+    onSelectClick: props.selection && canSelectIn(props.view.me, zone) ? () => props.selection?.onToggle(zone, id) : undefined,
   }
+}
+
+/** Rectangle de sélection d'une zone, si elle en permet un (ma zone, sélection fournie). */
+function useZoneLasso(props: ZoneProps, ref: ZoneRef, onLongPress?: (at: MenuPoint) => void) {
+  const enabled = !!props.selection && canSelectIn(props.view.me, ref)
+  const lasso = useLasso({
+    enabled,
+    onSelect: (ids, additive) => props.selection?.onSelect(ref, ids, additive),
+    onClear: () => props.selection?.onClear(),
+    onLongPress,
+  })
+  return { ...lasso, enabled }
+}
+
+/** Le rectangle en cours de tracé, dans sa zone. */
+function LassoBox({ box }: { box: Box | null }) {
+  if (!box) return null
+  return (
+    <div className="absolute z-[6] pointer-events-none rounded-sm border border-sky-400 bg-sky-400/15" data-testid="lasso"
+      style={{ left: box.left, top: box.top, width: box.width, height: box.height }} />
+  )
 }
 
 /** Ouverture de la modification de loyauté ou de force/endurance d'une carte en jeu, si la table la permet. */
@@ -78,9 +116,11 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
   const { setNodeRef, highlight } = useZone(ref)
   const settings = props.settings ?? DEFAULT_TABLE_SETTINGS
   const size = cardSize(settings.cardScale)
+  const lasso = useZoneLasso(props, ref)
   return (
-    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(settings)}
-      className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${highlight}`}>
+    <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(settings)} onPointerDown={lasso.onPointerDown}
+      className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${lasso.enabled ? `touch-none ${longPressClass}` : ''} ${highlight}`}>
+      <LassoBox box={lasso.box} />
       <span className="absolute top-2 left-3 text-dc-muted text-xs pointer-events-none">{props.label ?? 'Champ de bataille'}</span>
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
@@ -104,14 +144,25 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
   const { setNodeRef, highlight } = useZone(ref)
   const hand = view.players[player].zones.hand
   const press = menuGesture(props.onZoneContextMenu)
+  // Avec la sélection, l'appui long dans le vide trace le rectangle ; relâché sans glisser, il ouvre le menu de la main.
+  const lasso = useZoneLasso(props, ref, props.onZoneContextMenu)
+  const gestures = lasso.enabled ? {
+    onPointerDown: lasso.onPointerDown,
+    onContextMenu: (e: React.MouseEvent) => {
+      // Menu natif d'Android pendant l'appui long : ignoré, le menu s'ouvre au lever du doigt.
+      if (lasso.touching()) return e.preventDefault()
+      press.onContextMenu?.(e)
+    },
+  } : press
   return (
     <div
       ref={setNodeRef}
       data-zone="hand"
       data-player={player}
-      className={`relative flex-1 min-w-0 min-h-0 flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${highlight}`}
-      {...press}
+      className={`relative flex-1 min-w-0 min-h-0 flex items-center justify-center gap-1 px-4 py-2 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/60 ${longPressClass} ${lasso.enabled ? 'touch-none' : ''} ${highlight}`}
+      {...gestures}
     >
+      <LassoBox box={lasso.box} />
       <span className="absolute top-1 left-3 text-dc-muted text-xs pointer-events-none">Main ({hand.length})</span>
       {hand.map((card, i) =>
         card.hidden ? (

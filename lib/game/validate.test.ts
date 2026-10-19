@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseClientAction } from './validate'
+import { KEYWORDS } from './abilities'
 
 const soldier = { name: 'Soldat', typeLine: 'Token Creature — Soldat', power: '1', toughness: '1', colors: ['W'], image: null }
 const ok = (raw: unknown) => {
@@ -17,10 +18,18 @@ describe('parseClientAction', () => {
     ok({ type: 'move', id: 'p1:c2-1', to: { player: 'p1', zone: 'battlefield' }, x: 12.5, y: 40, faceDown: true })
     ok({ type: 'move', id: 'p1:c2-1', to: { player: 'p1', zone: 'library' }, position: 'bottom' })
     ok({ type: 'moveTop', to: { player: 'p1', zone: 'library' }, position: 3 })
+    ok({ type: 'moveMany', ids: ['a', 'b'], zone: 'graveyard' })
+    expect(ok({ type: 'moveMany', ids: ['a', 'b'], zone: 'library', position: 'bottom', random: true, seed: 'x' }))
+      .toEqual({ type: 'moveMany', ids: ['a', 'b'], zone: 'library', position: 'bottom', random: true })
+    ok({ type: 'moveMany', ids: ['a'], zone: 'battlefield', places: [{ x: 10, y: 20.5 }] })
     ok({ type: 'createToken', token: soldier, x: 50, y: 50 })
     expect(ok({ type: 'abilities', id: 'c1', gained: ['Flying', 'First strike'], lost: [], untilEndOfTurn: true }))
       .toEqual({ type: 'abilities', id: 'c1', gained: ['Flying', 'First strike'], lost: [], untilEndOfTurn: true })
     ok({ type: 'abilities', id: 'c1', gained: [], lost: ['Flying'] })
+    expect(ok({ type: 'abilities', id: 'c1', gained: ['Haste', { keyword: 'Protection', param: 'R,G' }, { keyword: 'Ward', param: '{2}', extra: 1 }], lost: ['Ward'] }))
+      .toEqual({ type: 'abilities', id: 'c1', gained: ['Haste', { keyword: 'Protection', param: 'R,G' }, { keyword: 'Ward', param: '{2}' }], lost: ['Ward'] })
+    expect(ok({ type: 'abilities', id: 'c1', gained: ['Forestwalk', { keyword: 'Annihilator', param: '2' }], lost: ['Undying'] }))
+      .toEqual({ type: 'abilities', id: 'c1', gained: ['Forestwalk', { keyword: 'Annihilator', param: '2' }], lost: ['Undying'] })
     expect(ok({ type: 'createToken', token: { ...soldier, keywords: ['Flying', 'Vigilance'] }, x: 50, y: 50 }))
       .toMatchObject({ token: { keywords: ['Flying', 'Vigilance'] } })
     ok({ type: 'createToken', token: { ...soldier, keywords: [] }, x: 50, y: 50 })
@@ -58,6 +67,11 @@ describe('parseClientAction', () => {
     ko({ type: 'look', target: 'p2', count: -1 })
     ko({ type: 'move', id: 'a', to: { player: 'p1', zone: 'battlefield' }, x: 'gauche' })
     ko({ type: 'move', id: 'a', to: { player: 'p1', zone: 'battlefield' }, x: NaN })
+    ko({ type: 'moveMany', ids: [], zone: 'graveyard' })
+    ko({ type: 'moveMany', ids: ['a'], zone: 'ciel' })
+    ko({ type: 'moveMany', ids: ['a'], zone: 'library', position: 3 })
+    ko({ type: 'moveMany', ids: ['a'], zone: 'battlefield', places: [{ x: 'gauche', y: 1 }] })
+    ko({ type: 'moveMany', ids: Array.from({ length: 251 }, (_, i) => `c${i}`), zone: 'graveyard' })
     ko({ type: 'move', id: 'a', to: { player: 'p1', zone: 'library' }, position: 'milieu' })
     ko({ type: 'mana', color: 'X', delta: 1 })
     ko({ type: 'counter', id: 'x', kind: 'autre', delta: 1 })
@@ -83,8 +97,14 @@ describe('parseClientAction', () => {
     const { typeLine: _t, ...noType } = soldier
     ko({ type: 'createToken', token: noType, x: 50, y: 50 })
     ko({ type: 'abilities', id: 'c1', gained: ['Bouclier'], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: ['Protection'], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: [{ keyword: 'Protection', param: 'rose' }], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: ['Annihilator'], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: [{ keyword: 'Toxic', param: '0' }], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: [{ keyword: 'Forestwalk', param: '1' }], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: [{ keyword: 'Haste', param: '{2}' }], lost: [] })
     ko({ type: 'abilities', id: 'c1', gained: ['Flying'] })
-    ko({ type: 'abilities', id: 'c1', gained: Array(16).fill('Flying'), lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: Array(KEYWORDS.length + 1).fill('Flying'), lost: [] })
     ko({ type: 'abilities', id: 'c1', gained: [], lost: [], untilEndOfTurn: 'oui' })
     ko({ type: 'createToken', token: { ...soldier, name: '' }, x: 50, y: 50 })
     ko({ type: 'createToken', token: { ...soldier, colors: 'W' }, x: 50, y: 50 })

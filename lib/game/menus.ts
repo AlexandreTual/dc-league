@@ -5,6 +5,7 @@ import { printedKeywordsOf } from './card-effects'
 import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
 import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
 import type { ClientAction } from './room'
+import type { OrderRequest } from './selection'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
 
 export type MenuCommand =
@@ -17,6 +18,10 @@ export type MenuCommand =
   | { kind: 'askAi'; owner: string; ref: number }
   /** Fenêtre « Capacités » d'une carte en jeu (« Donner une capacité… »). */
   | { kind: 'abilities'; id: string }
+  /** Fenêtre « Ordre des cartes » d'un groupe sélectionné, avant de le poser sur une pile. */
+  | ({ kind: 'order' } & OrderRequest)
+  /** Vide la sélection de cartes. */
+  | { kind: 'clearSelection' }
 
 export type MenuEntry =
   | { kind: 'title'; label: string }
@@ -179,7 +184,8 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
       return delta === 0 ? [] : [act({ type: 'counter', id, kind, delta })]
     },
   })
-  const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
+  const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id })),
+    item(card.phasedOut ? 'Revenir en phase' : 'Passer hors phase', act({ type: 'phase', id }))]
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
   if (controller) {
     entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })),
