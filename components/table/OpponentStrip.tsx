@@ -2,6 +2,7 @@
 
 import { cardInfo } from '@/lib/game/apply'
 import { groupBattlefield, type Stack } from '@/lib/game/battlefield'
+import type { Arrival } from '@/lib/game/card-effects'
 import type { Catalog, PlayerView, VisibleCard } from '@/lib/game/types'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import { longPressClass, menuGesture } from './touch'
@@ -30,7 +31,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   /** Effets des cartes (réglage de la table). */
   effects?: boolean
   /** Cartes qui viennent d'arriver en jeu (éclat d'un légendaire). */
-  arriving?: Set<string>
+  arriving?: Map<string, Arrival>
   /** Capacités données ou perdues : symboles ou libellés (réglage de la table). */
   abilityStyle?: AbilityStyle
 }) {
@@ -53,7 +54,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       onMouseEnter={() => handlers.onHover(card.id)}
       onMouseLeave={() => handlers.onHover(null)}
     >
-      <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" pt onPtEdit={ptEdit(handlers, card.id, battlefield)} effects={effects} arriving={arriving?.has(card.id)} abilityStyle={abilityStyle} />
+      <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" pt onPtEdit={ptEdit(handlers, card.id, battlefield)} effects={effects} arriving={arriving?.get(card.id)} abilityStyle={abilityStyle} />
       {count > 1 && <span className="absolute -bottom-1 -right-1 rounded-full bg-black/80 text-dc-gold text-[10px] px-1">×{count}</span>}
     </div>
   )
