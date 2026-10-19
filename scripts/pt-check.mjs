@@ -52,6 +52,8 @@ async function playtestWithCommander(who) {
   await who.page.getByRole('menuitem', { name: 'Champ de bataille' }).click()
   const card = `[data-zone="battlefield"] [data-card-id="${id}"]`
   await who.page.locator(card).waitFor()
+  // Le commandant se pose en arrivant (plus grand au départ) : mesurer une fois son entrée finie.
+  await who.page.locator(`${card} [data-commander-arrival]`).waitFor({ state: 'detached', timeout: 5_000 })
   return card
 }
 
