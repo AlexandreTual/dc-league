@@ -37,20 +37,30 @@ Effet : un liseré doré fin, permanent. À l'**arrivée en jeu**, un éclat tra
 
 Une créature vole si elle a le vol **imprimé** et ne l'a pas perdu, ou si on le lui a **donné** (voir « Capacités données »).
 
-- **Vol imprimé** : mot-clé `Flying` dans les capacités de la face visible, fournies par Scryfall (champ `keywords`). On ne
-  cherche pas dans le texte de la carte : « ne peut être bloquée que par des créatures avec le vol » donnerait de faux positifs.
+- **Vol imprimé** : mot-clé `Flying` dans les capacités de la face visible, fournies par Scryfall (champ `keywords`).
+  - Scryfall donne une seule liste pour toute la carte, faces comprises, et y met aussi les mots-clés seulement cités
+    (« Creatures you control have flying »). Une carte recto-verso dont seul le verso vole (Delver of Secrets) volerait
+    donc dès le recto.
+  - On garde un mot-clé de cette liste seulement s'il est écrit sur une **ligne de mots-clés** du texte de la face
+    (« Flying, vigilance », « Flying (rappel…) », « Ward {2} »), jamais dans une phrase (`lib/cards/keywords.ts`). Le
+    calcul est fait à l'import, face par face.
 - **Animation** : la carte flotte doucement (quelques pixels, ~3 s par aller-retour) au-dessus d'une ombre qui rétrécit quand
   elle monte. Chaque carte a son propre décalage, pour que les créatures ne flottent pas toutes en même temps.
 - **Créature engagée** : elle se pose (pas de lévitation, ombre fixe).
-- **Jetons** : `TokenData` reçoit `keywords?: string[]`, facultatif, rempli depuis Scryfall pour les jetons du deck. Un jeton
-  créé à la main n'a pas de capacité imprimée, mais on peut lui en donner une.
+- **Jetons** : `TokenData` reçoit `keywords?: string[]`, facultatif (absent s'il n'en a pas). Il est rempli depuis Scryfall
+  pour les jetons du deck et ceux de la recherche, et repris de la face montrée pour un jeton copie. Un jeton créé à la
+  main n'a pas de capacité imprimée, mais on pourra lui en donner une (étape 3).
+  - Les jetons d'un deck importé avant la migration n'ont pas leurs capacités : elles arrivent au prochain import du deck
+    (« Réimporter »).
+  - Avec un serveur de jeu plus ancien, le champ est retiré à la validation : le jeton est créé sans flotter.
 
 ### Données
 
-- Migration `0018_card_keywords.sql` : `ALTER TABLE cards ADD COLUMN keywords TEXT;` (JSON ; `NULL` = pas encore lu).
-  `keywords` est aussi ajouté à chaque face du JSON `faces`.
-- `toCardRow` garde `keywords`. `CardRow.keywords?: string[] | null` est absent pour une carte enregistrée avant la migration,
-  ou dans le catalogue d'un serveur de jeu plus ancien.
+- Migration `0018_card_keywords.sql` : colonne `keywords` (JSON ; `NULL` = pas encore lues ; `[]` = aucune) dans `cards`
+  et dans `deck_tokens`. `keywords` est aussi ajouté à chaque face du JSON `faces`.
+- `toCardRow` calcule `keywords` (celles du recto) et celles de chaque face. `CardRow.keywords?: string[]` est absent pour
+  une carte enregistrée avant la migration.
+- Site déployé avant la migration : cartes et jetons sont enregistrés sans la colonne (comme pour la migration 0014).
 - Les cartes existantes sont rattrapées comme pour la force/endurance (`lib/cards/stats.ts`) : relues chez Scryfall à
   l'ouverture du deck en mode test ou au lancement d'une partie, une fois par carte. Pas de réimport nécessaire.
 

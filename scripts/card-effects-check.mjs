@@ -1,6 +1,8 @@
-// Liseré doré et éclat d'arrivée des permanents légendaires en jeu, dans de vrais navigateurs : mode test à la souris
-// (réglage « Animations des cartes »), mouvement réduit, tablette (1180 × 820, tactile), puis partie en ligne à 2.
-// Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs : Teferi légendaire, Anneau solaire).
+// Effets des cartes en jeu, dans de vrais navigateurs : liseré doré et éclat d'arrivée des permanents légendaires,
+// flottement des créatures volantes ; mode test à la souris (réglage « Animations des cartes »), mouvement réduit,
+// tablette (1180 × 820, tactile), puis partie en ligne à 2.
+// Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs : Teferi légendaire,
+// Anneau solaire, Ange de Serra volant, jeton Esprit volant).
 // Usage : node scripts/card-effects-check.mjs <url-de-base> <dossier-captures>
 import { chromium } from 'playwright-core'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
@@ -10,6 +12,7 @@ const executablePath = process.env.CHROME ?? process.env.CHROMIUM_PATH ?? '/opt/
 const [ANA, BASTIEN] = PLAYERS
 const TEFERI = 'Teferi, Time Raveler'
 const SOL_RING = 'Anneau solaire'
+const ANGEL = 'Ange de Serra'
 
 const browser = await chromium.launch({ executablePath })
 const errors = []
@@ -76,6 +79,17 @@ const fxOf = (locator) => locator.evaluate((el) => {
   const style = glint && getComputedStyle(glint)
   return { frame: !!el.querySelector('.card-legendary'), glint: !!style && style.display !== 'none' && style.animationName === 'card-glint' }
 })
+/** Flottement d'une carte : présent, nom de l'animation (« none » en mouvement réduit) et hauteur de la carte. */
+const flightOf = (locator) => locator.evaluate((el) => {
+  const lift = el.querySelector('.card-lift')
+  if (!lift) return { flying: false }
+  const style = getComputedStyle(lift)
+  return { flying: true, animation: style.animationName, transform: style.transform, shadow: !!el.querySelector('.card-shadow') }
+})
+const tapSelector = (locator) => locator.evaluate((el) => `[data-card-id="${el.dataset.cardId}"]`)
+const waitTapped = async (page, locator, tapped) =>
+  page.waitForFunction(([sel, t]) => document.querySelector(sel)?.style.transform.includes('90deg') === t, [await tapSelector(locator), tapped])
+
 /** L'éclat dure 1,1 s et disparaît ensuite. */
 const afterGlint = (page) => page.waitForTimeout(1800)
 
@@ -114,8 +128,30 @@ try {
   const sol = page.locator(await onBattlefield(solo, SOL_RING, true))
   check(!(await fxOf(sol)).frame, 'Anneau solaire (non légendaire) : aucun effet')
 
+  // Créature volante (posée par-dessus les autres : elle reste cliquable).
+  const angel = page.locator(await onBattlefield(solo, ANGEL, true))
+  const flight = await flightOf(angel)
+  check(flight.flying && flight.animation === 'card-hover' && flight.shadow, 'Ange de Serra (vol) en jeu : flotte au-dessus de son ombre')
+  check(!(await flightOf(sol)).flying && !(await flightOf(teferi)).flying, 'Anneau solaire et Teferi (sans vol) : ne flottent pas')
+  await capture(page, 'vol')
+  await angel.dblclick()
+  await waitTapped(page, angel, true)
+  check(!(await flightOf(angel)).flying, 'Ange engagé : il se pose')
+  await angel.dblclick()
+  await waitTapped(page, angel, false)
+  check((await flightOf(angel)).flying, 'Ange dégagé : il flotte de nouveau')
+
+  await page.getByRole('button', { name: 'Jeton', exact: true }).click()
+  const tokenDialog = page.getByRole('dialog', { name: 'Créer un jeton' })
+  await tokenDialog.getByRole('button', { name: /Esprit/ }).click()
+  const spirit = page.locator('[data-zone="battlefield"] [data-card-id]:has([title="Esprit"])').first()
+  await spirit.waitFor()
+  check((await flightOf(spirit)).flying, 'jeton Esprit du deck (vol) : flotte')
+  await page.keyboard.press('Escape')
+
   await setEffects(page, false)
   check(!(await fxOf(teferi)).frame, 'réglage « Animations des cartes » décoché : plus de liseré')
+  check(!(await flightOf(angel)).flying, 'réglage décoché : l’Ange ne flotte plus')
   await page.reload()
   await page.getByRole('button', { name: /Reprendre la partie/ }).click()
   await page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
@@ -138,6 +174,9 @@ try {
   const calmTeferi = calm.page.locator(await onBattlefield(calm, TEFERI, true))
   const calm1 = await fxOf(calmTeferi)
   check(calm1.frame && !calm1.glint, 'mouvement réduit : liseré doré seul, pas d’éclat')
+  const calmAngel = calm.page.locator(await onBattlefield(calm, ANGEL, true))
+  const calmFlight = await flightOf(calmAngel)
+  check(calmFlight.flying && calmFlight.animation === 'none' && calmFlight.transform !== 'none', 'mouvement réduit : l’Ange reste surélevé, immobile')
 
   // ── Mode test, sur tablette (tactile) ──
   const tablet = await openAs(ANA, { viewport: { width: 1180, height: 820 }, mobile: true })
@@ -187,6 +226,13 @@ try {
   await afterGlint(bastien.page)
   const seen = await fxOf(seenByBastien)
   check(seen.frame && !seen.glint, 'en ligne : puis le liseré seul')
+
+  const anaAngel = await onBattlefield(ana, ANGEL)
+  const angelId = await ana.page.locator(anaAngel).getAttribute('data-card-id')
+  check((await flightOf(ana.page.locator(anaAngel))).flying, 'en ligne : l’Ange d’Ana flotte chez elle')
+  const angelForBastien = bastien.page.locator(`[data-zone="battlefield"][data-player="${ANA.id}"] [data-card-id="${angelId}"], [data-zone="battlefield"][data-player="${ANA.id}"] [data-strip-card="${angelId}"]`)
+  await angelForBastien.waitFor()
+  check((await flightOf(angelForBastien)).flying, 'en ligne : Bastien voit l’Ange d’Ana flotter')
   await capture(ana.page, 'en-ligne-ana')
   await capture(bastien.page, 'en-ligne-bastien')
 

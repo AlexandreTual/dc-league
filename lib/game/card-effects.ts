@@ -23,6 +23,13 @@ export function printedKeywordsOf(catalog: Catalog | undefined, card: Pick<Visib
 /** Créature (ou permanent) avec le vol imprimé sur sa face montrée. */
 export const hasFlying = (catalog: Catalog | undefined, card: VisibleCard): boolean => printedKeywordsOf(catalog, card).includes('Flying')
 
+/** Décalage d'animation propre à une carte (de 0 à -3,1 s), pour que les créatures volantes ne flottent pas ensemble. */
+export function effectDelay(id: string): string {
+  let hash = 0
+  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) % 32
+  return `-${hash / 10}s`
+}
+
 /** Identifiants des cartes visibles sur tous les champs de bataille. */
 function battlefieldIds(view: PlayerView): Set<string> {
   return new Set(Object.values(view.players).flatMap((p) => p.zones.battlefield.flatMap((c) => (c.hidden ? [] : [c.id]))))

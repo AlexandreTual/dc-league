@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow, deckCardView } from '@/test/factories'
 import { buildCatalog } from './catalog'
-import { enteredBattlefield, hasFlying, isLegendary } from './card-effects'
+import { effectDelay, enteredBattlefield, hasFlying, isLegendary } from './card-effects'
 import type { CardView, Counters, PlayerView, TokenData, VisibleCard } from './types'
 
 const face = (name: string, type: string) => ({
@@ -77,6 +77,15 @@ describe('hasFlying', () => {
     expect(hasFlying(catalog, onTable(5, { faceDown: true }))).toBe(false)
     expect(hasFlying(catalog, onTable(99))).toBe(false)
     expect(hasFlying(undefined, onTable(5))).toBe(false)
+  })
+})
+
+describe('effectDelay', () => {
+  it('décalage stable, négatif, de moins d’un aller-retour (3,2 s), propre à chaque carte', () => {
+    expect(effectDelay('c1')).toBe(effectDelay('c1'))
+    const delays = ['c1', 'c2', 'c3', 'p1:c4-1', 'p2:c4-1'].map(effectDelay)
+    for (const d of delays) expect(d).toMatch(/^-(\d|[0-2]\.\d|3\.[01])s$/)
+    expect(new Set(delays).size).toBeGreaterThan(1)
   })
 })
 

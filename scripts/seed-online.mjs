@@ -17,12 +17,14 @@ const CARDS = [
   { id: 'e2e-elf', name: 'Llanowar Elves', type: 'Creature — Elf Druid', qty: 4, section: 'main', pt: ['1', '1'] },
   { id: 'e2e-avenger', name: 'Avenger of Zendikar', type: 'Creature — Elemental', qty: 1, section: 'main', pt: ['5', '5'] },
   { id: 'e2e-teferi', name: 'Teferi, Time Raveler', type: 'Legendary Planeswalker — Teferi', qty: 1, section: 'main', loyalty: '4' },
-  { id: 'e2e-forest', name: 'Forest', fr: 'Forêt', type: 'Basic Land — Forest', qty: 28, section: 'main' },
+  { id: 'e2e-angel', name: 'Serra Angel', fr: 'Ange de Serra', type: 'Creature — Angel', qty: 1, section: 'main', pt: ['4', '4'], keywords: ['Flying', 'Vigilance'] },
+  { id: 'e2e-forest', name: 'Forest', fr: 'Forêt', type: 'Basic Land — Forest', qty: 27, section: 'main' },
 ]
 
 // Jetons du deck (issue #41) : ceux que créent les cartes ci-dessus, comme après un import.
 const TOKENS = [
   { id: 'e2e-plant', name: 'Plante', type: 'Token Creature — Plant', power: '0', toughness: '1', colors: ['G'], sources: ['Avenger of Zendikar'] },
+  { id: 'e2e-spirit', name: 'Esprit', type: 'Token Creature — Spirit', power: '1', toughness: '1', colors: ['W'], sources: ['Serra Angel'], keywords: ['Flying'] },
 ]
 
 const q = (v) => (v === null ? 'NULL' : `'${String(v).replaceAll("'", "''")}'`)
@@ -38,8 +40,8 @@ for (const c of CARDS) {
     const id = `${c.id}-${lang}`
     const printed = lang === 'fr' ? c.fr : null
     lines.push(
-      // Force, endurance et loyauté ('' : la carte n'en a pas), pour que le mode test ne les cherche pas chez Scryfall.
-      `INSERT OR REPLACE INTO cards (id, oracle_id, lang, name, printed_name, set_code, collector_number, cmc, mana_cost, type_line, printed_type_line, colors, color_identity, image_normal, image_small, power, toughness, loyalty, fetched_at) VALUES (${[id, c.id, lang, c.name, printed, 'tst', '1', 0, null, c.type, null, '[]', '[]', svg(printed ?? c.name), svg(printed ?? c.name), c.pt?.[0] ?? '', c.pt?.[1] ?? '', c.loyalty ?? '', '2026-10-04'].map(q).join(', ')});`,
+      // Force, endurance, loyauté ('' : la carte n'en a pas) et capacités ('[]' : aucune), pour que le mode test ne les cherche pas chez Scryfall.
+      `INSERT OR REPLACE INTO cards (id, oracle_id, lang, name, printed_name, set_code, collector_number, cmc, mana_cost, type_line, printed_type_line, colors, color_identity, image_normal, image_small, power, toughness, loyalty, keywords, fetched_at) VALUES (${[id, c.id, lang, c.name, printed, 'tst', '1', 0, null, c.type, null, '[]', '[]', svg(printed ?? c.name), svg(printed ?? c.name), c.pt?.[0] ?? '', c.pt?.[1] ?? '', c.loyalty ?? '', JSON.stringify(c.keywords ?? []), '2026-10-04'].map(q).join(', ')});`,
     )
   }
 }
@@ -56,7 +58,7 @@ for (const p of PLAYERS) {
   )
   for (const t of TOKENS) {
     lines.push(
-      `INSERT INTO deck_tokens (deck_id, token_scryfall_id, name, type_line, power, toughness, colors, image, source_names) VALUES (${[`deck-${p.id}`, t.id, t.name, t.type, t.power, t.toughness, JSON.stringify(t.colors), null, JSON.stringify(t.sources)].map(q).join(', ')});`,
+      `INSERT INTO deck_tokens (deck_id, token_scryfall_id, name, type_line, power, toughness, colors, image, source_names, keywords) VALUES (${[`deck-${p.id}`, t.id, t.name, t.type, t.power, t.toughness, JSON.stringify(t.colors), null, JSON.stringify(t.sources), JSON.stringify(t.keywords ?? [])].map(q).join(', ')});`,
     )
   }
   CARDS.forEach((c, i) =>

@@ -31,9 +31,9 @@ function TokenGrid({ tokens, onPick }: { tokens: (TokenData & { sources?: string
   )
 }
 
-/** Jeton à créer, sans les informations propres à l'onglet « Du deck ». */
-function asToken({ name, typeLine, power, toughness, colors, image }: TokenData): TokenData {
-  return { name, typeLine, power, toughness, colors, image }
+/** Jeton à créer, sans les informations propres à l'onglet « Du deck » ; avec ses capacités imprimées s'il en a (vol…). */
+function asToken({ name, typeLine, power, toughness, colors, image, keywords }: TokenData): TokenData {
+  return { name, typeLine, power, toughness, colors, image, ...(keywords?.length ? { keywords } : {}) }
 }
 
 export default function TokenModal({ deckTokens, onCreate, onClose }: {
