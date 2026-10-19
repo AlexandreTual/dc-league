@@ -1,7 +1,7 @@
 # Capacités à paramètre (Protection, Parade) — conception
 
 Date : 2026-10-19
-Statut : réalisée pour Protection et Parade (issue #177) ; les autres capacités à paramètre viendront ensuite
+Statut : réalisée pour Protection et Parade (issue #177), puis pour les capacités chiffrées et 20 capacités sans paramètre (voir « Capacités ajoutées » à la fin)
 Suite de : `specs/2026-10-19-card-animations-design.md` (« Donner une capacité… », issue #173)
 
 ## But
@@ -74,3 +74,42 @@ une fois leur nom français vérifié sur une carte imprimée.
 - **Vitest** : validation des paramètres, état voulu (paramètre gardé, modifié), journal, aperçu, rejeu d'une ancienne action.
 - **Navigateur** : `abilities-check` étendu (Protection rouge et vert, Parade {2}, modification, symboles et libellés,
   tablette, en ligne).
+
+## Capacités ajoutées (suite)
+
+La fenêtre passe de 17 à 43 capacités, rangées en quatre groupes avec un titre :
+
+| Groupe | Capacités (nom Scryfall → nom français) |
+|---|---|
+| Courantes | les 17 d'avant (Vol… Protection, Parade) |
+| Évasion | Fear → Peur, Intimidate → Intimidation, Shadow → Distorsion, Skulk → Furtivité, Plainswalk / Islandwalk / Swampwalk / Mountainwalk / Forestwalk → Traversée des plaines / des îles / des marais / des montagnes / des forêts |
+| Combat et retour | Prowess → Prouesse, Exalted → Exaltation, Wither → Flétrissure, Battle cry → Cri de guerre, Myriad → Myriade, Melee → Mêlée, Dethrone → Détrônement, Mentor → Mentor, Training → Entraînement, Persist → Persistance, Undying → Survivance |
+| Avec une valeur | Annihilator → Annihilateur, Toxic → Toxique, Afflict → Affliction, Bushido → Bushido, Afterlife → Après-vie, Absorb → Absorption |
+
+- Les traversées sont cinq capacités distinctes, comme chez Scryfall (une carte imprimée « Forestwalk » est reconnue).
+- **Capacités chiffrées** : paramètre = un nombre de 1 à 99 (`"2"`). Dans la fenêtre : un petit champ et des raccourcis
+  1 à 4 ; valeur proposée 2 pour Annihilateur et Affliction, 1 pour les autres. « Valider » grisé si la valeur n'est pas
+  un nombre de 1 à 99.
+- Sur la carte : le symbole avec le nombre en petit ; en libellé « Annihilateur 3 ». Journal : « donne Annihilateur 3 à … »,
+  « change Annihilateur de … : 4 ».
+- Comme pour Protection et Parade, la valeur imprimée (« Annihilator 2 » sur la carte) n'est pas reprise.
+- Hors champ pour l'instant : capacités anciennes au nom français incertain (Flanking, Rampage, Horsemanship…), traversée
+  des terres non de base.
+- Compatibilité : un serveur de jeu plus ancien refuse les nouvelles capacités (« Action invalide : gained ») jusqu'à la
+  fusion ; les 17 d'avant continuent de marcher. Pas de migration.
+
+### Noms vérifiés
+
+Les noms français ont été vérifiés sur le texte de cartes imprimées en VF (fiches de cartes françaises). Deux corrections
+par rapport à une première traduction : Shadow se dit **Distorsion** (pas « Ombre »), Undying **Survivance** (pas
+« Immortalité »). Seul « Après-vie » (Afterlife) n'a pas pu être confirmé sur une carte imprimée.
+
+### Texte des règles
+
+- Dans la fenêtre, chaque ligne a un bouton « i » (« Règle : Annihilateur ») qui déplie le texte des règles sous la ligne ;
+  une seule règle dépliée à la fois. Il marche aussi pour les capacités imprimées.
+- Le texte reprend le texte de rappel des cartes imprimées en VF ; Protection a un résumé (ni bloquée, ni ciblée, ni
+  enchantée, ni équipée, blessures prévenues).
+- Il tient compte de la précision : « sacrifie 3 permanents » (« 1 permanent » au singulier), « paie {2} » pour une Parade,
+  « par ce qui est rouge ou vert » pour une Protection ; sans précision valable, le texte générique (« N »).
+- Sur la carte, le survol d'un symbole ou d'un libellé montre la capacité puis son texte des règles.
