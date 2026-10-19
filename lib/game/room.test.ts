@@ -40,7 +40,7 @@ describe('actions', () => {
     expect(r.history.actions.at(-1)).toEqual({ type: 'shuffle', actor: 'p1', seed: 11 })
     act(r, 'p1', { type: 'search', target: 'p2' })
     act(r, 'p1', { type: 'endLook', target: 'p2', shuffle: true }, ctx(12))
-    expect(r.history.actions.at(-1)).toEqual({ type: 'endLook', actor: 'p1', target: 'p2', shuffle: true, seed: 12 })
+    expect(r.history.actions.at(-1)).toEqual({ type: 'endLook', actor: 'p1', target: 'p2', shuffle: true, seed: 12, keep: true })
   })
 
   it('un joueur ne peut éliminer que lui-même ; l’hôte garde sa commande', () => {

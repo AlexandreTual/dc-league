@@ -122,6 +122,11 @@ export type GameState = {
   cards: Record<string, CardInstance>
   commanderCasts: Record<string, number>
   lookingAt: Record<string, string[]>
+  /**
+   * Cartes posées dessus ou dessous d'une bibliothèque regardée, par joueur qui regarde : épargnées par le mélange
+   * en fin de recherche. Jamais envoyé aux navigateurs (absent des parties plus anciennes).
+   */
+  lookKept?: Record<string, { top: string[]; bottom: string[] }>
   nextTokenId: number
   log: LogEntry[]
   /**
@@ -189,7 +194,8 @@ export type GameAction = Stamp & (
   | { type: 'look'; actor: string; target: string; count: number }
   | { type: 'search'; actor: string; target: string }
   | { type: 'reorderTop'; actor: string; target: string; ids: string[] }
-  | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: Seed }
+  /** `keep` : les cartes posées dessus ou dessous pendant le regard échappent au mélange (absent des actions plus anciennes). */
+  | { type: 'endLook'; actor: string; target: string; shuffle: boolean; seed?: Seed; keep?: true }
   /** `sides` : 2 (pile ou face), 4, 6, 8, 10, 12 ou 20 ; `count` : nombre de dés lancés ensemble. */
   | { type: 'roll'; actor: string; sides: number; count: number; seed: Seed }
 )
