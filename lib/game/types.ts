@@ -14,6 +14,8 @@ export type TokenData = {
   image: string | null
   /** Jeton créé comme copie d'une carte en jeu (mention « Copie » sur la table). */
   copy?: boolean
+  /** Capacités imprimées (mots-clés anglais de Scryfall : « Flying »…) ; absentes : aucune, ou jeton créé avant leur ajout. */
+  keywords?: string[]
 }
 
 /** Jeton créé par une ou plusieurs cartes du deck (onglet « Du deck » de « Créer un jeton »). */

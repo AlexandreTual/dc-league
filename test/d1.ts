@@ -27,6 +27,7 @@ export const MIGRATIONS = [
   '0015_ai_usage.sql',
   '0016_site_settings.sql',
   '0017_game_timing.sql',
+  '0018_card_keywords.sql',
 ]
 
 /** D1 refuse une requête qui lie plus de 100 paramètres. */

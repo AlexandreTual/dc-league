@@ -273,7 +273,12 @@ describe('jetons copies', () => {
   it('carte transformée : nom et image de la face arrière', () => {
     const s = moved(setup(), card('p1', 4), { flipped: true })
     expect(copyOf(cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))).token)
-      .toMatchObject({ name: 'Insectile Aberration', typeLine: 'Creature — Human Insect', image: 'back.jpg', power: '3', toughness: '2' })
+      .toMatchObject({ name: 'Insectile Aberration', typeLine: 'Creature — Human Insect', image: 'back.jpg', power: '3', toughness: '2', keywords: ['Flying'] })
+  })
+
+  it('capacités imprimées de la face montrée ; aucune : pas de champ', () => {
+    const s = setup()
+    expect(copyOf(cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))).token).not.toHaveProperty('keywords')
   })
 
   it('copie d’un jeton : même TokenData', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow, deckCardView } from '@/test/factories'
 import { buildCatalog } from './catalog'
-import { enteredBattlefield, isLegendary } from './card-effects'
+import { effectDelay, enteredBattlefield, hasFlying, isLegendary } from './card-effects'
 import type { CardView, Counters, PlayerView, TokenData, VisibleCard } from './types'
 
 const face = (name: string, type: string) => ({
@@ -14,8 +14,10 @@ const { catalog } = buildCatalog('d', [
   deckCardView(2, cardRow({ id: 'elves', name: 'Llanowar Elves', type_line: 'Creature — Elf Druid' })),
   deckCardView(3, cardRow({
     id: 'delver', type_line: 'Creature — Human Wizard // Legendary Creature — Human Insect',
-    faces: [face('Delver', 'Creature — Human Wizard'), face('Aberration', 'Legendary Creature — Human Insect')],
+    faces: [face('Delver', 'Creature — Human Wizard'), { ...face('Aberration', 'Legendary Creature — Human Insect'), keywords: ['Flying'] }],
   })),
+  deckCardView(5, cardRow({ id: 'angel', name: 'Serra Angel', type_line: 'Creature — Angel', keywords: ['Flying', 'Vigilance'] })),
+  deckCardView(6, cardRow({ id: 'old', name: 'Old Angel', type_line: 'Creature — Angel', keywords: undefined })),
   deckCardView(4, cardRow({
     id: 'jace', type_line: 'Legendary Creature — Human Wizard // Legendary Planeswalker — Jace',
     faces: [face('Jace, Vryn’s Prodigy', 'Legendary Creature — Human Wizard'), face('Jace, Telepath Unbound', 'Legendary Planeswalker — Jace')],
@@ -58,6 +60,34 @@ describe('isLegendary', () => {
 /** Vue réduite aux champs de bataille, seule partie lue par `enteredBattlefield`. */
 const viewWith = (fields: Record<string, CardView[]>) =>
   ({ players: Object.fromEntries(Object.entries(fields).map(([p, battlefield]) => [p, { zones: { battlefield } }])) }) as unknown as PlayerView
+
+describe('hasFlying', () => {
+  it('vol imprimé sur la face montrée', () => {
+    expect(hasFlying(catalog, onTable(5))).toBe(true)
+    expect(hasFlying(catalog, onTable(5, { tapped: true }))).toBe(true)
+    expect(hasFlying(catalog, onTable(1))).toBe(false)
+    expect(hasFlying(catalog, onTable(3))).toBe(false)
+    expect(hasFlying(catalog, onTable(3, { flipped: true }))).toBe(true)
+  })
+
+  it('jeton : ses capacités ; aucune connue (carte pas encore relue, ancien serveur), face cachée ou inconnue : non', () => {
+    expect(hasFlying(catalog, onTable(null, { token: { ...token('Token Creature — Spirit'), keywords: ['Flying'] } }))).toBe(true)
+    expect(hasFlying(catalog, onTable(null, { token: token('Token Creature — Spirit') }))).toBe(false)
+    expect(hasFlying(catalog, onTable(6))).toBe(false)
+    expect(hasFlying(catalog, onTable(5, { faceDown: true }))).toBe(false)
+    expect(hasFlying(catalog, onTable(99))).toBe(false)
+    expect(hasFlying(undefined, onTable(5))).toBe(false)
+  })
+})
+
+describe('effectDelay', () => {
+  it('décalage stable, négatif, de moins d’un aller-retour (3,2 s), propre à chaque carte', () => {
+    expect(effectDelay('c1')).toBe(effectDelay('c1'))
+    const delays = ['c1', 'c2', 'c3', 'p1:c4-1', 'p2:c4-1'].map(effectDelay)
+    for (const d of delays) expect(d).toMatch(/^-(\d|[0-2]\.\d|3\.[01])s$/)
+    expect(new Set(delays).size).toBeGreaterThan(1)
+  })
+})
 
 describe('enteredBattlefield', () => {
   it('cartes arrivées sur un champ de bataille depuis la vue précédente, chez tous les joueurs', () => {

@@ -1,6 +1,7 @@
 // Menus clic droit de la table : quelles entrées pour quelle carte, selon qui regarde.
 // Pur : chaque entrée décrit des commandes (actions du moteur ou gestes d'interface), exécutées par la table.
 import { cardInfo, taxOf } from './apply'
+import { printedKeywordsOf } from './card-effects'
 import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
 import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
 import type { ClientAction } from './room'
@@ -64,7 +65,11 @@ function copyData(ctx: MenuContext, card: VisibleCard): TokenData {
   const entry = card.ref === null ? undefined : ctx.catalogs[card.owner]?.entries.find((e) => e.ref === card.ref)
   // Valeurs imprimées seulement : une copie ne reprend ni les marqueurs ni les modifications (règle 707.2).
   const pt = basePT(ctx.catalogs[card.owner], card)
-  return { name: info.name, typeLine: info.typeLine, image: info.image, power: pt?.power ?? null, toughness: pt?.toughness ?? null, colors: entry?.en.colors ?? [] }
+  const keywords = printedKeywordsOf(ctx.catalogs[card.owner], card)
+  return {
+    name: info.name, typeLine: info.typeLine, image: info.image, power: pt?.power ?? null, toughness: pt?.toughness ?? null, colors: entry?.en.colors ?? [],
+    ...(keywords.length > 0 ? { keywords } : {}),
+  }
 }
 
 /** « Créer un jeton copie » et « Créer des jetons copies… » : sur mon champ de bataille, à côté de l'original ou au centre. */

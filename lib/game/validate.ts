@@ -72,6 +72,7 @@ const token = object({
   colors: either(when((v) => Array.isArray(v) && v.length === 0), listOf(oneOf(['W', 'U', 'B', 'R', 'G']), 5)),
   image,
   copy: optional(bool),
+  keywords: optional(either(when((v) => Array.isArray(v) && v.length === 0), listOf(str(40), 30))),
 })
 const placement = { position, x: optional(finite), y: optional(finite), faceDown: optional(bool) }
 

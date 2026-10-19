@@ -1,3 +1,4 @@
+import { printedKeywords } from '@/lib/cards/keywords'
 import { ScryfallUnavailableError } from '@/lib/cards/scryfall'
 import type { TokenData } from './types'
 
@@ -7,8 +8,10 @@ type ScryfallToken = {
   power?: string
   toughness?: string
   colors?: string[]
+  oracle_text?: string
+  keywords?: string[]
   image_uris?: { small?: string; normal?: string }
-  card_faces?: { image_uris?: { small?: string; normal?: string } }[]
+  card_faces?: { oracle_text?: string; image_uris?: { small?: string; normal?: string } }[]
 }
 
 /** Recherche de jetons depuis le navigateur (Scryfall autorise les appels directs). */
@@ -25,6 +28,7 @@ export async function searchTokens(fetchFn: typeof fetch, text: string): Promise
   const body = (await res.json()) as { data?: ScryfallToken[] }
   return (body.data ?? []).map((t) => {
     const images = t.image_uris ?? t.card_faces?.[0]?.image_uris
+    const keywords = printedKeywords(t.keywords ?? [], t.oracle_text ?? t.card_faces?.[0]?.oracle_text ?? null)
     return {
       name: t.name,
       typeLine: t.type_line ?? 'Token',
@@ -32,6 +36,7 @@ export async function searchTokens(fetchFn: typeof fetch, text: string): Promise
       toughness: t.toughness ?? null,
       colors: t.colors ?? [],
       image: images?.normal ?? images?.small ?? null,
+      ...(keywords.length > 0 ? { keywords } : {}),
     }
   })
 }

@@ -38,6 +38,17 @@ function storedStat(value: unknown): string | null | undefined {
 
 const statValue = (value: string | null | undefined) => (value === undefined ? null : value ?? '')
 
+/** Capacités enregistrées : NULL = pas encore lues (undefined). */
+function storedKeywords(value: unknown): string[] | undefined {
+  const list = parseJson<unknown>(value, undefined)
+  return Array.isArray(list) ? list.filter((k): k is string => typeof k === 'string') : undefined
+}
+
+const keywordsValue = (value: string[] | undefined) => (value === undefined ? null : JSON.stringify(value))
+
+/** Champ `keywords` d'un jeton : seulement s'il en a. */
+const withKeywords = (keywords: string[] | undefined) => (keywords?.length ? { keywords } : {})
+
 function normalizeCard(row: Record<string, unknown>): CardRow {
   return {
     id: row.id as string,
@@ -63,6 +74,7 @@ function normalizeCard(row: Record<string, unknown>): CardRow {
     power: storedStat(row.power),
     toughness: storedStat(row.toughness),
     loyalty: storedStat(row.loyalty),
+    keywords: storedKeywords(row.keywords),
   }
 }
 
@@ -78,11 +90,12 @@ function cardValues(c: CardRow, now: Date): Record<string, unknown> {
     image_normal: c.image_normal, image_large: c.image_large ?? null, image_small: c.image_small,
     faces: c.faces ? JSON.stringify(c.faces) : null, fetched_at: now.toISOString(),
     power: statValue(c.power), toughness: statValue(c.toughness), loyalty: statValue(c.loyalty),
+    keywords: keywordsValue(c.keywords),
   }
 }
 
 /** Colonnes ajoutées par une migration récente : le site peut tourner une ou deux minutes avant elle. */
-const RECENT_COLUMNS = ['image_large', 'power', 'toughness', 'loyalty']
+const RECENT_COLUMNS = ['image_large', 'power', 'toughness', 'loyalty', 'keywords']
 
 async function writeCards(db: D1Database, cards: CardRow[], now: Date, columns: string[]) {
   const updates = columns.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ')
@@ -127,16 +140,19 @@ export async function getCards(db: D1Database, ids: string[]): Promise<Result<Re
   }
 }
 
-/** Force, endurance et loyauté relues chez Scryfall pour une carte déjà enregistrée (faces comprises). */
-export type CardStats = Pick<CardRow, 'id' | 'power' | 'toughness' | 'loyalty' | 'faces'>
+/** Force, endurance, loyauté et capacités relues chez Scryfall pour une carte déjà enregistrée (faces comprises). */
+export type CardStats = Pick<CardRow, 'id' | 'power' | 'toughness' | 'loyalty' | 'keywords' | 'faces'>
 
-/** Rattrapage des cartes enregistrées avant les migrations 0012 et 0014 ; échoue (sans rien écrire) si l'une n'est pas encore appliquée. */
+/**
+ * Rattrapage des cartes enregistrées avant les migrations 0012, 0014 et 0018 ; échoue (sans rien écrire) si l'une
+ * n'est pas encore appliquée.
+ */
 export async function saveCardStats(db: D1Database, cards: CardStats[]): Promise<Result<true>> {
   if (cards.length === 0) return ok(true)
   try {
     await db.batch(cards.map((c) =>
-      db.prepare('UPDATE cards SET power = ?, toughness = ?, loyalty = ?, faces = ? WHERE id = ?')
-        .bind(statValue(c.power), statValue(c.toughness), statValue(c.loyalty), c.faces ? JSON.stringify(c.faces) : null, c.id)))
+      db.prepare('UPDATE cards SET power = ?, toughness = ?, loyalty = ?, keywords = ?, faces = ? WHERE id = ?')
+        .bind(statValue(c.power), statValue(c.toughness), statValue(c.loyalty), keywordsValue(c.keywords), c.faces ? JSON.stringify(c.faces) : null, c.id)))
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
@@ -358,23 +374,33 @@ export async function setDeckCommanderImage(db: D1Database, deckId: string, url:
 
 // ── Jetons des decks ──────────────────────────────────────────────────────────
 
-/** Remplace la liste des jetons d'un deck. */
+async function writeDeckTokens(db: D1Database, deckId: string, tokens: DeckTokenRow[], withKeywords: boolean) {
+  const columns = 'deck_id, token_scryfall_id, name, type_line, power, toughness, colors, image, source_names'
+  await db.batch([
+    db.prepare('DELETE FROM deck_tokens WHERE deck_id = ?').bind(deckId),
+    ...tokens.map((t) => {
+      const values = [deckId, t.id, t.name, t.typeLine, t.power, t.toughness, JSON.stringify(t.colors), t.image, JSON.stringify(t.sources)]
+      if (withKeywords) values.push(JSON.stringify(t.keywords ?? []))
+      return db
+        .prepare(`INSERT OR REPLACE INTO deck_tokens (${columns}${withKeywords ? ', keywords' : ''}) VALUES (${placeholders(values.length)})`)
+        .bind(...values)
+    }),
+  ])
+}
+
+/** Remplace la liste des jetons d'un deck ; sans leurs capacités si la base n'a pas encore la colonne (migration 0018). */
 export async function replaceDeckTokens(db: D1Database, deckId: string, tokens: DeckTokenRow[]): Promise<Result<true>> {
   try {
-    await db.batch([
-      db.prepare('DELETE FROM deck_tokens WHERE deck_id = ?').bind(deckId),
-      ...tokens.map((t) =>
-        db
-          .prepare(
-            `INSERT OR REPLACE INTO deck_tokens (deck_id, token_scryfall_id, name, type_line, power, toughness, colors, image, source_names)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .bind(deckId, t.id, t.name, t.typeLine, t.power, t.toughness, JSON.stringify(t.colors), t.image, JSON.stringify(t.sources)),
-      ),
-    ])
+    await writeDeckTokens(db, deckId, tokens, true)
     return ok(true)
   } catch (e) {
-    return err((e as Error).message)
+    if (!(e as Error).message.includes('keywords')) return err((e as Error).message)
+    try {
+      await writeDeckTokens(db, deckId, tokens, false)
+      return ok(true)
+    } catch (e2) {
+      return err((e2 as Error).message)
+    }
   }
 }
 
@@ -394,6 +420,7 @@ export async function listDeckTokens(db: D1Database, deckId: string): Promise<Re
         colors: parseJson<string[]>(r.colors, []),
         image: (r.image as string) ?? null,
         sources: parseJson<string[]>(r.source_names, []),
+        ...withKeywords(storedKeywords(r.keywords)),
       })),
     )
   } catch (e) {

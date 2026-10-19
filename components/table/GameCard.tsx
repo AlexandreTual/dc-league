@@ -2,7 +2,7 @@
 
 import type { Catalog, CardView, VisibleCard } from '@/lib/game/types'
 import { cardInfo, tokenBadge } from '@/lib/game/apply'
-import { isLegendary } from '@/lib/game/card-effects'
+import { effectDelay, hasFlying, isLegendary } from '@/lib/game/card-effects'
 import { loyaltyStats } from '@/lib/game/loyalty'
 import { ptStats, type PtValue } from '@/lib/game/pt'
 import type { MenuPoint } from './touch'
@@ -81,7 +81,8 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
 /**
  * Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe.
  * `pt` : encart loyauté ou force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
- * `effects` : effets d'une carte en jeu (liseré doré d'un permanent légendaire), si le réglage les permet ;
+ * `effects` : effets d'une carte en jeu (liseré doré d'un permanent légendaire, créature volante qui flotte tant
+ * qu'elle n'est pas engagée), si le réglage les permet ;
  * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire, une seule fois).
  */
 export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false }: {
@@ -114,10 +115,10 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   const net = plus - minus
   const badge = tokenBadge(card)
   const legendary = effects && isLegendary(catalog, card)
+  const flying = effects && !card.tapped && hasFlying(catalog, card)
 
-  return (
-    <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}
-      data-legendary={legendary || undefined}>
+  const body = (
+    <>
       {data.image ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -149,6 +150,20 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
       {tax > 0 && (
         <span className="absolute bottom-1 inset-x-1 text-center rounded bg-black/75 text-dc-gold text-[10px] font-semibold">Taxe +{tax}</span>
       )}
+    </>
+  )
+
+  return (
+    <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}
+      data-legendary={legendary || undefined} data-flying={flying || undefined}
+      style={flying ? ({ '--fx-delay': effectDelay(card.id) } as React.CSSProperties) : undefined}>
+      {flying ? (
+        <>
+          {/* Créature volante : elle flotte au-dessus de son ombre (globals.css) ; la carte elle-même ne bouge pas (glisser, toucher). */}
+          <span className="card-shadow" aria-hidden="true" />
+          <div className="card-lift absolute inset-0">{body}</div>
+        </>
+      ) : body}
     </div>
   )
 }
