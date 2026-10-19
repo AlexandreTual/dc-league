@@ -171,6 +171,13 @@ export type GameAction = Stamp & (
   | { type: 'endTurn'; actor: string; byHost?: boolean }
   | { type: 'move'; actor: string; id: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
   | { type: 'moveTop'; actor: string; to: ZoneRef; position?: Position; x?: number; y?: number; faceDown?: boolean }
+  /**
+   * Plusieurs cartes d'une même zone déplacées d'un coup (sélection) : vers mon champ de bataille, sinon vers la zone
+   * de chaque propriétaire. `ids` dans l'ordre choisi : la première finit au-dessus (bibliothèque, cimetière, exil) ;
+   * `places` : position de chaque carte posée sur le champ de bataille ; `random` : ordre tiré au sort avec `seed`
+   * (posée par le serveur).
+   */
+  | { type: 'moveMany'; actor: string; ids: string[]; zone: PlayerZone; position?: 'top' | 'bottom'; places?: { x: number; y: number }[]; random?: boolean; seed?: Seed }
   | { type: 'giveControl'; actor: string; id: string; to: string }
   | { type: 'tap'; actor: string; id: string }
   | { type: 'untapAll'; actor: string }

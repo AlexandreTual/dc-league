@@ -43,6 +43,18 @@ describe('actions', () => {
     expect(r.history.actions.at(-1)).toEqual({ type: 'endLook', actor: 'p1', target: 'p2', shuffle: true, seed: 12, keep: true })
   })
 
+  it('ordre aléatoire d’un déplacement groupé : graine du serveur, celle du navigateur ignorée', () => {
+    const r = room()
+    keepAll(r)
+    const hand = state(r).players.p1.zones.hand.slice(0, 3)
+    const forged = { type: 'moveMany', ids: hand, zone: 'library', position: 'top', random: true, seed: 'choisie' } as unknown as ClientAction
+    act(r, 'p1', forged, ctx(13))
+    expect(r.history.actions.at(-1)).toEqual({ type: 'moveMany', actor: 'p1', ids: hand, zone: 'library', position: 'top', random: true, seed: 13 })
+    const ordered = state(r).players.p1.zones.hand.slice(0, 2)
+    act(r, 'p1', { type: 'moveMany', ids: ordered, zone: 'graveyard' }, ctx(14))
+    expect(r.history.actions.at(-1)).toEqual({ type: 'moveMany', actor: 'p1', ids: ordered, zone: 'graveyard' })
+  })
+
   it('un joueur ne peut éliminer que lui-même ; l’hôte garde sa commande', () => {
     const r = createRoom('t1', setupFor('duel', 2), 'p1', seeds(), 0)
     keepAll(r)

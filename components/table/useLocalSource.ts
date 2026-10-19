@@ -15,13 +15,14 @@ export const SOLO = 'solo'
 
 /**
  * Toute action garde implicitement la main de départ, sauf le mulligan lui-même, « Garder », un lancer de dés
- * et la mise au-dessous d'une carte de la main pendant un mulligan (autant que le joueur veut, puis « Garder »).
+ * et la mise au-dessous de cartes de la main pendant un mulligan (autant que le joueur veut, puis « Garder »).
  */
 export function keepsHand(action: ClientAction, state: GameState, player: string): boolean {
   if (action.type === 'mulligan' || action.type === 'keep' || action.type === 'roll') return false
-  const paying = action.type === 'move' && action.to.zone === 'library' && action.position === 'bottom'
-    && state.players[player].zones.hand.includes(action.id) && inMulligan(state.players[player])
-  return !paying
+  const hand = state.players[player].zones.hand
+  const paying = action.type === 'move' ? action.to.zone === 'library' && action.position === 'bottom' && hand.includes(action.id)
+    : action.type === 'moveMany' && action.zone === 'library' && action.position === 'bottom' && action.ids.every((id) => hand.includes(id))
+  return !(paying && inMulligan(state.players[player]))
 }
 
 function soloSetup(catalog: Catalog): GameSetup {
@@ -33,6 +34,7 @@ function withActorAndSeed(action: ClientAction): GameAction {
   const full = { ...action, actor: SOLO } as GameAction
   if (full.type === 'endLook') return { ...full, seed: randomSeed(), keep: true }
   if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'roll') return { ...full, seed: randomSeed() } as GameAction
+  if (full.type === 'moveMany' && full.random) return { ...full, seed: randomSeed() }
   return full
 }
 

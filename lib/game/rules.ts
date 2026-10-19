@@ -61,7 +61,11 @@ const MSG = {
   oneFace: "Cette carte n'a qu'une face",
   badMana: 'Mana invalide',
   badRoll: 'Lancer de dés invalide',
+  mixedZones: 'Les cartes doivent venir de la même zone',
+  badPlaces: 'Positions invalides',
 }
+
+const sameRef = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
 
 const isPlayer = (state: GameState, id: string | null) => id !== null && id in state.players
 
@@ -120,6 +124,20 @@ export function canApply(state: GameState, action: GameAction): string | null {
 
     case 'move':
       return canMove(state, action)
+
+    case 'moveMany': {
+      if (action.ids.length === 0 || new Set(action.ids).size !== action.ids.length) return MSG.badCount
+      // Droits de chaque carte d'abord, comme pour un déplacement seul : rien n'est dit d'une carte cachée.
+      for (const id of action.ids) {
+        const to = { player: action.zone === 'battlefield' ? action.actor : state.cards[id]?.owner ?? action.actor, zone: action.zone }
+        const error = canMove(state, { type: 'move', actor: action.actor, id, to })
+        if (error !== null) return error
+      }
+      const from = zoneOf(state, action.ids[0])!
+      if (!action.ids.every((id) => sameRef(zoneOf(state, id)!, from))) return MSG.mixedZones
+      if (action.places && (action.zone !== 'battlefield' || action.places.length !== action.ids.length)) return MSG.badPlaces
+      return null
+    }
 
     case 'moveTop': {
       const top = actor.zones.library[0]

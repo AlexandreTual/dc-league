@@ -95,6 +95,13 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   endTurn: {},
   move: { id, to: zoneRef, ...placement },
   moveTop: { to: zoneRef, ...placement },
+  moveMany: {
+    ids: listOf(id, MAX_CARDS),
+    zone: oneOf(PLAYER_ZONES),
+    position: optional(oneOf(['top', 'bottom'])),
+    places: optional(listOf(object({ x: finite, y: finite }), MAX_CARDS)),
+    random: optional(bool),
+  },
   giveControl: { id, to: player },
   tap: { id },
   untapAll: {},
