@@ -1,13 +1,13 @@
 'use client'
 
 import type { MenuPoint } from './touch'
-import { CommandBlock, GraveyardCascade, PileCases } from './PileCases'
+import { CommandBlock, GraveyardCascade, GraveyardList, PileCases } from './PileCases'
 import type { ZoneProps } from './zones'
 
 /**
  * Colonne d'un joueur, à gauche de son plateau : ligne portrait (vie en gros), cases chiffrées,
  * commandant et cimetière en cascade. Sur tablette, 188 px de large. Sous 640 px : une ligne au-dessus de la main (portrait et cases).
- * `piles={false}` : la ligne portrait seule (piles en vignettes à côté de la main).
+ * `piles={false}` : la ligne portrait, puis le cimetière en liste (piles en vignettes à côté de la main).
  */
 export default function PlayerColumn(props: ZoneProps & {
   me: string | null
@@ -20,7 +20,7 @@ export default function PlayerColumn(props: ZoneProps & {
   const { portrait, onPile, piles = true, ...zoneProps } = props
   const titles = { graveyard: 'Cimetière', exile: 'Exil' }
   return (
-    <div className={`sm:w-[216px] tablet:sm:w-[188px] shrink-0 min-h-0 flex max-sm:flex-row max-sm:items-center flex-col gap-1 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5 ${piles ? '' : 'sm:self-start'}`}
+    <div className="sm:w-[216px] tablet:sm:w-[188px] shrink-0 min-h-0 flex max-sm:flex-row max-sm:items-center flex-col gap-1 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5"
       data-column={props.player}>
       <div className="max-sm:flex-1 max-sm:min-w-0">{portrait}</div>
       {piles && <>
@@ -32,6 +32,7 @@ export default function PlayerColumn(props: ZoneProps & {
       <div className="max-sm:hidden min-h-0 shrink overflow-hidden p-0.5 -m-0.5"><CommandBlock {...zoneProps} /></div>
       <GraveyardCascade {...zoneProps} className="shrink-[100] max-sm:hidden" onOpen={() => onPile('graveyard', titles.graveyard)} />
       </>}
+      {!piles && <GraveyardList {...zoneProps} className="flex-1 max-sm:hidden" onOpen={() => onPile('graveyard', titles.graveyard)} />}
     </div>
   )
 }

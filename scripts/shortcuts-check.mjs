@@ -84,7 +84,8 @@ try {
 
   await onField.hover()
   await page.keyboard.press('g')
-  await inZone(page, 'graveyard', id).waitFor({ state: 'attached' })
+  // Piles à côté de la main : la carte arrive en haut du cimetière en liste (colonne), seule copie glissable.
+  await page.locator(`[data-graveyard-list] [data-card-id="${id}"]`).waitFor({ state: 'attached' })
   check(true, 'G : la carte survolée va au cimetière')
   await page.keyboard.press('Control+z')
   await inZone(page, 'battlefield', id).waitFor()

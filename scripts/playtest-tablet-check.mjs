@@ -43,6 +43,19 @@ async function open({ width, height }) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
       await page.waitForTimeout(150)
     },
+    /** Balayage rapide du doigt vers le haut (défilement, pas de glisser : moins de 200 ms d'appui avant de bouger). */
+    async swipeUp(locator, distance = 250) {
+      const box = await locator.boundingBox()
+      const x = box.x + box.width / 2
+      const y = box.y + box.height * 0.8
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+      for (let i = 1; i <= 10; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - (distance * i) / 10 }] })
+        await page.waitForTimeout(10)
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await page.waitForTimeout(500)
+    },
     /** Glisser au doigt : appui de 350 ms, petit déplacement (le glisser démarre), puis jusqu'au point donné par `to()`. */
     async drag(locator, to) {
       const box = await locator.boundingBox()
@@ -91,7 +104,7 @@ async function deckPage({ page, capture, longPress }, width) {
 
 /** La table en paysage : zones tactiles, piles rangées dans un menu, aperçu dans le menu d'une carte, mulligan, ancienne disposition. */
 async function table(tools, { width, height }) {
-  const { page, capture, longPress, drag } = tools
+  const { page, capture, longPress, drag, swipeUp } = tools
   const size = `${width} × ${height}`
   const hand = page.locator('[data-zone="hand"] [data-card-id]')
   const column = page.locator('[data-board] [data-column]').first()
@@ -288,6 +301,34 @@ async function table(tools, { width, height }) {
   check(Number(await graveyard.getAttribute('data-count')) === graveyardBefore + 1, 'carte déposée au cimetière')
   check(!(await pilesMenu.isVisible()), 'après le glisser : menu des piles refermé')
   check(/Cim\. 1 /.test(await toggle.innerText()), 'bouton : Cim. 1')
+
+  // ── Cimetière en liste dans la colonne : dépôt au doigt, image très grande, la liste défile au doigt ──
+  const list = column.locator('[data-graveyard-list]')
+  for (let i = 0; i < 4; i++) await page.keyboard.press('d')
+  await page.waitForTimeout(300)
+  for (let i = 0; i < 7; i++) {
+    await drag(hand.first(), async () => {
+      const box = await list.boundingBox()
+      return { x: box.x + box.width / 2, y: box.y + box.height - 30 }
+    })
+  }
+  check(Number(await list.getAttribute('data-count')) === 8, 'cimetière en liste : 7 cartes déposées au doigt sur la liste')
+  await page.evaluate(() => localStorage.setItem('dc-table-settings', JSON.stringify({ grid: true, background: null, cardScale: 1, pilesBesideHand: true, graveyardArt: 90 })))
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).tap()
+  await hand.first().waitFor()
+  const scroller = list.getByTestId('graveyard-list-scroll')
+  check(await scroller.evaluate((e) => e.scrollHeight > e.clientHeight + 10), 'image très grande : la liste dépasse la colonne')
+  const handBeforeSwipe = await hand.count()
+  await swipeUp(scroller)
+  check(await scroller.evaluate((e) => e.scrollTop > 50), 'balayage du doigt : la liste du cimetière défile')
+  check(Number(await list.getAttribute('data-count')) === 8 && (await hand.count()) === handBeforeSwipe, 'balayage : aucune carte déplacée')
+  await capture('cimetiere-liste')
+  const oldest = list.locator('[data-card-id]').last()
+  const fieldBox = await page.locator('[data-board] [data-zone="battlefield"]').first().boundingBox()
+  await scroller.evaluate((e) => { e.scrollTop = e.scrollHeight })
+  await drag(oldest, async () => ({ x: fieldBox.x + 150, y: fieldBox.y + 120 }))
+  check(Number(await list.getAttribute('data-count')) === 7, 'appui puis glisser : la carte la plus ancienne quitte la liste pour le champ de bataille')
 
   // ── Ancienne disposition (réglage « Piles dans la colonne ») : cases sur deux colonnes ──
   await page.evaluate(() => localStorage.setItem('dc-table-settings', JSON.stringify({ grid: true, background: null, cardScale: 1, pilesBesideHand: false })))
