@@ -173,6 +173,26 @@ function shuffleLibrary(state: GameState, playerId: string, seed: Seed): GameSta
   return { ...setZone(state, { player: playerId, zone: 'library' }, shuffle(library, seed)), cards }
 }
 
+/** Retient (ou oublie) une carte posée dessus ou dessous d'une bibliothèque que son auteur regarde. */
+function keepPlaced(state: GameState, actor: string, id: string, to: ZoneRef, position: Position): GameState {
+  const kept = state.lookKept?.[actor] ?? { top: [], bottom: [] }
+  const others = { top: kept.top.filter((k) => k !== id), bottom: kept.bottom.filter((k) => k !== id) }
+  const looking = to.zone === 'library' && (state.lookingAt[actor] ?? []).includes(to.player)
+  const side = looking && (position === 'top' || position === 'bottom') ? position : null
+  const next = side ? { ...others, [side]: [...others[side], id] } : others
+  if (!kept.top.includes(id) && !kept.bottom.includes(id) && !side) return state
+  return { ...state, lookKept: { ...state.lookKept, [actor]: next } }
+}
+
+/** Mélange la bibliothèque sauf les cartes retenues, qui gardent leur place relative dessus et dessous. */
+function shuffleExcept(state: GameState, playerId: string, seed: Seed, top: string[], bottom: string[]): GameState {
+  const library = state.players[playerId].zones.library
+  const kept = new Set([...top, ...bottom])
+  const rest = library.filter((id) => !kept.has(id))
+  const s = shuffleLibrary(setZone(state, { player: playerId, zone: 'library' }, rest), playerId, seed)
+  return setZone(s, { player: playerId, zone: 'library' }, [...top, ...s.players[playerId].zones.library, ...bottom])
+}
+
 function untapAllOf(state: GameState, playerId: string): GameState {
   const cards = { ...state.cards }
   for (const id of state.players[playerId].zones.battlefield) cards[id] = { ...cards[id], tapped: false }
@@ -236,6 +256,7 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
 
   const position: Position = action.position ?? (to.zone === 'library' ? 'top' : 'bottom')
   next = setZone(next, to, insertAt(next.players[to.player].zones[to.zone], action.id, position))
+  next = keepPlaced(next, action.actor, action.id, to, position)
 
   const patch: Partial<CardInstance> = { knownBy: action.faceDown ? [action.actor] : [] }
   if (from.zone === 'battlefield') Object.assign(patch, { tapped: false, flipped: false, faceDown: false, counters: NO_COUNTERS })
@@ -527,8 +548,14 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     }
 
     case 'endLook': {
+      const library = state.players[action.target].zones.library
+      // Une action jouée avant cette règle (partie rejouée) mélange toute la bibliothèque, comme à l'époque.
+      const kept = (action.keep && state.lookKept?.[action.actor]) || { top: [], bottom: [] }
+      // Dans l'ordre de la bibliothèque : la dernière carte posée dessus est au-dessus.
+      const top = library.filter((id) => kept.top.includes(id))
+      const bottom = library.filter((id) => kept.bottom.includes(id))
       const cards = { ...state.cards }
-      for (const id of state.players[action.target].zones.library) {
+      for (const id of library) {
         cards[id] = { ...cards[id], knownBy: cards[id].knownBy.filter((p) => p !== action.actor) }
       }
       let s: GameState = {
@@ -536,10 +563,25 @@ export function applyAction(state: GameState, action: GameAction): GameState {
         cards,
         lookingAt: { ...state.lookingAt, [action.actor]: state.lookingAt[action.actor].filter((p) => p !== action.target) },
       }
+      const placed = state.lookKept?.[action.actor]
+      if (placed) {
+        const rest = { top: placed.top.filter((id) => !library.includes(id)), bottom: placed.bottom.filter((id) => !library.includes(id)) }
+        const { [action.actor]: _, ...others } = state.lookKept!
+        s = { ...s, lookKept: rest.top.length || rest.bottom.length ? { ...others, [action.actor]: rest } : others }
+      }
       const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
       if (!action.shuffle) return log(s, action.actor, `arrête de regarder ${of}`)
-      s = shuffleLibrary(s, action.target, action.seed ?? 0)
-      return log(s, action.actor, `mélange ${of}`)
+      s = shuffleExcept(s, action.target, action.seed ?? 0, top, bottom)
+      // Celui qui a posé les cartes épargnées sait ce qu'elles sont ; les autres non.
+      s = { ...s, cards: { ...s.cards } }
+      for (const id of [...top, ...bottom]) s.cards[id] = { ...s.cards[id], knownBy: [action.actor] }
+      const count = (n: number) => (n === 1 ? 'une carte' : `${n} cartes`)
+      const parts = [
+        ...(top.length ? [`met ${count(top.length)} au-dessus`] : []),
+        ...(bottom.length ? [`${top.length ? '' : 'met '}${count(bottom.length)} dessous`] : []),
+      ]
+      const tail = parts.length === 0 ? '' : parts.length === 1 ? ` et ${parts[0]}` : `, ${parts[0]} et ${parts[1]}`
+      return log(s, action.actor, `mélange ${of}${tail}`)
     }
 
     default:

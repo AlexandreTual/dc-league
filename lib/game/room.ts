@@ -9,7 +9,7 @@ import { parseClientAction } from './validate'
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 /** Action envoyée par un navigateur : l'auteur et les graines sont fixés par le serveur. */
-export type ClientAction = DistributiveOmit<Exclude<GameAction, { type: 'start' }>, 'actor' | 'seed' | 'at'>
+export type ClientAction = DistributiveOmit<Exclude<GameAction, { type: 'start' }>, 'actor' | 'seed' | 'at' | 'keep'>
 
 export type ClientMessage =
   | { type: 'action'; action: ClientAction }
@@ -132,7 +132,8 @@ function serverAction(raw: unknown, actor: string, seed: () => Seed): GameAction
   // Éliminer un autre joueur passe par la commande de l'hôte ; un joueur ne peut que concéder.
   if (action.type === 'eliminate' && action.target !== actor) return MSG.eliminateOther
   const full = { ...action, actor } as GameAction
-  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook' || full.type === 'roll') return { ...full, seed: seed() } as GameAction
+  if (full.type === 'endLook') return { ...full, seed: seed(), keep: true }
+  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'roll') return { ...full, seed: seed() } as GameAction
   return full
 }
 

@@ -31,7 +31,8 @@ function soloSetup(catalog: Catalog): GameSetup {
 /** Action complète du joueur solo : auteur et graine ajoutés ici (le serveur le fait en ligne). */
 function withActorAndSeed(action: ClientAction): GameAction {
   const full = { ...action, actor: SOLO } as GameAction
-  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'endLook' || full.type === 'roll') return { ...full, seed: randomSeed() } as GameAction
+  if (full.type === 'endLook') return { ...full, seed: randomSeed(), keep: true }
+  if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'roll') return { ...full, seed: randomSeed() } as GameAction
   return full
 }
 
