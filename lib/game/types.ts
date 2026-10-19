@@ -1,4 +1,5 @@
 import type { CardFace, CardRow } from '@/lib/cards/types'
+import type { GainedAbility, Keyword } from './abilities'
 
 export type { CardFace }
 
@@ -99,6 +100,10 @@ export type CardInstance = {
   loyaltyMod?: number
   /** Pivotée à 180° (ex. jeton imprimé tête-bêche) ; absent sinon, et toujours hors du champ de bataille. */
   rotated?: true
+  /** Capacités données (« Donner une capacité… ») ; absent : aucune, et toujours hors du champ de bataille. */
+  gained?: GainedAbility[]
+  /** Capacités imprimées perdues ; absent : aucune, et toujours hors du champ de bataille. */
+  lost?: Keyword[]
   x: number
   y: number
   knownBy: string[]
@@ -177,6 +182,8 @@ export type GameAction = Stamp & (
   /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
   | { type: 'loyalty'; actor: string; id: string; delta: number }
+  /** Capacités voulues du permanent (données, imprimées perdues) ; `untilEndOfTurn` : durée de celles ajoutées. */
+  | { type: 'abilities'; actor: string; id: string; gained: Keyword[]; lost: Keyword[]; untilEndOfTurn?: boolean }
   | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number; copy?: boolean }
   | { type: 'life'; actor: string; target: string; delta: number }
   | { type: 'poison'; actor: string; target: string; delta: number }
@@ -219,6 +226,10 @@ export type VisibleCard = {
   loyaltyMod?: number
   /** Absent : non pivotée, ou serveur de jeu plus ancien. */
   rotated?: true
+  /** Absent : aucune capacité donnée, ou serveur de jeu plus ancien. */
+  gained?: GainedAbility[]
+  /** Absent : aucune capacité imprimée perdue, ou serveur de jeu plus ancien. */
+  lost?: Keyword[]
   x: number
   y: number
 }

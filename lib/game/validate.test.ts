@@ -18,6 +18,9 @@ describe('parseClientAction', () => {
     ok({ type: 'move', id: 'p1:c2-1', to: { player: 'p1', zone: 'library' }, position: 'bottom' })
     ok({ type: 'moveTop', to: { player: 'p1', zone: 'library' }, position: 3 })
     ok({ type: 'createToken', token: soldier, x: 50, y: 50 })
+    expect(ok({ type: 'abilities', id: 'c1', gained: ['Flying', 'First strike'], lost: [], untilEndOfTurn: true }))
+      .toEqual({ type: 'abilities', id: 'c1', gained: ['Flying', 'First strike'], lost: [], untilEndOfTurn: true })
+    ok({ type: 'abilities', id: 'c1', gained: [], lost: ['Flying'] })
     expect(ok({ type: 'createToken', token: { ...soldier, keywords: ['Flying', 'Vigilance'] }, x: 50, y: 50 }))
       .toMatchObject({ token: { keywords: ['Flying', 'Vigilance'] } })
     ok({ type: 'createToken', token: { ...soldier, keywords: [] }, x: 50, y: 50 })
@@ -79,6 +82,10 @@ describe('parseClientAction', () => {
   it('jeton : type obligatoire, image Scryfall ou rien', () => {
     const { typeLine: _t, ...noType } = soldier
     ko({ type: 'createToken', token: noType, x: 50, y: 50 })
+    ko({ type: 'abilities', id: 'c1', gained: ['Bouclier'], lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: ['Flying'] })
+    ko({ type: 'abilities', id: 'c1', gained: Array(16).fill('Flying'), lost: [] })
+    ko({ type: 'abilities', id: 'c1', gained: [], lost: [], untilEndOfTurn: 'oui' })
     ko({ type: 'createToken', token: { ...soldier, name: '' }, x: 50, y: 50 })
     ko({ type: 'createToken', token: { ...soldier, colors: 'W' }, x: 50, y: 50 })
     ko({ type: 'createToken', token: { ...soldier, image: 'https://pistage.example/pixel.gif' }, x: 50, y: 50 })
