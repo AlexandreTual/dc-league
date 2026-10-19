@@ -1,10 +1,24 @@
 // Capacités données ou perdues sur la table (« Donner une capacité… ») : liste fermée, état voulu et ligne de journal.
 
-/** Capacités proposées, en mots-clés anglais de Scryfall (comme les capacités imprimées), dans l'ordre de la modale. */
-export const KEYWORDS = [
+// Capacités proposées, en mots-clés anglais de Scryfall (comme les capacités imprimées), par groupe, dans l'ordre de la modale.
+const COMMON = [
   'Flying', 'Deathtouch', 'Lifelink', 'Trample', 'Vigilance', 'Haste', 'First strike', 'Double strike',
   'Hexproof', 'Shroud', 'Indestructible', 'Menace', 'Reach', 'Defender', 'Infect', 'Protection', 'Ward',
 ] as const
+const EVASION = ['Fear', 'Intimidate', 'Shadow', 'Skulk', 'Plainswalk', 'Islandwalk', 'Swampwalk', 'Mountainwalk', 'Forestwalk'] as const
+const OTHERS = ['Prowess', 'Exalted', 'Wither', 'Battle cry', 'Myriad', 'Melee', 'Dethrone', 'Mentor', 'Training', 'Persist', 'Undying'] as const
+/** Capacités suivies d'un nombre (« Annihilateur 2 »). */
+const NUMBERED = ['Annihilator', 'Toxic', 'Afflict', 'Bushido', 'Afterlife', 'Absorb'] as const
+
+export const KEYWORDS = [...COMMON, ...EVASION, ...OTHERS, ...NUMBERED] as const
+
+/** Groupes de la fenêtre « Capacités ». */
+export const KEYWORD_GROUPS: { title: string; keywords: readonly Keyword[] }[] = [
+  { title: 'Courantes', keywords: COMMON },
+  { title: 'Évasion', keywords: EVASION },
+  { title: 'Combat et retour', keywords: OTHERS },
+  { title: 'Avec une valeur', keywords: NUMBERED },
+]
 
 export type Keyword = (typeof KEYWORDS)[number]
 
@@ -13,6 +27,11 @@ const LABELS: Record<Keyword, string> = {
   Haste: 'Célérité', 'First strike': 'Initiative', 'Double strike': 'Double initiative', Hexproof: 'Défense talismanique',
   Shroud: 'Linceul', Indestructible: 'Indestructible', Menace: 'Menace', Reach: 'Portée', Defender: 'Défenseur', Infect: 'Infection',
   Protection: 'Protection', Ward: 'Parade',
+  Fear: 'Peur', Intimidate: 'Intimidation', Shadow: 'Ombre', Skulk: 'Furtivité', Plainswalk: 'Traversée des plaines',
+  Islandwalk: 'Traversée des îles', Swampwalk: 'Traversée des marais', Mountainwalk: 'Traversée des montagnes', Forestwalk: 'Traversée des forêts',
+  Prowess: 'Prouesse', Exalted: 'Exaltation', Wither: 'Flétrissure', 'Battle cry': 'Cri de guerre', Myriad: 'Myriade', Melee: 'Mêlée',
+  Dethrone: 'Détrônement', Mentor: 'Mentor', Training: 'Entraînement', Persist: 'Persistance', Undying: 'Immortalité',
+  Annihilator: 'Annihilateur', Toxic: 'Toxique', Afflict: 'Affliction', Bushido: 'Bushido', Afterlife: 'Après-vie', Absorb: 'Absorption',
 }
 
 /** Nom français officiel de la capacité. */
@@ -20,8 +39,10 @@ export const keywordLabel = (keyword: Keyword): string => LABELS[keyword]
 
 export const isKeyword = (value: unknown): value is Keyword => (KEYWORDS as readonly unknown[]).includes(value)
 
-/** Capacités qui ont besoin d'une précision : couleurs d'une Protection, coût d'une Parade. */
-const PARAM_KEYWORDS: readonly Keyword[] = ['Protection', 'Ward']
+/** Capacités qui ont besoin d'une précision : couleurs d'une Protection, coût d'une Parade, nombre (Annihilateur…). */
+const PARAM_KEYWORDS: readonly Keyword[] = ['Protection', 'Ward', ...NUMBERED]
+/** Capacité suivie d'un nombre. */
+export const isNumbered = (keyword: Keyword): boolean => (NUMBERED as readonly Keyword[]).includes(keyword)
 export const takesParam = (keyword: Keyword): boolean => PARAM_KEYWORDS.includes(keyword)
 
 /** Couleurs d'une Protection, dans l'ordre WUBRG. */
@@ -34,7 +55,8 @@ const MAX_WARD = 40
 
 /**
  * Paramètre valable pour la capacité : Protection, « all » ou des couleurs WUBRG dans l'ordre séparées par des virgules ;
- * Parade, un coût de 1 à 40 caractères sur une ligne ; les autres capacités n'en prennent pas.
+ * Parade, un coût de 1 à 40 caractères sur une ligne ; Annihilateur et les autres capacités chiffrées, un nombre de 1 à 99 ;
+ * les autres capacités n'en prennent pas.
  */
 export function isValidParam(keyword: Keyword, param: unknown): boolean {
   if (!takesParam(keyword)) return param === undefined
@@ -44,6 +66,7 @@ export function isValidParam(keyword: Keyword, param: unknown): boolean {
     const order = param.split(',').map((c) => COLORS.indexOf(c as Color))
     return order.every((i, n) => i >= 0 && (n === 0 || i > order[n - 1]))
   }
+  if (isNumbered(keyword)) return /^[1-9][0-9]?$/.test(param)
   // eslint-disable-next-line no-control-regex
   return param.trim().length > 0 && param.length <= MAX_WARD && !/[\u0000-\u001f]/.test(param)
 }
@@ -66,7 +89,7 @@ function paramText(keyword: Keyword, param: string): string {
   return `contre ${join(param.split(',').map((c) => COLOR_NAMES[c as Color] ?? c))}`
 }
 
-/** Capacité en toutes lettres : « Célérité », « Protection contre le rouge », « Parade {2} ». */
+/** Capacité en toutes lettres : « Célérité », « Protection contre le rouge », « Parade {2} », « Annihilateur 2 ». */
 export function abilityText(ability: { keyword: Keyword; param?: string }): string {
   const label = keywordLabel(ability.keyword)
   return ability.param ? `${label} ${paramText(ability.keyword, ability.param)}` : label

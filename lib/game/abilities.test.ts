@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { abilitiesLog, abilitiesSummary, abilityText, isValidParam, KEYWORDS, keywordLabel, nextAbilities, takesParam } from './abilities'
+import { abilitiesLog, abilitiesSummary, abilityText, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, nextAbilities, takesParam } from './abilities'
 
 describe('liste des capacités', () => {
-  it('17 capacités, noms de Scryfall, libellés français', () => {
-    expect(KEYWORDS).toHaveLength(17)
+  it('43 capacités, noms de Scryfall, libellés français, chacune dans un seul groupe', () => {
+    expect(KEYWORDS).toHaveLength(43)
+    expect(KEYWORD_GROUPS.flatMap((g) => g.keywords)).toEqual([...KEYWORDS])
+    expect(keywordLabel('Annihilator')).toBe('Annihilateur')
+    expect(keywordLabel('Forestwalk')).toBe('Traversée des forêts')
+    expect(keywordLabel('Undying')).toBe('Immortalité')
     expect(keywordLabel('Ward')).toBe('Parade')
     expect(keywordLabel('Flying')).toBe('Vol')
     expect(keywordLabel('First strike')).toBe('Initiative')
@@ -54,9 +58,22 @@ describe('abilitiesLog', () => {
 })
 
 describe('capacités à paramètre', () => {
-  it('Protection et Parade en prennent un, les autres non', () => {
-    expect(takesParam('Protection') && takesParam('Ward')).toBe(true)
-    expect(takesParam('Flying')).toBe(false)
+  it('Protection, Parade et les capacités chiffrées en prennent un, les autres non', () => {
+    expect(takesParam('Protection') && takesParam('Ward') && takesParam('Annihilator') && takesParam('Toxic')).toBe(true)
+    expect(takesParam('Flying') || takesParam('Forestwalk') || takesParam('Persist')).toBe(false)
+  })
+
+  it('capacités chiffrées : un nombre de 1 à 99 ; texte, journal, aperçu', () => {
+    for (const ok of ['1', '2', '10', '99']) expect(isValidParam('Annihilator', ok)).toBe(true)
+    for (const ko of ['', '0', '01', '100', '-1', '2.5', 'X', ' 2', undefined]) expect(isValidParam('Toxic', ko)).toBe(false)
+    expect(isValidParam('Prowess', '1')).toBe(false)
+    expect(abilityText({ keyword: 'Annihilator', param: '2' })).toBe('Annihilateur 2')
+    expect(abilitiesLog('Ulamog', {}, { gained: [{ keyword: 'Annihilator', param: '2' }, { keyword: 'Toxic', param: '1' }] }))
+      .toBe('donne Annihilateur 2 et Toxique 1 à Ulamog')
+    expect(abilitiesLog('Ulamog', { gained: [{ keyword: 'Annihilator', param: '2' }] }, { gained: [{ keyword: 'Annihilator', param: '4' }] }))
+      .toBe('change Annihilateur de Ulamog : 4')
+    expect(abilitiesSummary({ gained: [{ keyword: 'Afterlife', param: '3' }, { keyword: 'Forestwalk' }] }))
+      .toEqual(['Capacités données : Après-vie 3, Traversée des forêts'])
   })
 
   it('Protection : « all » ou des couleurs WUBRG dans l’ordre, sans doublon ; Parade : un coût de 1 à 40 caractères', () => {
