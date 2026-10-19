@@ -1,5 +1,5 @@
 import type { LocalClock } from '@/lib/game/clock'
-import type { CardDataMap, ClientAction } from '@/lib/game/room'
+import type { CardDataMap, ClientAction, RtcServerMessage } from '@/lib/game/room'
 import type { Catalog, DeckToken, PlayerView } from '@/lib/game/types'
 
 /** Ce que la table consomme, qu'elle soit locale (mode test) ou en ligne. */
@@ -27,10 +27,18 @@ export type GameSource = {
     clock?: LocalClock
     concede(): void
     hostCommands?: { passTurn(target: string): void; eliminate(target: string): void; close(): void }
+    /** Visio : signalisation par le serveur de jeu ; absente avec un serveur plus ancien (pas de bouton). */
+    visio?: VisioChannel
   }
   local?: { deckId: string; deckName: string; newGame(): void }
   /** Jetons de mon deck, pour « Créer un jeton » ; absents tant qu'ils ne sont pas chargés. */
   deckTokens?: DeckToken[]
+}
+
+/** Canal de signalisation de la visio. `send` sans destinataire : tous les autres joueurs. */
+export type VisioChannel = {
+  send(to: string | undefined, data: Record<string, unknown>): void
+  subscribe(listener: (message: RtcServerMessage) => void): () => void
 }
 
 /** Catalogues reconstitués à partir des données de cartes reçues du serveur. */
