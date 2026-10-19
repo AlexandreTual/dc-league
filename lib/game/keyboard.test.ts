@@ -32,15 +32,15 @@ describe('shortcutFor', () => {
     expect(shortcutFor(key('?', { shiftKey: true }))).toBe('help')
   })
 
-  it('Ctrl+Z et Cmd+Z annulent, Ctrl+X crée un jeton copie', () => {
+  it('Ctrl+Z et Cmd+Z annulent, X crée un jeton copie', () => {
     expect(shortcutFor(key('z', { ctrlKey: true }))).toBe('undo')
     expect(shortcutFor(key('Z', { metaKey: true }))).toBe('undo')
-    expect(shortcutFor(key('x', { ctrlKey: true }))).toBe('copy')
+    expect(shortcutFor(key('x'))).toBe('copy')
   })
 
-  it('z seul, x seul et les Ctrl non attribués ne font rien (raccourcis du navigateur)', () => {
+  it('z seul et les Ctrl non attribués ne font rien (Ctrl+X reste « couper » pour le navigateur)', () => {
     expect(shortcutFor(key('z'))).toBeNull()
-    expect(shortcutFor(key('x'))).toBeNull()
+    expect(shortcutFor(key('x', { ctrlKey: true }))).toBeNull()
     expect(shortcutFor(key('d', { ctrlKey: true }))).toBeNull()
     expect(shortcutFor(key('s', { metaKey: true }))).toBeNull()
   })
@@ -190,7 +190,7 @@ describe('raccourcis de la carte survolée', () => {
     const entries = cardMenu(ctx(s), c, zone)
     const hints = menuHints(entries, DEFAULT_BINDINGS, { card: c, zone })
     expect(hintOf(entries, hints, 'Engager')).toBe('T')
-    expect(hintOf(entries, hints, 'Créer un jeton copie')).toBe('Ctrl+X')
+    expect(hintOf(entries, hints, 'Créer un jeton copie')).toBe('X')
     expect(hintOf(entries, hints, 'Cimetière')).toBe('G')
     expect(hintOf(entries, hints, 'Dessous de la bibliothèque')).toBe('Maj+L')
     expect(hintOf(entries, hints, '+1/+1')).toBe('- +')

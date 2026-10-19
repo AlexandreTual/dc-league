@@ -1,5 +1,5 @@
 // Raccourcis clavier sur la carte survolée et touches choisies, dans de vrais navigateurs :
-// mode test (jouer, engager, jeton copie Ctrl+X, cimetière, annuler, changer une touche, mémorisée), puis en ligne à 2
+// mode test (jouer, engager, jeton copie X, cimetière, annuler, changer une touche, mémorisée), puis en ligne à 2
 // (engager la carte d'un adversaire).
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs).
 // Usage : node scripts/shortcuts-check.mjs <url-de-base> <dossier-captures>
@@ -70,16 +70,16 @@ try {
   // Touches en grisé dans le menu, comme Moxfield.
   await onField.click({ button: 'right' })
   const hint = (name) => page.getByRole('menuitem', { name }).locator('[data-shortcut-hint]').innerText()
-  check(await hint(/^Dégager/) === 'T' && await hint(/^Créer un jeton copie/) === 'Ctrl+X' && await hint(/^Cimetière/) === 'G',
-    'menu : touches affichées (T, Ctrl+X, G)')
+  check(await hint(/^Dégager/) === 'T' && await hint(/^Créer un jeton copie/) === 'X' && await hint(/^Cimetière/) === 'G',
+    'menu : touches affichées (T, X, G)')
   await capture(page, 'menu-touches')
   await page.keyboard.press('Escape')
 
   const before = await count(page, 'battlefield')
   await onField.hover()
-  await page.keyboard.press('Control+x')
+  await page.keyboard.press('x')
   await page.waitForFunction((n) => document.querySelectorAll('[data-zone="battlefield"] [data-card-id]').length === n, before + 1)
-  check(true, 'Ctrl+X : un jeton copie de la carte survolée arrive en jeu')
+  check(true, 'X : un jeton copie de la carte survolée arrive en jeu')
   await capture(page, 'jeton-copie')
 
   await onField.hover()
@@ -95,7 +95,7 @@ try {
   await page.keyboard.press('?')
   const modal = page.getByRole('dialog', { name: 'Raccourcis clavier' })
   await modal.waitFor()
-  check(await modal.locator('[data-shortcut="copy"] kbd').innerText() === 'Ctrl+X', 'fenêtre des raccourcis : Ctrl+X pour le jeton copie')
+  check(await modal.locator('[data-shortcut="copy"] kbd').innerText() === 'X', 'fenêtre des raccourcis : X pour le jeton copie')
   await modal.locator('[data-shortcut="tap"]').getByRole('button', { name: 'Changer' }).click()
   await page.keyboard.press('k')
   check(await modal.locator('[data-shortcut="tap"] kbd').innerText() === 'K', 'touche choisie : K pour engager')
@@ -123,7 +123,7 @@ try {
   check(await hint(/^(Engager|Dégager)/) === 'K', 'menu : la touche choisie (K) est affichée')
   await page.keyboard.press('Escape')
 
-  // ── En ligne, à 2 : Ctrl+X sur une carte de l'adversaire ──
+  // ── En ligne, à 2 : une carte de l'adversaire ──
   const ana = await openAs(ANA)
   const bastien = await openAs(BASTIEN)
   await ana.page.goto(`${base}/salon`)
@@ -158,7 +158,7 @@ try {
   const seen = ana.page.locator(`[data-card-id="${bId}"]`).first()
   await seen.waitFor({ timeout: 10_000 })
   check(true, 'en ligne : B de Bastien, Ana voit la carte arriver en jeu')
-  // Une copie en ligne demande une image Scryfall, absente des données de test : T plutôt que Ctrl+X ici.
+  // Une copie en ligne demande une image Scryfall, absente des données de test : T plutôt que X ici.
   await seen.hover()
   await ana.page.keyboard.press('t')
   const onBastien = bastien.page.locator(`[data-zone="battlefield"] [data-card-id="${bId}"]`)

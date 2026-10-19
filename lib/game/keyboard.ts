@@ -23,7 +23,7 @@ export const SHORTCUTS: { id: Shortcut; label: string; group: 'table' | 'card'; 
   { id: 'tap', label: 'Engager / dégager', group: 'card', key: 't' },
   { id: 'flip', label: 'Retourner (double face)', group: 'card', key: 'f' },
   { id: 'faceDown', label: 'Face cachée / visible', group: 'card', key: 'shift+f' },
-  { id: 'copy', label: 'Créer un jeton copie', group: 'card', key: 'ctrl+x' },
+  { id: 'copy', label: 'Créer un jeton copie', group: 'card', key: 'x' },
   { id: 'plusCounter', label: 'Ajouter un marqueur +1/+1', group: 'card', key: '+' },
   { id: 'minusCounter', label: 'Retirer un marqueur +1/+1', group: 'card', key: '-' },
   { id: 'reveal', label: 'Révéler à tous (main)', group: 'card', key: 'r' },
