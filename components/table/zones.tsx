@@ -89,7 +89,7 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
           className="absolute"
           style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
-          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} effects={settings.cardEffects} arriving={props.arriving?.has(card.id)} />
+          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} effects={settings.cardEffects} arriving={props.arriving?.has(card.id)} abilityStyle={settings.abilityStyle} />
         </Draggable>
       ))}
       {props.corner && <div className="absolute bottom-1.5 left-1.5 z-[5] pointer-events-none">{props.corner}</div>}

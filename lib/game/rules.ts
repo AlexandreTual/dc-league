@@ -137,7 +137,8 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'tap':
     case 'counter':
     case 'pt':
-    case 'loyalty': {
+    case 'loyalty':
+    case 'abilities': {
       const where = zoneOf(state, action.id)
       if (!where) return MSG.unknownCard
       return where.zone === 'battlefield' ? null : MSG.notOnBattlefield

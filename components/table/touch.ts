@@ -54,7 +54,7 @@ export const PREVIEW_WIDTH = 288
 const SMALL_WIDTH = 640
 const SMALL_HEIGHT = 480
 const PREVIEW_MARGIN = 16
-const CARD_RATIO = 63 / 88
+export const CARD_RATIO = 63 / 88
 
 /**
  * Aperçu sur petit écran : centré, au format d'une carte, dans l'écran ; null sur grand écran (place habituelle).

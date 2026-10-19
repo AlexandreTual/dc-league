@@ -14,6 +14,8 @@ function visibleCard(state: GameState, id: string): VisibleCard {
     ...(c.ptMod ? { ptMod: c.ptMod } : {}),
     ...(c.loyaltyMod ? { loyaltyMod: c.loyaltyMod } : {}),
     ...(c.rotated ? { rotated: true } : {}),
+    ...(c.gained ? { gained: c.gained } : {}),
+    ...(c.lost ? { lost: c.lost } : {}),
   }
 }
 

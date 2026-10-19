@@ -15,6 +15,8 @@ export type MenuCommand =
   | { kind: 'oracle'; owner: string; ref: number }
   /** Ajoute la carte (catalogue de son propriétaire) à la question de l'assistant IA, côté navigateur seulement. */
   | { kind: 'askAi'; owner: string; ref: number }
+  /** Fenêtre « Capacités » d'une carte en jeu (« Donner une capacité… »). */
+  | { kind: 'abilities'; id: string }
 
 export type MenuEntry =
   | { kind: 'title'; label: string }
@@ -188,7 +190,8 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
   }
   entries.push({ kind: 'separator' },
     counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
-    ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card))
+    ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card),
+    item('Donner une capacité…', { kind: 'abilities', id }))
   return entries
 }
 

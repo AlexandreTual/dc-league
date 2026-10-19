@@ -1,5 +1,6 @@
 import { rollDice, rollText } from './dice'
 import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
+import { abilitiesLog, nextAbilities } from './abilities'
 import { MAX_PT_MOD, NO_PT, ptLog } from './pt'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
@@ -120,6 +121,26 @@ function setCard(state: GameState, id: string, patch: Partial<CardInstance>): Ga
 }
 
 /** La carte sans modification de force et d'endurance (champ retiré plutôt que mis à 0/0). */
+/** Capacités données et perdues effacées (carte qui quitte le champ de bataille). */
+function withoutAbilities(state: GameState, id: string): GameState {
+  const { gained, lost, ...card } = state.cards[id]
+  if (!gained && !lost) return state
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
+/** Fin du tour : les capacités données « jusqu'à la fin du tour » disparaissent, sur tous les permanents. */
+function withoutEndOfTurnAbilities(state: GameState): GameState {
+  let cards: GameState['cards'] | null = null
+  for (const [id, card] of Object.entries(state.cards)) {
+    if (!card.gained?.some((g) => g.untilEndOfTurn)) continue
+    cards ??= { ...state.cards }
+    const kept = card.gained.filter((g) => !g.untilEndOfTurn)
+    const { gained: _, ...rest } = card
+    cards[id] = kept.length > 0 ? { ...rest, gained: kept } : rest
+  }
+  return cards ? { ...state, cards } : state
+}
+
 function withoutPt(state: GameState, id: string): GameState {
   if (!state.cards[id].ptMod) return state
   const { ptMod: _, ...card } = state.cards[id]
@@ -224,7 +245,7 @@ function passTurn(state: GameState, actor: string | null, byHost = false, at?: n
     const next = order[index]
     if (state.players[next].eliminated) continue
     const turn = index <= current ? state.turn + 1 : state.turn
-    let s: GameState = { ...stampTurn(state, at), activePlayer: next, turn, firstTurnDone: true }
+    let s: GameState = { ...withoutEndOfTurnAbilities(stampTurn(state, at)), activePlayer: next, turn, firstTurnDone: true }
     s = draw(untapAllOf(emptyManaPools(s), next), next, 1)
     return log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
   }
@@ -270,7 +291,7 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     patch.y = clampPct(action.y ?? 50)
   }
   next = setCard(next, action.id, patch)
-  if (from.zone === 'battlefield') next = withoutRotation(withoutLoyalty(withoutPt(next, action.id), action.id), action.id)
+  if (from.zone === 'battlefield') next = withoutAbilities(withoutRotation(withoutLoyalty(withoutPt(next, action.id), action.id), action.id), action.id)
 
   if (card.isCommander && from.zone === 'command' && to.zone !== 'command') {
     next = { ...next, commanderCasts: { ...next.commanderCasts, [action.id]: (next.commanderCasts[action.id] ?? 0) + 1 } }
@@ -385,6 +406,16 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       const s = ptMod.power === 0 && ptMod.toughness === 0 ? withoutPt(state, action.id) : setCard(state, action.id, { ptMod })
       const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
       return log(s, action.actor, `${name} : ${ptLog(state.catalogs[card.owner], s.cards[action.id])}`)
+    }
+
+    case 'abilities': {
+      const card = state.cards[action.id]
+      const next = nextAbilities(card, action.gained, action.lost, action.untilEndOfTurn ?? false)
+      const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
+      const text = abilitiesLog(name, card, next)
+      if (text === null) return state
+      const { gained: _g, lost: _l, ...rest } = card
+      return log({ ...state, cards: { ...state.cards, [action.id]: { ...rest, ...next } } }, action.actor, text)
     }
 
     case 'loyalty': {

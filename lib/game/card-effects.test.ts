@@ -70,6 +70,15 @@ describe('hasFlying', () => {
     expect(hasFlying(catalog, onTable(3, { flipped: true }))).toBe(true)
   })
 
+  it('vol donné : flotte ; vol imprimé perdu : ne flotte plus', () => {
+    expect(hasFlying(catalog, onTable(1, { gained: [{ keyword: 'Flying' }] }))).toBe(true)
+    expect(hasFlying(catalog, onTable(1, { gained: [{ keyword: 'Haste' }] }))).toBe(false)
+    expect(hasFlying(catalog, onTable(5, { lost: ['Flying'] }))).toBe(false)
+    expect(hasFlying(catalog, onTable(5, { lost: ['Vigilance'] }))).toBe(true)
+    // Face cachée : seulement ce qu'on lui a donné.
+    expect(hasFlying(catalog, onTable(5, { faceDown: true, gained: [{ keyword: 'Flying' }] }))).toBe(true)
+  })
+
   it('jeton : ses capacités ; aucune connue (carte pas encore relue, ancien serveur), face cachée ou inconnue : non', () => {
     expect(hasFlying(catalog, onTable(null, { token: { ...token('Token Creature — Spirit'), keywords: ['Flying'] } }))).toBe(true)
     expect(hasFlying(catalog, onTable(null, { token: token('Token Creature — Spirit') }))).toBe(false)

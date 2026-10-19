@@ -9,13 +9,17 @@ export type TableSettings = {
   cardScale: number
   /** Bibliothèque, cimetière, exil et commandement en vignettes à droite de ma main (façon Moxfield, par défaut) ; false : dans ma colonne (ancienne disposition). */
   pilesBesideHand: boolean
-  /** Animations des cartes en jeu (reflet des légendaires). */
+  /** Animations des cartes en jeu (liseré et éclat des légendaires, créatures volantes qui flottent). */
   cardEffects: boolean
+  /** Capacités données ou perdues sur les cartes en jeu : symboles sur le bord gauche (par défaut) ou libellés. */
+  abilityStyle: AbilityStyle
 }
+
+export type AbilityStyle = 'icons' | 'labels'
 
 /** Tailles proposées dans Réglages (80 % à 150 %). */
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: true }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: true, abilityStyle: 'icons' }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -33,7 +37,9 @@ export function parseTableSettings(raw: string | null): TableSettings {
     const pilesBesideHand = data.pilesBesideHand !== false
     // Absentes (sauvegarde d'avant) ou illisibles : animations activées.
     const cardEffects = data.cardEffects !== false
-    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects }
+    // Absent (sauvegarde d'avant) ou illisible : les symboles.
+    const abilityStyle: AbilityStyle = data.abilityStyle === 'labels' ? 'labels' : 'icons'
+    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects, abilityStyle }
   } catch {
     return DEFAULT_TABLE_SETTINGS
   }

@@ -1,5 +1,6 @@
 // Validation des actions reçues d'un navigateur : rien n'y est fiable (types, bornes, champs en trop).
 import type { ClientAction } from './room'
+import { isKeyword, KEYWORDS } from './abilities'
 import { DICE_SIDES, MAX_DICE } from './dice'
 import { MANA_COLORS, PLAYER_ZONES } from './types'
 
@@ -74,6 +75,8 @@ const token = object({
   copy: optional(bool),
   keywords: optional(either(when((v) => Array.isArray(v) && v.length === 0), listOf(str(40), 30))),
 })
+/** Liste de capacités de la modale (vide permise), sans autre mot. */
+const keywords = either(when((v) => Array.isArray(v) && v.length === 0), listOf(when(isKeyword), KEYWORDS.length))
 const placement = { position, x: optional(finite), y: optional(finite), faceDown: optional(bool) }
 
 /** Champs attendus pour chaque type d'action envoyée par un joueur (auteur et graine sont posés par le serveur). */
@@ -94,6 +97,7 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   counter: { id, kind: oneOf(['plus', 'minus', 'other']), delta },
   pt: { id, power: delta, toughness: delta },
   loyalty: { id, delta },
+  abilities: { id, gained: keywords, lost: keywords, untilEndOfTurn: optional(bool) },
   createToken: { token, x: finite, y: finite, copy: optional(bool) },
   life: { target: player, delta },
   poison: { target: player, delta },

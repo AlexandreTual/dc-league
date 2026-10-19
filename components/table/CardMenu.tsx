@@ -75,6 +75,7 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
           <button className="self-end h-11 px-3 flex items-center gap-1.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onClose}>
             <X className="w-4 h-4" /> Fermer
           </button>
+          {preview.abilities?.map((line) => <p key={line} className="px-3 py-1 text-xs text-dc-gold-light" data-testid="menu-abilities">{line}</p>)}
           {menuItems(items, onClose)}
         </div>
       ) : menuItems(items, onClose)}

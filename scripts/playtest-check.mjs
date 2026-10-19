@@ -250,7 +250,7 @@ try {
   const creatures = Number((await creatureButton.innerText()).match(/\((\d+)\)/)[1])
   await creatureButton.click()
   const shownTypes = await page.locator('[data-pile-card] [title]').evaluateAll((els) => els.map((e) => e.getAttribute('title')))
-  check(creatures > 0 && shownTypes.length === creatures && shownTypes.every((n) => ['Llanowar Elves', 'Avenger of Zendikar'].includes(n)),
+  check(creatures > 0 && shownTypes.length === creatures && shownTypes.every((n) => ['Llanowar Elves', 'Avenger of Zendikar', 'Ange de Serra'].includes(n)),
     `filtre « Créature » : ${creatures} créatures seulement`)
   await page.getByRole('button', { name: 'Tous', exact: true }).click()
   check((await page.locator('[data-pile-card]').count()) === libraryAfter, `filtre « Tous » : toute la bibliothèque (${libraryAfter})`)
