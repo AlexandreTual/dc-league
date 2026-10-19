@@ -37,6 +37,15 @@ describe('capacités données', () => {
     expect(s.log.at(-1)?.text).toBe('rend Vol à Delver of Secrets // Insectile Aberration')
   })
 
+  it('Protection et Parade avec leur précision ; précision changée', () => {
+    const id = kenrith('p1')
+    let s = applyAction(game(), { type: 'abilities', actor: 'p1', id, gained: [{ keyword: 'Protection', param: 'R,G' }, { keyword: 'Ward', param: '{2}' }], lost: [] })
+    expect(s.cards[id].gained).toEqual([{ keyword: 'Protection', param: 'R,G' }, { keyword: 'Ward', param: '{2}' }])
+    expect(s.log.at(-1)?.text).toBe('donne Protection contre le rouge et le vert et Parade {2} à Kenrith, the Returned King')
+    s = applyAction(s, { type: 'abilities', actor: 'p2', id, gained: [{ keyword: 'Protection', param: 'all' }, { keyword: 'Ward', param: '{2}' }], lost: [] })
+    expect(s.log.at(-1)).toMatchObject({ actor: 'p2', text: 'change Protection de Kenrith, the Returned King : contre tout' })
+  })
+
   it('rien de changé : état et journal inchangés', () => {
     const s = applyAction(game(), { type: 'abilities', actor: 'p1', id: kenrith('p1'), gained: ['Haste'], lost: [] })
     expect(applyAction(s, { type: 'abilities', actor: 'p1', id: kenrith('p1'), gained: ['Haste'], lost: [] })).toBe(s)
