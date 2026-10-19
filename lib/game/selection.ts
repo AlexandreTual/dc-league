@@ -74,6 +74,7 @@ export function selectionMenu(ctx: MenuContext, selection: Selection): MenuEntry
     const tapped = cards.filter((c) => c.tapped)
     if (untapped.length > 0) entries.push(item('Engager', ...untapped.map((c) => act({ type: 'tap', id: c.id }))))
     if (tapped.length > 0) entries.push(item('Dégager', ...tapped.map((c) => act({ type: 'tap', id: c.id }))))
+    entries.push(item('Effet sur la sélection…', { kind: 'effect', ids, title: `${ids.length} cartes sélectionnées` }))
     entries.push({ kind: 'separator' }, item('Main', act({ type: 'moveMany', ids, zone: 'hand' })))
   } else {
     entries.push(item('Champ de bataille', act({ type: 'moveMany', ids, zone: 'battlefield', places: rowPlaces(ids.length, { x: 50, y: 50 }) })))

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Angry, Anvil, ArrowUpToLine, Award, Axe, Biohazard, Bomb, BrickWall, ChevronsUp, Copy, Crown, Droplet, Dumbbell, Eye, EyeOff, Feather,
+  Angry, Minus, Plus, Anvil, ArrowUpToLine, Award, Axe, Biohazard, Bomb, BrickWall, ChevronsUp, Copy, Crown, Droplet, Dumbbell, Eye, EyeOff, Feather,
   FlaskConical, Footprints, Frown, Ghost, GraduationCap, Hand, HeartCrack, HeartPulse, Info, Magnet, Megaphone, Moon, Mountain, RefreshCw, RotateCcw,
   Shield, ShieldCheck, Skull, Sparkles, Sun, Sword, Swords, Syringe, TreePine, Users, VenetianMask, Waves, X, Zap,
   type LucideIcon,
@@ -11,7 +11,8 @@ import {
   abilityRule, abilityText, COLORS, isNumbered, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, PROTECTION_ALL, takesParam,
   type AbilityChoice, type Color, type GainedAbility, type Keyword,
 } from '@/lib/game/abilities'
-import type { VisibleCard } from '@/lib/game/types'
+import { MAX_PT_MOD } from '@/lib/game/pt'
+import type { PtMod, VisibleCard } from '@/lib/game/types'
 import type { AbilityStyle } from '@/lib/table-settings'
 
 const ICONS: Record<Keyword, LucideIcon> = {
@@ -161,21 +162,45 @@ function NumberChoice({ keyword, value, onChange }: { keyword: Keyword; value: s
   )
 }
 
+/** Écart de force ou d'endurance d'un effet : − / +, et saisie directe (signe accepté). */
+function PtField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const n = Number.parseInt(value, 10) || 0
+  const step = (d: number) => onChange(String(Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, n + d))))
+  const button = 'w-8 h-8 rounded-lg border border-dc-border flex items-center justify-center text-dc-text hover:border-dc-gold/60 tablet:w-11 tablet:h-11'
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-20 text-sm text-dc-text">{label}</span>
+      <button type="button" className={button} onClick={() => step(-1)} aria-label={`${label} −1`}><Minus className="w-4 h-4" /></button>
+      <input value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9+-]/g, '').slice(0, 5))} inputMode="numeric" aria-label={label}
+        className="w-16 bg-dc-bg border border-dc-border rounded px-2 py-1 text-center text-sm text-dc-text tablet:py-2.5" />
+      <button type="button" className={button} onClick={() => step(1)} aria-label={`${label} +1`}><Plus className="w-4 h-4" /></button>
+    </div>
+  )
+}
+
+/** Écart tapé, borné ; 0 pour une saisie vide ou incomplète (« - »). */
+const ptValue = (value: string) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, Number.parseInt(value, 10) || 0))
+
 /**
  * Fenêtre « Capacités » (« Donner une capacité… ») : une case par capacité, cochée si la carte l'a déjà. Décocher une
  * capacité imprimée la marque perdue ; la durée choisie vaut pour les capacités ajoutées. Protection, Parade et les
  * capacités chiffrées demandent leur précision (couleurs, coût, nombre) avant de pouvoir valider. Le bouton « i » de
  * chaque ligne déplie le texte des règles de la capacité.
+ * `effect` : fenêtre « Effet » sur plusieurs permanents (Finale of Devastation…) : écart de force et d'endurance en
+ * plus des capacités (aucune cochée au départ, rien de retiré), durée « Jusqu'à la fin du tour » par défaut.
  */
-export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClose }: {
+export function AbilitiesModal({ name, printed, gained, lost, effect = false, onValidate, onClose }: {
   name: string
   /** Capacités imprimées de la face montrée (aucune pour une carte face cachée). */
   printed: string[]
   gained: GainedAbility[]
   lost: Keyword[]
-  onValidate: (gained: AbilityChoice[], lost: Keyword[], untilEndOfTurn: boolean) => void
+  effect?: boolean
+  onValidate: (gained: AbilityChoice[], lost: Keyword[], untilEndOfTurn: boolean, pt: PtMod) => void
   onClose: () => void
 }) {
+  const [power, setPower] = useState('0')
+  const [toughness, setToughness] = useState('0')
   const isPrinted = (k: Keyword) => printed.includes(k)
   const [checked, setChecked] = useState<Set<Keyword>>(
     () => new Set(KEYWORDS.filter((k) => gained.some((g) => g.keyword === k) || (isPrinted(k) && !lost.includes(k)))),
@@ -184,7 +209,7 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
     k, gained.find((g) => g.keyword === k)?.param ?? (k === 'Protection' ? '' : k === 'Ward' ? DEFAULT_WARD : defaultNumber(k)),
   ])))
   const setParam = (k: Keyword) => (param: string) => setParams((p) => ({ ...p, [k]: param }))
-  const [untilEndOfTurn, setUntilEndOfTurn] = useState(false)
+  const [untilEndOfTurn, setUntilEndOfTurn] = useState(effect)
   /** Capacité dont le texte des règles est déplié (une à la fois). */
   const [ruleOpen, setRuleOpen] = useState<Keyword | null>(null)
   const toggle = (k: Keyword) => setChecked((s) => {
@@ -199,6 +224,10 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
   const paramOf = (k: Keyword) => (k === 'Ward' ? (params.Ward ?? '').trim() : params[k] ?? '')
   const lacking = KEYWORDS.filter((k) => needsParam(k) && !isValidParam(k, paramOf(k)))
   const missing = lacking.length > 0
+  const pt = { power: ptValue(power), toughness: ptValue(toughness) }
+  // Un effet sans écart ni capacité ne ferait rien.
+  const empty = effect && pt.power === 0 && pt.toughness === 0 && checked.size === 0
+  const heading = effect ? `Effet : ${name}` : `Capacités : ${name}`
   const missingText = join(lacking.map((k) => (
     k === 'Protection' ? 'les couleurs de la Protection' : k === 'Ward' ? 'le coût de la Parade' : `la valeur de ${keywordLabel(k)} (1 à 99)`
   )))
@@ -209,23 +238,31 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
         className="bg-dc-surface border border-dc-gold/60 rounded-2xl w-full max-w-md max-h-full flex flex-col"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={`Capacités : ${name}`}
+        aria-label={heading}
         onSubmit={(e) => {
           e.preventDefault()
-          if (missing) return
+          if (missing || empty) return
           onValidate(
             KEYWORDS.filter((k) => !isPrinted(k) && checked.has(k)).map((k): AbilityChoice => (takesParam(k) ? { keyword: k, param: paramOf(k) } : k)),
             KEYWORDS.filter((k) => isPrinted(k) && !checked.has(k)),
             untilEndOfTurn,
+            pt,
           )
           onClose()
         }}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-dc-border">
-          <h2 className="font-fantasy text-dc-gold text-sm truncate">Capacités : {name}</h2>
+          <h2 className="font-fantasy text-dc-gold text-sm truncate">{heading}</h2>
           <button type="button" onClick={onClose} className="ml-auto text-dc-muted hover:text-dc-text" aria-label="Fermer"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-3 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-x-3">
+          {effect && (
+            <div className="sm:col-span-2 pb-2 mb-1 border-b border-dc-border flex flex-col gap-1.5" data-testid="effect-pt">
+              <h3 className="px-1 text-xs uppercase tracking-wide text-dc-muted">Force et endurance</h3>
+              <PtField label="Force" value={power} onChange={setPower} />
+              <PtField label="Endurance" value={toughness} onChange={setToughness} />
+            </div>
+          )}
           {KEYWORD_GROUPS.flatMap(({ title, keywords }) => [
             <h3 key={title} className="sm:col-span-2 px-1 pt-2 pb-0.5 text-xs uppercase tracking-wide text-dc-muted first:pt-0">{title}</h3>,
             ...keywords.map((k) => {
@@ -258,7 +295,7 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
           ])}
         </div>
         <fieldset className="mx-3 mb-3 px-3 pb-2 border border-dc-border rounded-lg flex flex-wrap gap-x-4 gap-y-1 text-sm text-dc-text">
-          <legend className="px-1 text-xs text-dc-muted">Durée des capacités ajoutées</legend>
+          <legend className="px-1 text-xs text-dc-muted">{effect ? 'Durée de l’effet' : 'Durée des capacités ajoutées'}</legend>
           <label className="flex items-center gap-1.5 cursor-pointer tablet:py-1.5">
             <input type="radio" name="duree" checked={!untilEndOfTurn} onChange={() => setUntilEndOfTurn(false)} /> Tout le temps
           </label>
@@ -269,7 +306,7 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
         <div className="flex items-center justify-end gap-2 px-4 pb-4">
           {missing && <span className="mr-auto text-xs text-dc-red-light" role="status">Choisis {missingText}.</span>}
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-dc-border text-sm text-dc-text">Annuler</button>
-          <button type="submit" disabled={missing} className="px-3 py-1.5 rounded-lg bg-dc-gold text-black text-sm font-semibold disabled:opacity-40">Valider</button>
+          <button type="submit" disabled={missing || empty} className="px-3 py-1.5 rounded-lg bg-dc-gold text-black text-sm font-semibold disabled:opacity-40">Valider</button>
         </div>
       </form>
     </div>

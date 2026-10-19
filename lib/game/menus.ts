@@ -3,7 +3,7 @@
 import { cardInfo, taxOf } from './apply'
 import { printedKeywordsOf } from './card-effects'
 import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
-import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
+import { basePT, MAX_PT_MOD, NO_PT, ptStats, signed } from './pt'
 import type { ClientAction } from './room'
 import type { OrderRequest } from './selection'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
@@ -18,6 +18,8 @@ export type MenuCommand =
   | { kind: 'askAi'; owner: string; ref: number }
   /** Fenêtre « Capacités » d'une carte en jeu (« Donner une capacité… »). */
   | { kind: 'abilities'; id: string }
+  /** Fenêtre « Effet » : force, endurance et capacités données à plusieurs permanents en jeu ; `title` : ce qui est visé. */
+  | { kind: 'effect'; ids: string[]; title: string }
   /** Fenêtre « Ordre des cartes » d'un groupe sélectionné, avant de le poser sur une pile. */
   | ({ kind: 'order' } & OrderRequest)
   /** Vide la sélection de cartes. */
@@ -109,11 +111,25 @@ function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
 
 /**
  * Force et endurance d'une carte en jeu, modifiables par tout joueur : valeur affichée, nombre tapé = nouvelle
- * valeur (ou nouvel écart pour une carte sans force connue), « Réinitialiser » quand elle a été modifiée.
+ * valeur (ou nouvel écart pour une carte sans force connue), puis l'écart « ce tour » (effacé à la fin du tour),
+ * « Réinitialiser » quand l'une ou l'autre a été modifiée.
  */
 function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   const id = card.id
   const stats = ptStats(ctx.catalogs[card.owner], card)
+  const clamp = (n: number) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, Math.trunc(n)))
+  const turn = card.ptTurn ?? NO_PT
+  const turnStepper = (label: string, stat: 'power' | 'toughness'): MenuEntry => {
+    const change = (n: number) => act({ type: 'ptTurn', id, power: stat === 'power' ? n : 0, toughness: stat === 'toughness' ? n : 0 })
+    return {
+      kind: 'stepper', label, value: signed(turn[stat]), signed: true, minus: change(-1), plus: change(1),
+      set: (n) => {
+        if (!Number.isFinite(n)) return []
+        const delta = clamp(n) - turn[stat]
+        return delta === 0 ? [] : [change(delta)]
+      },
+    }
+  }
   const stepper = (label: string, stat: 'power' | 'toughness'): MenuEntry => {
     const shown = stats?.[stat]
     const current = shown ? (shown.value ?? shown.delta) : 0
@@ -122,17 +138,29 @@ function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
       kind: 'stepper', label, value: shown?.text ?? '+0', signed: true, minus: change(-1), plus: change(1),
       set: (n) => {
         if (!Number.isFinite(n)) return []
-        const delta = Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, Math.trunc(n))) - current
+        const delta = clamp(n) - current
         return delta === 0 ? [] : [change(delta)]
       },
     }
   }
   const mod = card.ptMod ?? NO_PT
-  const entries = [stepper('Force', 'power'), stepper('Endurance', 'toughness')]
-  if (mod.power !== 0 || mod.toughness !== 0) {
-    entries.push(item('Réinitialiser force/endurance', act({ type: 'pt', id, power: -mod.power, toughness: -mod.toughness })))
-  }
+  const entries = [stepper('Force', 'power'), stepper('Endurance', 'toughness'), turnStepper('Force ce tour', 'power'), turnStepper('Endurance ce tour', 'toughness')]
+  const reset: MenuCommand[] = [
+    ...(mod.power !== 0 || mod.toughness !== 0 ? [act({ type: 'pt', id, power: -mod.power || 0, toughness: -mod.toughness || 0 })] : []),
+    ...(turn.power !== 0 || turn.toughness !== 0 ? [act({ type: 'ptTurn', id, power: -turn.power || 0, toughness: -turn.toughness || 0 })] : []),
+  ]
+  if (reset.length > 0) entries.push(item('Réinitialiser force/endurance', ...reset))
   return entries
+}
+
+/** Créatures en phase de mon champ de bataille (une carte face cachée est une créature 2/2), dans l'ordre de la zone. */
+export function myCreatures(ctx: MenuContext): string[] {
+  if (!ctx.me) return []
+  return (ctx.view.players[ctx.me]?.zones.battlefield ?? []).flatMap((c) => {
+    if (c.hidden || c.phasedOut) return []
+    const creature = c.faceDown || cardInfo(ctx.catalogs[c.owner], c, 'en').typeLine.split(' // ')[0].split('—')[0].includes('Creature')
+    return creature ? [c.id] : []
+  })
 }
 
 /**
@@ -198,6 +226,8 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
     counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
     ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card),
     item('Donner une capacité…', { kind: 'abilities', id }))
+  const creatures = controller ? myCreatures(ctx) : []
+  if (creatures.length > 0) entries.push(item('Effet sur toutes mes créatures…', { kind: 'effect', ids: creatures, title: 'toutes mes créatures' }))
   return entries
 }
 

@@ -63,6 +63,7 @@ const MSG = {
   badRoll: 'Lancer de dés invalide',
   mixedZones: 'Les cartes doivent venir de la même zone',
   badPlaces: 'Positions invalides',
+  nothingToApply: 'Rien à appliquer',
 }
 
 const sameRef = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
@@ -125,6 +126,16 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'move':
       return canMove(state, action)
 
+    case 'effect': {
+      if (action.ids.length === 0 || new Set(action.ids).size !== action.ids.length) return MSG.badCount
+      for (const id of action.ids) {
+        const where = zoneOf(state, id)
+        if (!where) return MSG.unknownCard
+        if (where.zone !== 'battlefield') return MSG.notOnBattlefield
+      }
+      return action.power === 0 && action.toughness === 0 && action.gained.length === 0 ? MSG.nothingToApply : null
+    }
+
     case 'moveMany': {
       if (action.ids.length === 0 || new Set(action.ids).size !== action.ids.length) return MSG.badCount
       // Droits de chaque carte d'abord, comme pour un déplacement seul : rien n'est dit d'une carte cachée.
@@ -156,6 +167,7 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'phase':
     case 'counter':
     case 'pt':
+    case 'ptTurn':
     case 'loyalty':
     case 'abilities': {
       const where = zoneOf(state, action.id)

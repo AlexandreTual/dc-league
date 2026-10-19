@@ -123,6 +123,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   /** Carte dont la fenêtre « Capacités » est ouverte. */
   const [abilitiesFor, setAbilitiesFor] = useState<string | null>(null)
+  /** Fenêtre « Effet » ouverte : permanents visés (toutes mes créatures, ou la sélection) et leur description. */
+  const [effectFor, setEffectFor] = useState<{ ids: string[]; title: string } | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -196,6 +198,7 @@ export default function Table({ source, notice, boardWindow }: {
       else if (command.kind === 'openPile') setPile({ title: command.title, player: command.player, zone: command.zone, mode: command.mode })
       else if (command.kind === 'oracle') setOracle({ owner: command.owner, ref: command.ref })
       else if (command.kind === 'abilities') setAbilitiesFor(command.id)
+      else if (command.kind === 'effect') setEffectFor({ ids: command.ids, title: command.title })
       else if (command.kind === 'order') setOrdering({ ids: command.ids, zone: command.zone, ...(command.position ? { position: command.position } : {}) })
       else if (command.kind === 'clearSelection') setSelection(null)
       else if (command.kind === 'askAi') {
@@ -289,6 +292,7 @@ export default function Table({ source, notice, boardWindow }: {
         setStartDraw(false)
         setOracle(null)
         setAbilitiesFor(null)
+        setEffectFor(null)
         setLogOpen(false)
         setSettingsOpen(false)
         setOrdering(null)
@@ -296,7 +300,7 @@ export default function Table({ source, notice, boardWindow }: {
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || menu || ordering || !canAct) return
+      if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || effectFor || menu || ordering || !canAct) return
       e.preventDefault()
       if (shortcut === 'undo') return source.undo()
       const actions = {
@@ -310,7 +314,7 @@ export default function Table({ source, notice, boardWindow }: {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, diceOpen, startDraw, oracle, abilitiesFor, menu, ordering, canAct])
+  }, [send, source, closePile, pile, tokenOpen, diceOpen, startDraw, oracle, abilitiesFor, effectFor, menu, ordering, canAct])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -399,6 +403,10 @@ export default function Table({ source, notice, boardWindow }: {
   const abilitiesCard = abilitiesFor && Object.values(view.players).some((p) => p.zones.battlefield.some((c) => !c.hidden && c.id === abilitiesFor))
     ? cards.get(abilitiesFor)
     : undefined
+  // Cartes visées encore en jeu et visibles ; fenêtre fermée d'elle-même s'il n'en reste aucune.
+  const effectIds = effectFor
+    ? effectFor.ids.filter((id) => Object.values(view.players).some((p) => p.zones.battlefield.some((c) => !c.hidden && c.id === id)))
+    : []
   const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings, arriving }
   const zoneSelection: ZoneSelection | undefined = canAct ? {
@@ -685,6 +693,17 @@ export default function Table({ source, notice, boardWindow }: {
           lost={abilitiesCard.lost ?? []}
           onValidate={(gained, lost, untilEndOfTurn) => send({ type: 'abilities', id: abilitiesCard.id, gained, lost, ...(untilEndOfTurn ? { untilEndOfTurn } : {}) })}
           onClose={() => setAbilitiesFor(null)}
+        />
+      )}
+      {effectFor && effectIds.length > 0 && (
+        <AbilitiesModal
+          effect
+          name={`${effectFor.title} (${effectIds.length})`}
+          printed={[]}
+          gained={[]}
+          lost={[]}
+          onValidate={(gained, _lost, untilEndOfTurn, pt) => send({ type: 'effect', ids: effectIds, power: pt.power, toughness: pt.toughness, gained, ...(untilEndOfTurn ? { untilEndOfTurn } : {}) })}
+          onClose={() => setEffectFor(null)}
         />
       )}
       {diceOpen && (
