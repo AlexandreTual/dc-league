@@ -1,6 +1,6 @@
-// Effets visuels des cartes en jeu (reflet des légendaires) : ce qui se lit dans le catalogue, sans rien révéler.
+// Effets visuels des cartes en jeu (éclat d'arrivée des légendaires) : ce qui se lit dans le catalogue et la vue, sans rien révéler.
 import { cardInfo } from './apply'
-import type { Catalog, VisibleCard } from './types'
+import type { Catalog, PlayerView, VisibleCard } from './types'
 
 /** Permanent légendaire : ligne de type de la face montrée (version anglaise) ; jamais une carte face cachée ou inconnue. */
 export function isLegendary(catalog: Catalog | undefined, card: VisibleCard): boolean {
@@ -9,9 +9,17 @@ export function isLegendary(catalog: Catalog | undefined, card: VisibleCard): bo
   return info.typeLine.split(' // ')[0].split('—')[0].split(/\s+/).includes('Legendary')
 }
 
-/** Décalage d'animation propre à une carte (de 0 à -6,9 s), pour que les effets ne soient pas synchronisés. */
-export function effectDelay(id: string): string {
-  let hash = 0
-  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) % 70
-  return `-${hash / 10}s`
+/** Identifiants des cartes visibles sur tous les champs de bataille. */
+function battlefieldIds(view: PlayerView): Set<string> {
+  return new Set(Object.values(view.players).flatMap((p) => p.zones.battlefield.flatMap((c) => (c.hidden ? [] : [c.id]))))
+}
+
+/**
+ * Cartes arrivées sur un champ de bataille depuis la vue précédente (la leur ou celle d'un adversaire).
+ * Aucune au premier affichage (`prev` absent) : pas d'éclat au chargement de la page ni dans une nouvelle fenêtre.
+ */
+export function enteredBattlefield(prev: PlayerView | null, next: PlayerView): string[] {
+  if (!prev) return []
+  const before = battlefieldIds(prev)
+  return [...battlefieldIds(next)].filter((id) => !before.has(id))
 }

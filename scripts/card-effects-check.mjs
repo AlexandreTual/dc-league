@@ -1,5 +1,5 @@
-// Reflet des permanents légendaires en jeu, dans de vrais navigateurs : mode test à la souris (réglage « Animations
-// des cartes »), mouvement réduit, tablette (1180 × 820, tactile), puis partie en ligne à 2.
+// Liseré doré et éclat d'arrivée des permanents légendaires en jeu, dans de vrais navigateurs : mode test à la souris
+// (réglage « Animations des cartes »), mouvement réduit, tablette (1180 × 820, tactile), puis partie en ligne à 2.
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs : Teferi légendaire, Anneau solaire).
 // Usage : node scripts/card-effects-check.mjs <url-de-base> <dossier-captures>
 import { chromium } from 'playwright-core'
@@ -70,13 +70,14 @@ async function playtest(who) {
   await who.page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
 }
 
-/** Reflet d'une carte : présent, et nom de l'animation de sa bande lumineuse (« none » si masquée). */
-const sheenOf = (locator) => locator.evaluate((el) => {
-  const band = el.querySelector('.card-sheen > i')
-  if (!band) return { present: false }
-  const style = getComputedStyle(band)
-  return { present: true, animation: style.display === 'none' ? 'none' : style.animationName, delay: style.animationDelay }
+/** Effets d'une carte : liseré doré, et éclat d'arrivée en cours (affiché et animé). */
+const fxOf = (locator) => locator.evaluate((el) => {
+  const glint = el.querySelector('.card-glint')
+  const style = glint && getComputedStyle(glint)
+  return { frame: !!el.querySelector('.card-legendary'), glint: !!style && style.display !== 'none' && style.animationName === 'card-glint' }
 })
+/** L'éclat dure 1,1 s et disparaît ensuite. */
+const afterGlint = (page) => page.waitForTimeout(1800)
 
 async function setEffects(page, on) {
   await page.getByRole('button', { name: 'Réglages' }).click()
@@ -92,26 +93,29 @@ try {
   const { page } = solo
   await playtest(solo)
   const teferi = page.locator(await onBattlefield(solo, TEFERI, true))
-  const sheen = await sheenOf(teferi)
-  check(sheen.present && sheen.animation === 'card-sheen', 'Teferi (légendaire) en jeu : liseré doré et reflet animé')
-  check(sheen.delay.startsWith('-'), `reflet décalé propre à la carte (${sheen.delay})`)
-  check(await page.locator('[data-zone="hand"] .card-sheen, [data-pile] .card-sheen').count() === 0, 'aucun reflet hors du champ de bataille')
+  const arrival = await fxOf(teferi)
+  check(arrival.frame && arrival.glint, 'Teferi (légendaire) arrive en jeu : liseré doré et éclat')
+  check(await page.locator('[data-zone="hand"] .card-legendary, [data-pile] .card-legendary').count() === 0, 'aucun effet hors du champ de bataille')
   const box = await teferi.boundingBox()
-  const sheenBox = await teferi.locator('.card-sheen').boundingBox()
-  check(Math.abs(box.width - sheenBox.width) < 2 && Math.abs(box.height - sheenBox.height) < 2, 'reflet aux dimensions de la carte')
+  const frameBox = await teferi.locator('.card-legendary').boundingBox()
+  check(Math.abs(box.width - frameBox.width) < 2 && Math.abs(box.height - frameBox.height) < 2, 'liseré aux dimensions de la carte')
+  await afterGlint(page)
+  const settled = await fxOf(teferi)
+  check(settled.frame && !settled.glint, 'l’éclat s’arrête, le liseré reste')
   await capture(page, 'mode-test')
 
   await teferi.dblclick()
   await page.waitForFunction((sel) => document.querySelector(sel)?.style.transform.includes('90deg'), await teferi.evaluate((el) => `[data-card-id="${el.dataset.cardId}"]`))
-  check((await sheenOf(teferi)).animation === 'card-sheen', 'Teferi engagé : garde son reflet')
+  const tapped = await fxOf(teferi)
+  check(tapped.frame && !tapped.glint, 'Teferi engagé : garde son liseré, sans nouvel éclat')
   await capture(page, 'engage')
 
   // Posé au même endroit que Teferi, l'Anneau solaire le recouvre : à vérifier après le double-clic.
   const sol = page.locator(await onBattlefield(solo, SOL_RING, true))
-  check(!(await sheenOf(sol)).present, 'Anneau solaire (non légendaire) : aucun effet')
+  check(!(await fxOf(sol)).frame, 'Anneau solaire (non légendaire) : aucun effet')
 
   await setEffects(page, false)
-  check(!(await sheenOf(teferi)).present, 'réglage « Animations des cartes » décoché : plus de reflet')
+  check(!(await fxOf(teferi)).frame, 'réglage « Animations des cartes » décoché : plus de liseré')
   await page.reload()
   await page.getByRole('button', { name: /Reprendre la partie/ }).click()
   await page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
@@ -119,25 +123,30 @@ try {
   const box2 = page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes')
   check(!(await box2.isChecked()), 'réglage mémorisé après rechargement')
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
-  check(!(await sheenOf(teferi)).present, 'partie reprise : Teferi toujours sans reflet')
+  check(!(await fxOf(teferi)).frame, 'partie reprise : Teferi toujours sans liseré')
   await setEffects(page, true)
-  check((await sheenOf(teferi)).animation === 'card-sheen', 'recoché : reflet revenu')
+  const back = await fxOf(teferi)
+  check(back.frame && !back.glint, 'recoché : liseré revenu, sans éclat (la carte était déjà en jeu)')
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await teferi.waitFor()
+  check(!(await fxOf(teferi)).glint, 'partie reprise : pas d’éclat au chargement')
 
   // ── Mouvement réduit (réglage du système) ──
   const calm = await openAs(ANA, { reducedMotion: 'reduce' })
   await playtest(calm)
   const calmTeferi = calm.page.locator(await onBattlefield(calm, TEFERI, true))
-  const calmSheen = await sheenOf(calmTeferi)
-  check(calmSheen.present && calmSheen.animation === 'none', 'mouvement réduit : liseré doré seul, pas de reflet animé')
+  const calm1 = await fxOf(calmTeferi)
+  check(calm1.frame && !calm1.glint, 'mouvement réduit : liseré doré seul, pas d’éclat')
 
   // ── Mode test, sur tablette (tactile) ──
   const tablet = await openAs(ANA, { viewport: { width: 1180, height: 820 }, mobile: true })
   await playtest(tablet)
   const tabletTeferi = tablet.page.locator(await onBattlefield(tablet, TEFERI, true))
-  check((await sheenOf(tabletTeferi)).animation === 'card-sheen', 'tablette : reflet sur Teferi')
+  check((await fxOf(tabletTeferi)).glint, 'tablette : éclat de Teferi à son arrivée')
   await tabletTeferi.locator('[data-loyalty]').tap()
   await tablet.page.getByRole('menu').waitFor()
-  check(true, 'tablette : le reflet ne gêne pas le toucher (encart de loyauté)')
+  check(true, 'tablette : l’effet ne gêne pas le toucher (encart de loyauté)')
   await tablet.page.keyboard.press('Escape')
   await capture(tablet.page, 'tablette')
 
@@ -170,11 +179,14 @@ try {
   }
 
   const anaCard = await onBattlefield(ana, TEFERI)
-  check((await sheenOf(ana.page.locator(anaCard))).animation === 'card-sheen', 'en ligne : Ana voit le reflet de son Teferi')
+  check((await fxOf(ana.page.locator(anaCard))).glint, 'en ligne : Ana voit l’éclat de son Teferi qui arrive')
   const teferiId = await ana.page.locator(anaCard).getAttribute('data-card-id')
   const seenByBastien = bastien.page.locator(`[data-zone="battlefield"][data-player="${ANA.id}"] [data-card-id="${teferiId}"], [data-zone="battlefield"][data-player="${ANA.id}"] [data-strip-card="${teferiId}"]`)
   await seenByBastien.waitFor()
-  check((await sheenOf(seenByBastien)).animation === 'card-sheen', 'en ligne : Bastien voit le reflet du Teferi d’Ana')
+  check((await fxOf(seenByBastien)).glint, 'en ligne : Bastien voit l’éclat du Teferi d’Ana')
+  await afterGlint(bastien.page)
+  const seen = await fxOf(seenByBastien)
+  check(seen.frame && !seen.glint, 'en ligne : puis le liseré seul')
   await capture(ana.page, 'en-ligne-ana')
   await capture(bastien.page, 'en-ligne-bastien')
 

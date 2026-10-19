@@ -1,29 +1,37 @@
 # Animations et capacités des cartes en jeu — conception
 
 Date : 2026-10-19
-Statut : validée (reflet, flottement, capacités données affichées en symboles ou libellés au choix dans les réglages)
+Statut : validée (liseré et éclat d'arrivée, flottement, capacités données affichées en symboles ou libellés au choix dans les réglages)
 Maquette : https://claude.ai/artifact/AvkfDG78QDPF448bsiXiwn
 
 ## But
 
 Rendre la table plus vivante et plus lisible, sans gêner la lecture :
 
-- un **reflet** sur les **permanents légendaires** ;
+- un **liseré doré** et un **éclat à l'arrivée en jeu** sur les **permanents légendaires** ;
 - une **lévitation** des **créatures avec le vol** ;
 - **donner (ou retirer) une capacité** à une carte en jeu, à la main, avec un symbole ou un libellé sur la carte.
 
 Ces effets s'appliquent sur les champs de bataille (le mien, ceux des adversaires, la fenêtre à part), en mode test comme en ligne.
 Hors champ de bataille (main, piles, aperçu, deck) : aucune animation, aucun symbole.
 
-## Effet légendaire : reflet (retenu)
+## Effet légendaire : liseré et éclat d'arrivée (retenu)
 
 Une carte est légendaire si la ligne de type de sa face visible contient `Legendary`. C'est le recto, ou la face affichée d'une
 carte transformée, lue dans la version anglaise du catalogue, comme dans `lib/game/battlefield.ts`. Pour un jeton, on lit son
 `typeLine`.
 
-Effet : un liseré doré fin, et un reflet lumineux qui traverse la carte en diagonale toutes les ~7 s. Chaque carte a son propre
-décalage, tiré de son identifiant, pour que les légendaires ne brillent pas toutes en même temps. Une carte légendaire engagée
-garde son effet.
+Effet : un liseré doré fin, permanent. À l'**arrivée en jeu**, un éclat traverse la carte en diagonale **une seule fois**
+(1,1 s), comme un reflet de miroir, puis il reste le liseré seul. Un reflet qui revenait toutes les 7 s a été essayé puis
+écarté : il déconcentrait (décision du 19 octobre).
+
+- « Arrivée en jeu » : carte visible absente de tous les champs de bataille dans la vue précédente
+  (`enteredBattlefield`, `lib/game/card-effects.ts`). Elle se voit chez tous les joueurs, y compris pour la carte d'un
+  adversaire.
+- Pas d'éclat au premier affichage : chargement de la page, partie reprise, fenêtre à part, reconnexion.
+- Pas d'éclat non plus quand la carte est engagée, déplacée sur le champ de bataille ou change de disposition (bandeau ou
+  plateau). Une carte qui quitte le champ de bataille puis y revient a un nouvel éclat.
+- Une carte légendaire engagée garde son liseré.
 
 ## Vol : flottement (retenu)
 
@@ -32,7 +40,7 @@ Une créature vole si elle a le vol **imprimé** et ne l'a pas perdu, ou si on l
 - **Vol imprimé** : mot-clé `Flying` dans les capacités de la face visible, fournies par Scryfall (champ `keywords`). On ne
   cherche pas dans le texte de la carte : « ne peut être bloquée que par des créatures avec le vol » donnerait de faux positifs.
 - **Animation** : la carte flotte doucement (quelques pixels, ~3 s par aller-retour) au-dessus d'une ombre qui rétrécit quand
-  elle monte. Chaque carte a son propre décalage, comme pour le reflet.
+  elle monte. Chaque carte a son propre décalage, pour que les créatures ne flottent pas toutes en même temps.
 - **Créature engagée** : elle se pose (pas de lévitation, ombre fixe).
 - **Jetons** : `TokenData` reçoit `keywords?: string[]`, facultatif, rempli depuis Scryfall pour les jetons du deck. Un jeton
   créé à la main n'a pas de capacité imprimée, mais on peut lui en donner une.
@@ -118,7 +126,7 @@ plus tard avec une saisie libre.
 ## Réglage et accessibilité
 
 - Nouvelle case dans les réglages de la table : **« Animations des cartes »**. Elle est cochée par défaut et mémorisée sur
-  l'appareil (`TableSettings.cardEffects` ; absente d'une ancienne sauvegarde = cochée). Elle coupe le reflet et le
+  l'appareil (`TableSettings.cardEffects` ; absente d'une ancienne sauvegarde = cochée). Elle coupe le liseré, l'éclat et le
   flottement, pas les badges.
 - Nouveau choix dans les réglages de la table : **« Capacités sur les cartes : Symboles / Libellés »**. « Symboles » est le
   choix par défaut. Il est mémorisé sur l'appareil (`TableSettings.abilityStyle: 'icons' | 'labels'` ; absent ou illisible
@@ -145,7 +153,7 @@ plus tard avec une saisie libre.
 
 ## Découpage
 
-1. Reflet des légendaires, case « Animations des cartes » et mouvement réduit (sans migration).
+1. Liseré et éclat d'arrivée des légendaires, case « Animations des cartes » et mouvement réduit (sans migration).
 2. Vol imprimé : migration, import et rattrapage des mots-clés, jetons, flottement.
 3. Capacités données : action `abilities`, modale (avec la durée), badges, réglage symboles/libellés, journal, fin du tour,
    aperçu.

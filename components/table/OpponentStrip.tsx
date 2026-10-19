@@ -13,7 +13,7 @@ const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terr
  * Bandeau d'un adversaire (vue « Tous ») : sa colonne compacte à gauche (ligne portrait, cases chiffrées,
  * commandement, dernière carte au cimetière), puis son champ de bataille trié en trois rangées sur toute la hauteur.
  */
-export default function OpponentStrip({ view, player, catalogs, lang, handlers, highlighted, header, stacked = false, mana, effects = false }: {
+export default function OpponentStrip({ view, player, catalogs, lang, handlers, highlighted, header, stacked = false, mana, effects = false, arriving }: {
   view: PlayerView
   player: string
   catalogs: Record<string, Catalog>
@@ -26,8 +26,10 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   stacked?: boolean
   /** Sa réserve de mana (lecture seule), en bas à gauche de son champ de bataille. */
   mana?: React.ReactNode
-  /** Animations des cartes (réglage de la table). */
+  /** Effets des cartes (réglage de la table). */
   effects?: boolean
+  /** Cartes qui viennent d'arriver en jeu (éclat d'un légendaire). */
+  arriving?: Set<string>
 }) {
   const zones = view.players[player].zones
   const rows = groupBattlefield(zones.battlefield, catalogs)
@@ -48,7 +50,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       onMouseEnter={() => handlers.onHover(card.id)}
       onMouseLeave={() => handlers.onHover(null)}
     >
-      <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" pt onPtEdit={ptEdit(handlers, card.id, battlefield)} effects={effects} />
+      <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" pt onPtEdit={ptEdit(handlers, card.id, battlefield)} effects={effects} arriving={arriving?.has(card.id)} />
       {count > 1 && <span className="absolute -bottom-1 -right-1 rounded-full bg-black/80 text-dc-gold text-[10px] px-1">×{count}</span>}
     </div>
   )

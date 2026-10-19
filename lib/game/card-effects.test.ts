@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow, deckCardView } from '@/test/factories'
 import { buildCatalog } from './catalog'
-import { effectDelay, isLegendary } from './card-effects'
-import type { Counters, TokenData, VisibleCard } from './types'
+import { enteredBattlefield, isLegendary } from './card-effects'
+import type { CardView, Counters, PlayerView, TokenData, VisibleCard } from './types'
 
 const face = (name: string, type: string) => ({
   name, printed_name: null, mana_cost: null, type_line: type, printed_type_line: null,
@@ -55,11 +55,29 @@ describe('isLegendary', () => {
   })
 })
 
-describe('effectDelay', () => {
-  it('décalage stable, négatif, de moins de 7 s, propre à chaque carte', () => {
-    expect(effectDelay('c1')).toBe(effectDelay('c1'))
-    const delays = ['c1', 'c2', 'c3', 'p1-17', 'p2-4'].map(effectDelay)
-    for (const d of delays) expect(d).toMatch(/^-\d(\.\d)?s$/)
-    expect(new Set(delays).size).toBeGreaterThan(1)
+/** Vue réduite aux champs de bataille, seule partie lue par `enteredBattlefield`. */
+const viewWith = (fields: Record<string, CardView[]>) =>
+  ({ players: Object.fromEntries(Object.entries(fields).map(([p, battlefield]) => [p, { zones: { battlefield } }])) }) as unknown as PlayerView
+
+describe('enteredBattlefield', () => {
+  it('cartes arrivées sur un champ de bataille depuis la vue précédente, chez tous les joueurs', () => {
+    const before = viewWith({ p1: [onTable(1)], p2: [] })
+    const after = viewWith({ p1: [onTable(1), onTable(2)], p2: [onTable(3)] })
+    expect(enteredBattlefield(before, after).sort()).toEqual(['c2', 'c3'])
+  })
+
+  it('rien au premier affichage (chargement, reprise, nouvelle fenêtre)', () => {
+    expect(enteredBattlefield(null, viewWith({ p1: [onTable(1)] }))).toEqual([])
+  })
+
+  it('carte déjà là (engagée, déplacée) : pas une arrivée ; revenue après l’avoir quitté : arrivée', () => {
+    const before = viewWith({ p1: [onTable(1)] })
+    expect(enteredBattlefield(before, viewWith({ p1: [onTable(1, { tapped: true, x: 10 })] }))).toEqual([])
+    const left = viewWith({ p1: [] })
+    expect(enteredBattlefield(left, viewWith({ p1: [onTable(1)] }))).toEqual(['c1'])
+  })
+
+  it('ignore les cartes cachées', () => {
+    expect(enteredBattlefield(viewWith({ p1: [] }), viewWith({ p1: [{ hidden: true }] }))).toEqual([])
   })
 })
