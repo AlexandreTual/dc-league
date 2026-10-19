@@ -9,10 +9,12 @@ const ART_LABELS = ['Petite', 'Moyenne', 'Grande', 'Très grande']
 const DEFAULT_PICKER = '#0e0e14'
 
 /** Panneau « Réglages » ouvert depuis la barre de la table. */
-export default function TableSettingsPanel({ settings, onChange, onClose }: {
+export default function TableSettingsPanel({ settings, onChange, onClose, onShortcuts }: {
   settings: TableSettings
   onChange: (settings: TableSettings) => void
   onClose: () => void
+  /** Ouvre la fenêtre « Raccourcis clavier ». */
+  onShortcuts: () => void
 }) {
   return (
     <>
@@ -77,6 +79,9 @@ export default function TableSettingsPanel({ settings, onChange, onClose }: {
             <option value="labels">Libellés</option>
           </select>
         </label>
+        <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onShortcuts}>
+          Raccourcis clavier…
+        </button>
         <p className="text-xs text-dc-muted">Mémorisé sur cet appareil.</p>
       </div>
     </>
