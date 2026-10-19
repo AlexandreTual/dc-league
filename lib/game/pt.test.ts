@@ -81,6 +81,12 @@ describe('ptStats', () => {
     expect(ptStats(catalog, onTable(2, { counters: { plus: 1, minus: 0, other: 0 } }))?.power.text).toBe('+1')
   })
 
+  it('modification jusqu’à la fin du tour ajoutée à la permanente', () => {
+    expect(ptStats(catalog, onTable(1, { ptMod: { power: 1, toughness: 0 }, ptTurn: { power: 3, toughness: 3 } }))).toEqual({
+      power: { text: '6', delta: 4, value: 6 }, toughness: { text: '5', delta: 3, value: 5 }, base: true,
+    })
+  })
+
   it('face cachée : 2/2 modifiable', () => {
     expect(ptStats(catalog, onTable(5, { faceDown: true, ptMod: { power: 1, toughness: 1 } }))?.power).toEqual({ text: '3', delta: 1, value: 3 })
   })
@@ -94,5 +100,7 @@ describe('journal', () => {
     expect(ptLog(catalog, onTable(1))).toBe('2/2')
     expect(ptLog(catalog, onTable(2, { ptMod: { power: -1, toughness: 0 } }))).toBe('-1/+0')
     expect(ptLog(catalog, onTable(2))).toBe('force et endurance d’origine')
+    expect(ptLog(catalog, onTable(1, { ptTurn: { power: 3, toughness: 3 } }))).toBe('5/5 (+3/+3 ce tour)')
+    expect(ptLog(catalog, onTable(1, { ptMod: { power: 1, toughness: 0 }, ptTurn: { power: 3, toughness: 3 } }))).toBe('6/5 (+1/+0, +3/+3 ce tour)')
   })
 })

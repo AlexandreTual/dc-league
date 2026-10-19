@@ -111,6 +111,8 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   phase: { id },
   counter: { id, kind: oneOf(['plus', 'minus', 'other']), delta },
   pt: { id, power: delta, toughness: delta },
+  ptTurn: { id, power: delta, toughness: delta },
+  effect: { ids: listOf(id, MAX_CARDS), power: delta, toughness: delta, gained: choices, untilEndOfTurn: optional(bool) },
   loyalty: { id, delta },
   abilities: { id, gained: choices, lost: keywords, untilEndOfTurn: optional(bool) },
   createToken: { token, x: finite, y: finite, copy: optional(bool) },
