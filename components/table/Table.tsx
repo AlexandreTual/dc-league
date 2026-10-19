@@ -507,6 +507,7 @@ export default function Table({ source, notice, boardWindow }: {
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
                     stacked={shownOpponents.length >= 3}
                     mana={manaOf(p)}
+                    effects={settings.cardEffects}
                     header={(
                       <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus, detachOf(p))}
                         onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />

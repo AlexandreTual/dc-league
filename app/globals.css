@@ -60,3 +60,33 @@ body {
 .rank-1 { color: #f0d080; text-shadow: 0 0 12px rgba(240, 208, 128, 0.5); }
 .rank-2 { color: #c0c0c0; }
 .rank-3 { color: #cd7f32; }
+
+/* Permanent légendaire sur la table : liseré doré et reflet qui traverse la carte toutes les 7 s.
+   Seul `transform` est animé (léger sur tablette) ; décalage propre à chaque carte (--fx-delay). */
+.card-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 6%;
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px #c9a84c;
+}
+.card-sheen > i {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -60%;
+  width: 220%;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 236, 180, 0.55) 50%, transparent 58%);
+  transform: translateX(-60%);
+  animation: card-sheen 7s ease-in-out infinite;
+  animation-delay: var(--fx-delay, 0s);
+}
+@keyframes card-sheen {
+  0% { transform: translateX(-60%); }
+  20%, 100% { transform: translateX(60%); }
+}
+/* Mouvement réduit (réglage du système) : le liseré seul. */
+@media (prefers-reduced-motion: reduce) {
+  .card-sheen > i { display: none; }
+}
