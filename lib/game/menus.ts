@@ -95,16 +95,17 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
 }
 
 /**
- * « Oracle et règles », puis « Ajouter à la question IA » si l'assistant est disponible : seulement pour une
- * carte que le joueur voit (jamais face cachée) et qui vient d'un deck (un jeton n'a ni Oracle ni règles),
- * données de carte reçues.
+ * « Oracle et règles », puis « Ajouter à la question IA » si l'assistant est disponible, en tête du menu (sous le
+ * nom de la carte) : visibles sans défiler sur tablette et téléphone, où le menu d'une carte en jeu dépasse l'écran.
+ * Seulement pour une carte que le joueur voit (jamais face cachée) et qui vient d'un deck (un jeton n'a ni Oracle
+ * ni règles), données de carte reçues.
  */
 function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (card.faceDown || card.token || card.ref === null) return []
   if (!ctx.catalogs[card.owner]?.entries.some((e) => e.ref === card.ref)) return []
-  const entries = [{ kind: 'separator' } as const, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  const entries: MenuEntry[] = [item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
   if (ctx.ai) entries.push(item('Ajouter à la question IA', { kind: 'askAi', owner: card.owner, ref: card.ref }))
-  return entries
+  return [...entries, { kind: 'separator' }]
 }
 
 /**
@@ -218,32 +219,32 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
   const flippable = !card.token && (info.faces?.length ?? 0) > 1
   const title: MenuEntry = { kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }
+  const head = [title, ...oracleEntries(ctx, card)]
   const name = (p: string) => ctx.view.players[p]?.name ?? '?'
 
   if (zone.player !== me) {
     // Chez un adversaire : on agit sur la carte, ou on la renvoie dans les zones de son propriétaire.
     const toOwner = (label: string, z: PlayerZone) => item(label, act({ type: 'move', id, to: { player: card.owner, zone: z } }))
     if (zone.zone === 'battlefield') {
-      return [title, ...battlefieldEntries(ctx, card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
+      return [...head, ...battlefieldEntries(ctx, card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
         item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
-        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile'),
-        ...oracleEntries(ctx, card)]
+        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile')]
     }
     if (zone.zone === 'graveyard' || zone.zone === 'exile') {
-      return [title, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
+      return [...head, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
         toOwner('Dans sa main', 'hand'),
-        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')]),
-        ...oracleEntries(ctx, card)]
+        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')])]
     }
     return []
   }
 
   const entries: MenuEntry[] = [title]
+  // Mulligan en cours : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone), avant tout le reste.
+  if (zone.zone === 'hand' && inMulligan(ctx.view.players[me])) {
+    entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
+  }
+  entries.push(...oracleEntries(ctx, card))
   if (zone.zone === 'hand') {
-    // Mulligan en cours : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone).
-    if (inMulligan(ctx.view.players[me])) {
-      entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
-    }
     entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))
     for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
   }
@@ -265,7 +266,6 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     if (dest.position) action.position = dest.position
     entries.push(item(dest.label, act(action)))
   }
-  entries.push(...oracleEntries(ctx, card))
   return entries
 }
 
