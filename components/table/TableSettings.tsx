@@ -58,6 +58,14 @@ export default function TableSettingsPanel({ settings, onChange, onClose }: {
           <input type="checkbox" checked={settings.cardEffects} onChange={(e) => onChange({ ...settings, cardEffects: e.target.checked })} />
           Animations des cartes
         </label>
+        <label className="flex items-center gap-2 text-sm text-dc-text">
+          Capacités sur les cartes
+          <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.abilityStyle}
+            onChange={(e) => onChange({ ...settings, abilityStyle: e.target.value === 'labels' ? 'labels' : 'icons' })} aria-label="Capacités sur les cartes">
+            <option value="icons">Symboles</option>
+            <option value="labels">Libellés</option>
+          </select>
+        </label>
         <p className="text-xs text-dc-muted">Mémorisé sur cet appareil.</p>
       </div>
     </>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { abilitiesLog, KEYWORDS, keywordLabel, nextAbilities } from './abilities'
+import { abilitiesLog, abilitiesSummary, KEYWORDS, keywordLabel, nextAbilities } from './abilities'
 
 describe('liste des capacités', () => {
   it('15 capacités, noms de Scryfall, libellés français', () => {
@@ -25,6 +25,14 @@ describe('nextAbilities', () => {
 
   it('doublons ignorés', () => {
     expect(nextAbilities({}, ['Haste', 'Haste'], ['Flying', 'Flying'], false)).toEqual({ gained: [{ keyword: 'Haste' }], lost: ['Flying'] })
+  })
+})
+
+describe('abilitiesSummary', () => {
+  it('capacités données (« ce tour » pour celles de fin de tour) et perdues, en toutes lettres ; aucune : rien', () => {
+    expect(abilitiesSummary({ gained: [{ keyword: 'Trample' }, { keyword: 'Haste', untilEndOfTurn: true }], lost: ['Flying'] }))
+      .toEqual(['Capacités données : Piétinement, Célérité (ce tour)', 'Capacités perdues : Vol'])
+    expect(abilitiesSummary({})).toEqual([])
   })
 })
 

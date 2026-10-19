@@ -5,6 +5,8 @@ import { cardInfo, tokenBadge } from '@/lib/game/apply'
 import { effectDelay, hasFlying, isLegendary } from '@/lib/game/card-effects'
 import { loyaltyStats } from '@/lib/game/loyalty'
 import { ptStats, type PtValue } from '@/lib/game/pt'
+import type { AbilityStyle } from '@/lib/table-settings'
+import { AbilityBadges } from './abilities'
 import type { MenuPoint } from './touch'
 
 export type Lang = 'fr' | 'en'
@@ -83,9 +85,10 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
  * `pt` : encart loyauté ou force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
  * `effects` : effets d'une carte en jeu (liseré doré d'un permanent légendaire, créature volante qui flotte tant
  * qu'elle n'est pas engagée), si le réglage les permet ;
- * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire, une seule fois).
+ * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire, une seule fois) ;
+ * `abilityStyle` : carte en jeu, capacités données ou perdues affichées en symboles ou en libellés (même sans animations).
  */
-export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false }: {
+export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false, abilityStyle }: {
   card: CardView | null | undefined
   catalog: Catalog
   lang: Lang
@@ -95,6 +98,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   onPtEdit?: (at: MenuPoint) => void
   effects?: boolean
   arriving?: boolean
+  abilityStyle?: AbilityStyle
 }) {
   if (!card) return null
   if (card.hidden) return <CardBack className={className} />
@@ -138,6 +142,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
       )}
       {/* Liseré doré, et éclat qui traverse la carte à son arrivée (globals.css), sous les marqueurs et l'encart. */}
       {legendary && <span className="card-legendary" aria-hidden="true">{arriving && <i className="card-glint" />}</span>}
+      {abilityStyle && <AbilityBadges card={card} style={abilityStyle} />}
       <div className="absolute top-1 left-1 flex flex-col gap-0.5">
         {net !== 0 && (
           <span className={`px-1 rounded text-[10px] font-bold ${net > 0 ? 'bg-dc-green-light text-black' : 'bg-dc-red-light text-black'}`}>

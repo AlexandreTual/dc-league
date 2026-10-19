@@ -60,3 +60,13 @@ export function abilitiesLog(name: string, before: Abilities, after: Abilities):
   if (restored.length > 0) parts.push(`rend ${list(restored)} à ${name}`)
   return parts.length > 0 ? parts.join(' ; ') : null
 }
+
+/** Capacités données et perdues en toutes lettres, pour l'aperçu de la carte ; aucune : liste vide. */
+export function abilitiesSummary(card: Abilities): string[] {
+  const lines: string[] = []
+  if (card.gained?.length) {
+    lines.push(`Capacités données : ${card.gained.map((g) => `${keywordLabel(g.keyword)}${g.untilEndOfTurn ? ' (ce tour)' : ''}`).join(', ')}`)
+  }
+  if (card.lost?.length) lines.push(`Capacités perdues : ${card.lost.map(keywordLabel).join(', ')}`)
+  return lines
+}

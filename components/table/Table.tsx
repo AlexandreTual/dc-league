@@ -7,7 +7,8 @@ import {
 } from '@dnd-kit/core'
 import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
-import { enteredBattlefield } from '@/lib/game/card-effects'
+import { cardInfo } from '@/lib/game/apply'
+import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
 import { shortcutFor } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
@@ -27,6 +28,7 @@ import PileModal from './PileModal'
 import PreviewPane from './PreviewPane'
 import StartDraw from './StartDraw'
 import TokenModal from './TokenModal'
+import { AbilitiesModal } from './abilities'
 import GameTimer from './GameTimer'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
@@ -112,6 +114,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [startDraw, setStartDraw] = useState(() => source.mode === 'online' && me !== null && Object.keys(view.players).length > 1
     && view.turn === 1 && view.players[me]?.kept === false && (view.turnOrder?.length ?? 0) > 0)
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
+  /** Carte dont la fenêtre « Capacités » est ouverte. */
+  const [abilitiesFor, setAbilitiesFor] = useState<string | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -182,6 +186,7 @@ export default function Table({ source, notice, boardWindow }: {
       if (command.kind === 'action') send(command.action)
       else if (command.kind === 'openPile') setPile({ title: command.title, player: command.player, zone: command.zone, mode: command.mode })
       else if (command.kind === 'oracle') setOracle({ owner: command.owner, ref: command.ref })
+      else if (command.kind === 'abilities') setAbilitiesFor(command.id)
       else if (command.kind === 'askAi') {
         const entry = catalogs[command.owner]?.entries.find((e) => e.ref === command.ref)
         if (entry && ai) ai.addCard(aiCardRef(entry.en, entry.fr))
@@ -272,12 +277,13 @@ export default function Table({ source, notice, boardWindow }: {
         setDiceOpen(false)
         setStartDraw(false)
         setOracle(null)
+        setAbilitiesFor(null)
         setLogOpen(false)
         setSettingsOpen(false)
         return
       }
       // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || diceOpen || startDraw || oracle || menu || !canAct) return
+      if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || menu || !canAct) return
       e.preventDefault()
       if (shortcut === 'undo') return source.undo()
       const actions = {
@@ -291,7 +297,7 @@ export default function Table({ source, notice, boardWindow }: {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, diceOpen, startDraw, oracle, menu, canAct])
+  }, [send, source, closePile, pile, tokenOpen, diceOpen, startDraw, oracle, abilitiesFor, menu, canAct])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -352,6 +358,10 @@ export default function Table({ source, notice, boardWindow }: {
     : view.players[pile.player].zones[pile.zone].filter((c): c is VisibleCard => !c.hidden).reverse()
 
   const mine = me ? view.players[me] : null
+  // Fermée d'elle-même si la carte n'est plus visible (quittée du champ de bataille, retournée face cachée…).
+  const abilitiesCard = abilitiesFor && Object.values(view.players).some((p) => p.zones.battlefield.some((c) => !c.hidden && c.id === abilitiesFor))
+    ? cards.get(abilitiesFor)
+    : undefined
   const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings, arriving }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
@@ -520,6 +530,7 @@ export default function Table({ source, notice, boardWindow }: {
                     mana={manaOf(p)}
                     effects={settings.cardEffects}
                     arriving={arriving}
+                    abilityStyle={settings.abilityStyle}
                     header={(
                       <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus, detachOf(p))}
                         onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />
@@ -595,6 +606,16 @@ export default function Table({ source, notice, boardWindow }: {
         <TokenModal deckTokens={source.deckTokens} onCreate={(token) => send({ type: 'createToken', token, x: 50, y: 50 })} onClose={() => setTokenOpen(false)} />
       )}
       {startDraw && <StartDraw view={view} onClose={() => setStartDraw(false)} />}
+      {abilitiesCard && (
+        <AbilitiesModal
+          name={abilitiesCard.faceDown ? 'carte face cachée' : cardInfo(catalogs[abilitiesCard.owner], abilitiesCard, lang).name}
+          printed={printedKeywordsOf(catalogs[abilitiesCard.owner], abilitiesCard)}
+          gained={abilitiesCard.gained ?? []}
+          lost={abilitiesCard.lost ?? []}
+          onValidate={(gained, lost, untilEndOfTurn) => send({ type: 'abilities', id: abilitiesCard.id, gained, lost, ...(untilEndOfTurn ? { untilEndOfTurn } : {}) })}
+          onClose={() => setAbilitiesFor(null)}
+        />
+      )}
       {diceOpen && (
         <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}

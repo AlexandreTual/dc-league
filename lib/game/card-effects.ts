@@ -1,5 +1,6 @@
 // Effets visuels des cartes en jeu (éclat d'arrivée des légendaires) : ce qui se lit dans le catalogue et la vue, sans rien révéler.
 import { cardInfo } from './apply'
+import type { Keyword } from './abilities'
 import type { Catalog, PlayerView, VisibleCard } from './types'
 
 /** Permanent légendaire : ligne de type de la face montrée (version anglaise) ; jamais une carte face cachée ou inconnue. */
@@ -20,8 +21,14 @@ export function printedKeywordsOf(catalog: Catalog | undefined, card: Pick<Visib
   return en.keywords ?? []
 }
 
-/** Créature (ou permanent) avec le vol imprimé sur sa face montrée. */
-export const hasFlying = (catalog: Catalog | undefined, card: VisibleCard): boolean => printedKeywordsOf(catalog, card).includes('Flying')
+/** Le permanent a cette capacité : imprimée et pas perdue, ou donnée. */
+export function hasAbility(catalog: Catalog | undefined, card: VisibleCard, keyword: Keyword): boolean {
+  if (card.gained?.some((g) => g.keyword === keyword)) return true
+  return printedKeywordsOf(catalog, card).includes(keyword) && !card.lost?.includes(keyword)
+}
+
+/** Créature (ou permanent) qui vole : vol imprimé sur sa face montrée et pas perdu, ou donné. */
+export const hasFlying = (catalog: Catalog | undefined, card: VisibleCard): boolean => hasAbility(catalog, card, 'Flying')
 
 /** Décalage d'animation propre à une carte (de 0 à -3,1 s), pour que les créatures volantes ne flottent pas ensemble. */
 export function effectDelay(id: string): string {

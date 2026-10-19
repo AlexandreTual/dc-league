@@ -16,6 +16,11 @@ describe('cardPreview', () => {
     })
   })
 
+  it('capacités données et perdues en toutes lettres', () => {
+    expect(cardPreview(visible({ gained: [{ keyword: 'Haste' }], lost: ['Flying'] }), catalog, 'fr')?.abilities)
+      .toEqual(['Capacités données : Célérité', 'Capacités perdues : Vol'])
+  })
+
   it('jamais pour une carte cachée, face cachée, absente ou sans image', () => {
     expect(cardPreview({ hidden: true }, catalog, 'en')).toBeNull()
     expect(cardPreview(visible({ faceDown: true }), catalog, 'en')).toBeNull()
