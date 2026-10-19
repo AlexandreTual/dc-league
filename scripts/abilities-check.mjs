@@ -169,7 +169,12 @@ try {
   await value.fill('0')
   check(await annihil.getByRole('button', { name: 'Valider' }).isDisabled(), 'Annihilateur 0 : « Valider » grisé')
   await annihil.getByRole('button', { name: '3', exact: true }).click()
-  await capture(page, 'annihilateur')
+  await annihil.getByRole('button', { name: 'Règle : Annihilateur' }).click()
+  check((await annihil.getByTestId('ability-rule').innerText()).includes('le joueur défenseur sacrifie 3 permanents'),
+    'bouton « i » : texte des règles d’Annihilateur, avec sa valeur')
+  await annihil.getByRole('button', { name: 'Règle : Distorsion' }).click()
+  check((await annihil.getByTestId('ability-rule').innerText()).includes('créatures avec la distorsion'), 'autre bouton « i » : une seule règle dépliée à la fois')
+  await capture(page, 'annihilateur-regle')
   await give(annihil, {})
   check((await page.locator(`${elves} [data-ability="Annihilator"]`).getAttribute('data-ability-param')) === '3', 'Annihilateur 3 : symbole avec son nombre')
   check((await logText(page)).includes('donne Annihilateur 3 à Llanowar Elves'), 'journal : « donne Annihilateur 3 à Llanowar Elves »')

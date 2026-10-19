@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import {
   Angry, Anvil, ArrowUpToLine, Award, Axe, Biohazard, Bomb, BrickWall, ChevronsUp, Copy, Crown, Droplet, Dumbbell, Eye, EyeOff, Feather,
-  FlaskConical, Footprints, Frown, Ghost, GraduationCap, Hand, HeartCrack, HeartPulse, Magnet, Megaphone, Moon, Mountain, RefreshCw, RotateCcw,
+  FlaskConical, Footprints, Frown, Ghost, GraduationCap, Hand, HeartCrack, HeartPulse, Info, Magnet, Megaphone, Moon, Mountain, RefreshCw, RotateCcw,
   Shield, ShieldCheck, Skull, Sparkles, Sun, Sword, Swords, Syringe, TreePine, Users, VenetianMask, Waves, X, Zap,
   type LucideIcon,
 } from 'lucide-react'
 import {
-  abilityText, COLORS, isNumbered, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, PROTECTION_ALL, takesParam,
+  abilityRule, abilityText, COLORS, isNumbered, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, PROTECTION_ALL, takesParam,
   type AbilityChoice, type Color, type GainedAbility, type Keyword,
 } from '@/lib/game/abilities'
 import type { VisibleCard } from '@/lib/game/types'
@@ -75,7 +75,9 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
       {badges.map(({ keyword, param, state }) => {
         const Icon = ICONS[keyword]
         const text = abilityText({ keyword, param })
-        const title = state === 'lost' ? `${text} (perdue)` : state === 'eot' ? `${text} (jusqu’à la fin du tour)` : text
+        const status = state === 'lost' ? `${text} (perdue)` : state === 'eot' ? `${text} (jusqu’à la fin du tour)` : text
+        // Au survol : la capacité, puis son texte des règles.
+        const title = `${status}\n${abilityRule(keyword, param)}`
         const color = state === 'lost' ? 'border-dc-red-light text-dc-red-light' : 'border-dc-gold text-dc-gold-light'
         const border = state === 'eot' ? 'border-dashed' : 'border-solid'
         // Protection : ses couleurs en pastilles (toujours visibles, même si le libellé est coupé) ; Parade, Annihilateur… : coût ou nombre écrit.
@@ -86,7 +88,7 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
             <Icon className="w-3 h-3 shrink-0" aria-hidden="true" />
             {param && <ParamMark keyword={keyword} param={param} />}
             {state === 'lost' && <span className="absolute w-6 h-0.5 bg-dc-red-light -rotate-45" aria-hidden="true" />}
-            <span className="sr-only">{title}</span>
+            <span className="sr-only">{status}</span>
           </span>
         ) : (
           <span key={`${state}-${keyword}`} title={title} data-ability={keyword} data-ability-state={state} data-ability-param={param}
@@ -162,7 +164,8 @@ function NumberChoice({ keyword, value, onChange }: { keyword: Keyword; value: s
 /**
  * Fenêtre « Capacités » (« Donner une capacité… ») : une case par capacité, cochée si la carte l'a déjà. Décocher une
  * capacité imprimée la marque perdue ; la durée choisie vaut pour les capacités ajoutées. Protection, Parade et les
- * capacités chiffrées demandent leur précision (couleurs, coût, nombre) avant de pouvoir valider.
+ * capacités chiffrées demandent leur précision (couleurs, coût, nombre) avant de pouvoir valider. Le bouton « i » de
+ * chaque ligne déplie le texte des règles de la capacité.
  */
 export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClose }: {
   name: string
@@ -182,6 +185,8 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
   ])))
   const setParam = (k: Keyword) => (param: string) => setParams((p) => ({ ...p, [k]: param }))
   const [untilEndOfTurn, setUntilEndOfTurn] = useState(false)
+  /** Capacité dont le texte des règles est déplié (une à la fois). */
+  const [ruleOpen, setRuleOpen] = useState<Keyword | null>(null)
   const toggle = (k: Keyword) => setChecked((s) => {
     const next = new Set(s)
     if (next.has(k)) next.delete(k)
@@ -226,12 +231,24 @@ export function AbilitiesModal({ name, printed, gained, lost, onValidate, onClos
             ...keywords.map((k) => {
               const Icon = ICONS[k]
               return (
-                <div key={k} className={needsParam(k) ? 'sm:col-span-2' : ''}>
-                  <label className="flex items-center gap-2 px-1 py-1.5 rounded text-sm text-dc-text hover:bg-dc-border/60 cursor-pointer tablet:py-2.5">
-                    <input type="checkbox" checked={checked.has(k)} onChange={() => toggle(k)} />
-                    <Icon className="w-4 h-4 text-dc-gold-light shrink-0" aria-hidden="true" />
-                    <span>{keywordLabel(k)}{note(k) && <span className="text-dc-muted text-xs">{note(k)}</span>}</span>
-                  </label>
+                <div key={k} className={needsParam(k) || ruleOpen === k ? 'sm:col-span-2' : ''}>
+                  <div className="flex items-center rounded hover:bg-dc-border/60">
+                    <label className="flex-1 min-w-0 flex items-center gap-2 px-1 py-1.5 text-sm text-dc-text cursor-pointer tablet:py-2.5">
+                      <input type="checkbox" checked={checked.has(k)} onChange={() => toggle(k)} />
+                      <Icon className="w-4 h-4 text-dc-gold-light shrink-0" aria-hidden="true" />
+                      <span>{keywordLabel(k)}{note(k) && <span className="text-dc-muted text-xs">{note(k)}</span>}</span>
+                    </label>
+                    <button type="button" onClick={() => setRuleOpen((r) => (r === k ? null : k))} aria-expanded={ruleOpen === k}
+                      aria-label={`Règle : ${keywordLabel(k)}`} title="Texte des règles"
+                      className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full tablet:w-9 tablet:h-9 ${ruleOpen === k ? 'text-dc-gold' : 'text-dc-muted hover:text-dc-text'}`}>
+                      <Info className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                  {ruleOpen === k && (
+                    <p className="ml-7 mb-1.5 px-2 py-1.5 rounded bg-dc-bg border border-dc-border text-xs leading-snug text-dc-text" data-testid="ability-rule">
+                      {abilityRule(k, needsParam(k) ? paramOf(k) : undefined)}
+                    </p>
+                  )}
                   {needsParam(k) && k === 'Protection' && <ProtectionChoice value={params.Protection ?? ''} onChange={setParam(k)} />}
                   {needsParam(k) && k === 'Ward' && <WardChoice value={params.Ward ?? ''} onChange={setParam(k)} />}
                   {needsParam(k) && isNumbered(k) && <NumberChoice keyword={k} value={params[k] ?? ''} onChange={setParam(k)} />}
