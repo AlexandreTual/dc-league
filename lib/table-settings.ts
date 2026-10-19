@@ -1,4 +1,4 @@
-// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes, place des piles, animations), mémorisés sur l'appareil.
+// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes, place des piles, animations, cimetière en liste), mémorisés sur l'appareil.
 
 export type TableSettings = {
   /** Quadrillage discret sur les champs de bataille. */
@@ -13,13 +13,17 @@ export type TableSettings = {
   cardEffects: boolean
   /** Capacités données ou perdues sur les cartes en jeu : symboles sur le bord gauche (par défaut) ou libellés. */
   abilityStyle: AbilityStyle
+  /** Hauteur, en px, du haut de l'illustration sous le nom de chaque carte du cimetière en liste (ma colonne). */
+  graveyardArt: number
 }
 
 export type AbilityStyle = 'icons' | 'labels'
 
 /** Tailles proposées dans Réglages (80 % à 150 %). */
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: true, abilityStyle: 'icons' }
+/** Hauteurs d'illustration proposées pour le cimetière en liste : petite, moyenne (par défaut), grande, très grande. */
+export const GRAVEYARD_ARTS = [16, 36, 60, 90]
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: true, abilityStyle: 'icons', graveyardArt: 36 }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -39,7 +43,9 @@ export function parseTableSettings(raw: string | null): TableSettings {
     const cardEffects = data.cardEffects !== false
     // Absent (sauvegarde d'avant) ou illisible : les symboles.
     const abilityStyle: AbilityStyle = data.abilityStyle === 'labels' ? 'labels' : 'icons'
-    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects, abilityStyle }
+    // Absente (sauvegarde d'avant) ou hors liste : moyenne.
+    const graveyardArt = GRAVEYARD_ARTS.includes(data.graveyardArt) ? data.graveyardArt : 36
+    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects, abilityStyle, graveyardArt }
   } catch {
     return DEFAULT_TABLE_SETTINGS
   }

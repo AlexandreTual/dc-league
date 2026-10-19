@@ -174,9 +174,9 @@ export function GraveyardCascade(props: ZoneProps & { onOpen: () => void; classN
 
 /**
  * Cimetière en liste, dans la colonne (piles à côté de la main) : une carte par ligne, la plus récente en haut,
- * son nom sur un liseré de sa couleur puis le haut de son illustration pour la reconnaître d'un coup d'œil.
- * Quand la hauteur manque, les plus anciennes sortent par le bas. Cible de dépôt ; chaque carte se glisse
- * (menu au clic droit, aperçu au survol) ; un clic ouvre tout le cimetière.
+ * son nom sur un liseré de sa couleur puis le haut de son illustration pour la reconnaître d'un coup d'œil
+ * (hauteur au choix dans les réglages). La liste défile (molette, doigt) quand la hauteur manque. Cible de dépôt ;
+ * chaque carte se glisse (menu au clic droit, aperçu au survol) ; un clic ouvre tout le cimetière.
  */
 export function GraveyardList(props: ZoneProps & { onOpen: () => void; className?: string }) {
   const { view, player, catalogs, lang } = props
@@ -185,25 +185,26 @@ export function GraveyardList(props: ZoneProps & { onOpen: () => void; className
   const { setNodeRef, highlight } = useZone(ref, 'list')
   const all = view.players[player].zones.graveyard
   const cards = graveyardList(all)
+  const art = props.settings?.graveyardArt ?? 36
   return (
     <div ref={setNodeRef} data-graveyard-list={player} data-count={all.length}
       className={`min-h-0 flex flex-col gap-1 rounded-md border border-dc-border bg-dc-bg/60 p-1 cursor-pointer ${highlight} ${props.className ?? ''}`}
       onClick={props.onOpen} title="Voir tout le cimetière" aria-label={`Cimetière : ${all.length} carte${all.length > 1 ? 's' : ''}`}>
       <span className="shrink-0 px-0.5 text-[11px] leading-none text-dc-muted">Cimetière · {all.length}</span>
       {cards.length === 0 && <span className="px-0.5 text-[11px] text-dc-muted">vide</span>}
-      <div className="flex-1 min-h-0 flex flex-col gap-1 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col gap-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]" data-testid="graveyard-list-scroll">
         {cards.map((card) => {
           const info = cardInfo(catalogs[card.owner], card, lang)
           const border = frameColor(catalogs[card.owner], card)
           return (
-            <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="shrink-0 rounded">
+            <Draggable key={card.id} {...cardProps(card.id, ref, props)} touchScroll className="shrink-0 rounded">
               <div className={`truncate px-1.5 py-px border-2 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black ${info.image ? 'rounded-t border-b-0' : 'rounded'}`}
                 style={{ borderColor: border }} data-testid="graveyard-list-name">
                 {info.name}
               </div>
               {info.image && (
                 // Haut de l'illustration : l'image entière, remontée de la hauteur du cadre du nom (≈ 16 % de la largeur).
-                <div className="h-9 tablet:h-8 overflow-hidden rounded-b border-2 border-t-0" style={{ borderColor: border }}>
+                <div className="overflow-hidden rounded-b border-2 border-t-0" style={{ borderColor: border, height: art }} data-graveyard-art>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={info.image} alt="" draggable={false} loading="lazy" className="block w-full -mt-[16%]" />
                 </div>

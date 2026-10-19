@@ -5,13 +5,15 @@ import type { ZoneRef } from '@/lib/game/types'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
 
 /** Enveloppe déplaçable : la carte d'origine s'estompe, l'aperçu suit le pointeur (DragOverlay). */
-export default function Draggable({ id, from, disabled = false, highlight = false, children, className = '', style, onDoubleClick, onContextMenu, onHover }: {
+export default function Draggable({ id, from, disabled = false, highlight = false, touchScroll = false, children, className = '', style, onDoubleClick, onContextMenu, onHover }: {
   id: string
   from: ZoneRef
   /** Spectateur, partie finie, carte d'un autre non déplaçable : pas de glisser. */
   disabled?: boolean
   /** Carte qui vient de changer (repère d'activité). */
   highlight?: boolean
+  /** Dans une liste qui défile : un glissement vertical du doigt fait défiler (le glisser démarre après l'appui de 200 ms). */
+  touchScroll?: boolean
   children: React.ReactNode
   className?: string
   style?: React.CSSProperties
@@ -30,7 +32,7 @@ export default function Draggable({ id, from, disabled = false, highlight = fals
       {...press}
       data-card-id={id}
       data-highlight={highlight || undefined}
-      className={`${className} ${isDragging ? 'opacity-30' : ''} ${disabled ? '' : 'cursor-grab active:cursor-grabbing'} touch-none ${longPressClass} ${highlight ? 'ring-2 ring-dc-gold rounded-[6%] transition-shadow' : ''}`}
+      className={`${className} ${isDragging ? 'opacity-30' : ''} ${disabled ? '' : 'cursor-grab active:cursor-grabbing'} ${touchScroll ? 'touch-pan-y' : 'touch-none'} ${longPressClass} ${highlight ? 'ring-2 ring-dc-gold rounded-[6%] transition-shadow' : ''}`}
       style={style}
       onDoubleClick={onDoubleClick}
       onMouseEnter={() => onHover?.(true)}

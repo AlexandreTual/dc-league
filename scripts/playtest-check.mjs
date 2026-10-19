@@ -513,6 +513,31 @@ try {
   check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'cimetière en liste : un clic ouvre tout le cimetière')
   await page.keyboard.press('Escape')
 
+  // Réglage « Image du cimetière » : hauteur de l'illustration ; la liste défile quand elle dépasse.
+  check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 36, 'image du cimetière : moyenne (36 px) par défaut')
+  const artSize = async (label) => {
+    await page.getByRole('button', { name: 'Réglages' }).click()
+    await page.getByLabel('Image du cimetière').selectOption({ label })
+    await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  }
+  await artSize('Très grande')
+  check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 90, 'image du cimetière : très grande (90 px)')
+  const scroller = list.getByTestId('graveyard-list-scroll')
+  const overflow = await scroller.evaluate((e) => e.scrollHeight > e.clientHeight + 10)
+  check(overflow, 'image du cimetière très grande : la liste dépasse la colonne')
+  const oldest = list.locator('[data-card-id]').last()
+  const sb = await scroller.boundingBox()
+  check((await oldest.boundingBox()).y > sb.y + sb.height, 'avant défilement : la carte la plus ancienne est cachée en bas')
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2)
+  await page.mouse.wheel(0, 3000)
+  await page.waitForTimeout(300)
+  const ob = await oldest.boundingBox()
+  check(ob.y >= sb.y - 1 && ob.y + ob.height <= sb.y + sb.height + 1, 'molette : la liste défile jusqu’à la carte la plus ancienne')
+  await capture('cimetiere-liste-defile')
+  await artSize('Petite')
+  check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 16, 'image du cimetière : petite (16 px)')
+  await artSize('Moyenne')
+
   // ── « Nouvelle partie » en cours de jeu : la table repart du tour 1 avec une main neuve ──
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: /Nouvelle partie/ }).click()
