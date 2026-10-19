@@ -161,6 +161,27 @@ function withoutRotation(state: GameState, id: string): GameState {
   return { ...state, cards: { ...state.cards, [id]: card } }
 }
 
+/** La carte de retour en phase (champ retiré). */
+function withoutPhasing(state: GameState, id: string): GameState {
+  if (!state.cards[id].phasedOut) return state
+  const { phasedOut: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
+/** Règle 502.1 : au début de son tour, avant de dégager, les permanents hors phase du joueur reviennent en phase. */
+function phaseInAllOf(state: GameState, playerId: string): GameState {
+  let s = state
+  for (const id of state.players[playerId].zones.battlefield) {
+    if (!state.cards[id].phasedOut) continue
+    s = log(withoutPhasing(s, id), null, `${phasingName(state, id)} revient en phase`)
+  }
+  return s
+}
+
+function phasingName(state: GameState, id: string): string {
+  return state.cards[id].faceDown ? 'une carte face cachée' : cardName(state, id)
+}
+
 function insertAt(list: string[], id: string, position: Position): string[] {
   if (position === 'top') return [id, ...list]
   if (position === 'bottom') return [...list, id]
@@ -216,7 +237,8 @@ function shuffleExcept(state: GameState, playerId: string, seed: Seed, top: stri
 
 function untapAllOf(state: GameState, playerId: string): GameState {
   const cards = { ...state.cards }
-  for (const id of state.players[playerId].zones.battlefield) cards[id] = { ...cards[id], tapped: false }
+  // Un permanent hors phase est traité comme absent : il reste engagé.
+  for (const id of state.players[playerId].zones.battlefield) if (!cards[id].phasedOut) cards[id] = { ...cards[id], tapped: false }
   return { ...state, cards }
 }
 
@@ -246,8 +268,8 @@ function passTurn(state: GameState, actor: string | null, byHost = false, at?: n
     if (state.players[next].eliminated) continue
     const turn = index <= current ? state.turn + 1 : state.turn
     let s: GameState = { ...withoutEndOfTurnAbilities(stampTurn(state, at)), activePlayer: next, turn, firstTurnDone: true }
-    s = draw(untapAllOf(emptyManaPools(s), next), next, 1)
-    return log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
+    s = log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
+    return draw(untapAllOf(phaseInAllOf(emptyManaPools(s), next), next), next, 1)
   }
   return state
 }
@@ -291,7 +313,7 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     patch.y = clampPct(action.y ?? 50)
   }
   next = setCard(next, action.id, patch)
-  if (from.zone === 'battlefield') next = withoutAbilities(withoutRotation(withoutLoyalty(withoutPt(next, action.id), action.id), action.id), action.id)
+  if (from.zone === 'battlefield') next = withoutPhasing(withoutAbilities(withoutRotation(withoutLoyalty(withoutPt(next, action.id), action.id), action.id), action.id), action.id)
 
   if (card.isCommander && from.zone === 'command' && to.zone !== 'command') {
     next = { ...next, commanderCasts: { ...next.commanderCasts, [action.id]: (next.commanderCasts[action.id] ?? 0) + 1 } }
@@ -449,6 +471,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
     case 'rotate':
       return state.cards[action.id].rotated ? withoutRotation(state, action.id) : setCard(state, action.id, { rotated: true })
+
+    case 'phase': {
+      const phasedOut = !state.cards[action.id].phasedOut
+      const s = phasedOut ? setCard(state, action.id, { phasedOut: true }) : withoutPhasing(state, action.id)
+      return log(s, action.actor, `${phasingName(state, action.id)} ${phasedOut ? 'passe hors phase' : 'revient en phase'}`)
+    }
 
     case 'faceDown': {
       const faceDown = !state.cards[action.id].faceDown
