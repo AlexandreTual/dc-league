@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDndContext } from '@dnd-kit/core'
 import { cardInfo, taxOf } from '@/lib/game/apply'
-import { commanderPlace, frameOf, graveyardTail } from '@/lib/game/player-summary'
+import { commanderPlace, frameOf, graveyardList, graveyardTail } from '@/lib/game/player-summary'
 import type { Catalog, CardView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack } from './GameCard'
@@ -173,6 +173,50 @@ export function GraveyardCascade(props: ZoneProps & { onOpen: () => void; classN
 }
 
 /**
+ * Cimetière en liste, dans la colonne (piles à côté de la main) : une carte par ligne, la plus récente en haut,
+ * son nom sur un liseré de sa couleur puis le haut de son illustration pour la reconnaître d'un coup d'œil.
+ * Quand la hauteur manque, les plus anciennes sortent par le bas. Cible de dépôt ; chaque carte se glisse
+ * (menu au clic droit, aperçu au survol) ; un clic ouvre tout le cimetière.
+ */
+export function GraveyardList(props: ZoneProps & { onOpen: () => void; className?: string }) {
+  const { view, player, catalogs, lang } = props
+  const ref: ZoneRef = { player, zone: 'graveyard' }
+  // Clé à part : la vignette du cimetière à côté de la main est aussi une cible de dépôt.
+  const { setNodeRef, highlight } = useZone(ref, 'list')
+  const all = view.players[player].zones.graveyard
+  const cards = graveyardList(all)
+  return (
+    <div ref={setNodeRef} data-graveyard-list={player} data-count={all.length}
+      className={`min-h-0 flex flex-col gap-1 rounded-md border border-dc-border bg-dc-bg/60 p-1 cursor-pointer ${highlight} ${props.className ?? ''}`}
+      onClick={props.onOpen} title="Voir tout le cimetière" aria-label={`Cimetière : ${all.length} carte${all.length > 1 ? 's' : ''}`}>
+      <span className="shrink-0 px-0.5 text-[11px] leading-none text-dc-muted">Cimetière · {all.length}</span>
+      {cards.length === 0 && <span className="px-0.5 text-[11px] text-dc-muted">vide</span>}
+      <div className="flex-1 min-h-0 flex flex-col gap-1 overflow-hidden">
+        {cards.map((card) => {
+          const info = cardInfo(catalogs[card.owner], card, lang)
+          const border = frameColor(catalogs[card.owner], card)
+          return (
+            <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="shrink-0 rounded">
+              <div className={`truncate px-1.5 py-px border-2 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black ${info.image ? 'rounded-t border-b-0' : 'rounded'}`}
+                style={{ borderColor: border }} data-testid="graveyard-list-name">
+                {info.name}
+              </div>
+              {info.image && (
+                // Haut de l'illustration : l'image entière, remontée de la hauteur du cadre du nom (≈ 16 % de la largeur).
+                <div className="h-9 tablet:h-8 overflow-hidden rounded-b border-2 border-t-0" style={{ borderColor: border }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={info.image} alt="" draggable={false} loading="lazy" className="block w-full -mt-[16%]" />
+                </div>
+              )}
+            </Draggable>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Dernière carte arrivée au cimetière, sur une ligne (en-tête d'un adversaire) : son nom sur un liseré de sa couleur,
  * ou « vide ». Cible de dépôt ; la carte se glisse ; un clic ouvre tout le cimetière.
  */
@@ -226,6 +270,12 @@ export function PileTiles(props: ZoneProps & {
   me: string | null
   onLibraryMenu: (at: MenuPoint) => void
   onPile: (zone: 'graveyard' | 'exile') => void
+  /**
+   * Le cimetière est aussi en liste dans la colonne : la vignette Cim. montre sa dernière carte sans la rendre
+   * glissable (on la glisse depuis la liste). Deux éléments glissables pour une même carte se gênent : en quittant
+   * la vignette, l'un efface l'inscription de l'autre et la carte ne se glisse plus depuis la liste.
+   */
+  graveyardListed?: boolean
   className?: string
 }) {
   const { view, player, catalogs, lang, me, onLibraryMenu } = props
@@ -269,6 +319,13 @@ export function PileTiles(props: ZoneProps & {
     const card = zones[zone][zones[zone].length - 1]
     if (!card) return emptyTile
     if (card.hidden) return <CardBack className="h-full" />
+    if (zone === 'graveyard' && props.graveyardListed) {
+      return (
+        <div className="h-full" data-pile-face={card.id} onMouseEnter={() => props.handlers.onHover(card.id)} onMouseLeave={() => props.handlers.onHover(null)}>
+          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
+        </div>
+      )
+    }
     return (
       <Draggable {...cardProps(card.id, { player, zone }, props)} className="h-full">
         <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
