@@ -9,8 +9,8 @@ export type TableSettings = {
   cardScale: number
   /** Bibliothèque, cimetière, exil et commandement en vignettes à droite de ma main (façon Moxfield, par défaut) ; false : dans ma colonne (ancienne disposition). */
   pilesBesideHand: boolean
-  /** Animations des cartes en jeu (liseré et éclat des légendaires, créatures volantes qui flottent). */
-  cardEffects: boolean
+  /** Animations des cartes en jeu, chacune activée ou non (fenêtre « Animations »). */
+  cardEffects: CardEffects
   /** Capacités données ou perdues sur les cartes en jeu : symboles sur le bord gauche (par défaut) ou libellés. */
   abilityStyle: AbilityStyle
   /** Hauteur, en px, du haut de l'illustration sous le nom de chaque carte du cimetière en liste (ma colonne). */
@@ -19,11 +19,32 @@ export type TableSettings = {
 
 export type AbilityStyle = 'icons' | 'labels'
 
+/** Animations des cartes en jeu : liseré et éclat d'arrivée des légendaires, entrée du commandant, créatures volantes qui flottent. */
+export type CardEffects = { legendary: boolean; commander: boolean; flying: boolean }
+export type CardEffect = keyof CardEffects
+
+/** Animations proposées dans la fenêtre « Animations », dans l'ordre d'affichage. */
+export const CARD_EFFECTS: { id: CardEffect; label: string; hint: string }[] = [
+  { id: 'legendary', label: 'Légendaires', hint: 'Liseré doré, et éclat qui traverse la carte à son arrivée en jeu.' },
+  { id: 'commander', label: 'Entrée du commandant', hint: 'Il se pose avec un halo, des ondes dorées et une couronne.' },
+  { id: 'flying', label: 'Vol', hint: 'Les créatures volantes flottent au-dessus de leur ombre tant qu’elles ne sont pas engagées.' },
+]
+export const ALL_EFFECTS: CardEffects = { legendary: true, commander: true, flying: true }
+export const NO_EFFECTS: CardEffects = { legendary: false, commander: false, flying: false }
+
+/** Animations enregistrées : ancienne case unique (true / false) reprise pour toutes ; absentes ou illisibles : activées. */
+function parseCardEffects(raw: unknown): CardEffects {
+  if (raw === false) return NO_EFFECTS
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return ALL_EFFECTS
+  const data = raw as Record<string, unknown>
+  return { legendary: data.legendary !== false, commander: data.commander !== false, flying: data.flying !== false }
+}
+
 /** Tailles proposées dans Réglages (80 % à 150 %). */
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
 /** Hauteurs d'illustration proposées pour le cimetière en liste : petite, moyenne (par défaut), grande, très grande. */
 export const GRAVEYARD_ARTS = [16, 36, 60, 90]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: true, abilityStyle: 'icons', graveyardArt: 36 }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -39,8 +60,8 @@ export function parseTableSettings(raw: string | null): TableSettings {
     const cardScale = CARD_SCALES.includes(data.cardScale) ? data.cardScale : 1
     // Absent (sauvegarde d'avant) ou illisible : la disposition par défaut, piles à côté de la main.
     const pilesBesideHand = data.pilesBesideHand !== false
-    // Absentes (sauvegarde d'avant) ou illisibles : animations activées.
-    const cardEffects = data.cardEffects !== false
+    // Absentes (sauvegarde d'avant) ou illisibles : animations activées ; ancienne case « Animations des cartes » reprise.
+    const cardEffects = parseCardEffects(data.cardEffects)
     // Absent (sauvegarde d'avant) ou illisible : les symboles.
     const abilityStyle: AbilityStyle = data.abilityStyle === 'labels' ? 'labels' : 'icons'
     // Absente (sauvegarde d'avant) ou hors liste : moyenne.

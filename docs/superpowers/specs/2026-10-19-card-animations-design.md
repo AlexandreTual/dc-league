@@ -43,7 +43,7 @@ seule fois (1,7 s) : la carte **se pose** depuis un peu plus haut et plus grande
   la carte est engagée ou déplacée ; un commandant renvoyé puis relancé a une nouvelle entrée.
 - Un commandant légendaire a aussi son éclat, puis garde son liseré.
 - Commandant face cachée : pas d'entrée (`commanderEntrance`, `lib/game/card-effects.ts`).
-- Coupée par la case « Animations des cartes ». Mouvement réduit : seulement la couronne, immobile, le temps de l'arrivée.
+- Coupée par la case « Entrée du commandant » de la fenêtre « Animations ». Mouvement réduit : seulement la couronne, immobile, le temps de l'arrivée.
 - Les effets d'arrivée restent affichés 2 s (au lieu de 1,5 s) pour laisser finir l'entrée.
 
 ## Vol : flottement (retenu)
@@ -128,7 +128,7 @@ plus tard avec une saisie libre.
 - Les capacités imprimées ne sont pas répétées sur la carte : elles se lisent déjà sur l'image.
 - L'aperçu de la carte (survol, appui long) liste en toutes lettres les capacités données et perdues. C'est utile sur
   tablette, où les symboles sont petits.
-- Les badges restent visibles même si la case « Animations des cartes » est décochée, car c'est une information de jeu, pas
+- Les badges restent visibles même si les animations sont coupées, car c'est une information de jeu, pas
   une décoration.
 
 ### Moteur de partie
@@ -153,9 +153,12 @@ plus tard avec une saisie libre.
 
 ## Réglage et accessibilité
 
-- Nouvelle case dans les réglages de la table : **« Animations des cartes »**. Elle est cochée par défaut et mémorisée sur
-  l'appareil (`TableSettings.cardEffects` ; absente d'une ancienne sauvegarde = cochée). Elle coupe le liseré, l'éclat et le
-  flottement, pas les badges.
+- Fenêtre **« Animations »**, ouverte par le bouton « Animations… » des réglages de la table (comme « Raccourcis
+  clavier… ») : une case par animation, **Légendaires** (liseré et éclat d'arrivée), **Entrée du commandant** et **Vol**
+  (flottement), toutes cochées par défaut, plus « Tout activer » et « Tout couper ». Mémorisé sur l'appareil
+  (`TableSettings.cardEffects: { legendary, commander, flying }` ; absent ou illisible = coché ; l'ancienne case unique
+  « Animations des cartes », `cardEffects: true | false`, est reprise pour les trois). Les badges de capacités restent
+  affichés quoi qu'il en soit.
 - Nouveau choix dans les réglages de la table : **« Capacités sur les cartes : Symboles / Libellés »**. « Symboles » est le
   choix par défaut. Il est mémorisé sur l'appareil (`TableSettings.abilityStyle: 'icons' | 'labels'` ; absent ou illisible
   = `'icons'`). C'est un choix d'affichage propre à chaque joueur, sans effet sur la partie.
