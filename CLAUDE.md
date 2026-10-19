@@ -48,6 +48,7 @@ node scripts/abilities-check.mjs http://localhost:8788 <dossier>           # « 
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
 node scripts/ai-check.mjs http://localhost:8788 <dossier>                  # assistant IA avec un faux Gemini (deck, mode test, en ligne, admin, quota, téléphone)
+node scripts/shortcuts-check.mjs http://localhost:8788 <dossier>         # raccourcis clavier (carte survolée, Ctrl+X, touches choisies et mémorisées, en ligne)
 node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin : parties en cours, suppression (vide les tables locales)
 ```
 

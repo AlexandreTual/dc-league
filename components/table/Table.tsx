@@ -9,7 +9,7 @@ import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
-import { shortcutFor } from '@/lib/game/keyboard'
+import { cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, movesCard, saveBindings, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
@@ -32,6 +32,7 @@ import { AbilitiesModal } from './abilities'
 import GameTimer from './GameTimer'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
+import ShortcutsModal from './ShortcutsModal'
 import ManaPool from './ManaPool'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
@@ -119,6 +120,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [logOpen, setLogOpen] = useState(false)
   const [settings, setSettings] = useState<TableSettings>(DEFAULT_TABLE_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [bindings, setBindings] = useState<Bindings>(DEFAULT_BINDINGS)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
@@ -139,6 +142,11 @@ export default function Table({ source, notice, boardWindow }: {
 
   useEffect(() => setLang(readLang()), [])
   useEffect(() => setSettings(loadTableSettings()), [])
+  useEffect(() => setBindings(loadBindings()), [])
+  const changeBindings = useCallback((next: Bindings) => {
+    setBindings(next)
+    saveBindings(next)
+  }, [])
   const changeSettings = (next: TableSettings) => {
     setSettings(next)
     saveTableSettings(next)
@@ -266,38 +274,61 @@ export default function Table({ source, notice, boardWindow }: {
     return () => window.removeEventListener('pointerdown', onDown, true)
   }, [])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const shortcut = shortcutFor(e)
-      if (!shortcut) return
-      if (shortcut === 'close') {
-        setMenu(null)
-        if (pile) closePile(false)
-        setTokenOpen(false)
-        setDiceOpen(false)
-        setStartDraw(false)
-        setOracle(null)
-        setAbilitiesFor(null)
-        setLogOpen(false)
-        setSettingsOpen(false)
-        return
-      }
-      // Pas de raccourci de jeu tant qu'une fenêtre est ouverte, ni pour un spectateur.
-      if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || menu || !canAct) return
-      e.preventDefault()
-      if (shortcut === 'undo') return source.undo()
-      const actions = {
-        draw: { type: 'draw', count: 1 },
-        untapAll: { type: 'untapAll' },
-        nextTurn: { type: 'endTurn' },
-        shuffle: { type: 'shuffle' },
-        mulligan: { type: 'mulligan' },
-      } satisfies Record<Exclude<typeof shortcut, 'undo' | 'close'>, ClientAction>
-      send(actions[shortcut])
+  // Gestionnaire refait à chaque rendu (carte survolée, menus, fenêtres) ; un seul écouteur le lit.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    const shortcut = shortcutFor(e, bindings)
+    if (!shortcut) return
+    if (shortcut === 'close') {
+      setMenu(null)
+      if (pile) closePile(false)
+      setTokenOpen(false)
+      setDiceOpen(false)
+      setStartDraw(false)
+      setOracle(null)
+      setAbilitiesFor(null)
+      setLogOpen(false)
+      setSettingsOpen(false)
+      setShortcutsOpen(false)
+      return
     }
+    // Pas de raccourci de jeu tant qu'une fenêtre est ouverte.
+    if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || menu || shortcutsOpen) return
+    if (shortcut === 'help') {
+      e.preventDefault()
+      setSettingsOpen(false)
+      return setShortcutsOpen(true)
+    }
+    // Ni pour un spectateur.
+    if (!canAct) return
+    if (isCardShortcut(shortcut)) {
+      // Carte sous la souris, avec les mêmes entrées que son menu clic droit (rien pour une carte cachée).
+      const card = hovered ? cards.get(hovered) : undefined
+      const zone = card ? zoneOf(view, card.id) : null
+      const commands = card && zone ? cardShortcutCommands(cardMenu(menuCtx, card, zone), card, zone, shortcut) : null
+      if (!commands) return
+      e.preventDefault()
+      // La carte quitte la souris : un second appui ne doit pas la déplacer encore depuis sa nouvelle zone.
+      if (movesCard(shortcut)) setHovered(null)
+      return run(commands)
+    }
+    e.preventDefault()
+    if (shortcut === 'undo') return source.undo()
+    const actions = {
+      draw: { type: 'draw', count: 1 },
+      untapAll: { type: 'untapAll' },
+      nextTurn: { type: 'endTurn' },
+      shuffle: { type: 'shuffle' },
+      mulligan: { type: 'mulligan' },
+    } satisfies Record<Exclude<typeof shortcut, 'undo'>, ClientAction>
+    send(actions[shortcut])
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => onKeyRef.current(e)
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send, source, closePile, pile, tokenOpen, diceOpen, startDraw, oracle, abilitiesFor, menu, canAct])
+  }, [])
 
   const handlers: CardHandlers = {
     onDoubleClick: (id, zone) => {
@@ -627,7 +658,9 @@ export default function Table({ source, notice, boardWindow }: {
           onAskAi={ai ? () => { ai.open(aiCardRef(oracleEntry.en, oracleEntry.fr)); setOracle(null) } : undefined}
         />
       )}
-      {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)}
+        onShortcuts={() => { setSettingsOpen(false); setShortcutsOpen(true) }} />}
+      {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
       {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
       <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
         Tourne l’écran en paysage pour jouer.
