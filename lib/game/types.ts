@@ -100,6 +100,8 @@ export type CardInstance = {
   loyaltyMod?: number
   /** Pivotée à 180° (ex. jeton imprimé tête-bêche) ; absent sinon, et toujours hors du champ de bataille. */
   rotated?: true
+  /** Hors phase (règle 702.26) : traitée comme absente jusqu'à son retour ; absent sinon, et toujours hors du champ de bataille. */
+  phasedOut?: true
   /** Capacités données (« Donner une capacité… ») ; absent : aucune, et toujours hors du champ de bataille. */
   gained?: GainedAbility[]
   /** Capacités imprimées perdues ; absent : aucune, et toujours hors du champ de bataille. */
@@ -178,6 +180,8 @@ export type GameAction = Stamp & (
   /** Pivote une carte en jeu à 180° (et retour). */
   | { type: 'rotate'; actor: string; id: string }
   | { type: 'faceDown'; actor: string; id: string }
+  /** Fait passer un permanent hors phase (et revenir en phase). */
+  | { type: 'phase'; actor: string; id: string }
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
   /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
@@ -226,6 +230,8 @@ export type VisibleCard = {
   loyaltyMod?: number
   /** Absent : non pivotée, ou serveur de jeu plus ancien. */
   rotated?: true
+  /** Absent : en phase, ou serveur de jeu plus ancien. */
+  phasedOut?: true
   /** Absent : aucune capacité donnée, ou serveur de jeu plus ancien. */
   gained?: GainedAbility[]
   /** Absent : aucune capacité imprimée perdue, ou serveur de jeu plus ancien. */

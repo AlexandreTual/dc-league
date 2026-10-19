@@ -9,7 +9,7 @@ function fingerprints(view: PlayerView): Map<string, string> {
   const add = (player: string, zone: string, c: VisibleCard) => {
     const { plus, minus, other } = c.counters
     const pt = c.ptMod ? `${c.ptMod.power}/${c.ptMod.toughness}` : ''
-    out.set(c.id, [player, zone, c.tapped, c.flipped, c.faceDown, !!c.rotated, plus, minus, other, pt, c.loyaltyMod ?? 0, c.x, c.y].join('|'))
+    out.set(c.id, [player, zone, c.tapped, c.flipped, c.faceDown, !!c.rotated, !!c.phasedOut, plus, minus, other, pt, c.loyaltyMod ?? 0, c.x, c.y].join('|'))
   }
   for (const [player, p] of Object.entries(view.players)) {
     const { library, ...zones } = p.zones

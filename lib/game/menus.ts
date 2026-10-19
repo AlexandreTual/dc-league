@@ -179,7 +179,8 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
       return delta === 0 ? [] : [act({ type: 'counter', id, kind, delta })]
     },
   })
-  const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id }))]
+  const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id })),
+    item(card.phasedOut ? 'Revenir en phase' : 'Passer hors phase', act({ type: 'phase', id }))]
   if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
   if (controller) {
     entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })),

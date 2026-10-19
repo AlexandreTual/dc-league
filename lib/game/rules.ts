@@ -135,6 +135,7 @@ export function canApply(state: GameState, action: GameAction): string | null {
     }
 
     case 'tap':
+    case 'phase':
     case 'counter':
     case 'pt':
     case 'loyalty':
