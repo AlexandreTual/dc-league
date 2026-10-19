@@ -30,6 +30,9 @@ export function hasAbility(catalog: Catalog | undefined, card: VisibleCard, keyw
 /** Créature (ou permanent) qui vole : vol imprimé sur sa face montrée et pas perdu, ou donné. */
 export const hasFlying = (catalog: Catalog | undefined, card: VisibleCard): boolean => hasAbility(catalog, card, 'Flying')
 
+/** Commandant (d'un joueur) qui arrive en jeu : entrée remarquable, sauf face cachée (rien à montrer de la carte). */
+export const commanderEntrance = (card: VisibleCard): boolean => card.isCommander && !card.faceDown
+
 /** Décalage d'animation propre à une carte (de 0 à -3,1 s), pour que les créatures volantes ne flottent pas ensemble. */
 export function effectDelay(id: string): string {
   let hash = 0
