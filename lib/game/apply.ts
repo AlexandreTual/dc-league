@@ -1,7 +1,8 @@
 import { rollDice, rollText } from './dice'
 import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
-import { abilitiesLog, nextAbilities } from './abilities'
-import { MAX_PT_MOD, NO_PT, ptLog } from './pt'
+import { abilitiesLog, abilityText, addAbilities, join, nextAbilities } from './abilities'
+import { printedKeywordsOf } from './card-effects'
+import { MAX_PT_MOD, NO_PT, ptLog, ptText } from './pt'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
@@ -120,7 +121,6 @@ function setCard(state: GameState, id: string, patch: Partial<CardInstance>): Ga
   return { ...state, cards: { ...state.cards, [id]: { ...state.cards[id], ...patch } } }
 }
 
-/** La carte sans modification de force et d'endurance (champ retiré plutôt que mis à 0/0). */
 /** Capacités données et perdues effacées (carte qui quitte le champ de bataille). */
 function withoutAbilities(state: GameState, id: string): GameState {
   const { gained, lost, ...card } = state.cards[id]
@@ -128,23 +128,45 @@ function withoutAbilities(state: GameState, id: string): GameState {
   return { ...state, cards: { ...state.cards, [id]: card } }
 }
 
-/** Fin du tour : les capacités données « jusqu'à la fin du tour » disparaissent, sur tous les permanents. */
-function withoutEndOfTurnAbilities(state: GameState): GameState {
+/**
+ * Fin du tour : les capacités données et les modifications de force et d'endurance « jusqu'à la fin du tour »
+ * disparaissent, sur tous les permanents.
+ */
+function withoutEndOfTurnEffects(state: GameState): GameState {
   let cards: GameState['cards'] | null = null
   for (const [id, card] of Object.entries(state.cards)) {
-    if (!card.gained?.some((g) => g.untilEndOfTurn)) continue
+    if (!card.ptTurn && !card.gained?.some((g) => g.untilEndOfTurn)) continue
     cards ??= { ...state.cards }
-    const kept = card.gained.filter((g) => !g.untilEndOfTurn)
-    const { gained: _, ...rest } = card
+    const kept = (card.gained ?? []).filter((g) => !g.untilEndOfTurn)
+    const { gained: _, ptTurn: _t, ...rest } = card
     cards[id] = kept.length > 0 ? { ...rest, gained: kept } : rest
   }
   return cards ? { ...state, cards } : state
 }
 
+/** La carte sans modification de force et d'endurance, ni permanente ni du tour (champs retirés plutôt que mis à 0/0). */
 function withoutPt(state: GameState, id: string): GameState {
-  if (!state.cards[id].ptMod) return state
-  const { ptMod: _, ...card } = state.cards[id]
+  if (!state.cards[id].ptMod && !state.cards[id].ptTurn) return state
+  const { ptMod: _, ptTurn: _t, ...card } = state.cards[id]
   return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
+const clampMod = (n: number) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, n))
+
+/** Écart ajouté à la modification permanente (`ptMod`) ou du tour (`ptTurn`) ; champ retiré s'il revient à 0/0. */
+function addPt(state: GameState, id: string, field: 'ptMod' | 'ptTurn', power: number, toughness: number): GameState {
+  const mod = state.cards[id][field] ?? NO_PT
+  const next = { power: clampMod(mod.power + power), toughness: clampMod(mod.toughness + toughness) }
+  if (next.power !== 0 || next.toughness !== 0) return setCard(state, id, { [field]: next })
+  const { [field]: _, ...card } = state.cards[id]
+  return { ...state, cards: { ...state.cards, [id]: card } }
+}
+
+/** Noms des cartes visées par un effet de groupe : tous jusqu'à 4, sinon les 3 premiers et le nombre des autres. */
+function namesOf(state: GameState, ids: string[]): string {
+  const name = (id: string) => (state.cards[id].faceDown ? 'une carte face cachée' : cardName(state, id))
+  if (ids.length <= 4) return join(ids.map(name))
+  return join([...ids.slice(0, 3).map(name), `${ids.length - 3} autres cartes`])
 }
 
 /** La carte sans écart de loyauté (champ retiré plutôt que mis à 0). */
@@ -267,7 +289,7 @@ function passTurn(state: GameState, actor: string | null, byHost = false, at?: n
     const next = order[index]
     if (state.players[next].eliminated) continue
     const turn = index <= current ? state.turn + 1 : state.turn
-    let s: GameState = { ...withoutEndOfTurnAbilities(stampTurn(state, at)), activePlayer: next, turn, firstTurnDone: true }
+    let s: GameState = { ...withoutEndOfTurnEffects(stampTurn(state, at)), activePlayer: next, turn, firstTurnDone: true }
     s = log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`)
     return draw(untapAllOf(phaseInAllOf(emptyManaPools(s), next), next), next, 1)
   }
@@ -454,14 +476,30 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log(setCard(state, action.id, { counters: { ...card.counters, [action.kind]: value } }), action.actor, `${name} : ${label} (${value})`)
     }
 
-    case 'pt': {
+    case 'pt':
+    case 'ptTurn': {
       const card = state.cards[action.id]
-      const mod = card.ptMod ?? NO_PT
-      const clamp = (n: number) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, n))
-      const ptMod = { power: clamp(mod.power + action.power), toughness: clamp(mod.toughness + action.toughness) }
-      const s = ptMod.power === 0 && ptMod.toughness === 0 ? withoutPt(state, action.id) : setCard(state, action.id, { ptMod })
+      const s = addPt(state, action.id, action.type === 'pt' ? 'ptMod' : 'ptTurn', action.power, action.toughness)
       const name = card.faceDown ? 'une carte face cachée' : cardName(state, action.id)
       return log(s, action.actor, `${name} : ${ptLog(state.catalogs[card.owner], s.cards[action.id])}`)
+    }
+
+    case 'effect': {
+      const eot = action.untilEndOfTurn ?? false
+      let s = state
+      for (const id of action.ids) {
+        if (action.power !== 0 || action.toughness !== 0) s = addPt(s, id, eot ? 'ptTurn' : 'ptMod', action.power, action.toughness)
+        if (action.gained.length === 0) continue
+        const card = s.cards[id]
+        const { gained: _g, lost: _l, ...rest } = card
+        const next = addAbilities(card, printedKeywordsOf(s.catalogs[card.owner], card), action.gained, eot)
+        s = { ...s, cards: { ...s.cards, [id]: { ...rest, ...next } } }
+      }
+      const what = [
+        ...(action.power !== 0 || action.toughness !== 0 ? [ptText({ power: action.power, toughness: action.toughness })] : []),
+        ...action.gained.map((c) => abilityText(typeof c === 'string' ? { keyword: c } : c)),
+      ]
+      return log(s, action.actor, `donne ${join(what)} à ${namesOf(state, action.ids)}${eot ? ' (jusqu’à la fin du tour)' : ''}`)
     }
 
     case 'abilities': {

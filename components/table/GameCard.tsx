@@ -5,7 +5,7 @@ import { cardInfo, tokenBadge } from '@/lib/game/apply'
 import { Crown } from 'lucide-react'
 import { commanderEntrance, effectDelay, hasFlying, isLegendary } from '@/lib/game/card-effects'
 import { loyaltyStats } from '@/lib/game/loyalty'
-import { ptStats, type PtValue } from '@/lib/game/pt'
+import { ptStats, ptText, type PtValue } from '@/lib/game/pt'
 import type { AbilityStyle } from '@/lib/table-settings'
 import { AbilityBadges } from './abilities'
 import type { MenuPoint } from './touch'
@@ -35,8 +35,10 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
   const stats = loyalty ? null : ptStats(catalog, card)
   if (!loyalty && !stats) return null
   const text = loyalty ? loyalty.text : `${stats!.power.text}/${stats!.toughness.text}`
-  const label = loyalty ? `Loyauté ${text}` : `Force et endurance ${text}`
-  const data = loyalty ? { 'data-loyalty': text } : { 'data-pt': text }
+  // Modification jusqu'à la fin du tour : liseré en pointillés (comme une capacité donnée pour ce tour), détail au survol.
+  const turn = !loyalty && card.ptTurn && (card.ptTurn.power !== 0 || card.ptTurn.toughness !== 0) ? ptText(card.ptTurn) : null
+  const label = loyalty ? `Loyauté ${text}` : `Force et endurance ${text}${turn ? `, dont ${turn} jusqu’à la fin du tour` : ''}`
+  const data = loyalty ? { 'data-loyalty': text } : { 'data-pt': text, ...(turn ? { 'data-pt-turn': turn } : {}) }
   const content = loyalty
     ? <span className={statClass(loyalty)}>{loyalty.text}</span>
     : <><span className={statClass(stats!.power)}>{stats!.power.text}</span>/<span className={statClass(stats!.toughness)}>{stats!.toughness.text}</span></>
@@ -44,7 +46,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
   // Loyauté : écusson dessiné en SVG comme l'encart imprimé (plus large que haut, haut creusé, bas en pointe douce, liseré clair).
   const shape = loyalty
     ? 'bottom-[3.5%] right-[2.5%] w-[max(26px,16cqw)] aspect-[6/5] flex items-center justify-center pb-[0.1em] group'
-    : 'bottom-[4.5%] right-[4%] min-w-[20cqw] px-[0.35em] rounded bg-black border border-dc-gold/50'
+    : `bottom-[4.5%] right-[4%] min-w-[20cqw] px-[0.35em] rounded bg-black border border-dc-gold/50 ${turn ? 'border-dashed !border-dc-gold' : ''}`
   const box = `absolute ${shape} text-center text-white text-[length:max(10px,5.5cqw)] leading-[1.6] font-bold whitespace-nowrap`
   const shield = loyalty && (
     <svg viewBox="0 0 120 100" className="absolute inset-0 w-full h-full -z-10 overflow-visible" aria-hidden="true">
@@ -57,7 +59,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
   )
   // Calque aux dimensions de la carte, conteneur des unités cqw.
   const layer = (child: React.ReactNode) => <div className="absolute inset-0 pointer-events-none [container-type:size]">{child}</div>
-  if (!onEdit) return layer(<span className={`${box} isolate`} {...data}>{shield}{content}</span>)
+  if (!onEdit) return layer(<span className={`${box} isolate`} title={turn ? label : undefined} {...data}>{shield}{content}</span>)
   // Ni glisser (dnd-kit écoute mousedown / touchstart), ni appui long, ni double-clic (engager) depuis l'encart.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
   return layer(
@@ -66,6 +68,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
       className={`${box} isolate pointer-events-auto cursor-pointer ${loyalty ? '[@media(pointer:coarse)]:w-[max(2.25rem,18cqw)]' : 'hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6'}`}
       {...data}
       aria-label={`${label} : modifier`}
+      title={turn ? label : undefined}
       onPointerDown={stop}
       onMouseDown={stop}
       onTouchStart={stop}

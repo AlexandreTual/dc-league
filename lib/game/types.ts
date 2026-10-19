@@ -96,6 +96,8 @@ export type CardInstance = {
   counters: Counters
   /** Absent : aucune modification (0/0), et toujours absent hors du champ de bataille. */
   ptMod?: PtMod
+  /** Modification de force et d'endurance jusqu'à la fin du tour ; absent : aucune, et toujours hors du champ de bataille. */
+  ptTurn?: PtMod
   /** Marqueurs loyauté ajoutés (ou retirés) depuis la loyauté imprimée ; absent : aucun écart, et toujours hors du champ de bataille. */
   loyaltyMod?: number
   /** Pivotée à 180° (ex. jeton imprimé tête-bêche) ; absent sinon, et toujours hors du champ de bataille. */
@@ -192,6 +194,13 @@ export type GameAction = Stamp & (
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
   /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
+  /** Écart ajouté à la modification de force et d'endurance jusqu'à la fin du tour. */
+  | { type: 'ptTurn'; actor: string; id: string; power: number; toughness: number }
+  /**
+   * Effet sur plusieurs permanents (Finale of Devastation…) : écart de force et d'endurance et capacités ajoutées,
+   * pour toujours ou jusqu'à la fin du tour ; une seule ligne de journal.
+   */
+  | { type: 'effect'; actor: string; ids: string[]; power: number; toughness: number; gained: AbilityChoice[]; untilEndOfTurn?: boolean }
   | { type: 'loyalty'; actor: string; id: string; delta: number }
   /** Capacités voulues du permanent (données, imprimées perdues) ; `untilEndOfTurn` : durée de celles ajoutées. */
   | { type: 'abilities'; actor: string; id: string; gained: AbilityChoice[]; lost: Keyword[]; untilEndOfTurn?: boolean }
@@ -233,6 +242,8 @@ export type VisibleCard = {
   counters: Counters
   /** Absent : aucune modification, ou serveur de jeu plus ancien. */
   ptMod?: PtMod
+  /** Modification jusqu'à la fin du tour ; absent : aucune, ou serveur de jeu plus ancien. */
+  ptTurn?: PtMod
   /** Absent : aucun écart de loyauté, ou serveur de jeu plus ancien. */
   loyaltyMod?: number
   /** Absent : non pivotée, ou serveur de jeu plus ancien. */
