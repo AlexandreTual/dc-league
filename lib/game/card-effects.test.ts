@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow, deckCardView } from '@/test/factories'
 import { buildCatalog } from './catalog'
-import { effectDelay, enteredBattlefield, hasFlying, isLegendary } from './card-effects'
+import { commanderEntrance, effectDelay, enteredBattlefield, hasFlying, isLegendary } from './card-effects'
 import type { CardView, Counters, PlayerView, TokenData, VisibleCard } from './types'
 
 const face = (name: string, type: string) => ({
@@ -86,6 +86,15 @@ describe('hasFlying', () => {
     expect(hasFlying(catalog, onTable(5, { faceDown: true }))).toBe(false)
     expect(hasFlying(catalog, onTable(99))).toBe(false)
     expect(hasFlying(undefined, onTable(5))).toBe(false)
+  })
+})
+
+describe('commanderEntrance', () => {
+  it('commandant visible : entrée remarquable ; autre carte, ou commandant face cachée : non', () => {
+    expect(commanderEntrance(onTable(1, { isCommander: true }))).toBe(true)
+    expect(commanderEntrance(onTable(2, { isCommander: true }))).toBe(true)
+    expect(commanderEntrance(onTable(1))).toBe(false)
+    expect(commanderEntrance(onTable(1, { isCommander: true, faceDown: true }))).toBe(false)
   })
 })
 

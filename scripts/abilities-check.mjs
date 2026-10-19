@@ -110,7 +110,7 @@ try {
   await playtest(solo)
   const elves = await onBattlefield(solo, ELVES, true)
   const dialog = await openAbilities(page, elves)
-  check(await dialog.getByRole('checkbox').count() === 17, 'fenêtre « Capacités » : 17 capacités à cocher')
+  check(await dialog.getByRole('checkbox').count() === 43, 'fenêtre « Capacités » : 43 capacités à cocher, en 4 groupes')
   check(!(await dialog.getByRole('checkbox', { name: /^Vol/ }).isChecked()), 'Llanowar Elves : rien de coché (aucune capacité imprimée)')
   check(await dialog.getByRole('radio', { name: 'Tout le temps' }).isChecked(), 'durée par défaut : tout le temps')
   await capture(page, 'fenetre')
@@ -161,6 +161,24 @@ try {
   check((await page.locator(`${elves} [data-ability="Protection"]`).getAttribute('data-ability-param')) === 'all', 'Protection changée : contre tout')
   check((await logText(page)).includes('change Protection de Llanowar Elves : contre tout'), 'journal : « change Protection de Llanowar Elves : contre tout »')
 
+  // Capacité chiffrée (Annihilateur) : nombre proposé, valeur invalide refusée.
+  const annihil = await openAbilities(page, elves)
+  await annihil.getByRole('checkbox', { name: /^Annihilateur/ }).check()
+  const value = annihil.getByLabel('Valeur de Annihilateur')
+  check((await value.inputValue()) === '2', 'Annihilateur : 2 proposé')
+  await value.fill('0')
+  check(await annihil.getByRole('button', { name: 'Valider' }).isDisabled(), 'Annihilateur 0 : « Valider » grisé')
+  await annihil.getByRole('button', { name: '3', exact: true }).click()
+  await annihil.getByRole('button', { name: 'Règle : Annihilateur' }).click()
+  check((await annihil.getByTestId('ability-rule').innerText()).includes('le joueur défenseur sacrifie 3 permanents'),
+    'bouton « i » : texte des règles d’Annihilateur, avec sa valeur')
+  await annihil.getByRole('button', { name: 'Règle : Distorsion' }).click()
+  check((await annihil.getByTestId('ability-rule').innerText()).includes('créatures avec la distorsion'), 'autre bouton « i » : une seule règle dépliée à la fois')
+  await capture(page, 'annihilateur-regle')
+  await give(annihil, {})
+  check((await page.locator(`${elves} [data-ability="Annihilator"]`).getAttribute('data-ability-param')) === '3', 'Annihilateur 3 : symbole avec son nombre')
+  check((await logText(page)).includes('donne Annihilateur 3 à Llanowar Elves'), 'journal : « donne Annihilateur 3 à Llanowar Elves »')
+
   const angel = await onBattlefield(solo, ANGEL, true)
   check(await flying(page.locator(angel)), 'Ange de Serra : vole (imprimé)')
   const angelDialog = await openAbilities(page, angel)
@@ -177,12 +195,13 @@ try {
   shown = await badgesOf(page.locator(elves))
   check(shown.style === 'labels' && (await page.locator(`${elves} [data-ability="Trample"]`).innerText()).toLowerCase().includes('piétinement'),
     'réglage « Libellés » : capacités écrites sur la carte')
+  check((await page.locator(`${elves} [data-ability="Annihilator"]`).innerText()).includes('Annihilateur 3'), 'réglage « Libellés » : « Annihilateur 3 » écrit')
   await capture(page, 'libelles')
 
   await page.getByRole('button', { name: 'Réglages' }).click()
   await page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes').uncheck()
   await page.getByRole('button', { name: 'Fermer les réglages' }).click()
-  check((await badgesOf(page.locator(elves))).badges.length === 4, 'animations coupées : les capacités restent affichées')
+  check((await badgesOf(page.locator(elves))).badges.length === 5, 'animations coupées : les capacités restent affichées')
 
   // L'Ange, posé au même endroit, recouvre les Elfes : au cimetière d'abord.
   await page.locator(angel).click({ button: 'right' })

@@ -76,8 +76,8 @@ const collision: CollisionDetection = (args) => {
 
 /** Durées des repères d'activité. */
 const HIGHLIGHT_MS = 1500
-/** Durée de l'éclat d'un légendaire arrivé en jeu (un peu plus que son animation, 1,1 s). */
-const ARRIVAL_MS = 1500
+/** Durée des effets d'arrivée en jeu (un peu plus que l'entrée d'un commandant, 1,7 s ; l'éclat d'un légendaire dure 1,1 s). */
+const ARRIVAL_MS = 2000
 const LINE_MS = 4000
 const MAX_LINES = 3
 
