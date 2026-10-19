@@ -9,7 +9,7 @@ import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
-import { cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, movesCard, saveBindings, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
+import { cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
@@ -207,16 +207,26 @@ export default function Table({ source, notice, boardWindow }: {
     }
   }, [send, catalogs, ai])
 
-  const toItems = (entries: MenuEntry[]): MenuItem[] =>
-    entries.map((e) => {
-      if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands) }
+  /** `target` : la carte du menu, pour afficher les touches de ses raccourcis. */
+  const toItems = (entries: MenuEntry[], target?: { card: VisibleCard; zone: ZoneRef }): MenuItem[] => {
+    const hints = menuHints(entries, bindings, target)
+    return entries.map((e, i) => {
+      if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands), shortcut: hints[i] }
       if (e.kind === 'stepper') {
         const set = e.set
         return { kind: 'stepper', label: e.label, value: e.value, signed: e.signed, onChange: (d: number) => run([d < 0 ? e.minus : e.plus]),
-          onSet: set && ((n: number) => run(set(n))) }
+          onSet: set && ((n: number) => run(set(n))), shortcut: hints[i] }
       }
       return e
     })
+  }
+
+  /** Carte d'un menu ouvert, encore visible dans sa zone (pas pour le menu de l'encart force/loyauté). */
+  const menuTarget = (m: NonNullable<typeof menu>) => {
+    const card = m.card && !m.card.pt ? cards.get(m.card.id) : undefined
+    const zone = card ? zoneOf(view, card.id) : null
+    return card && zone ? { card, zone } : undefined
+  }
 
   /** Menu d'une carte reconstruit à chaque rendu : les marqueurs affichés (et l'écart d'une valeur tapée) suivent la partie. */
   const liveEntries = (m: { entries: MenuEntry[]; card?: { id: string; zone: ZoneRef; pt?: boolean } }): MenuEntry[] => {
@@ -612,7 +622,7 @@ export default function Table({ source, notice, boardWindow }: {
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
-      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu))} preview={menuImage(menu)} />}
+      {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu), menuTarget(menu))} preview={menuImage(menu)} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}

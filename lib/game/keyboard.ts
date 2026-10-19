@@ -172,3 +172,39 @@ export function cardShortcutCommands(entries: MenuEntry[], card: VisibleCard, zo
     case 'toLibraryBottom': return moveTo('library', 'bottom')
   }
 }
+
+/** Raccourcis de la table reconnus dans un menu (bibliothèque) : une seule action, la même que la touche. */
+const TABLE_ACTIONS: [TableShortcut, (a: Extract<MenuCommand, { kind: 'action' }>['action']) => boolean][] = [
+  ['draw', (a) => a.type === 'draw' && a.count === 1],
+  ['shuffle', (a) => a.type === 'shuffle'],
+  ['untapAll', (a) => a.type === 'untapAll'],
+  ['nextTurn', (a) => a.type === 'endTurn'],
+  ['mulligan', (a) => a.type === 'mulligan'],
+]
+
+/**
+ * Touche à afficher en grisé à droite de chaque entrée d'un menu (null : aucune), comme dans Moxfield.
+ * `target` : la carte du menu, pour les raccourcis de carte ; l'entrée est celle que la touche déclencherait.
+ */
+export function menuHints(entries: MenuEntry[], bindings: Bindings, target?: { card: VisibleCard; zone: ZoneRef }): (string | null)[] {
+  const hints: (string | null)[] = entries.map(() => null)
+  const label = (id: Shortcut) => (bindings[id] ? keyLabel(bindings[id]!) : null)
+  entries.forEach((e, i) => {
+    if (e.kind !== 'item' || e.commands.length !== 1) return
+    const c = e.commands[0]
+    const found = c.kind === 'action' ? TABLE_ACTIONS.find(([, test]) => test(c.action)) : undefined
+    if (found) hints[i] = label(found[0])
+  })
+  if (!target) return hints
+  for (const s of SHORTCUTS) {
+    if (s.group !== 'card' || !bindings[s.id] || s.id === 'plusCounter' || s.id === 'minusCounter') continue
+    const commands = cardShortcutCommands(entries, target.card, target.zone, s.id as CardShortcut)
+    const i = commands ? entries.findIndex((e) => e.kind === 'item' && e.commands === commands) : -1
+    if (i >= 0) hints[i] = label(s.id)
+  }
+  // Marqueurs +1/+1 : les deux touches sur la ligne du compteur.
+  const counter = entries.findIndex((e) => e.kind === 'stepper' && e.label === '+1/+1')
+  const keys = [label('minusCounter'), label('plusCounter')].filter(Boolean)
+  if (counter >= 0 && keys.length > 0) hints[counter] = keys.join(' ')
+  return hints
+}

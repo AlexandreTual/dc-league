@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import {
-  bind, cardShortcutCommands, comboOf, DEFAULT_BINDINGS, isTypingTarget, keyLabel, parseBindings, shortcutFor, zoneOf,
+  bind, cardShortcutCommands, comboOf, DEFAULT_BINDINGS, isTypingTarget, keyLabel, menuHints, parseBindings, shortcutFor, zoneOf,
   type CardShortcut,
 } from './keyboard'
-import { cardMenu, type MenuContext } from './menus'
+import { cardMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
 
@@ -177,5 +177,36 @@ describe('raccourcis de la carte survolée', () => {
     expect(commands(s, id, 'p1', 'hand', 'reveal')).toEqual(act({ type: 'reveal', ids: [id], to: 'all' }))
     expect(commands(s, id, 'p1', 'hand', 'tap')).toBeNull()
     expect(commands(s, id, 'p1', 'hand', 'toHand')).toBeNull()
+  })
+
+  const hintOf = (entries: MenuEntry[], hints: (string | null)[], label: string) =>
+    hints[entries.findIndex((e) => (e.kind === 'item' || e.kind === 'stepper') && e.label === label)]
+
+  it('menu d’une carte : la touche de chaque entrée, en suivant les touches choisies', () => {
+    const s = setup()
+    const id = card('p1', 4)
+    const c = visible(s, id)
+    const zone = { player: 'p1', zone: 'battlefield' as const }
+    const entries = cardMenu(ctx(s), c, zone)
+    const hints = menuHints(entries, DEFAULT_BINDINGS, { card: c, zone })
+    expect(hintOf(entries, hints, 'Engager')).toBe('T')
+    expect(hintOf(entries, hints, 'Créer un jeton copie')).toBe('Ctrl+X')
+    expect(hintOf(entries, hints, 'Cimetière')).toBe('G')
+    expect(hintOf(entries, hints, 'Dessous de la bibliothèque')).toBe('Maj+L')
+    expect(hintOf(entries, hints, '+1/+1')).toBe('- +')
+    expect(hintOf(entries, hints, 'Pivoter à 180°')).toBeNull()
+    expect(hintOf(entries, hints, 'Mettre devant')).toBeNull()
+    const custom = menuHints(entries, bind(DEFAULT_BINDINGS, 'tap', 'space').bindings, { card: c, zone })
+    expect(hintOf(entries, custom, 'Engager')).toBe('Espace')
+    expect(hintOf(entries, menuHints(entries, bind(DEFAULT_BINDINGS, 'toGraveyard', null).bindings, { card: c, zone }), 'Cimetière')).toBeNull()
+  })
+
+  it('menu de la bibliothèque : piocher et mélanger', () => {
+    const s = setup()
+    const entries = libraryMenu(ctx(s), 'p1')
+    const hints = menuHints(entries, DEFAULT_BINDINGS)
+    expect(hintOf(entries, hints, 'Piocher 1')).toBe('D')
+    expect(hintOf(entries, hints, 'Mélanger')).toBe('S')
+    expect(hintOf(entries, hints, 'Piocher N…')).toBeNull()
   })
 })

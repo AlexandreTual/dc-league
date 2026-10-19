@@ -41,7 +41,7 @@ const count = (page, zone) => page.locator(`[data-zone="${zone}"] [data-card-id]
 /** Libellé « Engager » ou « Dégager » du menu de la carte (puis menu refermé). */
 async function tapLabel(page, locator) {
   await locator.click({ button: 'right' })
-  const label = (await page.getByRole('menuitem', { name: /^(Engager|Dégager)$/ }).innerText()).trim()
+  const label = (await page.getByRole('menuitem', { name: /^(Engager|Dégager)/ }).locator('span').first().innerText()).trim()
   await page.keyboard.press('Escape')
   return label
 }
@@ -66,6 +66,14 @@ try {
   await onField.hover()
   await page.keyboard.press('t')
   check(await tapLabel(page, onField) === 'Dégager', 'T : la carte survolée est engagée')
+
+  // Touches en grisé dans le menu, comme Moxfield.
+  await onField.click({ button: 'right' })
+  const hint = (name) => page.getByRole('menuitem', { name }).locator('[data-shortcut-hint]').innerText()
+  check(await hint(/^Dégager/) === 'T' && await hint(/^Créer un jeton copie/) === 'Ctrl+X' && await hint(/^Cimetière/) === 'G',
+    'menu : touches affichées (T, Ctrl+X, G)')
+  await capture(page, 'menu-touches')
+  await page.keyboard.press('Escape')
 
   const before = await count(page, 'battlefield')
   await onField.hover()
@@ -111,6 +119,9 @@ try {
   await field.hover()
   await page.keyboard.press('k')
   check(await tapLabel(page, field) !== wasTapped, 'K engage ou dégage, mémorisé après rechargement')
+  await field.click({ button: 'right' })
+  check(await hint(/^(Engager|Dégager)/) === 'K', 'menu : la touche choisie (K) est affichée')
+  await page.keyboard.press('Escape')
 
   // ── En ligne, à 2 : Ctrl+X sur une carte de l'adversaire ──
   const ana = await openAs(ANA)
