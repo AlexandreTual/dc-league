@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toLocalClock, type LocalClock } from '@/lib/game/clock'
-import { mergeCards, type CardDataMap, type ClientMessage, type ServerMessage, type ViewMessage } from '@/lib/game/room'
+import { mergeCards, type CardDataMap, type ClientMessage, type RtcServerMessage, type ServerMessage, type ViewMessage } from '@/lib/game/room'
 import { ERROR_VISIBLE_MS } from '@/components/table/source'
 import { SOCKET_MSG, nextStep } from './reconnect'
 
@@ -29,6 +29,8 @@ export function useGameSocket(tableId: string) {
   const [error, setError] = useState<string | null>(null)
   const socket = useRef<WebSocket | null>(null)
   const errorTimer = useRef<ReturnType<typeof setTimeout>>()
+  /** Visio : abonnés à la signalisation reçue. */
+  const rtcListeners = useRef(new Set<(message: RtcServerMessage) => void>())
 
   const showError = useCallback((message: string) => {
     setError(message)
@@ -62,7 +64,9 @@ export function useGameSocket(tableId: string) {
           setLast(message)
           setClock(toLocalClock(message.clock, Date.now()))
           setCards((prev) => mergeCards(prev, message.cards))
-        } else {
+        } else if (message.type === 'rtc') {
+          for (const listener of rtcListeners.current) listener(message)
+        } else if (message.type === 'rejected') {
           showError(message.error)
         }
       }
@@ -105,5 +109,15 @@ export function useGameSocket(tableId: string) {
     setGeneration((g) => g + 1)
   }, [])
 
-  return { status, closedReason, last, clock, cards, error, send, retry }
+  /** Visio : envoi silencieux (pas d'erreur affichée hors connexion : la signalisation repart à la reconnexion). */
+  const sendRtc = useCallback((to: string | undefined, data: Record<string, unknown>) => {
+    if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify(to === undefined ? { type: 'rtc', data } : { type: 'rtc', to, data }))
+  }, [])
+
+  const onRtc = useCallback((listener: (message: RtcServerMessage) => void) => {
+    rtcListeners.current.add(listener)
+    return () => { rtcListeners.current.delete(listener) }
+  }, [])
+
+  return { status, closedReason, last, clock, cards, error, send, retry, sendRtc, onRtc }
 }

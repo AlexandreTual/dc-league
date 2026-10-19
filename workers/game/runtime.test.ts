@@ -326,3 +326,45 @@ describe('destroy et nettoyage', () => {
     expect((await getTable(db, third)).data).toBeNull()
   })
 })
+
+describe('visio', () => {
+  it('relaie la signalisation aux sockets du destinataire, sans action enregistrée ni vue renvoyée', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const s2 = await open(rt, 'p2')
+    const s2bis = await open(rt, 'p2', 'p2bis')
+    const spect = await open(rt, null)
+    expect(s1.last()).toMatchObject({ type: 'view', visio: true })
+    const counts = [s1, s2, s2bis, spect].map((s) => s.received.length)
+    const actions = [...storage.data.keys()].filter((k) => k.startsWith('a:')).length
+
+    await send(rt, s1, { type: 'rtc', to: 'p2', data: { kind: 'join', peer: 'a' } })
+    expect(s2.last()).toEqual({ type: 'rtc', from: 'p1', data: { kind: 'join', peer: 'a' } })
+    expect(s2bis.last()).toEqual({ type: 'rtc', from: 'p1', data: { kind: 'join', peer: 'a' } })
+    expect(s1.received.length).toBe(counts[0])
+    expect(spect.received.length).toBe(counts[3])
+
+    // Sans destinataire : tous les autres joueurs assis, jamais l'auteur ni les spectateurs.
+    await send(rt, s2, { type: 'rtc', data: { kind: 'leave' } })
+    expect(s1.last()).toEqual({ type: 'rtc', from: 'p2', data: { kind: 'leave' } })
+    expect(s2.received.length).toBe(counts[1] + 1)
+    expect(spect.received.length).toBe(counts[3])
+    expect([...storage.data.keys()].filter((k) => k.startsWith('a:')).length).toBe(actions)
+  })
+
+  it('ignore les spectateurs, les destinataires inconnus et les données invalides', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const s2 = await open(rt, 'p2')
+    const spect = await open(rt, null)
+    const before = [s1.received.length, s2.received.length, spect.received.length]
+    await send(rt, spect, { type: 'rtc', data: { kind: 'join' } })
+    await send(rt, s1, { type: 'rtc', to: 'p1', data: { kind: 'join' } })
+    await send(rt, s1, { type: 'rtc', to: 'inconnu', data: { kind: 'join' } })
+    await send(rt, s1, { type: 'rtc', to: 'p2', data: 'texte' })
+    await send(rt, s1, { type: 'rtc', to: 'p2', data: [1] })
+    expect([s1.received.length, s2.received.length, spect.received.length]).toEqual(before)
+  })
+})
