@@ -10,7 +10,7 @@ function stackKey(card: VisibleCard): string {
   const what = card.ref !== null ? `r${card.ref}` : `t:${card.token?.name ?? ''}`
   const { plus, minus, other } = card.counters
   const pt = card.ptMod ? `${card.ptMod.power}/${card.ptMod.toughness}` : ''
-  return [card.owner, what, card.tapped, card.flipped, card.faceDown, !!card.rotated, plus, minus, other, pt, card.loyaltyMod ?? 0].join('|')
+  return [card.owner, what, card.tapped, card.flipped, card.faceDown, !!card.rotated, !!card.phasedOut, plus, minus, other, pt, card.loyaltyMod ?? 0].join('|')
 }
 
 function rowOf(card: VisibleCard, catalogs: Record<string, Catalog>): 'creatures' | 'others' | 'lands' {

@@ -108,6 +108,7 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   flip: { id },
   rotate: { id },
   faceDown: { id },
+  phase: { id },
   counter: { id, kind: oneOf(['plus', 'minus', 'other']), delta },
   pt: { id, power: delta, toughness: delta },
   loyalty: { id, delta },
