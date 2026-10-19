@@ -5,6 +5,7 @@ import { printedKeywordsOf } from './card-effects'
 import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
 import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
 import type { ClientAction } from './room'
+import type { OrderRequest } from './selection'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
 
 export type MenuCommand =
@@ -17,6 +18,10 @@ export type MenuCommand =
   | { kind: 'askAi'; owner: string; ref: number }
   /** Fenêtre « Capacités » d'une carte en jeu (« Donner une capacité… »). */
   | { kind: 'abilities'; id: string }
+  /** Fenêtre « Ordre des cartes » d'un groupe sélectionné, avant de le poser sur une pile. */
+  | ({ kind: 'order' } & OrderRequest)
+  /** Vide la sélection de cartes. */
+  | { kind: 'clearSelection' }
 
 export type MenuEntry =
   | { kind: 'title'; label: string }

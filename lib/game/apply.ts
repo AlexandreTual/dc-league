@@ -327,6 +327,37 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
   return log(next, action.actor, `${name} : ${zoneLabel(state, action.actor, from)} → ${zoneLabel(state, action.actor, to)}${where}`)
 }
 
+/** Destination d'une carte d'un déplacement groupé : mon champ de bataille, sinon la zone de son propriétaire. */
+export function groupDestination(state: GameState, actor: string, id: string, zone: PlayerZone): ZoneRef {
+  return { player: zone === 'battlefield' ? actor : state.cards[id]?.owner ?? actor, zone }
+}
+
+function moveMany(state: GameState, action: Extract<GameAction, { type: 'moveMany' }>): GameState {
+  const ids = action.random ? shuffle(action.ids, action.seed ?? 0) : action.ids
+  const from = zoneOf(state, ids[0])!
+  const to = groupDestination(state, action.actor, ids[0], action.zone)
+  const library = action.zone === 'library'
+  const side = action.position ?? 'top'
+  // Chaque carte se pose sur les précédentes : la première de la liste est posée en dernier pour finir au-dessus
+  // (dessus de la bibliothèque, fin du cimetière et de l'exil). Dessous de la bibliothèque, main, champ : dans l'ordre.
+  const lastOnTop = (library && side === 'top') || action.zone === 'graveyard' || action.zone === 'exile'
+  const order = lastOnTop ? [...ids].reverse() : ids
+  let s = state
+  for (const id of order) {
+    const place = action.zone === 'battlefield' ? action.places?.[action.ids.indexOf(id)] : undefined
+    s = move(s, {
+      type: 'move', actor: action.actor, id, to: groupDestination(state, action.actor, id, action.zone),
+      ...(library ? { position: side } : {}), ...(place ? { x: place.x, y: place.y } : {}),
+    })
+  }
+  // Une seule ligne au journal ; vers une zone cachée, aucun nom (ni l'ordre choisi).
+  const names = HIDDEN_ZONES.includes(action.zone) ? [] : ids.filter((id) => !state.cards[id].faceDown).map((id) => cardName(state, id))
+  const details = [...(library ? [side === 'top' ? 'dessus' : 'dessous'] : []), ...(action.random ? ['ordre aléatoire'] : [])]
+  const where = details.length > 0 ? ` (${details.join(', ')})` : ''
+  const text = `${plural(ids.length, 'carte')} : ${zoneLabel(state, action.actor, from)} → ${zoneLabel(state, action.actor, to)}${where}${names.length > 0 ? ` : ${names.join(', ')}` : ''}`
+  return log({ ...s, log: state.log }, action.actor, text)
+}
+
 // ── Point d'entrée ────────────────────────────────────────────────────────────
 
 /** Applique une action permise ; une action refusée renvoie l'état tel quel (même référence). */
@@ -394,6 +425,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
     case 'move':
       return move(state, action)
+
+    case 'moveMany':
+      return moveMany(state, action)
 
     case 'giveControl': {
       const from = zoneOf(state, action.id)!
