@@ -1,7 +1,7 @@
 # Animations et capacités des cartes en jeu — conception
 
 Date : 2026-10-19
-Statut : validée (liseré et éclat d'arrivée, flottement, capacités données affichées en symboles ou libellés au choix dans les réglages)
+Statut : réalisée (étapes 1 à 3 : PR #174, #175 et celle de l'étape 3)
 Maquette : https://claude.ai/artifact/AvkfDG78QDPF448bsiXiwn
 
 ## But
@@ -131,7 +131,12 @@ plus tard avec une saisie libre.
 - `Keyword` est la liste fermée ci-dessus. `validate.ts` refuse tout autre mot.
 - `endTurn` retire les capacités `untilEndOfTurn` de tous les permanents.
 - `VisibleCard` reçoit `gained?` et `lost?`. Une carte face cachée garde ses capacités données, car elles concernent le
-  permanent, pas l'identité de la carte. Aucune information cachée n'est révélée.
+  permanent, pas l'identité de la carte. Aucune information cachée n'est révélée : pour un joueur qui ne la connaît pas,
+  une carte face cachée reste une carte cachée sans aucun champ, comme pour sa force modifiée.
+- Libellés du journal : « donne Piétinement et Célérité à Elfes (jusqu’à la fin du tour) », « retire Vol à Ange de Serra »
+  (capacité donnée retirée ou imprimée perdue), « rend Vol à Ange de Serra » (imprimée retrouvée).
+- Serveur de jeu plus ancien : l'action est refusée avec « Action inconnue » (message affiché par la table), jusqu'à la
+  fusion qui redéploie le Worker.
 
 ## Réglage et accessibilité
 

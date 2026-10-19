@@ -45,9 +45,10 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
           </span>
         ) : (
           <span key={`${state}-${keyword}`} title={title} data-ability={keyword} data-ability-state={state}
-            className={`max-w-[92%] inline-flex items-center gap-0.5 px-1 rounded bg-black/80 border text-[9px] leading-tight font-semibold uppercase tracking-wide text-center ${color} ${border}`}>
+            className={`max-w-[94%] inline-flex items-center gap-0.5 px-1 rounded bg-black/80 border text-[9px] leading-tight font-semibold ${color} ${border}`}>
             <Icon className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
-            <span className={`text-white ${state === 'lost' ? 'line-through' : ''}`}>{label}</span>
+            {/* Petite carte : un nom trop long est coupé (« Défense talism… ») ; il est entier au survol et dans l'aperçu. */}
+            <span className={`min-w-0 truncate text-white ${state === 'lost' ? 'line-through' : ''}`}>{label}</span>
           </span>
         )
       })}
