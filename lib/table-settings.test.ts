@@ -24,7 +24,7 @@ describe('parseTableSettings', () => {
   })
 
   it('animations des cartes absentes (sauvegarde d’avant) ou invalides : toutes activées', () => {
-    expect(ALL_EFFECTS).toEqual({ legendary: true, commander: true, flying: true })
+    expect(ALL_EFFECTS).toEqual({ legendary: true, commander: true, flying: true, life: true, crowns: true, dungeon: true, elimination: true, dice: true })
     expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1 })).cardEffects).toEqual(ALL_EFFECTS)
     expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, cardEffects: 'non' })).cardEffects).toEqual(ALL_EFFECTS)
     expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, cardEffects: [false] })).cardEffects).toEqual(ALL_EFFECTS)
@@ -37,15 +37,20 @@ describe('parseTableSettings', () => {
 
   it('chaque animation activée ou non ; une animation absente ou illisible : activée', () => {
     const fx = (cardEffects: unknown) => parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, cardEffects })).cardEffects
-    expect(fx({ legendary: true, commander: true, flying: false })).toEqual({ legendary: true, commander: true, flying: false })
-    expect(fx({ legendary: false, commander: true, flying: true })).toEqual({ legendary: false, commander: true, flying: true })
-    expect(fx({ commander: false })).toEqual({ legendary: true, commander: false, flying: true })
-    expect(fx({ legendary: 'non', commander: false, flying: 0 })).toEqual({ legendary: true, commander: false, flying: true })
+    expect(fx({ legendary: true, commander: true, flying: false })).toEqual({ ...ALL_EFFECTS, flying: false })
+    expect(fx({ legendary: false, commander: true, flying: true })).toEqual({ ...ALL_EFFECTS, legendary: false })
+    expect(fx({ commander: false })).toEqual({ ...ALL_EFFECTS, commander: false })
+    expect(fx({ legendary: 'non', commander: false, flying: 0 })).toEqual({ ...ALL_EFFECTS, commander: false })
+    // Réglage enregistré avant les animations des joueurs : elles sont activées.
+    expect(fx({ legendary: false, commander: false, flying: false })).toEqual({ ...NO_EFFECTS, life: true, crowns: true, dungeon: true, elimination: true, dice: true })
+    expect(fx({ ...ALL_EFFECTS, dice: false, life: false })).toEqual({ ...ALL_EFFECTS, dice: false, life: false })
   })
 
-  it('fenêtre « Animations » : légendaires, entrée du commandant, vol', () => {
-    expect(CARD_EFFECTS.map((e) => e.id)).toEqual(['legendary', 'commander', 'flying'])
-    expect(CARD_EFFECTS.map((e) => e.label)).toEqual(['Légendaires', 'Entrée du commandant', 'Vol'])
+  it('fenêtre « Animations » : cartes (légendaires, entrée du commandant, vol), puis joueurs et partie', () => {
+    expect(CARD_EFFECTS.filter((e) => e.group === 'cards').map((e) => e.label)).toEqual(['Légendaires', 'Entrée du commandant', 'Vol'])
+    expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => e.id)).toEqual(['life', 'crowns', 'dungeon', 'elimination', 'dice'])
+    expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => e.label))
+      .toEqual(['Vie, poison et blessures', 'Monarque et initiative', 'Donjon', 'Élimination et victoire', 'Dés'])
   })
 
   it('capacités sur les cartes : symboles par défaut (absent, sauvegarde d’avant, ou illisible), libellés gardés', () => {

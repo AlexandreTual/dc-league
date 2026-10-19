@@ -19,25 +19,45 @@ export type TableSettings = {
 
 export type AbilityStyle = 'icons' | 'labels'
 
-/** Animations des cartes en jeu : liseré et éclat d'arrivée des légendaires, entrée du commandant, créatures volantes qui flottent. */
-export type CardEffects = { legendary: boolean; commander: boolean; flying: boolean }
+/**
+ * Animations, chacune activée ou non (fenêtre « Animations ») :
+ * - des cartes en jeu : liseré et éclat d'arrivée des légendaires, entrée du commandant, créatures volantes qui flottent ;
+ * - des joueurs et de la partie : vie, poison et blessures de commandant qui changent, monarque et initiative qui passent
+ *   d'un joueur à l'autre, jeton du donjon qui avance, joueur éliminé et victoire, dé qui roule.
+ */
+export type CardEffects = {
+  legendary: boolean
+  commander: boolean
+  flying: boolean
+  life: boolean
+  crowns: boolean
+  dungeon: boolean
+  elimination: boolean
+  dice: boolean
+}
 export type CardEffect = keyof CardEffects
 
-/** Animations proposées dans la fenêtre « Animations », dans l'ordre d'affichage. */
-export const CARD_EFFECTS: { id: CardEffect; label: string; hint: string }[] = [
-  { id: 'legendary', label: 'Légendaires', hint: 'Liseré doré, et éclat qui traverse la carte à son arrivée en jeu.' },
-  { id: 'commander', label: 'Entrée du commandant', hint: 'Il se pose avec un halo, des ondes dorées et une couronne.' },
-  { id: 'flying', label: 'Vol', hint: 'Les créatures volantes flottent au-dessus de leur ombre tant qu’elles ne sont pas engagées.' },
+/** Animations proposées dans la fenêtre « Animations », par groupe, dans l'ordre d'affichage. */
+export const CARD_EFFECTS: { id: CardEffect; label: string; hint: string; group: 'cards' | 'players' }[] = [
+  { id: 'legendary', label: 'Légendaires', hint: 'Liseré doré, et éclat qui traverse la carte à son arrivée en jeu.', group: 'cards' },
+  { id: 'commander', label: 'Entrée du commandant', hint: 'Il se pose avec un halo, des ondes dorées et une couronne.', group: 'cards' },
+  { id: 'flying', label: 'Vol', hint: 'Les créatures volantes flottent au-dessus de leur ombre tant qu’elles ne sont pas engagées.', group: 'cards' },
+  { id: 'life', label: 'Vie, poison et blessures', hint: 'Le compteur réagit et l’écart (« -3 », « +2 ») s’envole au-dessus du portrait.', group: 'players' },
+  { id: 'crowns', label: 'Monarque et initiative', hint: 'La couronne et le drapeau volent d’un portrait à l’autre.', group: 'players' },
+  { id: 'dungeon', label: 'Donjon', hint: 'Le jeton avance de salle en salle et la salle atteinte s’allume.', group: 'players' },
+  { id: 'elimination', label: 'Élimination et victoire', hint: 'Portrait fissuré du joueur éliminé, confettis pour le gagnant.', group: 'players' },
+  { id: 'dice', label: 'Dés', hint: 'Le dé roule avant d’afficher le résultat.', group: 'players' },
 ]
-export const ALL_EFFECTS: CardEffects = { legendary: true, commander: true, flying: true }
-export const NO_EFFECTS: CardEffects = { legendary: false, commander: false, flying: false }
+const EFFECT_IDS = CARD_EFFECTS.map((e) => e.id)
+export const ALL_EFFECTS: CardEffects = Object.fromEntries(EFFECT_IDS.map((id) => [id, true])) as CardEffects
+export const NO_EFFECTS: CardEffects = Object.fromEntries(EFFECT_IDS.map((id) => [id, false])) as CardEffects
 
 /** Animations enregistrées : ancienne case unique (true / false) reprise pour toutes ; absentes ou illisibles : activées. */
 function parseCardEffects(raw: unknown): CardEffects {
   if (raw === false) return NO_EFFECTS
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return ALL_EFFECTS
   const data = raw as Record<string, unknown>
-  return { legendary: data.legendary !== false, commander: data.commander !== false, flying: data.flying !== false }
+  return Object.fromEntries(EFFECT_IDS.map((id) => [id, data[id] !== false])) as CardEffects
 }
 
 /** Tailles proposées dans Réglages (80 % à 150 %). */
