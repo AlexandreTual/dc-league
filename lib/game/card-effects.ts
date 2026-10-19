@@ -9,6 +9,20 @@ export function isLegendary(catalog: Catalog | undefined, card: VisibleCard): bo
   return info.typeLine.split(' // ')[0].split('—')[0].split(/\s+/).includes('Legendary')
 }
 
+/** Capacités imprimées de la face montrée (mots-clés anglais de Scryfall) ; aucune pour une carte face cachée ou inconnue. */
+export function printedKeywordsOf(catalog: Catalog | undefined, card: Pick<VisibleCard, 'ref' | 'token' | 'flipped' | 'faceDown'>): string[] {
+  if (card.faceDown) return []
+  if (card.token) return card.token.keywords ?? []
+  const en = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)?.en
+  if (!en) return []
+  const faces = en.faces
+  if (card.flipped && faces && faces.length > 1) return faces[1].keywords ?? []
+  return en.keywords ?? []
+}
+
+/** Créature (ou permanent) avec le vol imprimé sur sa face montrée. */
+export const hasFlying = (catalog: Catalog | undefined, card: VisibleCard): boolean => printedKeywordsOf(catalog, card).includes('Flying')
+
 /** Identifiants des cartes visibles sur tous les champs de bataille. */
 function battlefieldIds(view: PlayerView): Set<string> {
   return new Set(Object.values(view.players).flatMap((p) => p.zones.battlefield.flatMap((c) => (c.hidden ? [] : [c.id]))))

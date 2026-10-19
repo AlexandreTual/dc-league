@@ -31,6 +31,12 @@ describe('searchTokens', () => {
     ])
   })
 
+  it('garde les capacités imprimées du jeton (vol d’un Esprit)', async () => {
+    const spirit = { ...soldier, name: 'Spirit', type_line: 'Token Creature — Spirit', keywords: ['Flying'], oracle_text: 'Flying' }
+    const [token] = await searchTokens(fakeFetch(200, { object: 'list', data: [spirit] }).fn, 'spirit')
+    expect(token.keywords).toEqual(['Flying'])
+  })
+
   it('renvoie [] sur un 404', async () => {
     expect(await searchTokens(fakeFetch(404, { object: 'error' }).fn, 'zzz')).toEqual([])
   })

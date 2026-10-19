@@ -242,6 +242,22 @@ describe('toCardRow', () => {
     expect(row.faces!.map((f) => [f.power, f.toughness])).toEqual([['1', '1'], ['3', '2']])
   })
 
+  it('capacités imprimées : celles de la carte, celles de chaque face (le recto pour la carte) ; aucune sans mots-clés', () => {
+    expect(toCardRow({ ...collection.data[0], keywords: ['Flying', 'Vigilance'], oracle_text: 'Flying, vigilance' }).keywords).toEqual(['Flying', 'Vigilance'])
+    expect(toCardRow(collection.data[0]).keywords).toEqual([])
+    const delver = toCardRow({
+      ...collection.data[0],
+      oracle_text: undefined,
+      keywords: ['Flying', 'Transform'],
+      card_faces: [
+        { name: 'Delver of Secrets', oracle_text: 'At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform Delver of Secrets.' },
+        { name: 'Insectile Aberration', oracle_text: 'Flying' },
+      ],
+    })
+    expect(delver.keywords).toEqual([])
+    expect(delver.faces!.map((f) => f.keywords)).toEqual([[], ['Flying']])
+  })
+
   it('loyauté : de la carte, sinon du recto ; celle de chaque face ; null sans', () => {
     expect(toCardRow({ ...collection.data[0], loyalty: '4' })).toMatchObject({ loyalty: '4' })
     expect(toCardRow(collection.data[0])).toMatchObject({ loyalty: null })

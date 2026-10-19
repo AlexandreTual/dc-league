@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestDb } from '@/test/d1'
+import { createTestDb, MIGRATIONS } from '@/test/d1'
 import { cardRow, seedCache } from '@/test/factories'
 import { listDeckTokens, replaceDeckTokens } from '@/lib/db-cards'
 import { createScryfallClient, type ScryfallCard } from './scryfall'
@@ -123,6 +123,28 @@ describe('fetchDeckTokens', () => {
     const tokens = await fetchDeckTokens(c, [{ id: 'avenger', name: 'Avenger of Zendikar' }, { id: 'maker', name: 'Maker' }])
     expect(tokens).toHaveLength(1)
     expect(tokens[0].sources).toEqual(['Avenger of Zendikar', 'Maker'])
+  })
+})
+
+describe('capacités des jetons', () => {
+  it('jeton volant : ses capacités imprimées sont gardées', async () => {
+    const angel = card({ id: 'angel', name: 'Lingering Souls', all_parts: [{ id: 'spirit', component: 'token', name: 'Spirit' }] })
+    const spirit = card({ id: 'spirit', oracle_id: 'oracle-spirit', name: 'Spirit', type_line: 'Token Creature — Spirit', power: '1', toughness: '1', keywords: ['Flying'], oracle_text: 'Flying' })
+    const { c } = client([{ body: { data: [angel] } }, { body: { data: [spirit] } }, { status: 404, body: {} }])
+    const [token] = await fetchDeckTokens(c, [{ id: 'angel', name: 'Lingering Souls' }])
+    expect(token.keywords).toEqual(['Flying'])
+  })
+
+  it('enregistrées et relues ; base sans la colonne keywords : jetons enregistrés quand même', async () => {
+    const spirit = { id: 's', name: 'Esprit', typeLine: 'Token Creature — Spirit', power: '1', toughness: '1', colors: ['W'], image: null, sources: ['Âmes persistantes'], keywords: ['Flying'] }
+    for (const [db, keywords] of [[createTestDb(), ['Flying']], [createTestDb(MIGRATIONS.filter((f) => f < '0018')), undefined]] as const) {
+      await db.batch([
+        db.prepare("INSERT INTO players (id, name) VALUES ('p1', 'Alex')"),
+        db.prepare("INSERT INTO decks (id, player_id, name) VALUES ('d1', 'p1', 'Esprits')"),
+      ])
+      expect((await replaceDeckTokens(db, 'd1', [spirit])).error).toBeNull()
+      expect((await listDeckTokens(db, 'd1')).data![0].keywords).toEqual(keywords)
+    }
   })
 })
 

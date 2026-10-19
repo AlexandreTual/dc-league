@@ -1,4 +1,5 @@
 // Client Scryfall minimal. fetch et sleep sont injectés pour pouvoir tester sans réseau.
+import { printedKeywords } from './keywords'
 import type { CardFace, CardRow, Ruling } from './types'
 
 const API = 'https://api.scryfall.com'
@@ -78,6 +79,8 @@ export type ScryfallCard = {
   promo?: boolean
   card_faces?: ScryfallFace[]
   all_parts?: RelatedCard[]
+  /** Mots-clés de toute la carte, faces comprises, y compris ceux seulement cités dans le texte. */
+  keywords?: string[]
 }
 
 type ScryfallRuling = { source?: string; published_at?: string; comment?: string }
@@ -197,7 +200,7 @@ function withoutRealImage(card: ScryfallCard): boolean {
   return card.image_status === 'placeholder' || card.image_status === 'missing'
 }
 
-function toFace(face: ScryfallFace, hasImage: boolean): CardFace {
+function toFace(face: ScryfallFace, hasImage: boolean, keywords: string[]): CardFace {
   return {
     name: face.name,
     printed_name: face.printed_name ?? null,
@@ -212,6 +215,7 @@ function toFace(face: ScryfallFace, hasImage: boolean): CardFace {
     power: face.power ?? null,
     toughness: face.toughness ?? null,
     loyalty: face.loyalty ?? null,
+    keywords: printedKeywords(keywords, face.oracle_text ?? null),
   }
 }
 
@@ -226,7 +230,8 @@ function printedName(card: ScryfallCard): string | null {
 /** Carte enregistrée ; sans image quand Scryfall n'a pas de vrai scan, pour retomber sur l'image anglaise. */
 export function toCardRow(card: ScryfallCard): CardRow {
   const hasImage = !withoutRealImage(card)
-  const faces = card.card_faces?.length ? card.card_faces.map((f) => toFace(f, hasImage)) : null
+  const keywords = card.keywords ?? []
+  const faces = card.card_faces?.length ? card.card_faces.map((f) => toFace(f, hasImage, keywords)) : null
   const front = card.card_faces?.[0]
   const faceColors = card.card_faces?.flatMap((f) => f.colors ?? []) ?? []
   return {
@@ -254,6 +259,7 @@ export function toCardRow(card: ScryfallCard): CardRow {
     power: card.power ?? front?.power ?? null,
     toughness: card.toughness ?? front?.toughness ?? null,
     loyalty: card.loyalty ?? front?.loyalty ?? null,
+    keywords: card.oracle_text != null || !faces ? printedKeywords(keywords, card.oracle_text ?? null) : faces[0].keywords ?? [],
   }
 }
 

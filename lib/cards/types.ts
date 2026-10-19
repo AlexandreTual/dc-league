@@ -28,6 +28,8 @@ export type CardFace = {
   toughness?: string | null
   /** Loyauté imprimée de la face (planeswalker) ; absente des cartes enregistrées avant son ajout. */
   loyalty?: string | null
+  /** Capacités imprimées de la face (mots-clés anglais de Scryfall : « Flying »…) ; absentes des cartes enregistrées avant leur ajout. */
+  keywords?: string[]
 }
 
 export type CardRow = {
@@ -64,6 +66,11 @@ export type CardRow = {
    * Scryfall (carte enregistrée avant la migration 0014, ou catalogue d'un serveur de jeu plus ancien).
    */
   loyalty?: string | null
+  /**
+   * Capacités imprimées (celles du recto), en mots-clés anglais de Scryfall (« Flying »…). Absentes (undefined) : pas
+   * encore lues chez Scryfall (carte enregistrée avant la migration 0018, ou catalogue d'un serveur de jeu plus ancien).
+   */
+  keywords?: string[]
 }
 
 export type CardLookup = { key: string; en_card_id: string | null; fr_card_id: string | null }

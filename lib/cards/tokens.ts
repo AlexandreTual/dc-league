@@ -66,6 +66,7 @@ export async function fetchDeckTokens(client: ScryfallClient, sources: TokenSour
         colors: row.colors,
         image: fr?.image_normal ?? row.image_normal ?? row.image_small,
         sources: from,
+        ...(row.keywords?.length ? { keywords: row.keywords } : {}),
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))

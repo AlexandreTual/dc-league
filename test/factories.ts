@@ -25,6 +25,7 @@ export function cardRow(overrides: Partial<CardRow> = {}): CardRow {
     power: null,
     toughness: null,
     loyalty: null,
+    keywords: [],
     ...overrides,
   }
 }
@@ -71,7 +72,7 @@ export function testDeckCards() {
       id: 'delver', name: 'Delver of Secrets // Insectile Aberration',
       type_line: 'Creature — Human Wizard // Creature — Human Insect',
       image_normal: 'front.jpg', power: '1', toughness: '1',
-      faces: [face('Delver of Secrets', 'Creature — Human Wizard', 'front.jpg', '1', '1'), face('Insectile Aberration', 'Creature — Human Insect', 'back.jpg', '3', '2')],
+      faces: [face('Delver of Secrets', 'Creature — Human Wizard', 'front.jpg', '1', '1'), { ...face('Insectile Aberration', 'Creature — Human Insect', 'back.jpg', '3', '2'), keywords: ['Flying'] }],
     })),
   ]
 }
