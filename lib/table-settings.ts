@@ -1,4 +1,4 @@
-// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes, place des piles), mémorisés sur l'appareil.
+// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes, place des piles, animations), mémorisés sur l'appareil.
 
 export type TableSettings = {
   /** Quadrillage discret sur les champs de bataille. */
@@ -9,11 +9,13 @@ export type TableSettings = {
   cardScale: number
   /** Bibliothèque, cimetière, exil et commandement en vignettes à droite de ma main (façon Moxfield, par défaut) ; false : dans ma colonne (ancienne disposition). */
   pilesBesideHand: boolean
+  /** Animations des cartes en jeu (reflet des légendaires). */
+  cardEffects: boolean
 }
 
 /** Tailles proposées dans Réglages (80 % à 150 %). */
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: true }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -29,7 +31,9 @@ export function parseTableSettings(raw: string | null): TableSettings {
     const cardScale = CARD_SCALES.includes(data.cardScale) ? data.cardScale : 1
     // Absent (sauvegarde d'avant) ou illisible : la disposition par défaut, piles à côté de la main.
     const pilesBesideHand = data.pilesBesideHand !== false
-    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand }
+    // Absentes (sauvegarde d'avant) ou illisibles : animations activées.
+    const cardEffects = data.cardEffects !== false
+    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects }
   } catch {
     return DEFAULT_TABLE_SETTINGS
   }

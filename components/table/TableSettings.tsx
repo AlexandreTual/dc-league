@@ -54,6 +54,10 @@ export default function TableSettingsPanel({ settings, onChange, onClose }: {
           <input type="checkbox" checked={!settings.pilesBesideHand} onChange={(e) => onChange({ ...settings, pilesBesideHand: !e.target.checked })} />
           Piles dans la colonne (ancienne disposition)
         </label>
+        <label className="flex items-center gap-2 text-sm text-dc-text">
+          <input type="checkbox" checked={settings.cardEffects} onChange={(e) => onChange({ ...settings, cardEffects: e.target.checked })} />
+          Animations des cartes
+        </label>
         <p className="text-xs text-dc-muted">Mémorisé sur cet appareil.</p>
       </div>
     </>

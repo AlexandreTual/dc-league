@@ -33,6 +33,8 @@ export type ZoneProps = {
   highlighted?: Set<string>
   /** Réglages d'affichage (quadrillage, couleur du fond, taille des cartes). */
   settings?: TableSettings
+  /** Cartes qui viennent d'arriver en jeu (éclat d'un légendaire). */
+  arriving?: Set<string>
 }
 
 const visible = (cards: CardView[]) => cards.filter((c): c is VisibleCard => !c.hidden)
@@ -87,7 +89,7 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
           className="absolute"
           style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
-          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} />
+          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} effects={settings.cardEffects} arriving={props.arriving?.has(card.id)} />
         </Draggable>
       ))}
       {props.corner && <div className="absolute bottom-1.5 left-1.5 z-[5] pointer-events-none">{props.corner}</div>}

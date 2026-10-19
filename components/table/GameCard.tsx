@@ -2,6 +2,7 @@
 
 import type { Catalog, CardView, VisibleCard } from '@/lib/game/types'
 import { cardInfo, tokenBadge } from '@/lib/game/apply'
+import { isLegendary } from '@/lib/game/card-effects'
 import { loyaltyStats } from '@/lib/game/loyalty'
 import { ptStats, type PtValue } from '@/lib/game/pt'
 import type { MenuPoint } from './touch'
@@ -80,8 +81,10 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
 /**
  * Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe.
  * `pt` : encart loyauté ou force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
+ * `effects` : effets d'une carte en jeu (liseré doré d'un permanent légendaire), si le réglage les permet ;
+ * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire, une seule fois).
  */
-export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit }: {
+export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false }: {
   card: CardView | null | undefined
   catalog: Catalog
   lang: Lang
@@ -89,6 +92,8 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   className?: string
   pt?: boolean
   onPtEdit?: (at: MenuPoint) => void
+  effects?: boolean
+  arriving?: boolean
 }) {
   if (!card) return null
   if (card.hidden) return <CardBack className={className} />
@@ -108,9 +113,11 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   const { plus, minus, other } = card.counters
   const net = plus - minus
   const badge = tokenBadge(card)
+  const legendary = effects && isLegendary(catalog, card)
 
   return (
-    <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}>
+    <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}
+      data-legendary={legendary || undefined}>
       {data.image ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -128,6 +135,8 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
           )}
         </div>
       )}
+      {/* Liseré doré, et éclat qui traverse la carte à son arrivée (globals.css), sous les marqueurs et l'encart. */}
+      {legendary && <span className="card-legendary" aria-hidden="true">{arriving && <i className="card-glint" />}</span>}
       <div className="absolute top-1 left-1 flex flex-col gap-0.5">
         {net !== 0 && (
           <span className={`px-1 rounded text-[10px] font-bold ${net > 0 ? 'bg-dc-green-light text-black' : 'bg-dc-red-light text-black'}`}>

@@ -7,6 +7,7 @@ import {
 } from '@dnd-kit/core'
 import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
+import { enteredBattlefield } from '@/lib/game/card-effects'
 import { shortcutFor } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import type { ClientAction } from '@/lib/game/room'
@@ -73,6 +74,8 @@ const collision: CollisionDetection = (args) => {
 
 /** Durées des repères d'activité. */
 const HIGHLIGHT_MS = 1500
+/** Durée de l'éclat d'un légendaire arrivé en jeu (un peu plus que son animation, 1,1 s). */
+const ARRIVAL_MS = 1500
 const LINE_MS = 4000
 const MAX_LINES = 3
 
@@ -115,6 +118,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
+  const [arriving, setArriving] = useState<Set<string>>(new Set())
+  const arrivingTimer = useRef<ReturnType<typeof setTimeout>>()
   const [lines, setLines] = useState<ActivityLine[]>([])
   const prevView = useRef<PlayerView | null>(null)
   const lineKey = useRef(0)
@@ -143,6 +148,12 @@ export default function Table({ source, notice, boardWindow }: {
     }
     const prev = prevView.current
     prevView.current = view
+    const entered = enteredBattlefield(prev, view)
+    if (entered.length > 0) {
+      setArriving(new Set(entered))
+      clearTimeout(arrivingTimer.current)
+      arrivingTimer.current = setTimeout(() => setArriving(new Set()), ARRIVAL_MS)
+    }
     const { changed, lines: added } = diffViews(prev, view, me)
     if (added.length === 0) return
     if (changed.length > 0) {
@@ -342,7 +353,7 @@ export default function Table({ source, notice, boardWindow }: {
 
   const mine = me ? view.players[me] : null
   const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
-  const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings }
+  const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings, arriving }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
   // Un plateau sorti dans une fenêtre quitte la table, qui récupère la place.
@@ -507,6 +518,8 @@ export default function Table({ source, notice, boardWindow }: {
                     view={view} player={p} catalogs={catalogs} lang={lang} handlers={handlers} highlighted={highlighted}
                     stacked={shownOpponents.length >= 3}
                     mana={manaOf(p)}
+                    effects={settings.cardEffects}
+                    arriving={arriving}
                     header={(
                       <PlayerHeader {...zoneProps} player={p} me={me} handZone portrait={portraitFor(p, 'header', false, focus, detachOf(p))}
                         onLibraryMenu={libraryMenuOf(p)} onPile={pileOf(p)} />

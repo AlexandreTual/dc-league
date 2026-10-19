@@ -1,0 +1,196 @@
+// Liseré doré et éclat d'arrivée des permanents légendaires en jeu, dans de vrais navigateurs : mode test à la souris
+// (réglage « Animations des cartes »), mouvement réduit, tablette (1180 × 820, tactile), puis partie en ligne à 2.
+// Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs : Teferi légendaire, Anneau solaire).
+// Usage : node scripts/card-effects-check.mjs <url-de-base> <dossier-captures>
+import { chromium } from 'playwright-core'
+import { PLAYERS, tokenOf } from './seed-online.mjs'
+
+const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
+const executablePath = process.env.CHROME ?? process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const [ANA, BASTIEN] = PLAYERS
+const TEFERI = 'Teferi, Time Raveler'
+const SOL_RING = 'Anneau solaire'
+
+const browser = await chromium.launch({ executablePath })
+const errors = []
+
+function check(condition, message) {
+  if (!condition) throw new Error(`ÉCHEC : ${message}`)
+  console.log(`✓ ${message}`)
+}
+
+async function openAs(player, { viewport = { width: 1280, height: 900 }, mobile = false, reducedMotion = 'no-preference' } = {}) {
+  const context = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile, reducedMotion })
+  await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
+  const page = await context.newPage()
+  page.on('pageerror', (e) => errors.push(`${player.name} : ${e.message}`))
+  page.on('dialog', (d) => d.accept(d.defaultValue()))
+  return { ...player, page }
+}
+
+let shot = 0
+async function capture(page, label) {
+  shot++
+  await page.waitForTimeout(300)
+  const path = `${outDir}/card-effects-${shot}-${label}.png`
+  await page.screenshot({ path })
+  console.log(`📸 ${path}`)
+}
+
+/** Carte du joueur mise sur son champ de bataille : depuis sa main, sinon en la cherchant dans sa bibliothèque. Renvoie son sélecteur. */
+async function onBattlefield(who, name, solo = false) {
+  const { page } = who
+  const me = solo ? await page.locator('[data-zone="hand"][data-player]').first().getAttribute('data-player') : who.id
+  const inHand = page.locator(`[data-zone="hand"][data-player="${me}"] [data-card-id]:has([title="${name}"])`).first()
+  let id
+  if (await inHand.count()) {
+    id = await inHand.getAttribute('data-card-id')
+    await inHand.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Champ de bataille' }).click()
+  } else {
+    await page.locator(`[data-zone="library"][data-player="${me}"]`).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: /Chercher une carte/ }).click()
+    const pileCard = page.locator(`[data-pile-card]:has([title="${name}"])`).first()
+    id = await pileCard.getAttribute('data-pile-card')
+    await pileCard.getByRole('button', { name: 'Champ', exact: true }).click()
+    await page.getByRole('button', { name: 'Fermer', exact: true }).click()
+  }
+  const card = `[data-zone="battlefield"][data-player="${me}"] [data-card-id="${id}"]`
+  await page.locator(card).waitFor()
+  return card
+}
+
+async function playtest(who) {
+  await who.page.goto(`${base}/decks/deck-${who.id}`)
+  await who.page.evaluate((id) => {
+    localStorage.removeItem(`dc-playtest-${id}`)
+    localStorage.removeItem('dc-table-settings')
+  }, `deck-${who.id}`)
+  await who.page.goto(`${base}/decks/deck-${who.id}/test`)
+  await who.page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
+}
+
+/** Effets d'une carte : liseré doré, et éclat d'arrivée en cours (affiché et animé). */
+const fxOf = (locator) => locator.evaluate((el) => {
+  const glint = el.querySelector('.card-glint')
+  const style = glint && getComputedStyle(glint)
+  return { frame: !!el.querySelector('.card-legendary'), glint: !!style && style.display !== 'none' && style.animationName === 'card-glint' }
+})
+/** L'éclat dure 1,1 s et disparaît ensuite. */
+const afterGlint = (page) => page.waitForTimeout(1800)
+
+async function setEffects(page, on) {
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  const box = page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes')
+  if (on) await box.check()
+  else await box.uncheck()
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+}
+
+try {
+  // ── Mode test, à la souris ──
+  const solo = await openAs(ANA)
+  const { page } = solo
+  await playtest(solo)
+  const teferi = page.locator(await onBattlefield(solo, TEFERI, true))
+  const arrival = await fxOf(teferi)
+  check(arrival.frame && arrival.glint, 'Teferi (légendaire) arrive en jeu : liseré doré et éclat')
+  check(await page.locator('[data-zone="hand"] .card-legendary, [data-pile] .card-legendary').count() === 0, 'aucun effet hors du champ de bataille')
+  const box = await teferi.boundingBox()
+  const frameBox = await teferi.locator('.card-legendary').boundingBox()
+  check(Math.abs(box.width - frameBox.width) < 2 && Math.abs(box.height - frameBox.height) < 2, 'liseré aux dimensions de la carte')
+  await afterGlint(page)
+  const settled = await fxOf(teferi)
+  check(settled.frame && !settled.glint, 'l’éclat s’arrête, le liseré reste')
+  await capture(page, 'mode-test')
+
+  await teferi.dblclick()
+  await page.waitForFunction((sel) => document.querySelector(sel)?.style.transform.includes('90deg'), await teferi.evaluate((el) => `[data-card-id="${el.dataset.cardId}"]`))
+  const tapped = await fxOf(teferi)
+  check(tapped.frame && !tapped.glint, 'Teferi engagé : garde son liseré, sans nouvel éclat')
+  await capture(page, 'engage')
+
+  // Posé au même endroit que Teferi, l'Anneau solaire le recouvre : à vérifier après le double-clic.
+  const sol = page.locator(await onBattlefield(solo, SOL_RING, true))
+  check(!(await fxOf(sol)).frame, 'Anneau solaire (non légendaire) : aucun effet')
+
+  await setEffects(page, false)
+  check(!(await fxOf(teferi)).frame, 'réglage « Animations des cartes » décoché : plus de liseré')
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  const box2 = page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes')
+  check(!(await box2.isChecked()), 'réglage mémorisé après rechargement')
+  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  check(!(await fxOf(teferi)).frame, 'partie reprise : Teferi toujours sans liseré')
+  await setEffects(page, true)
+  const back = await fxOf(teferi)
+  check(back.frame && !back.glint, 'recoché : liseré revenu, sans éclat (la carte était déjà en jeu)')
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await teferi.waitFor()
+  check(!(await fxOf(teferi)).glint, 'partie reprise : pas d’éclat au chargement')
+
+  // ── Mouvement réduit (réglage du système) ──
+  const calm = await openAs(ANA, { reducedMotion: 'reduce' })
+  await playtest(calm)
+  const calmTeferi = calm.page.locator(await onBattlefield(calm, TEFERI, true))
+  const calm1 = await fxOf(calmTeferi)
+  check(calm1.frame && !calm1.glint, 'mouvement réduit : liseré doré seul, pas d’éclat')
+
+  // ── Mode test, sur tablette (tactile) ──
+  const tablet = await openAs(ANA, { viewport: { width: 1180, height: 820 }, mobile: true })
+  await playtest(tablet)
+  const tabletTeferi = tablet.page.locator(await onBattlefield(tablet, TEFERI, true))
+  check((await fxOf(tabletTeferi)).glint, 'tablette : éclat de Teferi à son arrivée')
+  await tabletTeferi.locator('[data-loyalty]').tap()
+  await tablet.page.getByRole('menu').waitFor()
+  check(true, 'tablette : l’effet ne gêne pas le toucher (encart de loyauté)')
+  await tablet.page.keyboard.press('Escape')
+  await capture(tablet.page, 'tablette')
+
+  // ── En ligne, à 2 ──
+  const ana = await openAs(ANA)
+  const bastien = await openAs(BASTIEN)
+  await ana.page.goto(`${base}/salon`)
+  await ana.page.getByRole('combobox').nth(1).selectOption('2')
+  await ana.page.getByRole('button', { name: 'Créer la table' }).click()
+  await ana.page.waitForURL(/\/tables\//)
+  const tableUrl = ana.page.url()
+  for (const who of [ana, bastien]) {
+    if (who === bastien) {
+      await bastien.page.goto(tableUrl)
+      await bastien.page.getByRole('button', { name: 'Rejoindre la table' }).click()
+    }
+    await who.page.getByTestId('deck-select').selectOption(`deck-${who.id}`)
+    await who.page.locator(`[data-seat="${who.id}"]`).getByText(`Kenrith de ${who.name}`).waitFor()
+  }
+  await ana.page.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => x.textContent === 'Démarrer la partie')
+    return b && !b.disabled
+  }, null, { timeout: 10_000 })
+  await ana.page.getByRole('button', { name: 'Démarrer la partie' }).click()
+  for (const who of [ana, bastien]) {
+    await who.page.getByTestId('game').waitFor({ timeout: 10_000 })
+    await who.page.getByTestId('start-draw').waitFor()
+    await who.page.keyboard.press('Escape')
+    await who.page.getByTestId('start-draw').waitFor({ state: 'detached' })
+  }
+
+  const anaCard = await onBattlefield(ana, TEFERI)
+  check((await fxOf(ana.page.locator(anaCard))).glint, 'en ligne : Ana voit l’éclat de son Teferi qui arrive')
+  const teferiId = await ana.page.locator(anaCard).getAttribute('data-card-id')
+  const seenByBastien = bastien.page.locator(`[data-zone="battlefield"][data-player="${ANA.id}"] [data-card-id="${teferiId}"], [data-zone="battlefield"][data-player="${ANA.id}"] [data-strip-card="${teferiId}"]`)
+  await seenByBastien.waitFor()
+  check((await fxOf(seenByBastien)).glint, 'en ligne : Bastien voit l’éclat du Teferi d’Ana')
+  await afterGlint(bastien.page)
+  const seen = await fxOf(seenByBastien)
+  check(seen.frame && !seen.glint, 'en ligne : puis le liseré seul')
+  await capture(ana.page, 'en-ligne-ana')
+  await capture(bastien.page, 'en-ligne-bastien')
+
+  check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ` : ${errors.join(' | ')}` : ''}`)
+} finally {
+  await browser.close()
+}
