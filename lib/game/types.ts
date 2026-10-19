@@ -1,5 +1,5 @@
 import type { CardFace, CardRow } from '@/lib/cards/types'
-import type { GainedAbility, Keyword } from './abilities'
+import type { AbilityChoice, GainedAbility, Keyword } from './abilities'
 
 export type { CardFace }
 
@@ -183,7 +183,7 @@ export type GameAction = Stamp & (
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
   | { type: 'loyalty'; actor: string; id: string; delta: number }
   /** Capacités voulues du permanent (données, imprimées perdues) ; `untilEndOfTurn` : durée de celles ajoutées. */
-  | { type: 'abilities'; actor: string; id: string; gained: Keyword[]; lost: Keyword[]; untilEndOfTurn?: boolean }
+  | { type: 'abilities'; actor: string; id: string; gained: AbilityChoice[]; lost: Keyword[]; untilEndOfTurn?: boolean }
   | { type: 'createToken'; actor: string; token: TokenData; x: number; y: number; copy?: boolean }
   | { type: 'life'; actor: string; target: string; delta: number }
   | { type: 'poison'; actor: string; target: string; delta: number }

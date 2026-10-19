@@ -100,7 +100,7 @@ Liste de départ (nom français officiel, nom Scryfall, icône Lucide), qu'on po
 | Défenseur | Defender | BrickWall |
 | Infection | Infect | Biohazard |
 
-Les capacités qui prennent un paramètre (protection contre une couleur, gardien {coût}…) sont hors champ : on pourra les ajouter
+Les capacités qui prennent un paramètre (protection contre une couleur, Parade {coût}…) sont hors champ : on pourra les ajouter
 plus tard avec une saisie libre.
 
 ### Affichage sur la carte
