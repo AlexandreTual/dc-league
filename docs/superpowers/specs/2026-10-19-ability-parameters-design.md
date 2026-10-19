@@ -1,7 +1,7 @@
 # Capacités à paramètre (Protection, Parade) — conception
 
 Date : 2026-10-19
-Statut : proposition, à valider dans l'issue
+Statut : réalisée pour Protection et Parade (issue #177) ; les autres capacités à paramètre viendront ensuite
 Suite de : `specs/2026-10-19-card-animations-design.md` (« Donner une capacité… », issue #173)
 
 ## But
@@ -43,7 +43,8 @@ une fois leur nom français vérifié sur une carte imprimée.
 
 - **Symboles** : un bouclier pour Protection, avec de petites pastilles des couleurs choisies (ou « ∞ » pour « Tout ») ;
   une main levée pour Parade, avec son coût en petit (« 2 »).
-- **Libellés** : « Protection : rouge, vert », « Parade {2} » (coupés si la carte est petite).
+- **Libellés** : « Protection » suivi des pastilles de couleur (placées juste après l'icône, pour rester visibles si le
+  libellé est coupé), « Parade {2} ».
 - **Aperçu** : « Capacités données : Protection contre le rouge et le vert, Parade {2} ».
 - **Journal** : « donne Protection contre le rouge à Llanowar Elves », « donne Parade {2} à Llanowar Elves ». Un paramètre
   modifié : « change Protection de Llanowar Elves : contre le bleu ».
@@ -63,8 +64,8 @@ une fois leur nom français vérifié sur une carte imprimée.
 
 ## Compatibilité
 
-- **Serveur de jeu plus ancien** : il refuse `Protection` et `Ward` (« Action invalide ») jusqu'à la fusion, qui redéploie le
-  Worker ; les autres capacités continuent de marcher.
+- **Serveur de jeu plus ancien** : il refuse `Protection` et `Ward` (« Action invalide : gained ») jusqu'à la fusion, qui
+  redéploie le Worker ; les autres capacités continuent de marcher.
 - **Navigateur avec un état sans `param`** : rien ne plante, la capacité s'affiche sans précision.
 - Pas de migration.
 

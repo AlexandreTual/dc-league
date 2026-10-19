@@ -30,12 +30,6 @@ type Badge = { keyword: Keyword; param?: string; state: 'gained' | 'eot' | 'lost
 /** Couleurs d'une Protection (« all » : aucune, c'est « contre tout »). */
 const colorsOf = (param: string | undefined): Color[] => (param && param !== PROTECTION_ALL ? (param.split(',') as Color[]) : [])
 
-/** Précision courte d'un libellé : « rouge, vert », « tout », « {2} ». */
-function shortParam(keyword: Keyword, param: string): string {
-  if (keyword !== 'Protection') return param
-  return param === PROTECTION_ALL ? 'tout' : colorsOf(param).map((c) => COLOR_NAMES[c]).join(', ')
-}
-
 /** Précision dans une pastille : points de couleur, « ∞ » pour tout, ou le coût d'une Parade (« 2 »). */
 function ParamMark({ keyword, param }: { keyword: Keyword; param: string }) {
   if (keyword === 'Protection') {
@@ -71,7 +65,8 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
         const title = state === 'lost' ? `${text} (perdue)` : state === 'eot' ? `${text} (jusqu’à la fin du tour)` : text
         const color = state === 'lost' ? 'border-dc-red-light text-dc-red-light' : 'border-dc-gold text-dc-gold-light'
         const border = state === 'eot' ? 'border-dashed' : 'border-solid'
-        const label = param ? `${keywordLabel(keyword)}${keyword === 'Protection' ? ' : ' : ' '}${shortParam(keyword, param)}` : keywordLabel(keyword)
+        // Protection : ses couleurs en pastilles (toujours visibles, même si le libellé est coupé) ; Parade : son coût écrit.
+        const label = param && keyword === 'Ward' ? `${keywordLabel(keyword)} ${param}` : keywordLabel(keyword)
         return icons ? (
           <span key={`${state}-${keyword}`} title={title} data-ability={keyword} data-ability-state={state} data-ability-param={param}
             className={`relative h-5 min-w-5 px-[3px] rounded-full bg-[#0d0d14] border flex items-center justify-center gap-0.5 ${color} ${border}`}>
@@ -84,6 +79,7 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
           <span key={`${state}-${keyword}`} title={title} data-ability={keyword} data-ability-state={state} data-ability-param={param}
             className={`max-w-[94%] inline-flex items-center gap-0.5 px-1 rounded bg-black/80 border text-[9px] leading-tight font-semibold ${color} ${border}`}>
             <Icon className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
+            {param && keyword === 'Protection' && <span className="shrink-0"><ParamMark keyword={keyword} param={param} /></span>}
             {/* Petite carte : un nom trop long est coupé (« Défense talism… ») ; il est entier au survol et dans l'aperçu. */}
             <span className={`min-w-0 truncate text-white ${state === 'lost' ? 'line-through' : ''}`}>{label}</span>
           </span>
