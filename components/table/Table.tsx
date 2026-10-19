@@ -11,6 +11,7 @@ import { cardInfo } from '@/lib/game/apply'
 import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
 import { cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
+import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
@@ -19,6 +20,7 @@ import DiceModal from './DiceModal'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
+import OrderModal from './OrderModal'
 import OpponentBoard from './OpponentBoard'
 import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
@@ -42,7 +44,7 @@ import type { GameSource } from './source'
 import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
 import type { MenuPoint } from './touch'
-import { libraryTop, type CardHandlers } from './zones'
+import { libraryTop, type CardHandlers, type ZoneSelection } from './zones'
 import { cardPreview } from '@/lib/game/card-preview'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
@@ -98,7 +100,12 @@ export default function Table({ source, notice, boardWindow }: {
   const windows = useBoardWindows(source.online && !boardWindow ? source.online.tableId : null)
   const [lang, setLang] = useState<Lang>('fr')
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
-  const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number } | null>(null)
+  // `group` : cartes sélectionnées emportées avec celle qu'on glisse.
+  const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number; group?: string[] } | null>(null)
+  /** Cartes sélectionnées (rectangle tracé sur mon champ de bataille ou ma main). */
+  const [selection, setSelection] = useState<Selection | null>(null)
+  /** Fenêtre « Ordre des cartes » d'un groupe sélectionné, avant de le poser sur une pile. */
+  const [ordering, setOrdering] = useState<OrderRequest | null>(null)
   // `pt` : menu de l'encart loyauté ou force/endurance (seulement ces réglages) plutôt que le menu complet de la carte.
   const [menu, setMenu] = useState<{
     x: number; y: number; entries: MenuEntry[]; items?: MenuItem[]; card?: { id: string; zone: ZoneRef; pt?: boolean }
@@ -139,6 +146,8 @@ export default function Table({ source, notice, boardWindow }: {
   const ai = useAi()
   const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct, ai: ai !== null }
   const send = source.send
+  // Seules restent sélectionnées les cartes encore dans leur zone ; rien pour un spectateur ou une partie finie.
+  const live = canAct ? liveSelection(view, selection) : null
 
   useEffect(() => setLang(readLang()), [])
   useEffect(() => setSettings(loadTableSettings()), [])
@@ -195,6 +204,8 @@ export default function Table({ source, notice, boardWindow }: {
       else if (command.kind === 'openPile') setPile({ title: command.title, player: command.player, zone: command.zone, mode: command.mode })
       else if (command.kind === 'oracle') setOracle({ owner: command.owner, ref: command.ref })
       else if (command.kind === 'abilities') setAbilitiesFor(command.id)
+      else if (command.kind === 'order') setOrdering({ ids: command.ids, zone: command.zone, ...(command.position ? { position: command.position } : {}) })
+      else if (command.kind === 'clearSelection') setSelection(null)
       else if (command.kind === 'askAi') {
         const entry = catalogs[command.owner]?.entries.find((e) => e.ref === command.ref)
         if (entry && ai) ai.addCard(aiCardRef(entry.en, entry.fr))
@@ -300,10 +311,12 @@ export default function Table({ source, notice, boardWindow }: {
       setLogOpen(false)
       setSettingsOpen(false)
       setShortcutsOpen(false)
+      setOrdering(null)
+      setSelection(null)
       return
     }
     // Pas de raccourci de jeu tant qu'une fenêtre est ouverte.
-    if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || menu || shortcutsOpen) return
+    if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || menu || ordering || shortcutsOpen) return
     if (shortcut === 'help') {
       e.preventDefault()
       setSettingsOpen(false)
@@ -348,6 +361,11 @@ export default function Table({ source, notice, boardWindow }: {
       else if (zone.zone === 'hand' && zone.player === me) send({ type: 'move', id, to: { player: me, zone: 'battlefield' }, x: 50, y: 50 })
     },
     onContextMenu: (id, zone, at) => {
+      // Carte d'un groupe sélectionné : menu du groupe.
+      if (live && live.ids.length > 1 && live.ids.includes(id) && sameZone(live.zone, zone)) {
+        const entries = selectionMenu(menuCtx, live)
+        if (entries.length > 0) return setMenu({ x: at.clientX, y: at.clientY, entries, touch: at.touch })
+      }
       const card = cards.get(id)
       const entries = card ? cardMenu(menuCtx, card, zone) : []
       // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
@@ -366,11 +384,29 @@ export default function Table({ source, notice, boardWindow }: {
     const id = String(e.active.id)
     // offsetHeight ignore la rotation d'une carte engagée, contrairement au rectangle mesuré par dnd-kit.
     const node = document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)
-    setDragging({ id, from: e.active.data.current?.from as ZoneRef, height: node?.offsetHeight || 134 })
+    const group = live && live.ids.length > 1 && live.ids.includes(id) ? live.ids : undefined
+    setDragging({ id, from: e.active.data.current?.from as ZoneRef, height: node?.offsetHeight || 134, group })
+  }
+
+  /** Groupe sélectionné lâché : déplacé ensemble sur mon champ de bataille, ou rangé dans une de mes zones. */
+  function dropGroup(group: string[], held: string, from: ZoneRef, to: ZoneRef, placement: { x?: number; y?: number; position?: Position }) {
+    if (to.player !== me || (sameZone(from, to) && to.zone !== 'battlefield')) return
+    if (to.zone === 'battlefield') {
+      const at = { x: placement.x ?? 50, y: placement.y ?? 50 }
+      const heldCard = cards.get(held)
+      const places = from.zone === 'battlefield' && heldCard
+        ? shiftedPlaces(group.map((id) => cards.get(id) ?? heldCard), at.x - heldCard.x, at.y - heldCard.y)
+        : rowPlaces(group.length, at, group.indexOf(held))
+      return send({ type: 'moveMany', ids: group, zone: 'battlefield', places })
+    }
+    if (to.zone === 'library') return setOrdering({ ids: group, zone: 'library', position: placement.position === 'bottom' ? 'bottom' : 'top' })
+    if (to.zone === 'graveyard') return setOrdering({ ids: group, zone: 'graveyard' })
+    send({ type: 'moveMany', ids: group, zone: to.zone })
   }
 
   function onDragEnd(e: DragEndEvent) {
     const height = dragging?.height ?? 0
+    const group = dragging?.group
     setDragging(null)
     const to = e.over?.data.current as ZoneRef | undefined
     const from = e.active.data.current?.from as ZoneRef | undefined
@@ -390,6 +426,7 @@ export default function Table({ source, notice, boardWindow }: {
     } else if (sameZone(from, to)) {
       return
     }
+    if (group) return dropGroup(group, id, from, to, placement)
     if (id.startsWith('top:')) send({ type: 'moveTop', to, ...placement })
     else send({ type: 'move', id, to, ...placement })
   }
@@ -405,6 +442,22 @@ export default function Table({ source, notice, boardWindow }: {
     : undefined
   const oracleEntry = oracle ? catalogs[oracle.owner]?.entries.find((e) => e.ref === oracle.ref) : undefined
   const zoneProps = { view, catalogs, lang, handlers, interactive: canAct, highlighted, settings, arriving }
+  const zoneSelection: ZoneSelection | undefined = canAct ? {
+    ids: new Set(live?.ids ?? []),
+    lifted: new Set(dragging?.group ?? []),
+    onSelect: (zone, ids, additive) => setSelection(selectIds(live, zone, ids, additive)),
+    onToggle: (zone, id) => setSelection(toggleId(live, zone, id)),
+    onClear: () => setSelection(null),
+  } : undefined
+  const orderCards = ordering ? ordering.ids.flatMap((id) => cards.get(id) ?? []) : []
+  const finishOrdering = (extra: { ids?: string[]; random?: true }) => {
+    if (!ordering) return
+    const { ids = orderCards.map((c) => c.id), random } = extra
+    if (ids.length === 0) return setOrdering(null)
+    send({ type: 'moveMany', ids, zone: ordering.zone, ...(ordering.position ? { position: ordering.position } : {}), ...(random ? { random } : {}) })
+    setOrdering(null)
+    setSelection(null)
+  }
   // Adversaires dans l'ordre des places ; pour un spectateur, tous les joueurs.
   const opponents = Object.keys(view.players).filter((p) => p !== me)
   // Un plateau sorti dans une fenêtre quitte la table, qui récupère la place.
@@ -593,6 +646,7 @@ export default function Table({ source, notice, boardWindow }: {
           {me && !boardWindow && (
             <MyBoard
               {...zoneProps}
+              selection={zoneSelection}
               player={me}
               me={me}
               portrait={portraitFor(me, 'column', true)}
@@ -604,7 +658,12 @@ export default function Table({ source, notice, boardWindow }: {
           )}
           <DragOverlay dropAnimation={null}>
             {dragging && (
-              <div className="pointer-events-none" style={{ height: dragging.height, width: dragging.height * CARD_RATIO }} data-testid="drag-overlay">
+              <div className="relative pointer-events-none" style={{ height: dragging.height, width: dragging.height * CARD_RATIO }} data-testid="drag-overlay">
+                {dragging.group && (
+                  <span className="absolute -top-2 -right-2 z-10 min-w-6 h-6 px-1.5 flex items-center justify-center rounded-full bg-sky-500 text-white text-xs font-semibold shadow-card" data-testid="drag-count">
+                    {dragging.group.length}
+                  </span>
+                )}
                 {(() => {
                   // Carte du dessus : face visible si je la connais, dos sinon.
                   const shown = dragging.id.startsWith('top:') ? libraryTop(view, dragging.from.player)
@@ -641,6 +700,18 @@ export default function Table({ source, notice, boardWindow }: {
           }}
           onReorder={pile.mode === 'look' ? (ids) => { pileOrder.current = ids } : undefined}
           onClose={closePile}
+        />
+      )}
+      {ordering && orderCards.length > 0 && (
+        <OrderModal
+          title={ordering.zone === 'graveyard' ? 'Cimetière : ordre des cartes'
+            : `${ordering.position === 'bottom' ? 'Dessous' : 'Dessus'} de la bibliothèque : ordre des cartes`}
+          cards={orderCards}
+          catalogs={catalogs}
+          lang={lang}
+          onConfirm={(ids) => finishOrdering({ ids })}
+          onRandom={() => finishOrdering({ random: true })}
+          onClose={() => setOrdering(null)}
         />
       )}
       {tokenOpen && (

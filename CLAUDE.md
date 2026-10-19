@@ -51,6 +51,7 @@ node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # lig
 node scripts/ai-check.mjs http://localhost:8788 <dossier>                  # assistant IA avec un faux Gemini (deck, mode test, en ligne, admin, quota, téléphone)
 node scripts/shortcuts-check.mjs http://localhost:8788 <dossier>         # raccourcis clavier (carte survolée, X jeton copie, touches choisies et mémorisées, en ligne)
 node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin : parties en cours, suppression (vide les tables locales)
+node scripts/selection-check.mjs http://localhost:8788 <dossier>          # sélection de plusieurs cartes (rectangle, groupe, ordre ; souris, tablette, en ligne)
 ```
 
 Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.
