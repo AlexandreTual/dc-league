@@ -5,7 +5,7 @@ import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
-import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
+import { Crown, ExternalLink, Flag, Undo2, Video, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
@@ -36,6 +36,8 @@ import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ShortcutsModal from './ShortcutsModal'
 import ManaPool from './ManaPool'
+import VisioPanel from './visio/VisioPanel'
+import { useVisio } from './visio/useVisio'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import { readLang, saveLang } from '@/lib/cards/lang'
@@ -142,6 +144,8 @@ export default function Table({ source, notice, boardWindow }: {
   const finished = source.online?.finished ?? false
   const status = source.online?.status ?? 'open'
   const canAct = me !== null && !finished && status === 'open'
+  // Visio : table principale d'une partie en ligne, joueurs assis, serveur de jeu qui la relaie.
+  const visio = useVisio(boardWindow ? undefined : source.online?.visio, me, source.online?.players ?? [], status)
   const cards = useMemo(() => visibleCards(view), [view])
   const ai = useAi()
   const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct, ai: ai !== null }
@@ -545,8 +549,18 @@ export default function Table({ source, notice, boardWindow }: {
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
         onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
-        extra={source.online && me && !finished && (
+        extra={source.online && me && (
           <>
+            {source.online.visio && !visio.inCall && (
+              <button className={barButton} onClick={() => void visio.join()} disabled={visio.starting} data-testid="visio-join"
+                title={visio.presentPlayers.length > 0 ? `En visio : ${visio.presentPlayers.map((p) => view.players[p]?.name ?? '?').join(', ')}` : 'Visio avec les autres joueurs'}>
+                <Video className="w-3.5 h-3.5" /> {visio.starting ? 'Visio…' : 'Visio'}
+                {visio.presentPlayers.length > 0 && (
+                  <span className="ml-0.5 rounded-full bg-dc-gold/20 px-1.5 text-dc-gold" data-testid="visio-count">{visio.presentPlayers.length}</span>
+                )}
+              </button>
+            )}
+            {!finished && (<>
             {source.online.hostCommands && (
               <button className={barButton} onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, entries: [], items: hostItems() })}>
                 <Crown className="w-3.5 h-3.5 text-dc-gold" /> Hôte
@@ -557,6 +571,7 @@ export default function Table({ source, notice, boardWindow }: {
                 <Flag className="w-3.5 h-3.5" /> Abandonner
               </button>
             )}
+            </>)}
           </>
         )}
       />
@@ -610,6 +625,7 @@ export default function Table({ source, notice, boardWindow }: {
       )}
 
       <div className="relative flex-1 min-h-0 flex flex-col">
+        {visio.inCall && <VisioPanel visio={visio} names={Object.fromEntries(Object.entries(view.players).map(([id, p]) => [id, p.name]))} />}
         <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {boardWindow ? (
             <div className="flex-1 min-h-0 p-2">

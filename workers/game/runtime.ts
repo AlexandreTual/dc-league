@@ -2,7 +2,7 @@
 // Testable sans Cloudflare : le stockage, les sockets, l'horloge et le hasard sont fournis.
 import { finishTable, setHost, touchActivity } from '../../lib/db-games'
 import {
-  createRoom, gameTiming, handleConnect, handleDisconnect, handleMessage, mergeCards, restoreRoom, viewMessageFor,
+  createRoom, gameTiming, rtcRelay, handleConnect, handleDisconnect, handleMessage, mergeCards, restoreRoom, viewMessageFor,
   type CardDataMap, type ClientMessage, type Outcome, type RoomState, type ServerMessage,
 } from '../../lib/game/room'
 import type { GameAction, GameSetup, Seed } from '../../lib/game/types'
@@ -142,6 +142,7 @@ export class RoomRuntime {
     await this.load()
     const room = this.room
     if (!room) return
+    if (msg.type === 'rtc') return this.relay(info, msg)
     const before = room.history.actions.length
     const outcome = handleMessage(room, info.playerId, msg, { now: this.clock(), seed: this.seed })
 
@@ -278,6 +279,15 @@ export class RoomRuntime {
     const message = viewMessageFor(this.room!, info.playerId, s.sent, this.clock())
     s.sent = mergeCards(s.sent, message.cards)
     this.send(socket, message)
+  }
+
+  /** Visio : transmet la signalisation aux sockets des destinataires, sans rien enregistrer. */
+  private relay(info: SocketInfo, msg: Extract<ClientMessage, { type: 'rtc' }>): void {
+    const relay = rtcRelay(this.room!, info.playerId, msg)
+    if (!relay) return
+    for (const { socket, info: target } of this.sockets()) {
+      if (target.playerId && relay.to.includes(target.playerId)) this.send(socket, relay.message)
+    }
   }
 
   private broadcast(): void {

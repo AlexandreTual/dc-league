@@ -17,6 +17,15 @@ export type ClientMessage =
   | { type: 'concede' }
   | { type: 'host'; op: 'passTurn' | 'eliminate'; target: string }
   | { type: 'host'; op: 'close' }
+  | RtcClientMessage
+
+/**
+ * Visio : message de signalisation WebRTC relayé tel quel par le serveur, sans toucher à la partie.
+ * `to` : joueur destinataire ; absent : tous les autres joueurs assis.
+ */
+export type RtcClientMessage = { type: 'rtc'; to?: string; data: Record<string, unknown> }
+/** Signalisation reçue : `from` est posé par le serveur (joueur qui l'a envoyée). */
+export type RtcServerMessage = { type: 'rtc'; from: string; data: Record<string, unknown> }
 
 /** Données de cartes : propriétaire → ref → entrée du catalogue. */
 export type CardDataMap = Record<string, Record<number, CatalogEntry>>
@@ -36,9 +45,11 @@ export type ViewMessage = {
   finished: boolean
   winner: string | null
   clock?: GameClock
+  /** Le serveur relaie la visio ; absent avec un serveur de jeu plus ancien (pas de bouton « Visio »). */
+  visio?: true
 }
 
-export type ServerMessage = ViewMessage | { type: 'rejected'; error: string }
+export type ServerMessage = ViewMessage | { type: 'rejected'; error: string } | RtcServerMessage
 
 export type RoomState = {
   tableId: string
@@ -208,6 +219,23 @@ export function handleMessage(room: RoomState, from: string | null, msg: ClientM
   return { changed: true, error: outcome.error, events: [...hostEvents, ...outcome.events] }
 }
 
+/**
+ * Visio : à qui relayer un message de signalisation, et quoi. Rien pour un spectateur, un destinataire
+ * qui n'est pas assis (ou soi-même) ou des données qui ne sont pas un objet.
+ */
+export function rtcRelay(room: RoomState, from: string | null, msg: RtcClientMessage): { to: string[]; message: RtcServerMessage } | null {
+  if (!isSeated(room, from)) return null
+  const data = msg.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  const others = room.seats.map((s) => s.playerId).filter((p) => p !== from)
+  let to = others
+  if (msg.to !== undefined) {
+    if (typeof msg.to !== 'string' || !others.includes(msg.to)) return null
+    to = [msg.to]
+  }
+  return { to, message: { type: 'rtc', from, data } }
+}
+
 // ── Présence ──────────────────────────────────────────────────────────────────
 
 export function handleConnect(room: RoomState, playerId: string | null, now: number): Outcome {
@@ -301,5 +329,6 @@ export function viewMessageFor(room: RoomState, viewer: string | null, alreadySe
     finished: room.finished,
     winner: room.winner,
     ...(clock ? { clock } : {}),
+    visio: true,
   }
 }

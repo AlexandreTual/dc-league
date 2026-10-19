@@ -15,4 +15,7 @@ interface CloudflareEnv extends Record<string, unknown> {
   MAIL_FROM?: string
   MAIL_FROM_NAME?: string
   MAIL_TEST?: string
+  /** Visio (docs/visio.md) : relais TURN de Cloudflare, facultatif (sans, STUN publics seuls). */
+  TURN_KEY_ID?: string
+  TURN_KEY_API_TOKEN?: string
 }
