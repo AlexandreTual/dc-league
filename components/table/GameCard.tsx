@@ -87,6 +87,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
  * qu'elle n'est pas engagée), si le réglage les permet ;
  * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire, une seule fois) ;
  * `abilityStyle` : carte en jeu, capacités données ou perdues affichées en symboles ou en libellés (même sans animations).
+ * Carte en jeu (`pt`) hors phase : estompée, avec la mention « Hors phase ».
  */
 export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false, abilityStyle }: {
   card: CardView | null | undefined
@@ -104,13 +105,22 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   if (card.hidden) return <CardBack className={className} />
   const data = cardInfo(catalog, card, lang)
   const ptBox = pt && <StatBox card={card} catalog={catalog} onEdit={onPtEdit} />
+  const phasedOut = pt && !!card.phasedOut
+  // Absent (serveur de jeu plus ancien) : la carte s'affiche normalement.
+  const phased = (content: React.ReactNode) => !phasedOut ? content : (
+    <>
+      <div className="absolute inset-0 opacity-35 grayscale">{content}</div>
+      <span className="absolute inset-0 flex items-center justify-center pointer-events-none" data-phased-out>
+        <span className={`${badgeClass} rounded bg-black/75 px-1 py-0.5`}>Hors phase</span>
+      </span>
+    </>
+  )
   if (data.hidden) {
     // Carte face cachée vue par qui la connaît : son dos, et sa force 2/2 modifiable.
-    if (!ptBox) return <CardBack className={className} />
+    if (!ptBox && !phasedOut) return <CardBack className={className} />
     return (
       <div className={`relative aspect-[63/88] select-none ${className}`}>
-        <CardBack className="w-full h-full" />
-        {ptBox}
+        {phased(<><CardBack className="w-full h-full" />{ptBox}</>)}
       </div>
     )
   }
@@ -119,7 +129,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   const net = plus - minus
   const badge = tokenBadge(card)
   const legendary = effects && isLegendary(catalog, card)
-  const flying = effects && !card.tapped && hasFlying(catalog, card)
+  const flying = effects && !card.tapped && !phasedOut && hasFlying(catalog, card)
 
   const body = (
     <>
@@ -160,7 +170,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
 
   return (
     <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}
-      data-legendary={legendary || undefined} data-flying={flying || undefined}
+      data-legendary={legendary || undefined} data-flying={flying || undefined} data-phased={phasedOut || undefined}
       style={flying ? ({ '--fx-delay': effectDelay(card.id) } as React.CSSProperties) : undefined}>
       {flying ? (
         <>
@@ -168,7 +178,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
           <span className="card-shadow" aria-hidden="true" />
           <div className="card-lift absolute inset-0">{body}</div>
         </>
-      ) : body}
+      ) : phased(body)}
     </div>
   )
 }
