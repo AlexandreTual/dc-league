@@ -13,6 +13,11 @@ export function graveyardTail(cards: CardView[], n = GRAVEYARD_TAIL): VisibleCar
   return visible(cards).slice(-n)
 }
 
+/** Tout le cimetière visible, la plus récente en premier (en haut de la liste de la colonne). */
+export function graveyardList(cards: CardView[]): VisibleCard[] {
+  return visible(cards).reverse()
+}
+
 const PLACES: [Exclude<PlayerZone, 'library'>, string][] = [
   ['command', 'zone de commandement'], ['battlefield', 'en jeu'], ['graveyard', 'au cimetière'], ['exile', 'en exil'], ['hand', 'en main'],
 ]

@@ -220,8 +220,10 @@ try {
   // ── Bastien prend une carte du cimetière d'Ana ──
   const dumped = await myHand(ana).first().getAttribute('data-card-id')
   await drag(ana, myHand(ana).first(), board(ana, ANA.id).locator('[data-zone="graveyard"]'))
-  await board(ana, ANA.id).locator(`[data-zone="graveyard"] [data-card-id="${dumped}"]`).waitFor()
+  await board(ana, ANA.id).locator(`[data-zone="graveyard"] [data-pile-face="${dumped}"]`).waitFor()
   check(true, 'Ana glisse une carte de sa main dans son cimetière')
+  await board(ana, ANA.id).locator(`[data-column] [data-graveyard-list] [data-card-id="${dumped}"]`).waitFor()
+  check(true, 'en ligne : la carte apparaît en haut du cimetière en liste, dans la colonne d’Ana')
   await bastien.page.locator(`[data-strip="${ANA.id}"] [data-zone="graveyard"] [data-card-id="${dumped}"]`).waitFor()
   check(true, 'bandeau d’Ana chez Bastien : la dernière carte de son cimetière est affichée')
   await bastien.page.locator(`[data-strip="${ANA.id}"] [data-testid="player-name"]`).click()

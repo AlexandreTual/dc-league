@@ -35,10 +35,10 @@ describe('cardMenu', () => {
     const entries = cardMenu(ctx(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))
     expect(entries[0]).toEqual({ kind: 'title', label: 'Delver of Secrets // Insectile Aberration' })
     expect(labels(entries)).toEqual([
+      'Oracle et règles',
       'Engager', 'Passer hors phase', 'Retourner', 'Face cachée', 'Pivoter à 180°', 'Mettre devant', 'Mettre derrière', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Force ce tour', 'Endurance ce tour', 'Donner une capacité…', 'Effet sur toutes mes créatures…', 'Créer un jeton copie', 'Créer des jetons copies…',
       'Donner le contrôle à Bob', 'Donner le contrôle à Chloé',
       'Main', 'Cimetière', 'Exil', 'Zone de commandement', 'Dessus de la bibliothèque', 'Dessous de la bibliothèque',
-      'Oracle et règles',
     ])
     expect(item(entries, 'Donner le contrôle à Bob')).toEqual([{ kind: 'action', action: { type: 'giveControl', id: card('p1', 4), to: 'p2' } }])
     expect(item(entries, 'Cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p1', 4), to: at('p1', 'graveyard') } }])
@@ -47,7 +47,7 @@ describe('cardMenu', () => {
   it('carte d’un adversaire sur son champ de bataille', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 2)), at('p2', 'battlefield'))
-    expect(labels(entries)).toEqual(['Engager', 'Passer hors phase', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Force ce tour', 'Endurance ce tour', 'Donner une capacité…', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil', 'Oracle et règles'])
+    expect(labels(entries)).toEqual(['Oracle et règles', 'Engager', 'Passer hors phase', '+1/+1', '-1/-1', 'Compteur', 'Force', 'Endurance', 'Force ce tour', 'Endurance ce tour', 'Donner une capacité…', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil'])
     expect(item(entries, 'Prendre le contrôle')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p1', 'battlefield') } }])
     expect(item(entries, 'Dans son cimetière')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p2', 2), to: at('p2', 'graveyard') } }])
   })
@@ -171,7 +171,7 @@ describe('cardMenu', () => {
     const id = card('p2', 2)
     let s = withWalker(setup(), '4')
     let entries = cardMenu(ctx(s), visible(s, id), at('p2', 'battlefield'))
-    expect(labels(entries)).toEqual(['Engager', 'Passer hors phase', '+1/+1', '-1/-1', 'Compteur', 'Loyauté', 'Force', 'Endurance', 'Force ce tour', 'Endurance ce tour', 'Donner une capacité…', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil', 'Oracle et règles'])
+    expect(labels(entries)).toEqual(['Oracle et règles', 'Engager', 'Passer hors phase', '+1/+1', '-1/-1', 'Compteur', 'Loyauté', 'Force', 'Endurance', 'Force ce tour', 'Endurance ce tour', 'Donner une capacité…', 'Créer un jeton copie', 'Créer des jetons copies…', 'Prendre le contrôle', 'Dans sa main', 'Dans son cimetière', 'Dans son exil'])
     let loyalty = stepperOf(entries, 'Loyauté')
     expect(loyalty.value).toBe('4')
     expect(loyalty.signed).toBe(false)
@@ -218,14 +218,14 @@ describe('cardMenu', () => {
   it('carte du cimetière d’un adversaire', () => {
     const s = setup()
     const entries = cardMenu(ctx(s), visible(s, card('p2', 4)), at('p2', 'graveyard'))
-    expect(labels(entries)).toEqual(['Sur mon champ de bataille', 'Dans sa main', 'Dans son exil', 'Oracle et règles'])
+    expect(labels(entries)).toEqual(['Oracle et règles', 'Sur mon champ de bataille', 'Dans sa main', 'Dans son exil'])
   })
 
   it('carte de ma main : révéler à tous ou à un joueur', () => {
     const s = setup()
     const id = s.players.p1.zones.hand[0]
     const entries = cardMenu(ctx(s), visible(s, id), at('p1', 'hand'))
-    expect(labels(entries).slice(0, 3)).toEqual(['Révéler à tous', 'Révéler à Bob', 'Révéler à Chloé'])
+    expect(labels(entries).slice(0, 4)).toEqual(['Oracle et règles', 'Révéler à tous', 'Révéler à Bob', 'Révéler à Chloé'])
     expect(item(entries, 'Révéler à Bob')).toEqual([{ kind: 'action', action: { type: 'reveal', ids: [id], to: ['p2'] } }])
     expect(labels(entries)).toContain('Champ de bataille')
     expect(labels(entries)).not.toContain('Main')
@@ -437,6 +437,15 @@ describe('Ajouter à la question IA', () => {
     expect(item(cardMenu(withAi(s), visible(s, card('p2', 2)), at('p2', 'battlefield')), AI)).toEqual([{ kind: 'askAi', owner: 'p2', ref: 2 }])
     expect(item(cardMenu(withAi(s), visible(s, card('p2', 4)), at('p2', 'graveyard')), AI)).toEqual([{ kind: 'askAi', owner: 'p2', ref: 4 }])
     expect(labels(cardMenu(withAi(s), visible(s, s.players.p1.zones.hand[0]), at('p1', 'hand')))).toContain(AI)
+  })
+
+  it('en tête du menu, sous le nom de la carte : visible sans défiler même quand le menu dépasse l’écran', () => {
+    const s = setup()
+    for (const [id, zone] of [[card('p1', 2), at('p1', 'battlefield')], [card('p2', 2), at('p2', 'battlefield')], [s.players.p1.zones.hand[0], at('p1', 'hand')]] as const) {
+      const entries = cardMenu(withAi(s), visible(s, id), zone)
+      expect(entries[0].kind).toBe('title')
+      expect(entries.slice(1, 4).map((e) => (e.kind === 'item' ? e.label : e.kind))).toEqual(['Oracle et règles', AI, 'separator'])
+    }
   })
 
   it('absente sans assistant (visiteur, pas de clé, interrupteur coupé)', () => {
