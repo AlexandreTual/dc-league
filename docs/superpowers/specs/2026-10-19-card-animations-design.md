@@ -1,7 +1,7 @@
 # Animations et capacités des cartes en jeu — conception
 
 Date : 2026-10-19
-Statut : effets choisis (reflet, flottement) ; affichage des capacités données à choisir (symboles ou libellés)
+Statut : validée (reflet, flottement, capacités données affichées en symboles ou libellés au choix dans les réglages)
 Maquette : https://claude.ai/artifact/AvkfDG78QDPF448bsiXiwn
 
 ## But
@@ -55,8 +55,10 @@ qui liste les capacités, chacune avec une case à cocher et son icône :
   le tour est marquée « (ce tour) » ;
 - **cocher** une capacité non imprimée la donne ; **décocher** une capacité donnée la retire ;
 - **décocher** une capacité imprimée la marque **perdue** ; la recocher l'annule ;
-- une case **« Jusqu'à la fin du tour »** s'applique aux capacités ajoutées par cette validation. Ces capacités sont retirées
-  automatiquement au passage du tour (`endTurn`) ;
+- un choix **« Durée des capacités ajoutées »** s'applique aux capacités ajoutées par cette validation :
+  - **« Tout le temps »** (par défaut) : la capacité reste jusqu'à ce qu'on la retire, ou que la carte quitte le champ de
+    bataille ;
+  - **« Jusqu'à la fin du tour »** : la capacité est retirée automatiquement au passage du tour (`endTurn`) ;
 - « Valider » envoie tous les changements en une seule action, qui donne une seule ligne de journal. Exemple : « Ana donne
   piétinement et célérité à Elfes de Llanowar (jusqu'à la fin du tour) », ou « Ana retire le vol à Ange de Serra ».
 
@@ -86,8 +88,9 @@ plus tard avec une saisie libre.
 ### Affichage sur la carte
 
 - Le **vol** donné n'a pas de symbole, puisqu'il a déjà son animation : la carte se met à flotter.
-- Les **autres capacités données** ont un badge doré. Deux styles possibles, à choisir sur la maquette :
-  - **Symboles** (façon Moxfield) : petites pastilles rondes avec l'icône, en colonne sur le bord gauche de la carte ;
+- Les **autres capacités données** ont un badge doré, dans le style choisi par chaque joueur dans les réglages de la table :
+  - **Symboles** (façon Moxfield, par défaut) : petites pastilles rondes avec l'icône, en colonne sur le bord gauche de la
+    carte ;
   - **Libellés** : petits libellés « ICÔNE NOM » au milieu de la carte.
 - Une capacité **jusqu'à la fin du tour** a un bord en pointillés.
 - Une capacité imprimée **perdue** a un badge rouge barré. Un vol perdu arrête aussi la lévitation.
@@ -117,6 +120,9 @@ plus tard avec une saisie libre.
 - Nouvelle case dans les réglages de la table : **« Animations des cartes »**. Elle est cochée par défaut et mémorisée sur
   l'appareil (`TableSettings.cardEffects` ; absente d'une ancienne sauvegarde = cochée). Elle coupe le reflet et le
   flottement, pas les badges.
+- Nouveau choix dans les réglages de la table : **« Capacités sur les cartes : Symboles / Libellés »**. « Symboles » est le
+  choix par défaut. Il est mémorisé sur l'appareil (`TableSettings.abilityStyle: 'icons' | 'labels'` ; absent ou illisible
+  = `'icons'`). C'est un choix d'affichage propre à chaque joueur, sans effet sur la partie.
 - `prefers-reduced-motion: reduce` : liseré doré seul pour les légendaires ; créature volante légèrement surélevée au-dessus
   de son ombre, immobile.
 - Pendant un glisser, la carte déplacée n'est pas animée.
@@ -141,7 +147,8 @@ plus tard avec une saisie libre.
 
 1. Reflet des légendaires, case « Animations des cartes » et mouvement réduit (sans migration).
 2. Vol imprimé : migration, import et rattrapage des mots-clés, jetons, flottement.
-3. Capacités données : action `abilities`, modale, badges, journal, fin du tour, aperçu.
+3. Capacités données : action `abilities`, modale (avec la durée), badges, réglage symboles/libellés, journal, fin du tour,
+   aperçu.
 
 ## Vérifications
 
