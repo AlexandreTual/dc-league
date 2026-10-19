@@ -163,6 +163,39 @@ try {
   await dragCorner(-3000)
   check(Math.round((await panel.boundingBox()).width) === 720, 'pas plus grande que 720 px')
 
+  // ── Déplacer : tirer la barre ──
+  /** Zone de jeu (parent de la fenêtre). */
+  const areaBox = (who) => who.page.evaluate(() => {
+    const r = document.querySelector('[data-testid="visio-panel"]').offsetParent.getBoundingClientRect()
+    return { x: r.x, y: r.y, width: r.width, height: r.height }
+  })
+  const dragBar = async (who, dx, dy) => {
+    const b = await who.page.getByTestId('visio-bar').boundingBox()
+    await who.page.mouse.move(b.x + 20, b.y + b.height / 2)
+    await who.page.mouse.down()
+    await who.page.mouse.move(b.x + 20 + dx, b.y + b.height / 2 + dy, { steps: 8 })
+    await who.page.mouse.up()
+  }
+  await dragCorner(500) // largeur 220 px : place pour la déplacer
+  const start = await panel.boundingBox()
+  await dragBar(ana, -300, 150)
+  const moved = await panel.boundingBox()
+  check(Math.abs(moved.x - (start.x - 300)) <= 2 && Math.abs(moved.y - (start.y + 150)) <= 2, `la barre tirée déplace la fenêtre (${Math.round(start.x)},${Math.round(start.y)} → ${Math.round(moved.x)},${Math.round(moved.y)})`)
+  check(Math.round(moved.width) === Math.round(start.width), 'le déplacement garde la taille')
+  await capture(ana.page, 'deplacee')
+  await dragBar(ana, -5000, 5000)
+  const area = await areaBox(ana)
+  const corner = await panel.boundingBox()
+  check(Math.abs(corner.x - (area.x + 8)) <= 2 && Math.abs(corner.y + corner.height - (area.y + area.height - 8)) <= 2, 'tirée trop loin : elle s’arrête au coin bas gauche de la zone de jeu')
+  // Le coin s'agrandit encore contre le bord gauche : la fenêtre se décale pour rester entière.
+  await dragCorner(-300)
+  const grown = await panel.boundingBox()
+  check(grown.x >= area.x + 6 && grown.y + grown.height <= area.y + area.height - 6 && grown.width > corner.width + 200, 'agrandie contre le bord, elle reste entière dans la zone de jeu')
+  await ana.page.getByTestId('visio-mic').click()
+  await ana.page.getByTestId('visio-mic').click()
+  check(true, 'les boutons de la barre restent cliquables (pas de déplacement)')
+  await dragCorner(-3000)
+
   // Taille au doigt (tablette).
   const cHandle = await chloe.page.getByTestId('visio-resize').boundingBox()
   const cBefore = (await chloe.page.getByTestId('visio-panel').boundingBox()).width
@@ -173,6 +206,13 @@ try {
   await touch('touchEnd')
   const cAfter = (await chloe.page.getByTestId('visio-panel').boundingBox()).width
   check(cAfter > cBefore + 100, `tablette : le coin se tire au doigt (${Math.round(cBefore)} → ${Math.round(cAfter)} px)`)
+  const cBar = await chloe.page.getByTestId('visio-bar').boundingBox()
+  const cStart = await chloe.page.getByTestId('visio-panel').boundingBox()
+  await touch('touchStart', cBar.x + 10, cBar.y + cBar.height / 2)
+  for (let i = 1; i <= 6; i++) await touch('touchMove', cBar.x + 10 - i * 40, cBar.y + cBar.height / 2 + i * 30)
+  await touch('touchEnd')
+  const cMoved = await chloe.page.getByTestId('visio-panel').boundingBox()
+  check(Math.abs(cMoved.x - (cStart.x - 240)) <= 3 && Math.abs(cMoved.y - (cStart.y + 180)) <= 3, 'tablette : la barre se tire au doigt pour déplacer la fenêtre')
 
   // ── Réduire : seule la barre reste, le son continue ──
   await bastien.page.getByTestId('visio-collapse').click()
@@ -193,7 +233,10 @@ try {
   await ana.page.getByTestId('start-draw').waitFor({ state: 'detached' })
   await ana.page.getByTestId('visio-join').click()
   await ana.page.getByTestId('visio-panel').waitFor()
-  check(Math.round((await ana.page.getByTestId('visio-panel').boundingBox()).width) === 720, 'largeur retenue après rechargement')
+  const reloaded = await ana.page.getByTestId('visio-panel').boundingBox()
+  const reloadedArea = await areaBox(ana)
+  check(Math.round(reloaded.width) === Math.min(720, Math.round(reloadedArea.width) - 16), 'largeur retenue après rechargement')
+  check(Math.abs(reloaded.x - (reloadedArea.x + 8)) <= 2, 'place retenue après rechargement (à gauche)')
   await playing(ana, BASTIEN)
   await playing(ana, CHLOE)
   await bastien.page.waitForFunction((id) => document.querySelectorAll(`[data-visio-tile="${id}"]`).length === 1, ANA.id)
