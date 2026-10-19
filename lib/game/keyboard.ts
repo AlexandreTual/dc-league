@@ -195,7 +195,16 @@ export function menuHints(entries: MenuEntry[], bindings: Bindings, target?: { c
     const found = c.kind === 'action' ? TABLE_ACTIONS.find(([, test]) => test(c.action)) : undefined
     if (found) hints[i] = label(found[0])
   })
-  if (!target) return hints
+  if (!target) {
+    // Menu d'une sélection : les raccourcis de groupe.
+    for (const s of SHORTCUTS) {
+      if (s.group !== 'card' || !bindings[s.id]) continue
+      const commands = selectionShortcutCommands(entries, s.id as CardShortcut)
+      const i = commands ? entries.findIndex((e) => e.kind === 'item' && e.commands === commands) : -1
+      if (i >= 0) hints[i] = label(s.id)
+    }
+    return hints
+  }
   for (const s of SHORTCUTS) {
     if (s.group !== 'card' || !bindings[s.id] || s.id === 'plusCounter' || s.id === 'minusCounter') continue
     const commands = cardShortcutCommands(entries, target.card, target.zone, s.id as CardShortcut)
@@ -208,3 +217,32 @@ export function menuHints(entries: MenuEntry[], bindings: Bindings, target?: { c
   if (counter >= 0 && keys.length > 0) hints[counter] = keys.join(' ')
   return hints
 }
+
+/** Raccourcis appliqués carte par carte à une sélection (chaque carte comme si elle était survolée). */
+const PER_CARD: CardShortcut[] = ['copy', 'plusCounter', 'minusCounter', 'flip', 'faceDown']
+
+/**
+ * Commandes d'un raccourci de carte pour une sélection de plusieurs cartes, prises dans le menu du groupe
+ * (`selectionMenu`) : T engage celles qui ne le sont pas (sinon dégage tout), H B G E L Maj+L rangent le groupe
+ * (fenêtre « Ordre des cartes » vers le cimetière ou la bibliothèque). null : pas d'entrée de groupe pour ce raccourci.
+ */
+export function selectionShortcutCommands(entries: MenuEntry[], id: CardShortcut): MenuCommand[] | null {
+  const items = entries.flatMap((e) => (e.kind === 'item' ? [e.commands] : []))
+  const first = (test: (c: MenuCommand) => boolean) => items.find((commands) => commands.length > 0 && commands.every(test)) ?? null
+  const groupTo = (zone: string, position?: 'top' | 'bottom') => first((c) =>
+    (c.kind === 'action' && c.action.type === 'moveMany' && c.action.zone === zone && c.action.position === position)
+    || (c.kind === 'order' && c.zone === zone && c.position === position))
+  switch (id) {
+    case 'tap': return first((c) => c.kind === 'action' && c.action.type === 'tap')
+    case 'toHand': return groupTo('hand')
+    case 'toBattlefield': return groupTo('battlefield')
+    case 'toGraveyard': return groupTo('graveyard')
+    case 'toExile': return groupTo('exile')
+    case 'toLibraryTop': return groupTo('library', 'top')
+    case 'toLibraryBottom': return groupTo('library', 'bottom')
+    default: return null
+  }
+}
+
+/** Raccourci répété sur chaque carte d'une sélection (jeton copie, marqueurs, retourner, face cachée). */
+export const appliesPerCard = (id: CardShortcut) => PER_CARD.includes(id)

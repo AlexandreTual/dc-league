@@ -9,7 +9,7 @@ import { Crown, ExternalLink, Flag, Undo2, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
-import { cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
+import { appliesPerCard, cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, selectionShortcutCommands, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
 import type { ClientAction } from '@/lib/game/room'
@@ -326,9 +326,18 @@ export default function Table({ source, notice, boardWindow }: {
     if (!canAct) return
     if (isCardShortcut(shortcut)) {
       // Carte sous la souris, avec les mêmes entrées que son menu clic droit (rien pour une carte cachée).
-      const card = hovered ? cards.get(hovered) : undefined
-      const zone = card ? zoneOf(view, card.id) : null
-      const commands = card && zone ? cardShortcutCommands(cardMenu(menuCtx, card, zone), card, zone, shortcut) : null
+      const commandsFor = (id: string) => {
+        const card = cards.get(id)
+        const zone = card ? zoneOf(view, card.id) : null
+        return card && zone ? cardShortcutCommands(cardMenu(menuCtx, card, zone), card, zone, shortcut) : null
+      }
+      // Sélection de plusieurs cartes (souris dessus ou ailleurs que sur une carte) : tout le groupe, comme son menu.
+      const group = live && live.ids.length > 1 && (!hovered || live.ids.includes(hovered)) ? live : null
+      let commands = hovered ? commandsFor(hovered) : null
+      if (group) {
+        const perCard = appliesPerCard(shortcut) ? group.ids.flatMap((id) => commandsFor(id) ?? []) : []
+        commands = selectionShortcutCommands(selectionMenu(menuCtx, group), shortcut) ?? (perCard.length > 0 ? perCard : commands)
+      }
       if (!commands) return
       e.preventDefault()
       // La carte quitte la souris : un second appui ne doit pas la déplacer encore depuis sa nouvelle zone.

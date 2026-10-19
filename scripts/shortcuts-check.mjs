@@ -90,6 +90,48 @@ try {
   await inZone(page, 'battlefield', id).waitFor()
   check(true, 'Ctrl+Z : annulé, la carte revient en jeu')
 
+  // Sélection de plusieurs cartes : les raccourcis agissent sur tout le groupe.
+  async function mouseSelect() {
+    if (await page.locator('[data-selected]').count() > 0) return
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    for (let i = 1; i <= 10; i++) await page.mouse.move(from.x + ((to.x - from.x) * i) / 10, from.y + ((to.y - from.y) * i) / 10)
+    await page.mouse.up()
+    await page.waitForFunction((n) => document.querySelectorAll('[data-selected]').length === n, fieldIds.length)
+  }
+  const fieldIds = await page.locator('[data-zone="battlefield"] [data-card-id]').evaluateAll((els) => els.map((el) => el.dataset.cardId))
+  const boxes = await page.locator('[data-zone="battlefield"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()))
+  const from = { x: Math.min(...boxes.map((b) => b.left)) - 20, y: Math.min(...boxes.map((b) => b.top)) - 20 }
+  const to = { x: Math.max(...boxes.map((b) => b.right)) + 20, y: Math.max(...boxes.map((b) => b.bottom)) + 20 }
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 10; i++) await page.mouse.move(from.x + ((to.x - from.x) * i) / 10, from.y + ((to.y - from.y) * i) / 10)
+  await page.mouse.up()
+  await page.waitForFunction((n) => document.querySelectorAll('[data-selected]').length === n, fieldIds.length)
+  // Une carte engagée, l'autre non : T engage celle qui ne l'est pas.
+  await page.locator('[data-selected]').last().hover()
+  await page.keyboard.press('t')
+  await page.waitForFunction((list) => list.every((i) => document.querySelector(`[data-card-id="${i}"]`).style.transform.includes('rotate(90deg)')), fieldIds)
+  check(true, `sélection de ${fieldIds.length} cartes : T les engage toutes`)
+  await page.locator('[data-selected]').first().click({ button: 'right' })
+  check(await page.getByRole('menuitem', { name: 'Exil' }).locator('[data-shortcut-hint]').innerText() === 'E', 'menu de la sélection : touches affichées')
+  await page.keyboard.press('Escape')
+  await mouseSelect()
+  // Souris sur une carte du groupe (le jeton copie recouvre en partie l'original).
+  await page.locator('[data-selected]').last().hover()
+  await page.keyboard.press('e')
+  await page.waitForFunction(() => document.querySelectorAll('[data-zone="battlefield"] [data-card-id]').length === 0)
+  check(true, 'sélection : E exile tout le groupe')
+  await page.keyboard.press('Control+z')
+  await page.waitForFunction((n) => document.querySelectorAll('[data-zone="battlefield"] [data-card-id]').length === n, fieldIds.length)
+  await page.keyboard.press('Escape')
+  check(true, 'Ctrl+Z : le groupe revient en jeu')
+  // Le jeton copie quitte le jeu (E sur lui seul) : il ne recouvre plus la carte pour la suite.
+  await page.waitForFunction(() => document.querySelectorAll('[data-selected]').length === 0)
+  await page.locator(`[data-zone="battlefield"] [data-card-id]:not([data-card-id="${id}"])`).hover()
+  await page.keyboard.press('e')
+  await page.waitForFunction(() => document.querySelectorAll('[data-zone="battlefield"] [data-card-id]').length === 1)
+
   // Changer une touche : « Engager / dégager » sur K ; T ne fait plus rien.
   await page.mouse.move(5, 5)
   await page.keyboard.press('?')

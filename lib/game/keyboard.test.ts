@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import {
-  bind, cardShortcutCommands, comboOf, DEFAULT_BINDINGS, isTypingTarget, keyLabel, menuHints, parseBindings, shortcutFor, zoneOf,
+  appliesPerCard, bind, cardShortcutCommands, comboOf, DEFAULT_BINDINGS, isTypingTarget, keyLabel, menuHints, parseBindings, selectionShortcutCommands, shortcutFor, zoneOf,
   type CardShortcut,
 } from './keyboard'
 import { cardMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
+import { selectionMenu } from './selection'
 import { viewFor } from './view'
 import type { GameState, PlayerZone, VisibleCard } from './types'
 
@@ -208,5 +209,44 @@ describe('raccourcis de la carte survolée', () => {
     expect(hintOf(entries, hints, 'Piocher 1')).toBe('D')
     expect(hintOf(entries, hints, 'Mélanger')).toBe('S')
     expect(hintOf(entries, hints, 'Piocher N…')).toBeNull()
+  })
+
+  describe('sélection de plusieurs cartes', () => {
+    const group = (s: GameState, zone: PlayerZone, ids: string[]) => selectionMenu(ctx(s), { zone: { player: 'p1', zone }, ids })
+
+    it('T engage les cartes qui ne le sont pas, G et L ouvrent l’ordre des cartes, E et H rangent', () => {
+      const s = setup()
+      const ids = [card('p1', 2), card('p1', 4)]
+      const entries = group(s, 'battlefield', ids)
+      expect(selectionShortcutCommands(entries, 'tap')).toEqual(ids.map((id) => ({ kind: 'action', action: { type: 'tap', id } })))
+      expect(selectionShortcutCommands(entries, 'toGraveyard')).toEqual([{ kind: 'order', ids, zone: 'graveyard' }])
+      expect(selectionShortcutCommands(entries, 'toLibraryBottom')).toEqual([{ kind: 'order', ids, zone: 'library', position: 'bottom' }])
+      expect(selectionShortcutCommands(entries, 'toExile')).toEqual([{ kind: 'action', action: { type: 'moveMany', ids, zone: 'exile' } }])
+      expect(selectionShortcutCommands(entries, 'toHand')).toEqual([{ kind: 'action', action: { type: 'moveMany', ids, zone: 'hand' } }])
+      expect(selectionShortcutCommands(entries, 'toBattlefield')).toBeNull()
+      expect(selectionShortcutCommands(entries, 'oracle')).toBeNull()
+    })
+
+    it('depuis la main : B pose le groupe en jeu', () => {
+      const s = place(setup(), [{ id: card('p1', 1), player: 'p1', zone: 'hand' }])
+      const ids = [card('p1', 3), card('p1', 1)]
+      expect(selectionShortcutCommands(group(s, 'hand', ids), 'toBattlefield')).toMatchObject([{ kind: 'action', action: { type: 'moveMany', ids, zone: 'battlefield' } }])
+    })
+
+    it('menu du groupe : touches affichées', () => {
+      const s = setup()
+      const entries = group(s, 'battlefield', [card('p1', 2), card('p1', 4)])
+      const hints = menuHints(entries, DEFAULT_BINDINGS)
+      expect(hintOf(entries, hints, 'Engager')).toBe('T')
+      expect(hintOf(entries, hints, 'Cimetière…')).toBe('G')
+      expect(hintOf(entries, hints, 'Dessous de la bibliothèque…')).toBe('Maj+L')
+      expect(hintOf(entries, hints, 'Tout désélectionner')).toBeNull()
+    })
+
+    it('jeton copie et marqueurs : carte par carte', () => {
+      expect(appliesPerCard('copy')).toBe(true)
+      expect(appliesPerCard('plusCounter')).toBe(true)
+      expect(appliesPerCard('oracle')).toBe(false)
+    })
   })
 })
