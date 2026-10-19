@@ -1,4 +1,5 @@
 // Repères d'activité de la table : ce qui a changé entre deux vues successives d'un joueur.
+import { ptText, totalMod } from './pt'
 import type { PlayerView, VisibleCard } from './types'
 
 export type Activity = { changed: string[]; lines: { actor: string; text: string; roll?: true }[] }
@@ -8,7 +9,7 @@ function fingerprints(view: PlayerView): Map<string, string> {
   const out = new Map<string, string>()
   const add = (player: string, zone: string, c: VisibleCard) => {
     const { plus, minus, other } = c.counters
-    const pt = c.ptMod ? `${c.ptMod.power}/${c.ptMod.toughness}` : ''
+    const pt = c.ptMod || c.ptTurn ? ptText(totalMod(c)) : ''
     out.set(c.id, [player, zone, c.tapped, c.flipped, c.faceDown, !!c.rotated, !!c.phasedOut, plus, minus, other, pt, c.loyaltyMod ?? 0, c.x, c.y].join('|'))
   }
   for (const [player, p] of Object.entries(view.players)) {
