@@ -5,8 +5,13 @@ import type { ZoneRef } from '@/lib/game/types'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
 
 /** Enveloppe déplaçable : la carte d'origine s'estompe, l'aperçu suit le pointeur (DragOverlay). */
-export default function Draggable({ id, from, disabled = false, highlight = false, selected = false, faded = false, touchScroll = false, children, className = '', style, onDoubleClick, onContextMenu, onHover, onSelectClick }: {
+export default function Draggable({ id, dragKey, from, disabled = false, highlight = false, selected = false, faded = false, touchScroll = false, children, className = '', style, onDoubleClick, onContextMenu, onHover, onSelectClick }: {
   id: string
+  /**
+   * Identifiant du glisser, s'il diffère de la carte : une même carte affichée deux fois (vignette Cim. et liste,
+   * fenêtre d'une pile) ne doit pas avoir deux glissables du même identifiant, l'un efface l'inscription de l'autre.
+   */
+  dragKey?: string
   from: ZoneRef
   /** Spectateur, partie finie, carte d'un autre non déplaçable : pas de glisser. */
   disabled?: boolean
@@ -28,7 +33,7 @@ export default function Draggable({ id, from, disabled = false, highlight = fals
   /** Maj + clic (ou Ctrl, Cmd) : ajoute la carte à la sélection ou l'en retire. */
   onSelectClick?: () => void
 }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id, data: { from }, disabled })
+  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: dragKey ?? id, data: { from, card: id }, disabled })
   const press = menuGesture(onContextMenu)
   return (
     <div
@@ -37,6 +42,7 @@ export default function Draggable({ id, from, disabled = false, highlight = fals
       {...listeners}
       {...press}
       data-card-id={id}
+      data-drag-key={dragKey ?? id}
       data-highlight={highlight || undefined}
       data-selected={selected || undefined}
       className={`${className} ${isDragging || faded ? 'opacity-30' : ''} ${disabled ? '' : 'cursor-grab active:cursor-grabbing'} ${touchScroll ? 'touch-pan-y' : 'touch-none'} ${longPressClass} ${highlight ? 'ring-2 ring-dc-gold rounded-[6%] transition-shadow' : ''} ${selected ? 'outline outline-2 outline-offset-2 outline-sky-400 rounded-[6%]' : ''}`}

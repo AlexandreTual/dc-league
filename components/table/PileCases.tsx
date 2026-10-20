@@ -8,7 +8,7 @@ import type { Catalog, CardView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
 import GameCard, { CardBack } from './GameCard'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
-import { cardProps, libraryTop, topId, useZone, type ZoneProps } from './zones'
+import { cardProps, libraryTop, tileKey, topId, useZone, type ZoneProps } from './zones'
 
 /** Couleur du liseré d'une carte de la cascade, d'après ses couleurs. */
 const FRAMES: Record<ReturnType<typeof frameOf>, string> = {
@@ -272,9 +272,8 @@ export function PileTiles(props: ZoneProps & {
   onLibraryMenu: (at: MenuPoint) => void
   onPile: (zone: 'graveyard' | 'exile') => void
   /**
-   * Le cimetière est aussi en liste dans la colonne : la vignette Cim. montre sa dernière carte sans la rendre
-   * glissable (on la glisse depuis la liste). Deux éléments glissables pour une même carte se gênent : en quittant
-   * la vignette, l'un efface l'inscription de l'autre et la carte ne se glisse plus depuis la liste.
+   * Le cimetière est aussi en liste dans la colonne : la carte de la vignette Cim. se glisse sous un autre identifiant
+   * (`tileKey`). Deux glissables du même identifiant se gênent : en quittant l'un, l'autre perd son inscription.
    */
   graveyardListed?: boolean
   className?: string
@@ -320,17 +319,13 @@ export function PileTiles(props: ZoneProps & {
     const card = zones[zone][zones[zone].length - 1]
     if (!card) return emptyTile
     if (card.hidden) return <CardBack className="h-full" />
-    if (zone === 'graveyard' && props.graveyardListed) {
-      return (
-        <div className="h-full" data-pile-face={card.id} onMouseEnter={() => props.handlers.onHover(card.id)} onMouseLeave={() => props.handlers.onHover(null)}>
-          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
-        </div>
-      )
-    }
     return (
-      <Draggable {...cardProps(card.id, { player, zone }, props)} className="h-full">
-        <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
-      </Draggable>
+      // data-pile-face : la carte montrée par la vignette (vérifications du navigateur).
+      <div className="h-full" data-pile-face={card.id}>
+        <Draggable {...cardProps(card.id, { player, zone }, props)} dragKey={zone === 'graveyard' && props.graveyardListed ? tileKey(card.id) : undefined} className="h-full">
+          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
+        </Draggable>
+      </div>
     )
   }
 

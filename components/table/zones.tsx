@@ -14,6 +14,10 @@ import { battlefieldStyle, cardSize, DEFAULT_TABLE_SETTINGS, type TableSettings 
 export const dropId = (ref: ZoneRef) => `${ref.player}:${ref.zone}`
 /** Identifiant glissé pour la carte du dessus de la bibliothèque d'un joueur (inconnue du navigateur). */
 export const topId = (player: string) => `top:${player}`
+/** Identifiant glissé d'une carte dans la vignette Cim. (la même carte se glisse aussi depuis la liste du cimetière). */
+export const tileKey = (id: string) => `tile:${id}`
+/** Identifiant glissé d'une carte dans la fenêtre d'une pile (bibliothèque, cimetière, exil). */
+export const pileKey = (id: string) => `pile:${id}`
 
 export type CardHandlers = {
   onDoubleClick: (id: string, zone: ZoneRef) => void
