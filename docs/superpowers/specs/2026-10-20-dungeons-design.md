@@ -71,7 +71,8 @@ Décisions prises pendant la réalisation (le propriétaire dormait, à revoir a
   Souterrains (initiative), sinon le donjon. `dungeon` : donjon choisi quand il faut en commencer un (refusé sinon) ;
   `room` : salle suivante quand il y en a deux (obligatoire alors). Messages : « Choisis un donjon », « On n'entre dans
   Les Souterrains qu'avec l'initiative », « Choisis la salle suivante », « Cette salle n'est pas accessible d'ici »…
-- Action `{ type: 'skipVenture' }` : « Plus tard ». Refusée sans proposition.
+- Action `{ type: 'skipVenture' }` : « Plus tard ». Refusée sans proposition ; journal « n'explore pas Les Souterrains
+  pour l'instant ».
 - Journal, une ligne par déplacement : « entre dans la Mine oubliée de Phancreux : Entrée du souterrain — Regard 1. »,
   « avance dans … : Réserve — … », et à la fin « … — Piochez une carte. Donjon terminé (2 au total). »
 - Vue : tout est public ; `dungeon` et `dungeonsDone` suivent l'état du joueur, `ventureOffers` est envoyé à tous.

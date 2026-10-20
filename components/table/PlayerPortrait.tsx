@@ -7,6 +7,8 @@ import { playerBadges } from '@/lib/game/player-badges'
 import { lifeLevel, portraitCard } from '@/lib/game/player-summary'
 import type { ClientAction } from '@/lib/game/room'
 import type { Catalog, PlayerView } from '@/lib/game/types'
+import type { CardEffects } from '@/lib/table-settings'
+import DungeonToken from './DungeonToken'
 import type { Lang } from './GameCard'
 import PlayerPanel, { opposingCommanders } from './PlayerPanel'
 import { touchTarget } from './touch'
@@ -41,8 +43,10 @@ export default function PlayerPortrait(props: {
   up?: boolean
   /** « Ouvrir dans une fenêtre » (adversaire, en ligne, sur ordinateur). */
   onDetach?: () => void
+  /** Animations activées (fenêtre « Animations ») ; absentes : toutes. */
+  effects?: CardEffects
 }) {
-  const { size, up = false, onDetach, ...panelProps } = props
+  const { size, up = false, onDetach, effects, ...panelProps } = props
   const { view, player, catalogs, lang, host, online, canAct, send, onTitleClick } = panelProps
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -134,6 +138,7 @@ export default function PlayerPortrait(props: {
           ))}
         </div>
       )}
+      <DungeonToken view={view} player={player} animate={effects?.dungeon ?? true} />
       {open && (
         <div ref={bubbleRef} className={`absolute left-0 ${place.up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] overflow-y-auto bg-dc-surface rounded-xl shadow-card`}
           style={{ maxHeight: place.maxHeight }} data-bubble={player}>

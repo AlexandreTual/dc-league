@@ -183,3 +183,40 @@ body {
   .card-lift { animation: none; transform: translateY(-5%); }
   .card-shadow { animation: none; }
 }
+
+/* Donjons : le jeton glisse jusqu'à la nouvelle salle, la salle atteinte s'allume, éclat doré « Donjon terminé ».
+   Seuls `transform` et `opacity` sont animés ; classes posées seulement quand le jeton change de salle sous nos yeux. */
+.dungeon-glide { transition: transform 0.7s cubic-bezier(0.3, 0.8, 0.3, 1); }
+.dungeon-lit {
+  pointer-events: none;
+  background: rgba(240, 208, 128, 0.3);
+  box-shadow: 0 0 0 2px #f0d080, 0 0 14px rgba(240, 208, 128, 0.8);
+  animation: dungeon-lit 1.6s ease-out 0.35s 1 both;
+}
+.dungeon-burst {
+  background: radial-gradient(circle, rgba(240, 208, 128, 0.95), rgba(201, 168, 76, 0.4) 45%, transparent 70%);
+  animation: dungeon-burst 1.2s ease-out 0.5s 1 both;
+}
+.dungeon-done-label { animation: dungeon-done 1.8s ease-out 0.5s 1 both; }
+@keyframes dungeon-lit {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes dungeon-burst {
+  from { transform: scale(0.3); opacity: 1; }
+  to { transform: scale(2); opacity: 0; }
+}
+@keyframes dungeon-done {
+  0% { transform: translateY(8px) scale(0.8); opacity: 0; }
+  20% { transform: translateY(0) scale(1.1); opacity: 1; }
+  75% { transform: translateY(-6px) scale(1); opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+/* Mouvement réduit : le jeton saute à sa place, la salle atteinte reste allumée et « Donjon terminé » s'affiche, immobiles. */
+@media (prefers-reduced-motion: reduce) {
+  .dungeon-glide { transition: none; }
+  .dungeon-lit { animation: none; opacity: 0.7; }
+  .dungeon-burst { display: none; }
+  .dungeon-done-label { animation: none; opacity: 1; }
+}

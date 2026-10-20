@@ -17,6 +17,7 @@ import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/l
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import DiceModal from './DiceModal'
+import DungeonHost from './DungeonHost'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
@@ -509,7 +510,7 @@ export default function Table({ source, notice, boardWindow }: {
    */
   const portraitFor = (player: string, size: 'column' | 'header' = 'column', up = false, onTitleClick?: () => void, onDetach?: () => void) => (
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach} />
+      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach} effects={settings.cardEffects} />
   )
   /** Réserve de mana d'un joueur, posée sur son champ de bataille : modifiable pour la mienne, lecture seule sinon. */
   const manaOf = (player: string) => {
@@ -713,6 +714,7 @@ export default function Table({ source, notice, boardWindow }: {
           </DragOverlay>
         </DndContext>
         <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} />
+        <DungeonHost view={view} canAct={canAct} animate={settings.cardEffects.dungeon} offers={!boardWindow} send={send} />
         {logOpen && <LogPanel view={view} onClose={() => setLogOpen(false)} />}
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
