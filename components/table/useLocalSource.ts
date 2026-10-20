@@ -55,7 +55,7 @@ export function useLocalSource(catalog: Catalog, deckName: string): LocalPhase {
 
   const startGame = useCallback((actions: GameAction[] | null) => {
     if (!actions) clearGame(catalog.deckId)
-    history.current = new GameHistory(setup, actions ?? [startAction([SOLO])])
+    history.current = new GameHistory(setup, actions ?? [startAction([SOLO])], { undoRandom: true })
     saveGame(catalog, history.current.actions)
     setSaved('none')
     // « Nouvelle partie » en cours de jeu : `saved` vaut déjà 'none', seul ce compteur redessine la table
