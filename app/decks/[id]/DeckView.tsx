@@ -17,7 +17,7 @@ import { deckSiteName } from '@/lib/cards/deck-link'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import LanguageMenu from '@/components/i18n/LanguageMenu'
-import { useCardLang } from '@/components/i18n/I18nProvider'
+import { useCardLang, useT } from '@/components/i18n/I18nProvider'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
 export default function DeckView({ deck, playerName, cards, canEdit }: {
@@ -29,12 +29,15 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const router = useRouter()
   const ai = useAi()
   const [lang] = useCardLang()
+  const t = useT()
+  const m = t.decks.page
   const [view, setView] = useState<DeckViewMode>('images')
   const [hover, setHover] = useState<{ card: DeckCardView; x: number; y: number } | null>(null)
   const [selected, setSelected] = useState<DeckCardView | null>(null)
   const [oracle, setOracle] = useState<DeckCardView | null>(null)
   const [error, setError] = useState('')
   const [tokensStatus, setTokensStatus] = useState('')
+  const [tokensBusy, setTokensBusy] = useState(false)
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
   const [importStatus, setImportStatus] = useState('')
   const [importFailed, setImportFailed] = useState(false)
@@ -65,14 +68,16 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
 
   async function updateTokens() {
     setError('')
-    setTokensStatus('Recherche des jetons…')
+    setTokensStatus(m.searchingTokens)
+    setTokensBusy(true)
     const { data, error } = await sendJson(`/api/decks/${deck.id}/tokens`, 'POST', {})
+    setTokensBusy(false)
     if (error) {
       setTokensStatus('')
       return setError(error)
     }
     const count = (data as { count?: number } | null)?.count ?? 0
-    setTokensStatus(count === 0 ? 'Aucun jeton dans ce deck' : `${count} jeton${count > 1 ? 's' : ''} enregistré${count > 1 ? 's' : ''}`)
+    setTokensStatus(count === 0 ? m.noTokens : m.tokensSaved(count))
   }
 
   /** Réimport direct depuis le lien du deck (Moxfield ou Archidekt → Scryfall), sans passer par la liste des decks. */
@@ -82,7 +87,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     setImportFailed(false)
     if (!deck.moxfield_url) return setPasting((open) => !open)
     setPasting(false)
-    const outcome = await importDeckFromLink(deck.id, deck.moxfield_url, { onProgress: setImportProgress })
+    const outcome = await importDeckFromLink(deck.id, deck.moxfield_url, { t, onProgress: setImportProgress })
     setImportProgress(null)
     if (!outcome.ok) {
       setImportFailed(true)
@@ -93,12 +98,12 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
 
   function showImported({ total, frenchCount, notFound }: ImportSummary) {
     const percent = total ? Math.round((frenchCount / total) * 100) : 0
-    setImportStatus(`${total} cartes importées · ${percent} % en français${notFound.length ? ` · ${notFound.length} introuvable(s) : ${notFound.map((n) => n.text).join(', ')}` : ''}`)
+    setImportStatus(m.imported(total, percent, notFound.map((n) => n.text)))
     router.refresh()
   }
 
   const total = cards.reduce((n, c) => n + c.quantity, 0)
-  const groups = groupDeckCards(cards, lang)
+  const groups = groupDeckCards(cards, lang, t)
   const selectedShown = selected ? displayCard(selected, lang) : null
   const hoverShown = hover ? displayCard(hover.card, lang) : null
   const hoverImage = hoverShown?.image_normal ?? null
@@ -113,12 +118,12 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
           <div className="w-20 h-28 rounded-lg bg-dc-surface border border-dc-border" />
         )}
         <div className="flex-1 min-w-0">
-          <h1 className="font-fantasy text-2xl font-bold text-dc-gold break-words">{deck.name}</h1>
+          <h1 className="font-fantasy text-2xl font-bold text-dc-gold break-words" data-user-content>{deck.name}</h1>
           <p className="text-dc-muted text-sm">
-            {playerName} · {total} cartes
+            <span data-user-content>{playerName}</span> · {t.decks.cardCount(total)}
             {deck.moxfield_url && (
               <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="ml-2 text-dc-gold inline-flex items-center gap-1 hover:underline">
-                {deckSiteName(deck.moxfield_url) ?? 'Lien du deck'} <ExternalLink className="w-3 h-3" />
+                {deckSiteName(deck.moxfield_url) ?? t.decks.deckLink} <ExternalLink className="w-3 h-3" />
               </a>
             )}
           </p>
@@ -131,22 +136,22 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               disabled={importProgress !== null}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5${importProgress ? ' animate-spin' : ''}`} /> {importProgress ? 'Import en cours…' : cards.length ? 'Réimporter' : 'Importer'}
+              <RefreshCw className={`w-3.5 h-3.5${importProgress ? ' animate-spin' : ''}`} /> {importProgress ? m.importing : cards.length ? m.reimport : m.import}
             </button>
           )}
           {canEdit && cards.length > 0 && (
-            <button onClick={updateTokens} disabled={tokensStatus === 'Recherche des jetons…'} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50">
-              <Sparkles className="w-3.5 h-3.5" /> Mettre à jour les jetons
+            <button onClick={updateTokens} disabled={tokensBusy} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold disabled:opacity-50">
+              <Sparkles className="w-3.5 h-3.5" /> {m.updateTokens}
             </button>
           )}
           {ai && cards.length > 0 && (
             <button onClick={() => ai.open()} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-gold">
-              <BotMessageSquare className="w-3.5 h-3.5" /> Assistant IA
+              <BotMessageSquare className="w-3.5 h-3.5" /> {m.ai}
             </button>
           )}
           {cards.length > 0 && (
             <Link href={`/decks/${deck.id}/test`} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-gold/40 rounded-lg text-dc-gold hover:bg-dc-gold/10">
-              <Play className="w-3.5 h-3.5" /> Tester le deck
+              <Play className="w-3.5 h-3.5" /> {m.playtest}
             </Link>
           )}
         </div>
@@ -156,12 +161,12 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
       {importProgress && <ImportProgressBar progress={importProgress} />}
       {importFailed && !pasting && (
         <button onClick={() => setPasting(true)} className="text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-muted hover:text-dc-text">
-          Coller la liste à la place
+          {m.pasteInstead}
         </button>
       )}
       {pasting && (
         <div className="bg-dc-surface border border-dc-border rounded-2xl p-4 space-y-2">
-          {!deck.moxfield_url && <p className="text-dc-muted text-xs">Ajoute un lien Moxfield ou Archidekt (Mes decks → ✎) pour réimporter en un clic, ou colle la liste :</p>}
+          {!deck.moxfield_url && <p className="text-dc-muted text-xs">{m.noLinkHelp}</p>}
           <ImportPanel
             deckId={deck.id}
             onDone={(summary) => {
@@ -177,12 +182,12 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
       {tokensStatus && <p className="text-dc-muted text-sm" role="status">{tokensStatus}</p>}
 
       {cards.length === 0 ? (
-        <p className="text-dc-muted text-sm">Ce deck n&apos;a pas encore de liste importée.</p>
+        <p className="text-dc-muted text-sm">{m.noList}</p>
       ) : (
         <>
           <div className="flex justify-end">
-            <div role="group" aria-label="Affichage des cartes" className="inline-flex rounded-lg border border-dc-border p-0.5 text-xs">
-              {([['images', 'Visuels', LayoutGrid], ['list', 'Liste', List]] as const).map(([mode, label, Icon]) => (
+            <div role="group" aria-label={m.viewMode} className="inline-flex rounded-lg border border-dc-border p-0.5 text-xs">
+              {([['images', m.images, LayoutGrid], ['list', m.list, List]] as const).map(([mode, label, Icon]) => (
                 <button
                   key={mode}
                   onClick={() => chooseView(mode)}
@@ -261,8 +266,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
                             <button
                               onClick={openOracle}
                               className={`shrink-0 p-1 rounded text-dc-muted hover:text-dc-gold ${touchTarget}`}
-                              aria-label={`Oracle et règles : ${displayName(card, lang)}`}
-                              title="Oracle et règles"
+                              aria-label={m.oracleOf(displayName(card, lang))}
+                              title={m.oracle}
                             >
                               <BookOpen className="w-3.5 h-3.5" />
                             </button>
@@ -310,10 +315,10 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
                     onClick={() => { setOracle(selected); setSelected(null) }}
                     className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-dc-border bg-dc-surface text-dc-muted hover:text-dc-gold"
                   >
-                    <BookOpen className="w-4 h-4" /> Oracle et règles
+                    <BookOpen className="w-4 h-4" /> {m.oracle}
                   </button>
                 )}
-                <button onClick={() => setSelected(null)} className={`p-1.5 rounded-lg text-dc-muted hover:text-dc-text ${touchTarget}`} aria-label="Fermer">
+                <button onClick={() => setSelected(null)} className={`p-1.5 rounded-lg text-dc-muted hover:text-dc-text ${touchTarget}`} aria-label={m.close}>
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -336,7 +341,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               {canEdit && selected.section !== 'commander' && selected.en?.type_line.includes('Legendary') && (
                 <div className="text-center mt-4">
                   <button onClick={() => makeCommander(selected)} className="inline-flex items-center gap-2 text-sm px-4 py-2 bg-dc-gold/20 border border-dc-gold/40 text-dc-gold rounded-xl hover:bg-dc-gold/30">
-                    <Crown className="w-4 h-4" /> Définir comme commandant
+                    <Crown className="w-4 h-4" /> {m.makeCommander}
                   </button>
                 </div>
               )}

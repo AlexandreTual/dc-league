@@ -6,7 +6,7 @@ const SAME = new Set([
   'Commander League', 'Interface', 'Language / Langue', 'Français', 'English', 'Playoffs', 'Commander', 'Duel Commander',
   'Mulligan', 'Initiative', 'Poison', 'Oracle', 'Visio', 'Total', 'Points', 'Score', 'Message', 'Format', 'Description',
   'Ok', 'OK', 'Admin', 'Email', 'Moxfield', 'Archidekt', 'Gemini', 'Instant', 'Rad', 'Tickets', 'Bushido', 'Absorption',
-  'Annihilator', 'Phasing', 'Champion', '+1/+1', '-1/-1', '…', '',
+  'Annihilator', 'Phasing', 'Champion', 'Planeswalkers', '+1/+1', '-1/-1', '…', '',
 ])
 
 type Leaf = { path: string; fr: string; en: string }

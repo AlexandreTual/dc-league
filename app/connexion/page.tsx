@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { safeRedirectPath } from '@/lib/auth/validation'
 import { countAdmins } from '@/lib/db-auth'
 import { isLeagueInvitePath } from '@/lib/leagues/join'
+import { getMessages } from '@/lib/i18n/server'
 import LoginForm from './LoginForm'
 
 export const runtime = 'edge'
@@ -15,7 +16,7 @@ export default async function ConnexionPage({ searchParams }: { searchParams: Pr
   if (await getCurrentUser()) redirect(target)
 
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data: admins } = await countAdmins(env.DB)
+  const [{ data: admins }, t] = await Promise.all([countAdmins(env.DB), getMessages()])
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -24,11 +25,11 @@ export default async function ConnexionPage({ searchParams }: { searchParams: Pr
           <div className="w-16 h-16 rounded-full bg-dc-gold/10 border border-dc-gold/30 flex items-center justify-center mx-auto">
             <LogIn className="w-8 h-8 text-dc-gold" />
           </div>
-          <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Connexion</h1>
-          <p className="text-dc-muted text-sm">Connecte-toi avec le pseudo choisi lors de ton invitation</p>
+          <h1 className="font-fantasy text-2xl font-bold text-dc-gold">{t.account.login.title}</h1>
+          <p className="text-dc-muted text-sm">{t.account.login.intro}</p>
           {isLeagueInvitePath(target) && (
             <p className="text-dc-text text-sm bg-dc-gold/10 border border-dc-gold/30 rounded-lg px-3 py-2">
-              Connecte-toi pour rejoindre la ligue. Pas encore de compte ? Demande une invitation à l&apos;administrateur.
+              {t.account.login.leagueInvite}
             </p>
           )}
         </div>
