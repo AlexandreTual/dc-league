@@ -86,7 +86,7 @@ export default function RulesPage() {
           </div>
         </div>
         <p className="text-dc-muted text-xs text-center mt-4">
-          En cas d&apos;égalité au classement : la différence de manches (GW−GL) est utilisée comme critère de départage.
+          À égalité de points au classement : la différence de manches (GW−GL), puis le nombre de victoires, puis la confrontation directe (entre eux seuls à trois ou plus), puis un tirage au sort fixe.
         </p>
       </div>
 

@@ -143,7 +143,9 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
       })}
 
       <p className="text-center text-dc-muted text-xs pt-2">
-        Top 4 qualifiés pour les demi-finales · Tri : Points puis différence de manches (GW−GL)
+        Top 4 qualifiés pour les demi-finales · Tri : points, différence de manches (GW−GL), puis victoires
+        <br />
+        À égalité : confrontation directe, puis tirage au sort.
       </p>
     </div>
   )

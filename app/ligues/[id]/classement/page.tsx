@@ -39,7 +39,7 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
 
   const enrolledIds = new Set((leaguePlayers ?? []).map((lp) => lp.player_id))
   const enrolledPlayers = (players ?? []).filter((p) => enrolledIds.has(p.id))
-  const leaderboard = computeLeaderboard(enrolledPlayers, completedMatches ?? [])
+  const leaderboard = computeLeaderboard(enrolledPlayers, completedMatches ?? [], id)
   const deckMap = new Map((leaguePlayers ?? []).map((lp) => [lp.player_id, lp]))
   const leaderboardWithDecks = leaderboard.map((p) => {
     const lp = deckMap.get(p.id)

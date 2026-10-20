@@ -56,7 +56,7 @@ export function POST(req: NextRequest, { params }: Params) {
 
     const enrolledIds = new Set(leaguePlayers.data.map((lp) => lp.player_id))
     const enrolledPlayers = allPlayers.data.filter((p) => enrolledIds.has(p.id))
-    const leaderboard = computeLeaderboard(enrolledPlayers as Player[], matches.data as Match[])
+    const leaderboard = computeLeaderboard(enrolledPlayers as Player[], matches.data as Match[], id)
 
     if (leaderboard.length < 4) {
       return badRequest(`Il faut au moins 4 joueurs inscrits pour générer les playoffs (${leaderboard.length} inscrits).`)

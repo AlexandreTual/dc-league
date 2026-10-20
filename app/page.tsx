@@ -47,6 +47,7 @@ async function loadSeason(db: D1Database, viewer: Viewer) {
   const podium = computeLeaderboard(
     (players.data ?? []).filter((p) => enrolledIds.has(p.id)),
     completed.data ?? [],
+    league.id,
   ).slice(0, 3)
   return {
     state: 'ok' as const,
