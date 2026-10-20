@@ -53,7 +53,10 @@ describe('viewFor', () => {
     const s = applyAction(game(), { type: 'look', actor: 'p1', target: 'p2', count: 3 })
     expect(viewFor(s, 'p1').log.at(-1)?.text).toMatch(/^Tu as vu : /)
     expect(viewFor(s, 'p2').log.some((l) => l.text.startsWith('Tu as vu'))).toBe(false)
-    expect(viewFor(s, 'p2').log.at(-1)).toEqual({ turn: s.turn, actor: 'p1', text: 'regarde les 3 cartes du dessus de la bibliothèque de Bob' })
+    expect(viewFor(s, 'p2').log.at(-1)).toEqual({
+      turn: s.turn, actor: 'p1', text: 'regarde les 3 cartes du dessus de la bibliothèque de Bob',
+      msg: { key: 'look', params: { n: 3, p: { player: 'p2' } } },
+    })
   })
 
   it('journal tronqué aux 200 dernières lignes visibles ; logStart donne le rang de la première', () => {
