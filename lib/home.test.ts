@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { en, fr } from '@/lib/i18n/messages'
 import { features, seasonProgress } from './home'
 
 const player = { isAdmin: false, isBootstrap: false }
-const byKey = (user: Parameters<typeof features>[0]) => Object.fromEntries(features(user).map((f) => [f.key, f]))
+const byKey = (user: Parameters<typeof features>[0]) => Object.fromEntries(features(user, fr).map((f) => [f.key, f]))
 
 describe('features', () => {
   it('présente la ligue, les decks, le mode test, le jeu en ligne, les statistiques et les règles', () => {
-    expect(features(null).map((f) => f.key)).toEqual(['ligue', 'decks', 'test', 'enligne', 'stats', 'regles'])
+    expect(features(null, fr).map((f) => f.key)).toEqual(['ligue', 'decks', 'test', 'enligne', 'stats', 'regles'])
   })
 
   it('visiteur : les rubriques réservées mènent à la connexion, puis à la bonne page', () => {
@@ -29,6 +30,15 @@ describe('features', () => {
     const f = byKey({ isAdmin: true, isBootstrap: true })
     expect(f.decks.locked).toBe(true)
     expect(f.enligne.locked).toBe(true)
+  })
+})
+
+describe('features en anglais', () => {
+  it('textes du dictionnaire, liens inchangés', () => {
+    const f = Object.fromEntries(features(null, en).map((x) => [x.key, x]))
+    expect(f.ligue).toMatchObject({ title: 'Leagues', cta: 'See the leagues', href: '/ligues' })
+    expect(f.enligne).toMatchObject({ title: 'Online games', href: '/connexion?from=/salon' })
+    expect(features(null, fr)[0].title).toBe('Les ligues')
   })
 })
 

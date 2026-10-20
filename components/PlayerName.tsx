@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import Image from 'next/image'
 import { useT } from '@/components/i18n/I18nProvider'
+import Image from 'next/image'
 
 interface Props {
   name: string

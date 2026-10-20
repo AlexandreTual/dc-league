@@ -5,6 +5,7 @@ import { loadVisibleLeague } from '@/lib/leagues/load'
 import { Trophy } from 'lucide-react'
 import PlayoffBracket from './PlayoffBracket'
 import LoadError from '@/components/LoadError'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -14,8 +15,9 @@ export default async function PlayoffsPage({ params }: { params: Promise<{ id: s
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const access = await loadVisibleLeague(id)
-  if (!access) return <LoadError what="les playoffs" />
+  const [access, t] = await Promise.all([loadVisibleLeague(id), getMessages()])
+  const p = t.leagues.playoffs
+  if (!access) return <LoadError what={p.loadWhat} />
 
   const [
     { data: playoffs, error: playoffsError },
@@ -26,7 +28,7 @@ export default async function PlayoffsPage({ params }: { params: Promise<{ id: s
     listPlayers(db),
     listLeaguePlayers(db, id),
   ])
-  if (playoffsError || playersError || leaguePlayersError) return <LoadError what="les playoffs" />
+  if (playoffsError || playersError || leaguePlayersError) return <LoadError what={p.loadWhat} />
 
   const playerMap: Record<string, DbPlayer> = {}
   for (const p of players ?? []) playerMap[p.id] = p
@@ -49,9 +51,9 @@ export default async function PlayoffsPage({ params }: { params: Promise<{ id: s
           <div className="gold-divider w-16" />
         </div>
         <h2 className="font-fantasy text-2xl md:text-3xl font-bold text-dc-gold">
-          Playoffs — Top 4
+          {p.title}
         </h2>
-        <p className="text-dc-muted text-sm">Phase finale</p>
+        <p className="text-dc-muted text-sm">{p.subtitle}</p>
       </div>
 
       <PlayoffBracket playoffs={playoffs ?? [] as DbPlayoff[]} playerMap={playerMap} deckMap={deckMap} />

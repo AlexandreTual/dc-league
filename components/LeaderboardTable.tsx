@@ -1,5 +1,8 @@
+'use client'
+
 import Link from 'next/link'
-import { PlayerStats } from '@/lib/leaderboard'
+import type { PlayerStats } from '@/lib/leaderboard'
+import { useT } from '@/components/i18n/I18nProvider'
 import { ExternalLink, Trophy } from 'lucide-react'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import PlayerName from './PlayerName'
@@ -17,11 +20,12 @@ const rankBg = [
 ]
 
 export default function LeaderboardTable({ players, totalPlayers }: Props) {
+  const t = useT().leagues.leaderboard
   if (players.length === 0) {
     return (
       <div className="text-center py-20 text-dc-muted">
         <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
-        <p>Aucun joueur inscrit pour le moment.</p>
+        <p>{t.empty}</p>
       </div>
     )
   }
@@ -70,7 +74,7 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
-                      title={`Voir le deck sur ${deckSiteName(player.moxfield_url) ?? 'son site'}`}
+                      title={t.viewDeckOn(deckSiteName(player.moxfield_url) ?? t.itsSite)}
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
@@ -86,7 +90,7 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                   </p>
                 )}
                 <div className="text-dc-muted text-xs mt-0.5">
-                  {player.played}/{totalPlayers - 1} matchs joués
+                  {t.matchesPlayed(player.played, totalPlayers - 1)}
                 </div>
               </div>
 
@@ -94,21 +98,21 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
               <div className="hidden sm:grid grid-cols-4 gap-4 text-center shrink-0">
                 <div>
                   <div className="text-dc-green-light font-bold text-sm">{player.wins}</div>
-                  <div className="text-dc-muted text-xs">V</div>
+                  <div className="text-dc-muted text-xs">{t.wins}</div>
                 </div>
                 <div>
                   <div className="text-dc-muted font-bold text-sm">{player.draws}</div>
-                  <div className="text-dc-muted text-xs">N</div>
+                  <div className="text-dc-muted text-xs">{t.draws}</div>
                 </div>
                 <div>
                   <div className="text-dc-red-light font-bold text-sm">{player.losses}</div>
-                  <div className="text-dc-muted text-xs">D</div>
+                  <div className="text-dc-muted text-xs">{t.losses}</div>
                 </div>
                 <div>
                   <div className={`font-bold text-sm ${diff >= 0 ? 'text-dc-green-light' : 'text-dc-red-light'}`}>
                     {diff > 0 ? '+' : ''}{diff}
                   </div>
-                  <div className="text-dc-muted text-xs">Diff</div>
+                  <div className="text-dc-muted text-xs">{t.diff}</div>
                 </div>
               </div>
 
@@ -117,24 +121,24 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
                 <div className={`font-fantasy font-bold text-xl ${rank === 1 ? 'text-dc-gold' : 'text-dc-text'}`}>
                   {player.points}
                 </div>
-                <div className="text-dc-muted text-xs">pts</div>
+                <div className="text-dc-muted text-xs">{t.pts}</div>
               </div>
             </div>
 
             {/* Mobile stats row */}
             <div className="sm:hidden flex justify-around mt-3 pt-3 border-t border-dc-border/50 text-center">
               <div>
-                <div className="text-dc-green-light font-bold text-sm">{player.wins}V</div>
+                <div className="text-dc-green-light font-bold text-sm">{t.winsN(player.wins)}</div>
               </div>
               <div>
-                <div className="text-dc-muted font-bold text-sm">{player.draws}N</div>
+                <div className="text-dc-muted font-bold text-sm">{t.drawsN(player.draws)}</div>
               </div>
               <div>
-                <div className="text-dc-red-light font-bold text-sm">{player.losses}D</div>
+                <div className="text-dc-red-light font-bold text-sm">{t.lossesN(player.losses)}</div>
               </div>
               <div>
                 <div className={`font-bold text-sm ${diff >= 0 ? 'text-dc-green-light' : 'text-dc-red-light'}`}>
-                  Diff {diff > 0 ? '+' : ''}{diff}
+                  {t.diffN(`${diff > 0 ? '+' : ''}${diff}`)}
                 </div>
               </div>
             </div>
@@ -143,7 +147,7 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
       })}
 
       <p className="text-center text-dc-muted text-xs pt-2">
-        Top 4 qualifiés pour les demi-finales · Tri : Points puis différence de manches (GW−GL)
+        {t.footer}
       </p>
     </div>
   )
