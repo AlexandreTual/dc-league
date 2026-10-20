@@ -9,6 +9,7 @@ import { ptStats, ptText, type PtValue } from '@/lib/game/pt'
 import { NO_EFFECTS, type AbilityStyle, type CardEffects } from '@/lib/table-settings'
 import { AbilityBadges } from './abilities'
 import type { MenuPoint } from './touch'
+import { useT } from '@/components/i18n/I18nProvider'
 
 export type Lang = 'fr' | 'en'
 
@@ -31,13 +32,14 @@ const statClass = (v: PtValue) => (v.delta > 0 ? 'text-dc-green-light' : v.delta
  * le glisser ni le menu de la carte.
  */
 function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalog; onEdit?: (at: MenuPoint) => void }) {
+  const c = useT().table.card
   const loyalty = loyaltyStats(catalog, card)
   const stats = loyalty ? null : ptStats(catalog, card)
   if (!loyalty && !stats) return null
   const text = loyalty ? loyalty.text : `${stats!.power.text}/${stats!.toughness.text}`
   // Modification jusqu'à la fin du tour : liseré en pointillés (comme une capacité donnée pour ce tour), détail au survol.
   const turn = !loyalty && card.ptTurn && (card.ptTurn.power !== 0 || card.ptTurn.toughness !== 0) ? ptText(card.ptTurn) : null
-  const label = loyalty ? `Loyauté ${text}` : `Force et endurance ${text}${turn ? `, dont ${turn} jusqu’à la fin du tour` : ''}`
+  const label = loyalty ? c.loyalty(text) : c.pt(text, turn)
   const data = loyalty ? { 'data-loyalty': text } : { 'data-pt': text, ...(turn ? { 'data-pt-turn': turn } : {}) }
   const content = loyalty
     ? <span className={statClass(loyalty)}>{loyalty.text}</span>
@@ -67,7 +69,7 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
       type="button"
       className={`${box} isolate pointer-events-auto cursor-pointer ${loyalty ? '[@media(pointer:coarse)]:w-[max(2.25rem,18cqw)]' : 'hover:border-dc-gold [@media(pointer:coarse)]:min-w-[max(2rem,20cqw)] [@media(pointer:coarse)]:min-h-6'}`}
       {...data}
-      aria-label={`${label} : modifier`}
+      aria-label={c.edit(label)}
       title={turn ? label : undefined}
       onPointerDown={stop}
       onMouseDown={stop}
@@ -127,6 +129,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   arriving?: Arrival
   abilityStyle?: AbilityStyle
 }) {
+  const c = useT().table.card
   if (!card) return null
   if (card.hidden) return <CardBack className={className} />
   const data = cardInfo(catalog, card, lang)
@@ -137,7 +140,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
     <>
       <div className="absolute inset-0 opacity-35 grayscale">{content}</div>
       <span className="absolute inset-0 flex items-center justify-center pointer-events-none" data-phased-out>
-        <span className={`${badgeClass} rounded bg-black/75 px-1 py-0.5`}>Hors phase</span>
+        <span className={`${badgeClass} rounded bg-black/75 px-1 py-0.5`}>{c.phasedOut}</span>
       </span>
     </>
   )
@@ -153,7 +156,8 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
 
   const { plus, minus, other } = card.counters
   const net = plus - minus
-  const badge = tokenBadge(card)
+  const badgeKind = tokenBadge(card)
+  const badge = badgeKind && (badgeKind === 'Copie' ? c.copyBadge : c.tokenBadge)
   const legendary = effects.legendary && isLegendary(catalog, card)
   const flying = effects.flying && !card.tapped && !phasedOut && hasFlying(catalog, card)
   const commander = effects.commander && !!arriving && commanderEntrance(card)
@@ -191,7 +195,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
       </div>
       {ptBox}
       {tax > 0 && (
-        <span className="absolute bottom-1 inset-x-1 text-center rounded bg-black/75 text-dc-gold text-[10px] font-semibold">Taxe +{tax}</span>
+        <span className="absolute bottom-1 inset-x-1 text-center rounded bg-black/75 text-dc-gold text-[10px] font-semibold">{c.tax(tax)}</span>
       )}
     </>
   )

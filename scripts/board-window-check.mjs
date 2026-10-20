@@ -24,7 +24,7 @@ function listen(page, label, frames) {
 }
 
 async function openAs(player, options = {}) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: 1280, height: 900 }, ...options })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
   const frames = []

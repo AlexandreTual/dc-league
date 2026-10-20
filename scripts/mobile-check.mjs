@@ -12,7 +12,7 @@ mkdirSync(out, { recursive: true })
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
 const WIDTH = 375
-const context = await browser.newContext({ viewport: { width: WIDTH, height: 812 }, hasTouch: true, isMobile: true })
+const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: WIDTH, height: 812 }, hasTouch: true, isMobile: true })
 await context.addCookies([{ name: 'dc_session', value: 'jeton-de-test-e2e-1', url: base }])
 const page = await context.newPage()
 

@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Minus, Plus, X } from 'lucide-react'
 import { cardSrcSet } from '@/lib/cards/images'
 import type { CardPreview } from '@/lib/game/card-preview'
+import { useT } from '@/components/i18n/I18nProvider'
+import type { Messages } from '@/lib/i18n/messages'
 import { menuPosition, touchTarget } from './touch'
 
 export type MenuItem =
@@ -35,6 +37,7 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
   preview?: CardPreview | null
   onClose: () => void
 }) {
+  const t = useT()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number; maxHeight?: number }>({ left: x, top: y })
 
@@ -80,17 +83,17 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
       {preview ? (
         <div className="w-60 flex flex-col">
           <button className="self-end h-11 px-3 flex items-center gap-1.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onClose}>
-            <X className="w-4 h-4" /> Fermer
+            <X className="w-4 h-4" /> {t.menus.ui.close}
           </button>
           {preview.abilities?.map((line) => <p key={line} className="px-3 py-1 text-xs text-dc-gold-light" data-testid="menu-abilities">{line}</p>)}
-          {menuItems(items, onClose)}
+          {menuItems(items, onClose, t)}
         </div>
-      ) : menuItems(items, onClose)}
+      ) : menuItems(items, onClose, t)}
     </div>
   )
 }
 
-function menuItems(items: MenuItem[], onClose: () => void) {
+function menuItems(items: MenuItem[], onClose: () => void, t: Messages) {
   return (
     <>
       {items.map((item, i) => {
@@ -100,11 +103,11 @@ function menuItems(items: MenuItem[], onClose: () => void) {
           return (
             <div key={i} className="flex items-center gap-2 px-3 py-1 text-dc-text">
               <span className="flex-1 flex items-center gap-2">{item.label}<ShortcutHint keys={item.shortcut} /></span>
-              <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(-1)} aria-label={`${item.label} moins`}><Minus className="w-3 h-3" /></button>
+              <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(-1)} aria-label={t.menus.ui.minus(item.label)}><Minus className="w-3 h-3" /></button>
               {item.onSet
                 ? <NumberField key={`${item.label}:${item.value}`} label={item.label} value={item.value} onSet={item.onSet} signed={item.signed} />
                 : <span className="w-6 text-center">{item.value}</span>}
-              <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(1)} aria-label={`${item.label} plus`}><Plus className="w-3 h-3" /></button>
+              <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(1)} aria-label={t.menus.ui.plus(item.label)}><Plus className="w-3 h-3" /></button>
             </div>
           )
         }
@@ -133,6 +136,7 @@ function menuItems(items: MenuItem[], onClose: () => void) {
  * accepté (force, endurance), avec un clavier qui l'offre.
  */
 function NumberField({ label, value, onSet, signed = false }: { label: string; value: number | string; onSet: (value: number) => void; signed?: boolean }) {
+  const t = useT()
   const [draft, setDraft] = useState(String(value))
   const commit = () => {
     const n = Number.parseInt(draft, 10)
@@ -144,7 +148,7 @@ function NumberField({ label, value, onSet, signed = false }: { label: string; v
       type="text"
       inputMode={signed ? 'text' : 'numeric'}
       pattern={signed ? undefined : '[0-9]*'}
-      aria-label={`${label} : nombre`}
+      aria-label={t.menus.ui.number(label)}
       className="w-9 rounded bg-dc-bg border border-dc-border text-center text-dc-text focus:outline-none focus:border-dc-gold [@media(pointer:coarse)]:min-h-8"
       value={draft}
       onFocus={(e) => e.currentTarget.select()}

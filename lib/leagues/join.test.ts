@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { inviteUrl, isLeagueInvitePath, joinRefusal, JOIN_TOO_LATE, LEAGUE_FINISHED } from './join'
+import { inviteUrl, isLeagueInvitePath, joinBlock, joinRefusal, JOIN_TOO_LATE, LEAGUE_FINISHED } from './join'
+
+describe('joinBlock', () => {
+  it('raison du refus, clé du texte de la langue', () => {
+    expect(joinBlock({ is_active: true }, 0)).toBeNull()
+    expect(joinBlock({ is_active: true }, 3)).toBe('tooLate')
+    expect(joinBlock({ is_active: false }, 0)).toBe('leagueFinished')
+  })
+})
 
 describe('joinRefusal', () => {
   it('ligue en cours sans match : possible', () => {

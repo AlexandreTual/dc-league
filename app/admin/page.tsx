@@ -10,6 +10,7 @@ import LoadError from '@/components/LoadError'
 import { loadFailed } from '@/lib/load'
 import { aiAdminStatus } from '@/lib/ai/admin'
 import { unfinishedTables } from '@/lib/db-games'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -25,7 +26,7 @@ export default async function AdminPage() {
     Promise.all([listPlayers(db), listAccountStatuses(db, new Date()), listLeagues(db), unfinishedTables(db)]),
     aiAdminStatus(env, new Date()),
   ])
-  if (loadFailed(...results)) return <LoadError what="l'administration" />
+  if (loadFailed(...results)) return <LoadError what={(await getMessages()).admin.dashboard.loadWhat} />
   const [players, statuses, leagues, tables] = results
 
   return (

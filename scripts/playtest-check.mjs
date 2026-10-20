@@ -7,7 +7,7 @@ if (!deckId) throw new Error('deckId manquant')
 
 const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const browser = await chromium.launch({ executablePath })
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const page = await browser.newPage({ locale: 'fr-FR', viewport: { width: 1440, height: 900 } })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 

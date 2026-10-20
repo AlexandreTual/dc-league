@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Heart, LayoutGrid } from 'lucide-react'
 import type { PlayerView } from '@/lib/game/types'
+import { useT } from '@/components/i18n/I18nProvider'
 
 const COLUMNS = ['grid-cols-1', 'grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-5']
 
@@ -17,6 +18,7 @@ export default function OpponentsArea({ view, players, renderStrip, renderBoard 
   renderBoard: (player: string) => React.ReactNode
 }) {
   const [focus, setFocus] = useState<string | null>(null)
+  const t = useT()
   const focused = players.length === 1 ? players[0] : focus && players.includes(focus) ? focus : null
 
   if (focused) {
@@ -25,7 +27,7 @@ export default function OpponentsArea({ view, players, renderStrip, renderBoard 
         {players.length > 1 && (
           <div className="flex items-center gap-1.5" role="tablist">
             <button className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={() => setFocus(null)}>
-              <LayoutGrid className="w-3.5 h-3.5" /> Tous
+              <LayoutGrid className="w-3.5 h-3.5" /> {t.table.opponents.all}
             </button>
             {players.map((p) => (
               <button

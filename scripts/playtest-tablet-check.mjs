@@ -19,7 +19,7 @@ function check(condition, message) {
 
 /** Page tactile à la taille donnée, avec ses outils (captures, appui long). */
 async function open({ width, height }) {
-  const context = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport: { width, height }, hasTouch: true, isMobile: true })
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
   page.on('pageerror', (e) => errors.push(e.message))

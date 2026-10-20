@@ -2,7 +2,8 @@
 
 import { Castle } from 'lucide-react'
 import { trackPoint } from '@/lib/game/dungeon-fx'
-import { DUNGEONS, dungeonDone, roomOf, rowsOf } from '@/lib/game/dungeons'
+import { DUNGEONS, dungeonDone, dungeonText, roomOf, roomText, rowsOf } from '@/lib/game/dungeons'
+import { useCardLang, useT } from '@/components/i18n/I18nProvider'
 import type { PlayerView } from '@/lib/game/types'
 import { openDungeon } from './dungeon'
 import { useDungeonFx } from './useDungeonFx'
@@ -12,21 +13,24 @@ import { useDungeonFx } from './useDungeonFx'
  * Toucher ouvre le plan. Rien sans donjon (ou avec un serveur de jeu plus ancien).
  */
 export default function DungeonToken({ view, player, animate }: { view: PlayerView; player: string; animate: boolean }) {
+  const d = useT().table.dungeons
+  const [lang] = useCardLang()
   const p = view.players[player]
   const position = p?.dungeon && DUNGEONS[p.dungeon.id] && roomOf(p.dungeon.id, p.dungeon.room) ? p.dungeon : undefined
   const done = p?.dungeonsDone ?? 0
   const fx = useDungeonFx(position, done, animate)
   if (!position && done === 0) return null
-  const dungeon = position && DUNGEONS[position.id]
-  const room = position && roomOf(position.id, position.room)
+  const dungeon = position && dungeonText(position.id, lang)
+  const found = position && roomOf(position.id, position.room)
+  const room = found && { ...found, ...roomText(found, lang) }
   const finished = !!position && dungeonDone(position)
   const rows = position ? rowsOf(position.id) : 0
   return (
     <div className="relative mt-1">
       <button type="button" onClick={() => openDungeon({ player, ...(position ? { dungeon: position.id } : {}) })}
         className="w-full flex items-center gap-1.5 px-1.5 py-0.5 tablet:min-h-11 rounded-md border border-dc-gold/40 bg-dc-bg/60 text-[10px] text-dc-text hover:border-dc-gold text-left"
-        title={dungeon && room ? `${dungeon.name} : ${room.name} — ${room.text}` : 'Donjons terminés'}
-        aria-label={`Donjon de ${p.name}`} data-dungeon={player} data-dungeon-id={position?.id} data-dungeon-room={position?.room}>
+        title={dungeon && room ? d.roomTitle(dungeon.name, room.name, room.text) : d.allDone}
+        aria-label={d.tokenAria(p.name)} data-dungeon={player} data-dungeon-id={position?.id} data-dungeon-room={position?.room}>
         <Castle className="w-3.5 h-3.5 shrink-0 text-dc-gold" />
         {dungeon && room && (
           <span className="min-w-0 flex-1 flex flex-col">
@@ -47,13 +51,13 @@ export default function DungeonToken({ view, player, animate }: { view: PlayerVi
             </span>
           </span>
         )}
-        {!position && <span className="flex-1 text-dc-muted">Donjons</span>}
-        {done > 0 && <span className="shrink-0 text-dc-gold tabular-nums" title={`${done} donjon${done > 1 ? 's' : ''} terminé${done > 1 ? 's' : ''}`} data-testid="dungeons-done">✓ {done}</span>}
+        {!position && <span className="flex-1 text-dc-muted">{d.title}</span>}
+        {done > 0 && <span className="shrink-0 text-dc-gold tabular-nums" title={d.doneCount(done)} data-testid="dungeons-done">✓ {done}</span>}
       </button>
       {fx?.finish && (
         <span key={fx.n} className="pointer-events-none absolute inset-x-0 -top-2 flex justify-center" data-testid="dungeon-finish" aria-live="polite">
           <span className="dungeon-burst absolute w-16 h-16 -top-6 rounded-full" aria-hidden />
-          <span className="dungeon-done-label relative px-2 py-0.5 rounded-full bg-dc-gold text-[#1a1408] text-[10px] font-semibold whitespace-nowrap">Donjon terminé</span>
+          <span className="dungeon-done-label relative px-2 py-0.5 rounded-full bg-dc-gold text-[#1a1408] text-[10px] font-semibold whitespace-nowrap">{d.finished}</span>
         </span>
       )}
     </div>

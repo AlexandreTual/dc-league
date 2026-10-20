@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { assertSameOrigin } from './origin'
 import type { CurrentUser } from './types'
+import type { Lang } from '@/lib/i18n/lang'
+import { localizeError } from '@/lib/i18n/errors'
 
 export const INTERNAL_ERROR = 'Erreur interne, réessaie plus tard'
 
@@ -19,7 +21,12 @@ export type ApiContext = {
   body: Record<string, unknown>
 }
 
-export type ApiDeps = { getUser: () => Promise<CurrentUser | null>; getEnv: () => CloudflareEnv }
+export type ApiDeps = {
+  getUser: () => Promise<CurrentUser | null>
+  getEnv: () => CloudflareEnv
+  /** Langue de la requête : les messages d'erreur (écrits en français) y sont traduits à la sortie. Absente : français. */
+  getLang?: () => Promise<Lang>
+}
 
 const json = (error: string, status: number) => NextResponse.json({ error }, { status })
 
@@ -64,9 +71,21 @@ async function readBody(req: Request): Promise<Record<string, unknown> | null> {
 
 /**
  * Socle commun des routes API : contrôle d'origine sur les écritures, droits, lecture JSON tolérante,
- * et toute exception transformée en 500 générique en français (détail journalisé).
+ * toute exception transformée en 500 générique (détail journalisé), message d'erreur dans la langue de la requête.
  */
 export async function handleApi(
+  req: Request,
+  access: Access,
+  run: (ctx: ApiContext) => Promise<NextResponse>,
+  deps: ApiDeps,
+): Promise<NextResponse> {
+  const res = await handle(req, access, run, deps)
+  if (!deps.getLang || res.status < 400) return res
+  const lang = await deps.getLang().catch((): Lang => 'fr')
+  return localizeError(res, lang)
+}
+
+async function handle(
   req: Request,
   access: Access,
   run: (ctx: ApiContext) => Promise<NextResponse>,

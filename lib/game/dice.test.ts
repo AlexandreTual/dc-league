@@ -106,7 +106,7 @@ describe('roll en ligne', () => {
     const next = applyAction(s, roll(6, 2))
     expect(viewFor(next, 'p2').log.at(-1)).toMatchObject({ actor: 'p1', roll: true })
     const mine = diffViews(viewFor(s, 'p1'), viewFor(next, 'p1'), 'p1')
-    expect(mine.lines).toEqual([{ actor: 'p1', text: next.log.at(-1)!.text, roll: true }])
+    expect(mine.lines).toEqual([{ actor: 'p1', text: next.log.at(-1)!.text, roll: true, msg: next.log.at(-1)!.msg }])
   })
 })
 

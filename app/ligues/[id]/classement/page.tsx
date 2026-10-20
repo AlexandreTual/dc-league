@@ -9,6 +9,7 @@ import LeaderboardTable from '@/components/LeaderboardTable'
 import LoadError from '@/components/LoadError'
 import { loadFailed } from '@/lib/load'
 import { Sword, Trophy } from 'lucide-react'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -18,8 +19,9 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const access = await loadVisibleLeague(id)
-  if (!access) return <LoadError what="le classement" />
+  const [access, t] = await Promise.all([loadVisibleLeague(id), getMessages()])
+  const s = t.leagues.standings
+  if (!access) return <LoadError what={s.loadWhat} />
 
   const me = access.isMember && access.viewer ? access.viewer.playerId : null
   const [playersRes, completedRes, countRes, leaguePlayersRes, myDecksRes] = await Promise.all([
@@ -31,7 +33,7 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
   ])
   const players = playersRes.data
   if (loadFailed(playersRes, completedRes, countRes, leaguePlayersRes, myDecksRes)) {
-    return <LoadError what="le classement" />
+    return <LoadError what={s.loadWhat} />
   }
   const completedMatches = completedRes.data
   const totalMatchCount = countRes.data
@@ -66,14 +68,14 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
         />
       )}
       <div className="text-center space-y-3">
-        <p className="text-dc-muted text-sm">Duel Commander · Round Robin · Top 4</p>
+        <p className="text-dc-muted text-sm">{s.format}</p>
 
         {(totalMatchCount ?? 0) > 0 && (
           <div className="inline-flex items-center gap-2 bg-dc-surface border border-dc-border rounded-full px-4 py-1.5 text-sm">
             <Sword className="w-3.5 h-3.5 text-dc-gold" />
             <span className="text-dc-muted">
               <span className="text-dc-text font-semibold">{completedMatches?.length ?? 0}</span>
-              {' '}/ {totalMatchCount} matchs joués
+              {' '}{s.ofMatchesPlayed(totalMatchCount ?? 0)}
             </span>
           </div>
         )}
@@ -82,8 +84,8 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
       {(totalMatchCount ?? 0) === 0 ? (
         <div className="text-center py-16 text-dc-muted">
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p>La ligue n&apos;a pas encore démarré.</p>
-          <p className="text-sm mt-1">{enrolledPlayers.length} joueur{enrolledPlayers.length > 1 ? 's' : ''} inscrit{enrolledPlayers.length > 1 ? 's' : ''}.</p>
+          <p>{s.notStarted}</p>
+          <p className="text-sm mt-1">{s.enrolledDot(enrolledPlayers.length)}</p>
         </div>
       ) : (
         <LeaderboardTable

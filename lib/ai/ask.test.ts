@@ -4,7 +4,7 @@ import { cardRow } from '@/test/factories'
 import { upsertCards } from '@/lib/db-cards'
 import { getAiUsage, takeAiQuestion } from '@/lib/db-ai'
 import type { Ruling } from '@/lib/cards/types'
-import { askAi, parseAskBody, type AskDeps } from './ask'
+import { askAi, parseAskBody, promptOptions, type AskDeps } from './ask'
 import { GeminiError } from './gemini'
 import { parisDay } from './quota'
 import type { GeminiContent } from './types'
@@ -45,6 +45,20 @@ describe('parseAskBody', () => {
     expect(parseAskBody({ oracleIds: ids, messages: 'a' }).ok).toBe(false)
   })
 
+  it('langue des cartes facultative, ignorée si inconnue', () => {
+    const body = { oracleIds: ['oracle-sol'], messages: question }
+    expect(parseAskBody({ ...body, cardLang: 'fr' })).toMatchObject({ ok: true, cardLang: 'fr' })
+    expect(parseAskBody({ ...body, cardLang: 'de' })).not.toHaveProperty('cardLang')
+    expect(parseAskBody(body)).not.toHaveProperty('cardLang')
+  })
+
+  it('noms français si l’interface ou les cartes sont en français', () => {
+    expect(promptOptions('fr')).toEqual({ lang: 'fr', frenchNames: true })
+    expect(promptOptions('en')).toEqual({ lang: 'en', frenchNames: false })
+    expect(promptOptions('en', 'en')).toEqual({ lang: 'en', frenchNames: false })
+    expect(promptOptions('en', 'fr')).toEqual({ lang: 'en', frenchNames: true })
+  })
+
   it('accepte des réponses longues de l’IA dans l’historique', () => {
     const messages = [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'y'.repeat(5000) }, { role: 'user', text: 'b' }]
     expect(parseAskBody({ oracleIds: ['oracle-sol'], messages }).ok).toBe(true)
@@ -57,10 +71,12 @@ describe('askAi', () => {
   const messages = [{ role: 'user' as const, text: 'Explique cette carte' }]
   let db: D1Database
   let sent: GeminiContent[][]
+  let systems: string[]
 
   beforeEach(async () => {
     db = createTestDb()
     sent = []
+    systems = []
     await upsertCards(db, [cardRow(), cardRow({ id: 'sol-fr', lang: 'fr', printed_name: 'Anneau solaire' })], now)
   })
 
@@ -69,7 +85,8 @@ describe('askAi', () => {
       db,
       now,
       gemini: {
-        async ask(_system, contents) {
+        async ask(system, contents) {
+          systems.push(system)
           sent.push(contents)
           return 'Voici la réponse.'
         },
@@ -85,6 +102,19 @@ describe('askAi', () => {
     const text = sent[0][0].parts[0].text
     expect(text).toContain('Anneau solaire')
     expect(text).toContain('Sol Ring is colorless.')
+  })
+
+  it('en anglais : consigne et cartes en anglais, sans noms français', async () => {
+    expect((await askAi(deps(), 'u1', ['oracle-sol'], messages, promptOptions('en'))).status).toBe(200)
+    expect(systems[0]).toMatch(/Answer in English/)
+    const text = sent[0][0].parts[0].text
+    expect(text).toContain('Cards in question:')
+    expect(text).not.toContain('Anneau solaire')
+  })
+
+  it('en français par défaut', async () => {
+    await askAi(deps(), 'u1', ['oracle-sol'], messages)
+    expect(systems[0]).toMatch(/Réponds en français/)
   })
 
   it('sans clé : indisponible, rien de compté', async () => {

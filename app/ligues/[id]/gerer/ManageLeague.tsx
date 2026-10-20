@@ -13,6 +13,7 @@ import RoundRobinPanel from '@/components/admin/RoundRobinPanel'
 import { useAdminApi } from '@/components/admin/useAdminApi'
 import InvitePanel from '@/components/leagues/InvitePanel'
 import LeagueSettings from '@/components/leagues/LeagueSettings'
+import { useT } from '@/components/i18n/I18nProvider'
 
 interface Props {
   league: DbLeague
@@ -36,6 +37,7 @@ export default function ManageLeague({
   leaguePlayers: initialLeaguePlayers, initialDecks, playerIdsWithHistory, inviteToken,
 }: Props) {
   const router = useRouter()
+  const t = useT()
   const api = useAdminApi()
   const { toast, showToast, call } = api
 
@@ -63,7 +65,7 @@ export default function ManageLeague({
     if (!ok) return
     setMatches([])
     setPlayoffs([])
-    showToast('Matchs et playoffs réinitialisés')
+    showToast(t.leagues.manage.reset)
     router.refresh()
   }
 
@@ -77,7 +79,7 @@ export default function ManageLeague({
   async function handleCloseLeague() {
     const { ok } = await call<DbLeague>(`/api/leagues/${league.id}/close`, 'POST')
     if (!ok) return
-    showToast(`Ligue « ${league.name} » clôturée !`)
+    showToast(t.leagues.manage.closed(league.name))
     router.push(`/ligues/${league.id}/classement`)
     router.refresh()
   }

@@ -29,7 +29,7 @@ const errors = []
 const browserRequests = []
 
 async function openAs(player, options = {}) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: 1280, height: 900 }, ...options })
   if (player) await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
   page.on('pageerror', (e) => errors.push(`${player?.name ?? 'visiteur'} : ${e.message}`))

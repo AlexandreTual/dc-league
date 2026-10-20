@@ -23,7 +23,7 @@ function check(condition, message) {
 }
 
 async function openAs(player, { viewport = { width: 1280, height: 900 }, mobile = false, reducedMotion, settings } = {}) {
-  const context = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile, reducedMotion })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport, hasTouch: mobile, isMobile: mobile, reducedMotion })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   if (settings) await context.addInitScript((s) => localStorage.setItem('dc-table-settings', s), JSON.stringify(settings))
   const page = await context.newPage()

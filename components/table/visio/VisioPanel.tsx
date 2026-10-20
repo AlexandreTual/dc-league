@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, GripVertical, Mic, MicOff, PhoneOff, Video, VideoOff, X } from 'lucide-react'
 import {
-  clampPanelPosition, clampPanelWidth, loadPanelPosition, loadPanelWidth, savePanelPosition, savePanelWidth, tileColumns,
+  clampPanelPosition, clampPanelWidth, loadPanelPosition, loadPanelWidth, savePanelPosition, savePanelWidth, tileColumns, VISIO_MSG,
   type PanelPosition,
 } from '@/lib/visio/protocol'
+import { useT } from '@/components/i18n/I18nProvider'
 import type { Visio } from './useVisio'
 
 const iconButton =
@@ -44,6 +45,11 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
   const [width, setWidth] = useState(() => loadPanelWidth(storage()))
   const [position, setPosition] = useState<PanelPosition>(() => loadPanelPosition(storage()))
   const [collapsed, setCollapsed] = useState(false)
+  const t = useT()
+  const v = t.table.visio
+  // Message du navigateur (écrit en français par `useVisio`) : affiché dans la langue de l'interface s'il est connu.
+  const noticeKey = (Object.keys(VISIO_MSG) as (keyof typeof VISIO_MSG)[]).find((k) => VISIO_MSG[k] === visio.notice)
+  const notice = noticeKey ? v.notices[noticeKey] : visio.notice
   const panel = useRef<HTMLDivElement>(null)
   const resize = useRef<{ x: number; width: number; available: number } | null>(null)
   const move = useRef<{ x: number; y: number; from: PanelPosition } | null>(null)
@@ -105,31 +111,31 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
   return (
     <div ref={panel} className="absolute z-40 rounded-xl border border-dc-gold/40 bg-dc-surface/95 shadow-xl overflow-hidden select-none"
       style={{ width, right: position.right, top: position.top }} data-testid="visio-panel" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
-      <div className="flex flex-wrap items-center gap-1 px-1.5 py-1 cursor-move touch-none" data-testid="visio-bar" title="Tirer pour déplacer"
+      <div className="flex flex-wrap items-center gap-1 px-1.5 py-1 cursor-move touch-none" data-testid="visio-bar" title={v.move}
         onPointerDown={onMoveStart} onPointerMove={onMoveMove} onPointerUp={onMoveEnd} onPointerCancel={onMoveEnd}>
         <GripVertical className="w-3.5 h-3.5 text-dc-muted shrink-0" aria-hidden />
-        <span className="font-fantasy text-xs text-dc-gold mr-auto truncate min-w-0">Visio</span>
+        <span className="font-fantasy text-xs text-dc-gold mr-auto truncate min-w-0">{v.title}</span>
         <button className={iconButton} onClick={() => visio.setMic(!visio.mic)} disabled={!visio.hasMic}
-          aria-label={visio.mic ? 'Couper le micro' : 'Activer le micro'} title={visio.mic ? 'Couper le micro' : 'Activer le micro'} data-testid="visio-mic">
+          aria-label={visio.mic ? v.micOff : v.micOn} title={visio.mic ? v.micOff : v.micOn} data-testid="visio-mic">
           {visio.mic ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5 text-dc-red-light" />}
         </button>
         <button className={iconButton} onClick={() => visio.setCam(!visio.cam)} disabled={!visio.hasCam}
-          aria-label={visio.cam ? 'Couper la caméra' : 'Activer la caméra'} title={visio.cam ? 'Couper la caméra' : 'Activer la caméra'} data-testid="visio-cam">
+          aria-label={visio.cam ? v.camOff : v.camOn} title={visio.cam ? v.camOff : v.camOn} data-testid="visio-cam">
           {visio.cam ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5 text-dc-red-light" />}
         </button>
-        <button className={iconButton} onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Agrandir la visio' : 'Réduire la visio'}
-          title={collapsed ? 'Agrandir' : 'Réduire'} data-testid="visio-collapse">
+        <button className={iconButton} onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? v.expandAria : v.collapseAria}
+          title={collapsed ? v.expand : v.collapse} data-testid="visio-collapse">
           {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
-        <button className={`${iconButton} text-dc-red-light`} onClick={visio.leave} aria-label="Quitter la visio" title="Quitter la visio" data-testid="visio-leave">
+        <button className={`${iconButton} text-dc-red-light`} onClick={visio.leave} aria-label={v.leave} title={v.leave} data-testid="visio-leave">
           <PhoneOff className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {visio.notice && (
         <div className="flex items-start gap-1 px-2 pb-1 text-[11px] leading-snug text-dc-red-light" role="alert" data-testid="visio-notice">
-          <span className="flex-1">{visio.notice}</span>
-          <button onClick={visio.dismissNotice} aria-label="Fermer"><X className="w-3 h-3" /></button>
+          <span className="flex-1">{notice}</span>
+          <button onClick={visio.dismissNotice} aria-label={t.common.close}><X className="w-3 h-3" /></button>
         </div>
       )}
 
@@ -138,7 +144,7 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
           <div className="relative aspect-[4/3] bg-black/60">
             <StreamVideo stream={visio.local} muted mirrored hidden={!visio.cam} />
             <span className="absolute inset-x-0 bottom-1 text-center text-[11px] text-dc-muted px-2" data-testid="visio-waiting">
-              En attente des autres joueurs…
+              {v.waiting}
             </span>
           </div>
         ) : (
@@ -153,7 +159,7 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
                 )}
                 {r.state !== 'connected' && (
                   <span className="absolute inset-x-0 top-1 text-center text-[10px] text-dc-muted">
-                    {r.state === 'failed' || r.state === 'disconnected' ? 'Connexion perdue…' : 'Connexion…'}
+                    {r.state === 'failed' || r.state === 'disconnected' ? v.lost : v.connecting}
                   </span>
                 )}
                 <span className="absolute left-1 bottom-1 flex items-center gap-1 rounded bg-black/60 px-1 text-[10px] text-dc-text">
@@ -176,7 +182,7 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
       {!collapsed && (
         <div className="absolute left-0 bottom-0 w-5 h-5 tablet:w-8 tablet:h-8 cursor-nesw-resize touch-none" data-testid="visio-resize"
           onPointerDown={onResizeStart} onPointerMove={onResizeMove} onPointerUp={onResizeEnd} onPointerCancel={onResizeEnd}
-          aria-label="Tirer pour changer la taille" title="Tirer pour changer la taille">
+          aria-label={v.resize} title={v.resize}>
           <svg viewBox="0 0 10 10" className="absolute left-1 bottom-1 w-2.5 h-2.5 text-dc-gold/80" aria-hidden>
             <path d="M1 1 L1 9 L9 9" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>

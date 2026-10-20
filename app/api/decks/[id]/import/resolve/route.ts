@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { localized } from '@/lib/auth/api'
 import { INTERNAL_ERROR, loadEditableDeck } from '@/lib/cards/deck-access'
 import { validateBatch } from '@/lib/cards/parse'
 import { resolveLines } from '@/lib/cards/resolve'
@@ -6,7 +7,7 @@ import { createScryfallClient, ScryfallUnavailableError } from '@/lib/cards/scry
 
 export const runtime = 'edge'
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const POST = localized(async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await loadEditableDeck(req, params)
   if (ctx instanceof NextResponse) return ctx
 
@@ -24,4 +25,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     console.error('[import]', e)
     return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
   }
-}
+})

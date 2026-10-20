@@ -3,14 +3,16 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { isActive, leagueTabs } from '@/lib/nav'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Onglets d'une ligue, défilables sur téléphone. */
 export default function LeagueTabs(props: { leagueId: string; hasPlayoffs: boolean; canManage: boolean }) {
   const pathname = usePathname()
+  const t = useT()
   return (
-    <nav aria-label="Pages de la ligue" className="-mx-4 px-4 overflow-x-auto">
+    <nav aria-label={t.nav.leagueTabs} className="-mx-4 px-4 overflow-x-auto">
       <div className="flex gap-1 border-b border-dc-border min-w-max">
-        {leagueTabs(props).map(({ href, label }) => {
+        {leagueTabs(props, t).map(({ href, label }) => {
           const active = isActive(href, pathname, 'tab')
           return (
             <Link

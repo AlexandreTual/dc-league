@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['**/*.test.ts'],
-    exclude: ['node_modules/**', '.next/**', '.vercel/**'],
+    exclude: ['node_modules/**', '.next/**', '.vercel/**', '.claude/**'],
   },
   resolve: {
     alias: { '@': path.dirname(fileURLToPath(import.meta.url)) },

@@ -11,6 +11,7 @@ import AiSettingsPanel from '@/components/admin/AiSettingsPanel'
 import type { AiAdminStatus } from '@/lib/ai/admin'
 import GamesPanel from '@/components/admin/GamesPanel'
 import type { GameTable } from '@/lib/db-games'
+import { useT } from '@/components/i18n/I18nProvider'
 
 interface Props {
   players: Player[]
@@ -25,6 +26,7 @@ interface Props {
 /** Administration du site : comptes et invitations, gestion de toutes les ligues, parties en cours, assistant IA. */
 export default function AdminDashboard({ players, accountStatuses, leagues, ai, tables, currentUserId, isBootstrap }: Props) {
   const { toast, showToast, call } = useAdminApi()
+  const t = useT().admin.dashboard
 
   return (
     <div className="space-y-8">
@@ -38,7 +40,7 @@ export default function AdminDashboard({ players, accountStatuses, leagues, ai, 
         <div className="w-10 h-10 rounded-full bg-dc-gold/10 border border-dc-gold/30 flex items-center justify-center">
           <Shield className="w-5 h-5 text-dc-gold" />
         </div>
-        <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Administration</h1>
+        <h1 className="font-fantasy text-2xl font-bold text-dc-gold">{t.title}</h1>
       </div>
 
       <AccountsPanel
@@ -51,13 +53,13 @@ export default function AdminDashboard({ players, accountStatuses, leagues, ai, 
 
       <section className="space-y-3" aria-labelledby="toutes-ligues">
         <h2 id="toutes-ligues" className="font-fantasy font-bold text-dc-text flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-dc-gold" /> Toutes les ligues ({leagues.length})
+          <Trophy className="w-5 h-5 text-dc-gold" /> {t.allLeagues(leagues.length)}
         </h2>
         <p className="text-dc-muted text-sm">
-          Privées comprises. Chaque ligue se gère depuis son onglet « Gérer », ouvert aux admins sur toutes les ligues.
+          {t.allLeaguesHelp}
         </p>
         {leagues.length === 0 ? (
-          <p className="text-dc-muted text-sm">Aucune ligue pour le moment.</p>
+          <p className="text-dc-muted text-sm">{t.noLeague}</p>
         ) : (
           <div className="space-y-2">{leagues.map((l) => <LeagueCard key={l.id} league={l} manage />)}</div>
         )}

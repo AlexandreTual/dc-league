@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import {
-  appliesPerCard, bind, cardShortcutCommands, comboOf, DEFAULT_BINDINGS, isTypingTarget, keyLabel, menuHints, parseBindings, selectionShortcutCommands, shortcutFor, zoneOf,
+  appliesPerCard, bind, SHORTCUTS, shortcutLabel, cardShortcutCommands, comboOf, DEFAULT_BINDINGS, isTypingTarget, keyLabel, menuHints, parseBindings, selectionShortcutCommands, shortcutFor, zoneOf,
   type CardShortcut,
 } from './keyboard'
 import { cardMenu, libraryMenu, type MenuContext, type MenuEntry } from './menus'
 import { selectionMenu } from './selection'
 import { viewFor } from './view'
+import { en, fr } from '@/lib/i18n/messages'
 import type { GameState, PlayerZone, VisibleCard } from './types'
 
 const el = (tagName: string, extra: Record<string, unknown> = {}) => ({ tagName, isContentEditable: false, ...extra }) as unknown as EventTarget
@@ -67,10 +68,19 @@ describe('comboOf et keyLabel', () => {
   it('normalise et affiche', () => {
     expect(comboOf(key('X', { ctrlKey: true, shiftKey: true }))).toBe('ctrl+shift+x')
     expect(comboOf(key('ArrowUp', { shiftKey: true }))).toBe('shift+arrowup')
-    expect(keyLabel('ctrl+shift+x')).toBe('Ctrl+Maj+X')
-    expect(keyLabel('space')).toBe('Espace')
-    expect(keyLabel('ctrl++')).toBe('Ctrl++')
-    expect(keyLabel('+')).toBe('+')
+    expect(keyLabel('ctrl+shift+x', fr)).toBe('Ctrl+Maj+X')
+    expect(keyLabel('space', fr)).toBe('Espace')
+    expect(keyLabel('ctrl++', fr)).toBe('Ctrl++')
+    expect(keyLabel('+', fr)).toBe('+')
+    expect(keyLabel('ctrl+shift+x', en)).toBe('Ctrl+Shift+X')
+    expect(keyLabel('space', en)).toBe('Space')
+  })
+
+  it('descriptions des raccourcis dans la langue de l’interface, touches inchangées', () => {
+    expect(shortcutLabel('draw', fr)).toBe('Piocher une carte')
+    expect(shortcutLabel('draw', en)).toBe('Draw a card')
+    expect(shortcutLabel('tap', en)).toBe('Tap / untap')
+    expect(SHORTCUTS.find((s) => s.id === 'draw')?.key).toBe('d')
   })
 })
 
@@ -122,7 +132,7 @@ describe('raccourcis de la carte survolée', () => {
     { id: card('p2', 2), player: 'p2', zone: 'battlefield' },
     { id: card('p2', 4), player: 'p2', zone: 'graveyard' },
   ])
-  const ctx = (s: GameState): MenuContext => ({ me: 'p1', view: viewFor(s, 'p1'), catalogs: s.catalogs, lang: 'fr', readOnly: false })
+  const ctx = (s: GameState): MenuContext => ({ me: 'p1', view: viewFor(s, 'p1'), catalogs: s.catalogs, lang: 'fr', t: fr, readOnly: false })
   const visible = (s: GameState, id: string) => {
     const c = s.cards[id]
     return { hidden: false, id, owner: c.owner, ref: c.ref, token: c.token, isCommander: c.isCommander, tapped: c.tapped, flipped: c.flipped,
@@ -189,7 +199,7 @@ describe('raccourcis de la carte survolée', () => {
     const c = visible(s, id)
     const zone = { player: 'p1', zone: 'battlefield' as const }
     const entries = cardMenu(ctx(s), c, zone)
-    const hints = menuHints(entries, DEFAULT_BINDINGS, { card: c, zone })
+    const hints = menuHints(entries, DEFAULT_BINDINGS, fr, { card: c, zone })
     expect(hintOf(entries, hints, 'Engager')).toBe('T')
     expect(hintOf(entries, hints, 'Créer un jeton copie')).toBe('X')
     expect(hintOf(entries, hints, 'Cimetière')).toBe('G')
@@ -197,15 +207,15 @@ describe('raccourcis de la carte survolée', () => {
     expect(hintOf(entries, hints, '+1/+1')).toBe('- +')
     expect(hintOf(entries, hints, 'Pivoter à 180°')).toBeNull()
     expect(hintOf(entries, hints, 'Mettre devant')).toBeNull()
-    const custom = menuHints(entries, bind(DEFAULT_BINDINGS, 'tap', 'space').bindings, { card: c, zone })
+    const custom = menuHints(entries, bind(DEFAULT_BINDINGS, 'tap', 'space').bindings, fr, { card: c, zone })
     expect(hintOf(entries, custom, 'Engager')).toBe('Espace')
-    expect(hintOf(entries, menuHints(entries, bind(DEFAULT_BINDINGS, 'toGraveyard', null).bindings, { card: c, zone }), 'Cimetière')).toBeNull()
+    expect(hintOf(entries, menuHints(entries, bind(DEFAULT_BINDINGS, 'toGraveyard', null).bindings, fr, { card: c, zone }), 'Cimetière')).toBeNull()
   })
 
   it('menu de la bibliothèque : piocher et mélanger', () => {
     const s = setup()
     const entries = libraryMenu(ctx(s), 'p1')
-    const hints = menuHints(entries, DEFAULT_BINDINGS)
+    const hints = menuHints(entries, DEFAULT_BINDINGS, fr)
     expect(hintOf(entries, hints, 'Piocher 1')).toBe('D')
     expect(hintOf(entries, hints, 'Mélanger')).toBe('S')
     expect(hintOf(entries, hints, 'Piocher N…')).toBeNull()
@@ -236,7 +246,7 @@ describe('raccourcis de la carte survolée', () => {
     it('menu du groupe : touches affichées', () => {
       const s = setup()
       const entries = group(s, 'battlefield', [card('p1', 2), card('p1', 4)])
-      const hints = menuHints(entries, DEFAULT_BINDINGS)
+      const hints = menuHints(entries, DEFAULT_BINDINGS, fr)
       expect(hintOf(entries, hints, 'Engager')).toBe('T')
       expect(hintOf(entries, hints, 'Cimetière…')).toBe('G')
       expect(hintOf(entries, hints, 'Dessous de la bibliothèque…')).toBe('Maj+L')

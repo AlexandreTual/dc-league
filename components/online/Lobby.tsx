@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GameTable } from '@/lib/db-games'
+import { useT } from '@/components/i18n/I18nProvider'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
 const REFRESH_MS = 5000
-const FORMAT_LABELS = { commander: 'Commander', duel: 'Duel Commander' } as const
 const smallButton = 'px-3 py-1.5 rounded-lg text-sm border border-dc-gold/40 text-dc-gold bg-dc-gold/10 hover:bg-dc-gold/20'
 
 /** Salon : tables ouvertes (à rejoindre) et en cours (à regarder), création d'une table. */
 export default function Lobby({ me, initialTables }: { me: string; initialTables: GameTable[] }) {
+  const t = useT()
   const router = useRouter()
   const [tables, setTables] = useState(initialTables)
   const [format, setFormat] = useState<'commander' | 'duel'>('commander')
@@ -42,31 +43,32 @@ export default function Lobby({ me, initialTables }: { me: string; initialTables
     router.push(`/tables/${id}`)
   }
 
-  const open = tables.filter((t) => t.status === 'open')
-  const playing = tables.filter((t) => t.status === 'playing')
+  const open = tables.filter((table) => table.status === 'open')
+  const playing = tables.filter((table) => table.status === 'playing')
+  const formats = t.online.formats
 
   return (
     <div className="space-y-6">
       {error && <p className={errorClass}>{error}</p>}
 
       <section className={cardClass}>
-        <h2 className="font-fantasy text-dc-gold">Tables ouvertes</h2>
-        {open.length === 0 && <p className="text-dc-muted text-sm">Aucune table ouverte pour l&apos;instant.</p>}
+        <h2 className="font-fantasy text-dc-gold">{t.online.lobby.openTables}</h2>
+        {open.length === 0 && <p className="text-dc-muted text-sm">{t.online.lobby.noOpenTables}</p>}
         <ul className="divide-y divide-dc-border" data-testid="open-tables">
-          {open.map((t) => {
-            const seated = t.players.some((p) => p.playerId === me)
-            const host = t.players.find((p) => p.playerId === t.hostPlayerId)?.name ?? '?'
+          {open.map((table) => {
+            const seated = table.players.some((p) => p.playerId === me)
+            const host = table.players.find((p) => p.playerId === table.hostPlayerId)?.name ?? '?'
             return (
-              <li key={t.id} className="py-2 flex items-center gap-3" data-table-id={t.id}>
+              <li key={table.id} className="py-2 flex items-center gap-3" data-table-id={table.id}>
                 <div className="flex-1 text-sm">
-                  <p className="text-dc-text">{FORMAT_LABELS[t.format]} · table de {host}</p>
-                  <p className="text-dc-muted">{t.players.length}/{t.seats} joueurs : {t.players.map((p) => p.name).join(', ')}</p>
+                  <p className="text-dc-text">{t.online.lobby.hostTable(formats[table.format], host)}</p>
+                  <p className="text-dc-muted">{t.online.lobby.seatsLine(table.players.length, table.seats, table.players.map((p) => p.name).join(', '))}</p>
                 </div>
                 {seated ? (
-                  <button className={smallButton} onClick={() => router.push(`/tables/${t.id}`)}>Retourner à la table</button>
+                  <button className={smallButton} onClick={() => router.push(`/tables/${table.id}`)}>{t.online.lobby.backToTable}</button>
                 ) : (
-                  <button className={smallButton} disabled={t.players.length >= t.seats} onClick={() => join(t.id)}>
-                    {t.players.length >= t.seats ? 'Complète' : 'Rejoindre'}
+                  <button className={smallButton} disabled={table.players.length >= table.seats} onClick={() => join(table.id)}>
+                    {table.players.length >= table.seats ? t.online.lobby.full : t.online.lobby.join}
                   </button>
                 )}
               </li>
@@ -76,15 +78,15 @@ export default function Lobby({ me, initialTables }: { me: string; initialTables
       </section>
 
       <section className={cardClass}>
-        <h2 className="font-fantasy text-dc-gold">Parties en cours</h2>
-        {playing.length === 0 && <p className="text-dc-muted text-sm">Aucune partie en cours.</p>}
+        <h2 className="font-fantasy text-dc-gold">{t.online.lobby.playing}</h2>
+        {playing.length === 0 && <p className="text-dc-muted text-sm">{t.online.lobby.noPlaying}</p>}
         <ul className="divide-y divide-dc-border">
-          {playing.map((t) => {
-            const seated = t.players.some((p) => p.playerId === me)
+          {playing.map((table) => {
+            const seated = table.players.some((p) => p.playerId === me)
             return (
-              <li key={t.id} className="py-2 flex items-center gap-3">
-                <p className="flex-1 text-sm text-dc-text">{FORMAT_LABELS[t.format]} · {t.players.map((p) => p.name).join(', ')}</p>
-                <button className={smallButton} onClick={() => router.push(`/tables/${t.id}`)}>{seated ? 'Reprendre' : 'Regarder'}</button>
+              <li key={table.id} className="py-2 flex items-center gap-3">
+                <p className="flex-1 text-sm text-dc-text">{formats[table.format]} · {table.players.map((p) => p.name).join(', ')}</p>
+                <button className={smallButton} onClick={() => router.push(`/tables/${table.id}`)}>{seated ? t.online.lobby.resume : t.online.lobby.watch}</button>
               </li>
             )
           })}
@@ -92,29 +94,29 @@ export default function Lobby({ me, initialTables }: { me: string; initialTables
       </section>
 
       <form className={cardClass} onSubmit={create}>
-        <h2 className="font-fantasy text-dc-gold">Créer une table</h2>
+        <h2 className="font-fantasy text-dc-gold">{t.online.lobby.create}</h2>
         <div className="grid grid-cols-2 gap-4">
           <label>
-            <span className={labelClass}>Format</span>
+            <span className={labelClass}>{t.online.lobby.format}</span>
             <select className={inputClass} value={format} onChange={(e) => setFormat(e.target.value as 'commander' | 'duel')}>
-              <option value="commander">Commander</option>
-              <option value="duel">Duel Commander</option>
+              <option value="commander">{formats.commander}</option>
+              <option value="duel">{formats.duel}</option>
             </select>
           </label>
           {format === 'commander' && (
             <label>
-              <span className={labelClass}>Places</span>
+              <span className={labelClass}>{t.online.lobby.seats}</span>
               <select className={inputClass} value={seats} onChange={(e) => setSeats(Number(e.target.value))}>
-                {[2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} joueurs</option>)}
+                {[2, 3, 4, 5].map((n) => <option key={n} value={n}>{t.online.lobby.players(n)}</option>)}
               </select>
             </label>
           )}
         </div>
         <label className="flex items-center gap-2 text-sm text-dc-text">
           <input type="checkbox" checked={seeAll} onChange={(e) => setSeeAll(e.target.checked)} />
-          Un joueur éliminé voit toutes les cartes
+          {t.online.lobby.seeAll}
         </label>
-        <button className={primaryButtonClass} disabled={busy}>Créer la table</button>
+        <button className={primaryButtonClass} disabled={busy}>{t.online.lobby.createButton}</button>
       </form>
     </div>
   )

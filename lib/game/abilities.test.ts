@@ -1,18 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { abilityRule, abilitiesLog, abilitiesSummary, abilityText, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, nextAbilities, takesParam } from './abilities'
+import { en, fr } from '@/lib/i18n/messages'
+import { abilityName, abilityRule, abilitiesLog, abilitiesSummary, abilityText, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, nextAbilities, takesParam } from './abilities'
 
 describe('liste des capacités', () => {
   it('43 capacités, noms de Scryfall, libellés français, chacune dans un seul groupe', () => {
     expect(KEYWORDS).toHaveLength(43)
     expect(KEYWORD_GROUPS.flatMap((g) => g.keywords)).toEqual([...KEYWORDS])
-    expect(keywordLabel('Annihilator')).toBe('Annihilateur')
-    expect(keywordLabel('Forestwalk')).toBe('Traversée des forêts')
-    expect(keywordLabel('Undying')).toBe('Survivance')
-    expect(keywordLabel('Shadow')).toBe('Distorsion')
-    expect(keywordLabel('Ward')).toBe('Parade')
-    expect(keywordLabel('Flying')).toBe('Vol')
-    expect(keywordLabel('First strike')).toBe('Initiative')
-    expect(keywordLabel('Hexproof')).toBe('Défense talismanique')
+    expect(keywordLabel('Annihilator', fr)).toBe('Annihilateur')
+    expect(keywordLabel('Forestwalk', fr)).toBe('Traversée des forêts')
+    expect(keywordLabel('Undying', fr)).toBe('Survivance')
+    expect(keywordLabel('Shadow', fr)).toBe('Distorsion')
+    expect(keywordLabel('Ward', fr)).toBe('Parade')
+    expect(keywordLabel('Flying', fr)).toBe('Vol')
+    expect(keywordLabel('First strike', fr)).toBe('Initiative')
+    expect(keywordLabel('Hexproof', fr)).toBe('Défense talismanique')
   })
 })
 
@@ -36,9 +37,9 @@ describe('nextAbilities', () => {
 
 describe('abilitiesSummary', () => {
   it('capacités données (« ce tour » pour celles de fin de tour) et perdues, en toutes lettres ; aucune : rien', () => {
-    expect(abilitiesSummary({ gained: [{ keyword: 'Trample' }, { keyword: 'Haste', untilEndOfTurn: true }], lost: ['Flying'] }))
+    expect(abilitiesSummary({ gained: [{ keyword: 'Trample' }, { keyword: 'Haste', untilEndOfTurn: true }], lost: ['Flying'] }, fr))
       .toEqual(['Capacités données : Piétinement, Célérité (ce tour)', 'Capacités perdues : Vol'])
-    expect(abilitiesSummary({})).toEqual([])
+    expect(abilitiesSummary({}, fr)).toEqual([])
   })
 })
 
@@ -73,7 +74,7 @@ describe('capacités à paramètre', () => {
       .toBe('donne Annihilateur 2 et Toxique 1 à Ulamog')
     expect(abilitiesLog('Ulamog', { gained: [{ keyword: 'Annihilator', param: '2' }] }, { gained: [{ keyword: 'Annihilator', param: '4' }] }))
       .toBe('change Annihilateur de Ulamog : 4')
-    expect(abilitiesSummary({ gained: [{ keyword: 'Afterlife', param: '3' }, { keyword: 'Forestwalk' }] }))
+    expect(abilitiesSummary({ gained: [{ keyword: 'Afterlife', param: '3' }, { keyword: 'Forestwalk' }] }, fr))
       .toEqual(['Capacités données : Après-vie 3, Traversée des forêts'])
   })
 
@@ -111,30 +112,58 @@ describe('capacités à paramètre', () => {
       .toBe('change Protection de Elfes : contre le bleu')
     expect(abilitiesLog('Elfes', { gained: [{ keyword: 'Ward', param: '{2}' }] }, { gained: [{ keyword: 'Ward', param: '{3}' }] }))
       .toBe('change Parade de Elfes : {3}')
-    expect(abilitiesSummary({ gained: [{ keyword: 'Protection', param: 'all', untilEndOfTurn: true }] }))
+    expect(abilitiesSummary({ gained: [{ keyword: 'Protection', param: 'all', untilEndOfTurn: true }] }, fr))
       .toEqual(['Capacités données : Protection contre tout (ce tour)'])
   })
 })
 
 describe('abilityRule', () => {
   it('chaque capacité a son texte des règles', () => {
-    for (const k of KEYWORDS) expect(abilityRule(k).length).toBeGreaterThan(20)
-    expect(abilityRule('Shadow')).toBe('Cette créature ne peut bloquer ou être bloquée que par des créatures avec la distorsion.')
+    for (const k of KEYWORDS) expect(abilityRule(k, fr).length).toBeGreaterThan(20)
+    expect(abilityRule('Shadow', fr)).toBe('Cette créature ne peut bloquer ou être bloquée que par des créatures avec la distorsion.')
   })
 
   it('valeur à la place de « N », au singulier pour 1 ; sans valeur : « N »', () => {
-    expect(abilityRule('Annihilator', '2')).toBe('À chaque fois que cette créature attaque, le joueur défenseur sacrifie 2 permanents.')
-    expect(abilityRule('Annihilator', '1')).toBe('À chaque fois que cette créature attaque, le joueur défenseur sacrifie 1 permanent.')
-    expect(abilityRule('Afflict', '1')).toBe('À chaque fois que cette créature devient bloquée, le joueur défenseur perd 1 point de vie.')
-    expect(abilityRule('Bushido', '2')).toBe('À chaque fois que cette créature bloque ou devient bloquée, elle gagne +2/+2 jusqu’à la fin du tour.')
-    expect(abilityRule('Toxic')).toContain('gagnent aussi N marqueurs « poison »')
-    expect(abilityRule('Toxic', 'x')).toContain('N marqueurs')
+    expect(abilityRule('Annihilator', fr, '2')).toBe('À chaque fois que cette créature attaque, le joueur défenseur sacrifie 2 permanents.')
+    expect(abilityRule('Annihilator', fr, '1')).toBe('À chaque fois que cette créature attaque, le joueur défenseur sacrifie 1 permanent.')
+    expect(abilityRule('Afflict', fr, '1')).toBe('À chaque fois que cette créature devient bloquée, le joueur défenseur perd 1 point de vie.')
+    expect(abilityRule('Bushido', fr, '2')).toBe('À chaque fois que cette créature bloque ou devient bloquée, elle gagne +2/+2 jusqu’à la fin du tour.')
+    expect(abilityRule('Toxic', fr)).toContain('gagnent aussi N marqueurs « poison »')
+    expect(abilityRule('Toxic', fr, 'x')).toContain('N marqueurs')
   })
 
   it('Parade : son coût ; Protection : ses couleurs ou « quoi que ce soit »', () => {
-    expect(abilityRule('Ward', '{2}')).toContain('à moins que ce joueur ne paie {2}.')
-    expect(abilityRule('Protection', 'R,G')).toContain('par ce qui est rouge ou vert,')
-    expect(abilityRule('Protection', 'all')).toContain('par quoi que ce soit,')
-    expect(abilityRule('Protection', '')).toContain('la qualité choisie')
+    expect(abilityRule('Ward', fr, '{2}')).toContain('à moins que ce joueur ne paie {2}.')
+    expect(abilityRule('Protection', fr, 'R,G')).toContain('par ce qui est rouge ou vert,')
+    expect(abilityRule('Protection', fr, 'all')).toContain('par quoi que ce soit,')
+    expect(abilityRule('Protection', fr, '')).toContain('la qualité choisie')
+  })
+})
+
+describe('en anglais', () => {
+  it('noms anglais officiels', () => {
+    expect(keywordLabel('Flying', en)).toBe('Flying')
+    expect(keywordLabel('First strike', en)).toBe('First strike')
+    expect(KEYWORDS.every((k) => keywordLabel(k, en).length > 0)).toBe(true)
+    expect(abilityName({ keyword: 'Protection', param: 'R' }, en)).toBe('Protection from red')
+    expect(abilityName({ keyword: 'Protection', param: 'R,G' }, en)).toBe('Protection from red and from green')
+    expect(abilityName({ keyword: 'Protection', param: 'all' }, en)).toBe('Protection from everything')
+    expect(abilityName({ keyword: 'Ward', param: '{2}' }, en)).toBe('Ward {2}')
+    expect(abilityName({ keyword: 'Annihilator', param: '2' }, en)).toBe('Annihilator 2')
+    expect(abilityName({ keyword: 'Haste' }, fr)).toBe(abilityText({ keyword: 'Haste' }))
+  })
+
+  it('texte des règles et résumé en anglais', () => {
+    for (const k of KEYWORDS) expect(abilityRule(k, en).length).toBeGreaterThan(20)
+    expect(abilityRule('Annihilator', en, '1')).toBe('Whenever this creature attacks, defending player sacrifices 1 permanent.')
+    expect(abilityRule('Annihilator', en, '2')).toBe('Whenever this creature attacks, defending player sacrifices 2 permanents.')
+    expect(abilityRule('Ward', en, '{2}')).toContain('unless that player pays {2}.')
+    expect(abilityRule('Protection', en, 'R,G')).toContain('by anything red or green,')
+    expect(abilitiesSummary({ gained: [{ keyword: 'Trample' }, { keyword: 'Haste', untilEndOfTurn: true }], lost: ['Flying'] }, en))
+      .toEqual(['Gained: Trample, Haste (this turn)', 'Lost: Flying'])
+  })
+
+  it('le journal du moteur reste en français', () => {
+    expect(abilitiesLog('Elfes', {}, { gained: [{ keyword: 'Trample' }] })).toBe('donne Piétinement à Elfes')
   })
 })

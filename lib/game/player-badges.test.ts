@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { card, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction } from './apply'
+import { en, fr } from '@/lib/i18n/messages'
 import { playerBadges } from './player-badges'
 import { viewFor } from './view'
 import type { GameAction, GameState } from './types'
@@ -8,7 +9,7 @@ import type { GameAction, GameState } from './types'
 const apply = (s: GameState, ...actions: GameAction[]) => actions.reduce((acc, a) => applyAction(acc, a), s)
 const game = () => run(setupFor('commander', 3), start(1))
 const name = (id: string) => (id === card('p2', 1) ? 'Kenrith' : '?')
-const badges = (s: GameState) => playerBadges(viewFor(s, 'p1'), 'p1', name)
+const badges = (s: GameState) => playerBadges(viewFor(s, 'p1'), 'p1', name, fr)
 
 describe('playerBadges', () => {
   it('aucun badge quand tout est à zéro', () => {
@@ -29,6 +30,7 @@ describe('playerBadges', () => {
       { key: 'monarch', label: '👑 Monarque', level: 'normal' },
       { key: 'initiative', label: 'Initiative', level: 'normal' },
     ])
+    expect(playerBadges(viewFor(s, 'p1'), 'p1', name, en).slice(2).map((b) => b.label)).toEqual(['Experience 2', '👑 Monarch', 'Initiative'])
   })
 
   it('en alerte près du seuil, mortel au seuil', () => {
