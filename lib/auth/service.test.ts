@@ -262,27 +262,75 @@ describe('updateEmail', () => {
     const id = await createAccount(playerId, username)
     return { id, playerId, username, isAdmin: false, playerName: username, avatarUrl: null, isBootstrap: false }
   }
+  const withPassword = (email: string | null) => ({ email, currentPassword: PASSWORD })
 
   it('enregistre l’adresse nettoyée', async () => {
     const user = await currentUser('p1', 'Alex')
-    expect(await updateEmail(db, user, '  alex@gmail.com ')).toEqual({ ok: true, value: { email: 'alex@gmail.com' } })
+    expect(await updateEmail(db, user, withPassword('  alex@gmail.com '), ctx)).toEqual({ ok: true, value: { email: 'alex@gmail.com' } })
     expect((await getUserById(db, user.id)).data?.email).toBe('alex@gmail.com')
   })
 
   it('efface l’adresse (null) avec une chaîne vide ou null', async () => {
     const user = await currentUser('p1', 'Alex')
-    await updateEmail(db, user, 'alex@gmail.com')
-    expect(await updateEmail(db, user, '  ')).toEqual({ ok: true, value: { email: null } })
+    await updateEmail(db, user, withPassword('alex@gmail.com'), ctx)
+    expect(await updateEmail(db, user, withPassword('  '), ctx)).toEqual({ ok: true, value: { email: null } })
     expect((await getUserById(db, user.id)).data?.email).toBeNull()
-    expect(await updateEmail(db, user, null)).toEqual({ ok: true, value: { email: null } })
+    expect(await updateEmail(db, user, withPassword(null), ctx)).toEqual({ ok: true, value: { email: null } })
   })
 
   it('refuse une adresse invalide (400) ou déjà prise (409)', async () => {
     const alex = await currentUser('p1', 'Alex')
     const bob = await currentUser('p2', 'Bob')
-    expect(await updateEmail(db, alex, 'a b@c.fr')).toEqual({ ok: false, status: 400, error: 'Adresse mail invalide' })
-    await updateEmail(db, alex, 'alex@gmail.com')
-    expect(await updateEmail(db, bob, 'ALEX@gmail.com')).toEqual({ ok: false, status: 409, error: 'Cette adresse est déjà utilisée' })
+    expect(await updateEmail(db, alex, withPassword('a b@c.fr'), ctx)).toEqual({ ok: false, status: 400, error: 'Adresse mail invalide' })
+    await updateEmail(db, alex, withPassword('alex@gmail.com'), ctx)
+    expect(await updateEmail(db, bob, withPassword('ALEX@gmail.com'), ctx)).toEqual({ ok: false, status: 409, error: 'Cette adresse est déjà utilisée' })
+  })
+
+  it('refuse sans mot de passe ou avec un mauvais mot de passe (400), sans toucher à l’adresse', async () => {
+    const user = await currentUser('p1', 'Alex')
+    await updateEmail(db, user, withPassword('alex@gmail.com'), ctx)
+    const refused = { ok: false, status: 400, error: 'Mot de passe actuel incorrect' }
+    expect(await updateEmail(db, user, { email: 'pirate@gmail.com', currentPassword: '' }, ctx)).toEqual(refused)
+    expect(await updateEmail(db, user, { email: 'pirate@gmail.com', currentPassword: 'faux-faux' }, ctx)).toEqual(refused)
+    expect(await updateEmail(db, user, { email: null, currentPassword: 'faux-faux' }, ctx)).toEqual(refused)
+    expect((await getUserById(db, user.id)).data?.email).toBe('alex@gmail.com')
+  })
+
+  it('ne dit pas si une adresse est prise quand le mot de passe est faux', async () => {
+    const alex = await currentUser('p1', 'Alex')
+    const bob = await currentUser('p2', 'Bob')
+    await updateEmail(db, alex, withPassword('alex@gmail.com'), ctx)
+    expect(await updateEmail(db, bob, { email: 'alex@gmail.com', currentPassword: 'faux-faux' }, ctx)).toEqual({
+      ok: false,
+      status: 400,
+      error: 'Mot de passe actuel incorrect',
+    })
+  })
+
+  it('prévient l’ancienne adresse quand elle change ou est effacée, sans révéler la nouvelle', async () => {
+    const user = await currentUser('p1', 'Alex')
+    const mailer = fakeMailer()
+    const mailCtx = { mailer, baseUrl: 'https://site.test' }
+    await updateEmail(db, user, withPassword('alex@gmail.com'), mailCtx)
+    expect(mailer.sent).toHaveLength(0) // pas d'ancienne adresse
+    await updateEmail(db, user, withPassword('ALEX@gmail.com'), mailCtx)
+    expect(mailer.sent).toHaveLength(0) // même adresse, casse près
+    await updateEmail(db, user, withPassword('nouvelle@gmail.com'), mailCtx)
+    expect(mailer.sent).toHaveLength(1)
+    expect(mailer.sent[0].to).toBe('ALEX@gmail.com')
+    expect(mailer.sent[0].subject).toBe('Commander League — adresse mail modifiée')
+    expect(mailer.sent[0].text).toContain('Bonjour Alex')
+    expect(mailer.sent[0].text).not.toContain('nouvelle@gmail.com')
+    await updateEmail(db, user, withPassword(null), mailCtx)
+    expect(mailer.sent.map((m) => m.to)).toEqual(['ALEX@gmail.com', 'nouvelle@gmail.com'])
+  })
+
+  it('enregistre la nouvelle adresse même si le mail de prévenance échoue', async () => {
+    const user = await currentUser('p1', 'Alex')
+    await updateEmail(db, user, withPassword('alex@gmail.com'), ctx)
+    const broken = { mailer: { send: async () => { throw new Error('panne') } }, baseUrl: 'https://site.test' }
+    expect(await updateEmail(db, user, withPassword('nouvelle@gmail.com'), broken)).toEqual({ ok: true, value: { email: 'nouvelle@gmail.com' } })
+    expect((await getUserById(db, user.id)).data?.email).toBe('nouvelle@gmail.com')
   })
 })
 

@@ -45,3 +45,12 @@ export function forgotMail(input: MailInput): MailContent {
     outro: "Si tu n'as rien demandé, ignore ce mail.",
   }, input)
 }
+
+/** Prévient l'ancienne adresse d'un compte ; ne cite jamais la nouvelle. */
+export function emailChangedMail(input: MailInput): MailContent {
+  return build('Commander League — adresse mail modifiée', {
+    intro: "l'adresse mail de ton compte vient d'être modifiée ou effacée depuis ton profil. Pour te connecter",
+    button: 'Me connecter',
+    outro: "Si ce n'est pas toi, connecte-toi et change ton mot de passe tout de suite, puis remets ton adresse dans ton profil.",
+  }, input)
+}
