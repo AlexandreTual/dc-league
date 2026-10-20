@@ -176,6 +176,110 @@ const barTexts = async (page) => (await page.locator('nav').first().locator('a')
   }
 }
 
+// 7. Mode test en anglais : barre, fenêtres et menus, sans français (hors cartes)
+{
+  const page = await pageAs({ locale: 'en-US', player: 'e2e-1', uiLang: 'en' })
+  page.on('dialog', (d) => d.accept(d.defaultValue()))
+  await page.goto(`${base}/decks/deck-e2e-1/test`)
+  await page.waitForSelector('[data-zone="hand"] [data-card-id]')
+  check((await page.getByTestId('turn').innerText()) === 'Turn 1', 'mode test : « Turn 1 »')
+  check(await page.getByRole('button', { name: 'Keep hand' }).isVisible(), 'mode test : « Keep hand »')
+  await noFrench(page, 'mode test : table au départ')
+  await page.getByRole('button', { name: 'Keep hand' }).click()
+  // Une carte de la main sur le champ de bataille, par son menu.
+  await page.locator('[data-zone="hand"] [data-card-id]').first().click({ button: 'right' })
+  await page.getByRole('menu').waitFor()
+  await noFrench(page, 'mode test : menu d’une carte en main', '[role="menu"]')
+  await page.getByRole('menu').getByRole('button', { name: 'Battlefield', exact: true }).click()
+  const onField = page.locator('[data-zone="battlefield"] [data-card-id]').first()
+  await onField.waitFor()
+  await onField.click({ button: 'right' })
+  await page.getByRole('menu').waitFor()
+  check(await page.getByRole('menu').getByRole('button', { name: 'Tap', exact: true }).isVisible(), 'menu d’une carte en jeu : « Tap »')
+  await noFrench(page, 'mode test : menu d’une carte en jeu', '[role="menu"]')
+  await page.getByRole('menu').getByRole('button', { name: 'Tap', exact: true }).click()
+  await page.locator('[data-zone="library"]').click({ button: 'right' })
+  await page.getByRole('menu').waitFor()
+  check(await page.getByRole('menu').getByRole('button', { name: 'Shuffle', exact: true }).isVisible(), 'menu de la bibliothèque : « Shuffle »')
+  await noFrench(page, 'mode test : menu de la bibliothèque', '[role="menu"]')
+  await page.getByRole('menu').getByRole('button', { name: 'Draw 1', exact: true }).click()
+  for (const [button, dialog] of [['Dice', 'Roll dice'], ['Token', 'Create a token'], ['Settings', 'Table settings']]) {
+    await page.getByTestId('top-bar').getByRole('button', { name: button, exact: true }).click()
+    const box = page.getByRole('dialog', { name: dialog })
+    check(await appears(box), `mode test : fenêtre « ${dialog} »`)
+    await noFrench(page, `mode test : fenêtre « ${dialog} »`, `[role="dialog"][aria-label="${dialog}"]`)
+    await page.screenshot({ path: `${out}/table-${button}.png` })
+    await page.keyboard.press('Escape')
+    if (await box.isVisible()) await page.getByTestId('top-bar').getByRole('button', { name: button, exact: true }).click()
+  }
+  await page.getByTestId('top-bar').getByRole('button', { name: 'Game log', exact: true }).click()
+  const log = await page.getByTestId('log').innerText()
+  check(/Keeps their hand/.test(log) && /Shuffles|Draws 1 card/.test(log), `journal en anglais (« ${log.split('\n').slice(-3).join(' / ')} »)`)
+  await noFrench(page, 'mode test : journal', '[data-testid="log"]')
+  await page.screenshot({ path: `${out}/table-journal.png` })
+  await noFrench(page, 'mode test : table après quelques actions')
+  await page.context().close()
+}
+
+// 8. Partie en ligne : Ana en anglais, Bastien en français ; chacun lit sa langue
+{
+  const ana = await pageAs({ locale: 'en-US', player: 'e2e-1', uiLang: 'en' })
+  const bastien = await pageAs({ locale: 'fr-FR', player: 'e2e-2', uiLang: 'fr' })
+  for (const p of [ana, bastien]) p.on('dialog', (d) => d.accept(d.defaultValue()))
+  await ana.goto(`${base}/salon`)
+  check(await appears(ana.getByRole('heading', { name: 'Lobby' })), 'salon : « Lobby »')
+  await noFrench(ana, 'salon (anglais)')
+  await ana.getByRole('button', { name: 'Create table' }).click()
+  await ana.waitForURL(/\/tables\//)
+  const tableUrl = ana.url()
+  await ana.getByTestId('deck-select').selectOption('deck-e2e-1')
+  await bastien.goto(tableUrl)
+  await bastien.getByRole('button', { name: 'Rejoindre la table' }).click()
+  await bastien.getByTestId('deck-select').selectOption('deck-e2e-2')
+  await ana.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent === 'Start the game' && !b.disabled), null, { timeout: 10_000 })
+  await noFrench(ana, 'salle d’attente (anglais)')
+  await ana.screenshot({ path: `${out}/en-ligne-attente.png` })
+  await ana.getByRole('button', { name: 'Start the game' }).click()
+  for (const p of [ana, bastien]) {
+    await p.getByTestId('game').waitFor({ timeout: 10_000 })
+    await p.getByTestId('start-draw').waitFor({ timeout: 10_000 })
+  }
+  check(await appears(ana.getByRole('dialog', { name: 'Who goes first?' })), 'tirage : « Who goes first? » chez Ana')
+  check(await appears(bastien.getByRole('dialog', { name: 'Qui commence ?' })), 'tirage : « Qui commence ? » chez Bastien')
+  for (const p of [ana, bastien]) {
+    await p.keyboard.press('Escape')
+    await p.getByTestId('start-draw').waitFor({ state: 'detached' })
+  }
+  await ana.getByRole('button', { name: 'Keep hand' }).click()
+  await bastien.getByRole('button', { name: 'Garder' }).click()
+  await ana.waitForTimeout(1000)
+  await noFrench(ana, 'partie en ligne (anglais)')
+  await ana.screenshot({ path: `${out}/en-ligne-ana.png` })
+  for (const [p, label, re] of [[ana, 'Game log', /Keeps their hand/], [bastien, 'Journal', /Garde sa main/]]) {
+    await p.getByTestId('top-bar').getByRole('button', { name: label, exact: true }).click()
+    const text = await p.getByTestId('log').innerText()
+    check(re.test(text), `journal en ligne dans la langue de chacun (${label})`)
+  }
+  await noFrench(ana, 'journal en ligne (anglais)', '[data-testid="log"]')
+  await ana.context().close()
+  await bastien.context().close()
+}
+
+// 9. Administration (e2e-1 admin)
+{
+  const page = await pageAs({ locale: 'en-US', player: 'e2e-1', uiLang: 'en' })
+  for (const path of ['/admin', '/ligues/league-e2e/gerer']) {
+    await page.goto(base + path)
+    await page.waitForLoadState('networkidle')
+    await noFrench(page, `admin ${path}`)
+    await page.screenshot({ path: `${out}/admin${path.replaceAll('/', '_')}.png`, fullPage: true })
+  }
+  const res = await page.request.post(`${base}/api/leagues`, { data: {} })
+  const body = await res.json().catch(() => ({}))
+  check(typeof body.error === 'string' && !ACCENTS.test(body.error) && !FRENCH_WORDS.test(body.error), `erreur d’une route en anglais (« ${body.error} »)`)
+  await page.context().close()
+}
+
 await browser.close()
 console.log(failures === 0 ? '\nTout est bon.' : `\n${failures} échec(s).`)
 process.exit(failures === 0 ? 0 : 1)

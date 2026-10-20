@@ -55,7 +55,7 @@ export const table: Messages['table'] = {
   mulligan: {
     opening: 'Opening hand',
     count: (n) => `Mulligan #${n}`,
-    hint: ': put the agreed cards on the bottom (card menu: "Put on bottom", or Shift + drag), then Keep hand',
+    hint: ': put the agreed cards on the bottom (card menu: "Put on the bottom", or Shift + drag), then Keep hand',
     keep: 'Keep hand',
     mulligan: 'Mulligan',
   },

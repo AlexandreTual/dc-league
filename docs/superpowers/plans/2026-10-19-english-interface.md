@@ -259,3 +259,24 @@ systemInstruction(lang: Lang): string
 - [ ] Tous les scripts navigateur de `CLAUDE.md` en français.
 - [ ] `CLAUDE.md` : ligne `i18n-check`, règle « tout nouveau texte passe par `lib/i18n` (français et anglais) » ;
   `docs/superpowers/roadmap.md` : chantier terminé.
+
+---
+
+## Réalisation (20 octobre) et écarts au plan
+
+Chantier #196, PR #197. Tâches 2 à 9 faites en parallèle par des sous-agents, chacune dans son domaine de dictionnaire.
+
+- **Erreurs des routes (tâche 9)** : les services gardent leurs messages français ; la réponse `{ error }` est traduite à
+  la sortie (`handleApi` et `localized(handler)` dans `lib/auth/api.ts`, table `errors.messages`, motifs pour les
+  messages à valeurs ; `lib/i18n/errors.ts`). Un test recense les messages des routes et des services (`SERVICES`).
+- **Erreurs du moteur et du serveur de jeu (tâche 4)** : `translateGameError` (`lib/i18n/game-errors.ts`), messages
+  recensés par un test dans `validate.ts`, `rules.ts`, `room.ts`, `workers/game/runtime.ts`, `lib/db-games.ts`.
+- **Journal (tâche 5)** : `formatLog(entry, t, cardLang, view, catalogs)` (la vue ne porte pas les catalogues) ; noms
+  des cartes résolus comme le moteur (nom imprimé de la langue des cartes, face avant), pour que le français redonne
+  exactement `text`.
+- **Marqueurs prédéfinis (tâche 2)** : enregistrés dans la partie sous leur nom français (« Énergie »…), seul
+  l'affichage est traduit.
+- **Mails (tâche 9)** : le lien de réinitialisation envoyé par l'admin part dans la langue de son interface ; les
+  invitations de ligue sont des liens (pas de mail).
+- **IA (tâche 9)** : le panneau envoie la langue des cartes ; noms et textes français donnés à l'IA seulement si
+  l'interface ou les cartes sont en français.
