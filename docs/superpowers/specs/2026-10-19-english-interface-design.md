@@ -1,7 +1,7 @@
 # Site en anglais (interface et cartes) — conception
 
 Date : 2026-10-19
-Statut : à valider
+Statut : réalisée (points validés le 20 octobre)
 
 ## But
 
@@ -189,7 +189,7 @@ type LogParam = string | number | { card: { owner: string; ref: number | null; t
 - Traduction du contenu des cartes (déjà géré par la langue des cartes, via Scryfall).
 - Adresses de pages en anglais.
 
-## Points à valider
+## Points validés (20 octobre)
 
 1. Langue d'un nouveau visiteur déduite du navigateur (proposé) plutôt que toujours le français.
 2. Journal traduit pour chaque joueur (proposé) : c'est l'étape la plus lourde (le moteur change) ; elle peut être
