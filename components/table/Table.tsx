@@ -36,6 +36,10 @@ import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ShortcutsModal from './ShortcutsModal'
 import AnimationsModal from './AnimationsModal'
+import DiceTray from './DiceTray'
+import HolderFlights from './HolderFlights'
+import VictoryScreen from './VictoryScreen'
+import { usePlayerFx } from './usePlayerFx'
 import ManaPool from './ManaPool'
 import VisioPanel from './visio/VisioPanel'
 import { useVisio } from './visio/useVisio'
@@ -149,6 +153,7 @@ export default function Table({ source, notice, boardWindow }: {
   const status = source.online?.status ?? 'open'
   const canAct = me !== null && !finished && status === 'open'
   // Visio : table principale d'une partie en ligne, joueurs assis, serveur de jeu qui la relaie.
+  const playerFx = usePlayerFx({ view, me, status, effects: settings.cardEffects, finished, winner: source.online?.winner ?? null })
   const visio = useVisio(boardWindow ? undefined : source.online?.visio, me, source.online?.players ?? [], status)
   const cards = useMemo(() => visibleCards(view), [view])
   const ai = useAi()
@@ -509,7 +514,8 @@ export default function Table({ source, notice, boardWindow }: {
    */
   const portraitFor = (player: string, size: 'column' | 'header' = 'column', up = false, onTitleClick?: () => void, onDetach?: () => void) => (
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach} />
+      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach}
+      fx={{ effects: settings.cardEffects, pops: playerFx.pops, cracking: playerFx.cracking }} />
   )
   /** Réserve de mana d'un joueur, posée sur son champ de bataille : modifiable pour la mienne, lecture seule sinon. */
   const manaOf = (player: string) => {
@@ -713,6 +719,7 @@ export default function Table({ source, notice, boardWindow }: {
           </DragOverlay>
         </DndContext>
         <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} />
+        {!boardWindow && <DiceTray rolls={playerFx.rolls} />}
         {logOpen && <LogPanel view={view} onClose={() => setLogOpen(false)} />}
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
@@ -789,6 +796,8 @@ export default function Table({ source, notice, boardWindow }: {
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)}
         onShortcuts={() => { setSettingsOpen(false); setShortcutsOpen(true) }}
         onAnimations={() => { setSettingsOpen(false); setAnimationsOpen(true) }} />}
+      <HolderFlights flights={playerFx.flights} />
+      {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory} />}
       {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
       {animationsOpen && <AnimationsModal effects={settings.cardEffects} onChange={(cardEffects) => changeSettings({ ...settings, cardEffects })}
         onClose={() => setAnimationsOpen(false)} />}

@@ -174,6 +174,100 @@ body {
   80% { transform: scale(1); opacity: 1; }
   100% { transform: scale(1) translateY(-30%); opacity: 0; }
 }
+/* Animations des joueurs et de la partie (spec 2026-10-20-player-animations-design.md). Seuls `transform` et `opacity`. */
+/* Écart qui s'envole au-dessus de la vie, du poison ou des blessures de commandant (1,4 s). */
+.fx-pop { animation: fx-pop 1.4s ease-out 1 both; }
+@keyframes fx-pop {
+  0% { transform: translateY(30%) scale(0.6); opacity: 0; }
+  15% { transform: translateY(0) scale(1.15); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translateY(-110%) scale(1); opacity: 0; }
+}
+/* Perte de vie : le nombre tremble ; gain : il grossit un instant. Halo rouge ou vert derrière. */
+.fx-life-loss { animation: fx-life-loss 0.45s ease-in-out 1; }
+@keyframes fx-life-loss {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6%) rotate(-3deg); }
+  40% { transform: translateX(5%) rotate(2deg); }
+  60% { transform: translateX(-4%); }
+  80% { transform: translateX(2%); }
+}
+.fx-life-gain { animation: fx-life-gain 0.5s ease-out 1; }
+@keyframes fx-life-gain {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+}
+.fx-halo { animation: fx-halo 0.8s ease-out 1 both; }
+.fx-halo-loss { background: radial-gradient(ellipse at center, rgba(248, 113, 113, 0.75), transparent 70%); }
+.fx-halo-gain { background: radial-gradient(ellipse at center, rgba(74, 222, 128, 0.7), transparent 70%); }
+@keyframes fx-halo {
+  0% { transform: scale(0.5); opacity: 0; }
+  30% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+/* Poison : des gouttes vertes coulent sur le portrait. */
+.fx-drop { animation: fx-drop 0.9s ease-in 1 both; }
+@keyframes fx-drop {
+  0% { transform: translateY(-120%); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(420%); opacity: 0; }
+}
+/* Blessures de commandant : une épée frappe le portrait en diagonale. */
+.fx-sword { animation: fx-sword 0.7s cubic-bezier(0.3, 0.9, 0.4, 1.2) 1 both; }
+@keyframes fx-sword {
+  0% { transform: translate(-60%, -60%) rotate(-50deg) scale(1.4); opacity: 0; }
+  45% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  60% { transform: translate(4%, 4%) scale(0.95); }
+  100% { transform: translate(0, 0) scale(1.1); opacity: 0; }
+}
+/* Joueur éliminé : les fissures s'ouvrent (0,9 s), puis restent. */
+.fx-crack-open { animation: fx-crack 0.9s ease-out 1 both; }
+@keyframes fx-crack {
+  0% { transform: scale(0.4); opacity: 0; }
+  25% { transform: scale(1.08); opacity: 1; }
+  35% { transform: scale(0.97) translateX(-1%); }
+  45% { transform: scale(1.02) translateX(1%); }
+  100% { transform: scale(1); opacity: 1; }
+}
+/* Dés : le plateau apparaît puis s'efface ; les dés plats roulent en rebondissant. */
+.fx-tray { animation: fx-tray 2.9s ease-out 1 both; }
+@keyframes fx-tray {
+  0% { transform: translateY(-12px) scale(0.9); opacity: 0; }
+  8% { transform: none; opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.fx-die-tumble { animation: fx-die-tumble 0.9s cubic-bezier(0.2, 0.75, 0.3, 1) 1 both; }
+@keyframes fx-die-tumble {
+  0% { transform: translate(-40px, -30px) rotate(-200deg) scale(0.7); }
+  35% { transform: translate(-10px, 6px) rotate(-60deg) scale(1.05); }
+  55% { transform: translate(6px, -10px) rotate(30deg); }
+  75% { transform: translate(2px, 2px) rotate(-8deg); }
+  100% { transform: none; }
+}
+/* Victoire : fond et carte qui apparaissent, confettis dorés qui tombent. */
+.fx-fade-in { animation: fx-fade-in 0.4s ease-out 1 both; }
+@keyframes fx-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fx-victory { animation: fx-victory 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.25) 1 both; }
+@keyframes fx-victory {
+  from { transform: scale(0.6) translateY(20px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.fx-confetti { animation-name: fx-confetti; animation-timing-function: linear; animation-iteration-count: 2; animation-fill-mode: both; }
+@keyframes fx-confetti {
+  0% { transform: translateY(-5vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(720deg); opacity: 0.8; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-pop { animation: fx-still 1.4s linear 1 both; }
+  .fx-life-loss, .fx-life-gain, .fx-crack-open, .fx-die-tumble, .fx-victory, .fx-fade-in { animation: none; }
+  .fx-halo, .fx-drop, .fx-sword, .fx-confetti { display: none; }
+  .fx-tray { animation: fx-still 2.9s linear 1 both; }
+}
+@keyframes fx-still {
+  0%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
 /* Mouvement réduit (réglage du système) : le liseré seul ; la créature volante reste surélevée, immobile ; le commandant
    qui arrive montre seulement sa couronne, immobile, le temps de son arrivée. */
 @media (prefers-reduced-motion: reduce) {
