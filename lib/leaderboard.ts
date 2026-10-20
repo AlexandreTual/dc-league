@@ -19,7 +19,8 @@ export type Match = {
   player2?: Player
 }
 
-export type PlayerStats = Player & {
+/** Bilan d'un joueur ou d'un deck : ce que le barème met à jour. */
+export type Tally = {
   points: number
   wins: number
   losses: number
@@ -28,6 +29,8 @@ export type PlayerStats = Player & {
   gl: number // game losses
   played: number
 }
+
+export type PlayerStats = Player & Tally
 
 export function computeLeaderboard(players: Player[], matches: Match[]): PlayerStats[] {
   const stats: Record<string, PlayerStats> = {}
@@ -53,42 +56,44 @@ export function computeLeaderboard(players: Player[], matches: Match[]): PlayerS
 
     if (!p1 || !p2) continue
 
-    const s1 = match.score_p1 ?? 0
-    const s2 = match.score_p2 ?? 0
-
-    p1.gw += s1
-    p1.gl += s2
-    p2.gw += s2
-    p2.gl += s1
-    p1.played++
-    p2.played++
-
-    if (s1 > s2) {
-      // p1 wins
-      p1.wins++
-      p1.points += 3
-      p2.losses++
-    } else if (s2 > s1) {
-      // p2 wins
-      p2.wins++
-      p2.points += 3
-      p1.losses++
-    } else {
-      // draw (1-1)
-      p1.draws++
-      p1.points++
-      p2.draws++
-      p2.points++
-    }
+    recordMatch(p1, p2, match.score_p1 ?? 0, match.score_p2 ?? 0)
   }
 
-  return Object.values(stats).sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points
-    const diffA = a.gw - a.gl
-    const diffB = b.gw - b.gl
-    if (diffB !== diffA) return diffB - diffA
-    return b.wins - a.wins
-  })
+  return Object.values(stats).sort(compareStandings)
+}
+
+/** Barème de la ligue : victoire 3 points, nul 1, défaite 0. Met à jour les deux bilans. */
+export function recordMatch(a: Tally, b: Tally, scoreA: number, scoreB: number): void {
+  a.gw += scoreA
+  a.gl += scoreB
+  b.gw += scoreB
+  b.gl += scoreA
+  a.played++
+  b.played++
+
+  if (scoreA > scoreB) {
+    a.wins++
+    a.points += 3
+    b.losses++
+  } else if (scoreB > scoreA) {
+    b.wins++
+    b.points += 3
+    a.losses++
+  } else {
+    a.draws++
+    a.points++
+    b.draws++
+    b.points++
+  }
+}
+
+/** Ordre du classement : points, puis différence de manches, puis victoires (tri stable sinon). */
+export function compareStandings(a: Tally, b: Tally): number {
+  if (b.points !== a.points) return b.points - a.points
+  const diffA = a.gw - a.gl
+  const diffB = b.gw - b.gl
+  if (diffB !== diffA) return diffB - diffA
+  return b.wins - a.wins
 }
 
 /**
