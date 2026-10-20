@@ -71,6 +71,7 @@ Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `C
 - `lib/leagues/` : ligues créées par les joueurs : droits (`access.ts` : voir, gérer), chargement avec droits pour routes et pages (`route-access.ts`, `load.ts`), lien d'invitation (`join.ts`). Pages sous `/ligues/<id>/…`.
 - `lib/visio/` et `components/table/visio/` : visio WebRTC entre joueurs (signalisation relayée par le serveur de jeu, `docs/visio.md`).
 - `lib/ai/` : assistant IA (consigne, client Gemini, quota de 20 questions par jour, interrupteur admin) ; panneau dans `components/ai/`.
+- `lib/db-errors.ts` : journal des erreurs de production (routes API, pages d'erreur, nettoyage de nuit), lu dans l'administration ; où lire les journaux : `docs/journaux.md`.
 - `lib/cards/` : import de decks (texte, liens Moxfield/Archidekt), Scryfall, cartes en français.
 - `lib/game/` : moteur de partie pur (`applyAction`, `canApply`, `viewFor` sans fuite d'information cachée), menus, rangées ; donjons et leurs salles en dur dans `dungeons.ts`.
 - `workers/game/` : Worker + Durable Object des parties en ligne (déployé par `.github/workflows/deploy-game-worker.yml`).

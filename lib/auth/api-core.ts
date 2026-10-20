@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { assertSameOrigin } from './origin'
 import type { CurrentUser } from './types'
+import { recordError } from '../db-errors'
 
 export const INTERNAL_ERROR = 'Erreur interne, réessaie plus tard'
 
@@ -26,10 +27,15 @@ const json = (error: string, status: number) => NextResponse.json({ error }, { s
 export const badRequest = (error: string) => json(error, 400)
 export const conflict = (error: string) => json(error, 409)
 
+/** Détail des 500 renvoyées par dbFailure, enregistré dans le journal des erreurs par handleApi. */
+const failures = new WeakMap<Response, string>()
+
 /** Erreur de base : détail journalisé côté serveur, message générique en français côté client. */
 export function dbFailure(detail: unknown): NextResponse {
   console.error('[api]', detail)
-  return json(INTERNAL_ERROR, 500)
+  const res = json(INTERNAL_ERROR, 500)
+  failures.set(res, detail instanceof Error ? detail.message : String(detail))
+  return res
 }
 
 /**
@@ -64,7 +70,8 @@ async function readBody(req: Request): Promise<Record<string, unknown> | null> {
 
 /**
  * Socle commun des routes API : contrôle d'origine sur les écritures, droits, lecture JSON tolérante,
- * et toute exception transformée en 500 générique en français (détail journalisé).
+ * et toute exception transformée en 500 générique en français (détail journalisé, et enregistré
+ * dans le journal des erreurs de l'administration).
  */
 export async function handleApi(
   req: Request,
@@ -72,12 +79,36 @@ export async function handleApi(
   run: (ctx: ApiContext) => Promise<NextResponse>,
   deps: ApiDeps,
 ): Promise<NextResponse> {
+  const seen: { user: CurrentUser | null } = { user: null }
+  const res = await answer(req, access, run, deps, seen)
+  const detail = failures.get(res)
+  if (detail !== undefined) {
+    try {
+      const path = `${req.method} ${new URL(req.url).pathname}`
+      const { error } = await recordError(deps.getEnv().DB, { source: 'serveur', message: detail, path, userId: seen.user?.id }, new Date())
+      if (error !== null) console.error('[api] journal des erreurs indisponible', error)
+    } catch (e) {
+      console.error('[api] journal des erreurs indisponible', e)
+    }
+  }
+  return res
+}
+
+/** Réponse de la route ; `seen.user` reçoit le compte lu, pour le journal des erreurs. */
+async function answer(
+  req: Request,
+  access: Access,
+  run: (ctx: ApiContext) => Promise<NextResponse>,
+  deps: ApiDeps,
+  seen: { user: CurrentUser | null },
+): Promise<NextResponse> {
   try {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const refused = assertSameOrigin(req)
       if (refused) return refused
     }
     const user = access === 'public' ? null : await deps.getUser()
+    seen.user = user
     const denied = checkAccess(access, user)
     if (denied) return denied
     const body = await readBody(req)

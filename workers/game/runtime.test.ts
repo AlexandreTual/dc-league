@@ -6,6 +6,7 @@ import { replay } from '../../lib/game/replay'
 import type { ServerMessage } from '../../lib/game/room'
 import { RoomRuntime, type KvStorage, type Socket, type SocketInfo } from './runtime'
 import { cleanupStale } from './cleanup'
+import { listErrors } from '../../lib/db-errors'
 
 /** Stockage en mémoire qui note l'ordre des écritures et peut échouer à la demande. */
 class MemoryStorage implements KvStorage {
@@ -351,6 +352,20 @@ describe('destroy et nettoyage', () => {
     expect((await getTable(db, tableId)).data).not.toBeNull()
     expect((await getTable(db, other)).data).not.toBeNull()
     expect((await getTable(db, third)).data).toBeNull()
+    const { data: logged } = await listErrors(db)
+    expect(logged).toHaveLength(1)
+    expect(logged![0]).toMatchObject({ source: 'nettoyage' })
+    expect(logged![0].message).toMatch(/^\d+ échec\(s\) : /)
+    expect(logged![0].message).toContain('objet injoignable')
+  })
+
+  it("cleanupStale n'écrit rien au journal des erreurs quand tout réussit", async () => {
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async () => new Response(null) }),
+    } as unknown as DurableObjectNamespace
+    await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))
+    expect((await listErrors(db)).data).toEqual([])
   })
 
   it('cleanupStale garde en D1 une partie finie depuis 30 jours, efface son Durable Object une seule fois', async () => {

@@ -10,6 +10,8 @@ export default defineConfig({
     // .worktrees/) et leurs node_modules ne doivent pas être collectés.
     exclude: [...configDefaults.exclude, '**/.next/**', '**/.vercel/**', '**/.wrangler/**', '.claude/**', '.worktrees/**'],
   },
+  // tsconfig garde le JSX tel quel pour Next.js : les tests qui rendent un composant le compilent ici.
+  oxc: { jsx: { runtime: 'automatic' } },
   resolve: {
     alias: { '@': path.dirname(fileURLToPath(import.meta.url)) },
   },
