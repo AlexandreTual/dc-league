@@ -101,6 +101,17 @@ describe('handleApi', () => {
       return NextResponse.json({})
     }, deps(current))
   })
+
+  it('répond dans la langue de la requête (cookie dc_lang=en), en français sinon', async () => {
+    const en: ApiDeps = { ...deps(), getLang: async () => 'en' }
+    const anon = await handleApi(req('GET'), 'user', echo, en)
+    expect(anon.status).toBe(401)
+    expect(await anon.json()).toEqual({ error: 'You need to log in' })
+    const bad = await handleApi(req('POST', '{}'), 'public', async () => NextResponse.json({ error: 'Le nom du deck est requis' }, { status: 400 }), en)
+    expect(await bad.json()).toEqual({ error: 'The deck name is required' })
+    const french = await handleApi(req('GET'), 'user', echo, { ...deps(), getLang: async () => 'fr' })
+    expect(await french.json()).toEqual({ error: 'Connexion requise' })
+  })
 })
 
 describe('resultError', () => {

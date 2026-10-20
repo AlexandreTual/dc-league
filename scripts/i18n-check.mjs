@@ -159,6 +159,23 @@ const barTexts = async (page) => (await page.locator('nav').first().locator('a')
   await page.context().close()
 }
 
+// 6. Pages traduites : aucun texte français visible avec l'interface anglaise
+{
+  const visitorPages = ['/', '/ligues', '/rules', '/connexion', '/mot-de-passe-oublie', '/invitation/jeton-inconnu', '/ligues/rejoindre/jeton-inconnu', '/page-inexistante']
+  const playerPages = ['/', '/ligues', '/ligues/nouvelle', '/ligues/statistiques', '/ligues/league-e2e/classement', '/ligues/league-e2e/calendrier',
+    '/ligues/league-e2e/playoffs', '/profil', '/profil/decks', '/decks/deck-e2e-1', '/salon']
+  for (const [player, paths] of [[null, visitorPages], ['e2e-2', playerPages]]) {
+    const page = await pageAs({ locale: 'en-US', player })
+    for (const path of paths) {
+      await page.goto(base + path)
+      await page.waitForLoadState('networkidle')
+      await noFrench(page, `${player ? 'joueur' : 'visiteur'} ${path}`)
+      await page.screenshot({ path: `${out}/page-${player ?? 'visiteur'}${path.replaceAll('/', '_')}.png`, fullPage: true })
+    }
+    await page.context().close()
+  }
+}
+
 await browser.close()
 console.log(failures === 0 ? '\nTout est bon.' : `\n${failures} échec(s).`)
 process.exit(failures === 0 ? 0 : 1)

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { aiReducer, initialAiState, suggestions, type AiCardRef, type AiState } from './state'
+import { en, fr } from '@/lib/i18n/messages'
 
 const card = (i: number): AiCardRef => ({ oracleId: `o${i}`, name: `Carte ${i}`, gathererUrl: `https://gatherer/${i}` })
 const run = (state: AiState, ...actions: Parameters<typeof aiReducer>[1][]) => actions.reduce(aiReducer, state)
@@ -17,7 +18,9 @@ describe('assistant IA : état du panneau', () => {
     for (let i = 1; i <= 10; i++) s = aiReducer(s, { type: 'add', card: card(i) })
     s = aiReducer(s, { type: 'add', card: card(11) })
     expect(s.cards).toHaveLength(10)
-    expect(s.notice).toBe('10 cartes au plus')
+    expect(s.notice).toBe('maxCards')
+    expect(fr.ai.maxCards(10)).toBe('10 cartes au plus')
+    expect(en.ai.maxCards(10)).toBe('10 cards max')
     expect(aiReducer(s, { type: 'remove', oracleId: 'o3' }).notice).toBeNull()
   })
 
@@ -58,8 +61,10 @@ describe('assistant IA : état du panneau', () => {
   })
 
   it('propose une question selon le nombre de cartes', () => {
-    expect(suggestions(0)).toEqual([])
-    expect(suggestions(1)).toEqual(['Explique cette carte'])
-    expect(suggestions(3)).toEqual(['Comment ces cartes interagissent-elles ?'])
+    expect(suggestions(0, fr)).toEqual([])
+    expect(suggestions(1, fr)).toEqual(['Explique cette carte'])
+    expect(suggestions(3, fr)).toEqual(['Comment ces cartes interagissent-elles ?'])
+    expect(suggestions(1, en)).toEqual(['Explain this card'])
+    expect(suggestions(3, en)).toEqual(['How do these cards interact?'])
   })
 })

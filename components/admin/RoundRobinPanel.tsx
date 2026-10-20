@@ -8,6 +8,7 @@ import MatchCard from '@/components/MatchCard'
 import ScoreModal from '@/components/ScoreModal'
 import { sendJson } from '@/components/formStyles'
 import type { AdminApi } from './useAdminApi'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Génération de la ligue (avant le premier match) puis matchs Round Robin par round. */
 export default function RoundRobinPanel({
@@ -25,6 +26,7 @@ export default function RoundRobinPanel({
 }) {
   const router = useRouter()
   const { showToast, call } = api
+  const t = useT().admin.roundRobin
 
   const [generateLoading, setGenerateLoading] = useState(false)
   const [generateError, setGenerateError] = useState('')
@@ -43,7 +45,7 @@ export default function RoundRobinPanel({
       } else {
         const result = data as { matches?: Match[]; count: number }
         setMatches(result.matches ?? [])
-        showToast(`✓ ${result.count} matchs générés !`)
+        showToast(t.generatedCount(result.count))
         router.refresh()
       }
     } finally {
@@ -56,19 +58,19 @@ export default function RoundRobinPanel({
       const { ok, data } = await call<Partial<Match>>(`/api/matches/${matchId}`, 'PATCH', { score_p1, score_p2 })
       if (!ok) return
       setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, ...data } : m)))
-      showToast('Score enregistré !')
+      showToast(t.scoreSaved)
       setSelectedMatch(null)
       router.refresh()
     },
-    [call, router, setMatches, showToast]
+    [call, router, setMatches, showToast, t]
   )
 
   async function handleResetScore(matchId: string) {
-    if (!confirm('Réinitialiser ce score ?')) return
+    if (!confirm(t.confirmResetScore)) return
     const { ok, data } = await call<Partial<Match>>(`/api/matches/${matchId}`, 'DELETE')
     if (!ok) return
     setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, ...data } : m)))
-    showToast('Score réinitialisé')
+    showToast(t.scoreReset)
     router.refresh()
   }
 
@@ -88,11 +90,11 @@ export default function RoundRobinPanel({
         <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
           <h2 className="font-fantasy font-bold text-dc-gold flex items-center gap-2">
             <Zap className="w-5 h-5" />
-            Générer la ligue
+            {t.generateTitle}
           </h2>
           <p className="text-dc-muted text-sm">
-            {enrolledCount} joueurs → {(enrolledCount * (enrolledCount - 1)) / 2} matchs Round Robin.
-            {enrolledCount % 2 !== 0 && ' (Nombre impair : 1 bye par round, ignoré au classement)'}
+            {t.summary(enrolledCount, (enrolledCount * (enrolledCount - 1)) / 2)}
+            {enrolledCount % 2 !== 0 && t.odd}
           </p>
 
           {generateError && (
@@ -110,13 +112,13 @@ export default function RoundRobinPanel({
                 className="flex-1 flex items-center justify-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40"
               >
                 <Zap className="w-5 h-5" />
-                {generateLoading ? 'Génération…' : 'Confirmer la génération'}
+                {generateLoading ? t.generating : t.confirm}
               </button>
               <button
                 onClick={() => setConfirmGenerate(false)}
                 className="px-4 py-3 border border-dc-border/50 text-dc-muted rounded-xl hover:text-dc-text transition-all text-sm"
               >
-                Annuler
+                {t.cancel}
               </button>
             </div>
           ) : (
@@ -125,7 +127,7 @@ export default function RoundRobinPanel({
               className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all w-full justify-center"
             >
               <Zap className="w-5 h-5" />
-              {`Générer la ligue (${enrolledCount} joueurs)`}
+              {t.generate(enrolledCount)}
             </button>
           )}
         </div>
@@ -136,7 +138,7 @@ export default function RoundRobinPanel({
         <div className="space-y-6">
           <h2 className="font-fantasy font-bold text-dc-text text-lg flex items-center gap-2">
             <Zap className="w-5 h-5 text-dc-gold" />
-            Matchs — {completedCount}/{matches.length} joués
+            {t.matches(completedCount, matches.length)}
           </h2>
 
           {Object.entries(rounds)
@@ -153,7 +155,7 @@ export default function RoundRobinPanel({
                           : 'bg-dc-surface border-dc-border text-dc-muted'
                       }`}
                     >
-                      Round {round}
+                      {t.round} {round}
                     </div>
                     <div className="flex-1 h-px bg-dc-border/50" />
                   </div>
@@ -177,8 +179,8 @@ export default function RoundRobinPanel({
                             <button
                               onClick={() => handleResetScore(match.id)}
                               className="absolute top-3 left-3 transition-opacity text-dc-muted hover:text-dc-red-light p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
-                              title="Réinitialiser le score"
-                              aria-label="Réinitialiser le score"
+                              title={t.resetScore}
+                              aria-label={t.resetScore}
                             >
                               <RefreshCcw className="w-3.5 h-3.5" />
                             </button>
