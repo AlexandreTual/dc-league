@@ -100,6 +100,12 @@ export const online = {
     mixedZones: 'Les cartes doivent venir de la même zone',
     badPlaces: 'Positions invalides',
     nothingToApply: 'Rien à appliquer',
+    chooseDungeon: 'Choisis un donjon',
+    undercityOnly: "On n'entre dans Les Souterrains qu'avec l'initiative",
+    dungeonOngoing: 'Tu as déjà un donjon en cours',
+    chooseRoom: 'Choisis la salle suivante',
+    badRoom: "Cette salle n'est pas accessible d'ici",
+    noVenture: 'Aucune exploration proposée',
     // room.ts
     spectator: 'Les spectateurs ne peuvent pas jouer',
     finished: 'La partie est terminée',

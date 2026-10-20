@@ -78,7 +78,7 @@ export default function TableSettingsPanel({ settings, onChange, onClose, onShor
           </select>
         </label>
         <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onAnimations}>
-          Animations…
+          {r.animations}
         </button>
         <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onShortcuts}>
           {r.shortcuts}

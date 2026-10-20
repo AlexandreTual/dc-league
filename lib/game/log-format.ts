@@ -1,6 +1,7 @@
 // Ligne du journal dans la langue du lecteur (spec 2026-10-19-english-interface-design, « Journal de partie structuré »).
 // Pur : la table l'appelle avec le dictionnaire de l'interface et la langue des cartes du lecteur.
 import type { Lang } from '@/lib/i18n/lang'
+import { dungeonText, isDungeonId, roomOf, roomText } from './dungeons'
 import type { Messages } from '@/lib/i18n/messages'
 import type { Catalog, LogCard, LogMessage, LogParam } from './types'
 
@@ -8,6 +9,7 @@ import type { Catalog, LogCard, LogMessage, LogParam } from './types'
 export type LogView = { players: Record<string, { name: string }> }
 
 type Resolved = string | number | number[] | string[] | { label: string; param: string }[]
+  | { name: string; the: string; short: string } | { name: string; text: string }
 type Line = string | ((vars: Record<string, Resolved>) => string)
 
 /** Nom d'une carte comme le moteur l'écrit : français imprimé s'il existe (cartes en français), sinon anglais. */
@@ -52,6 +54,12 @@ export function formatLog(
     if ('abilities' in p) return p.abilities.map((a) => t.log.ability(a))
     if ('changed' in p) return p.changed.map((a) => ({ label: t.log.keyword(a.keyword), param: t.log.abilityParam(a) }))
     if ('keywords' in p) return p.keywords.map((k) => t.log.keyword(k))
+    // Donjons et salles : cartes officielles, dans la langue des cartes comme les noms de cartes.
+    if ('dungeon' in p && isDungeonId(p.dungeon)) return dungeonText(p.dungeon, cardLang)
+    if ('room' in p && isDungeonId(p.room?.dungeon)) {
+      const room = roomOf(p.room.dungeon, p.room.room)
+      if (room) return roomText(room, cardLang)
+    }
     throw new Error('valeur inconnue')
   }
   try {

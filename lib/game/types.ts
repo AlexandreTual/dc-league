@@ -141,6 +141,9 @@ export type LogParam =
   | { abilities: { keyword: Keyword; param?: string }[] }
   | { changed: { keyword: Keyword; param: string }[] }
   | { keywords: Keyword[] }
+  /** Donjon et salle, nommés dans la langue des cartes du lecteur. */
+  | { dungeon: DungeonId }
+  | { room: { dungeon: DungeonId; room: string } }
 
 /** Clé d'une phrase du journal (dictionnaire `log.lines`). */
 export type LogKey = keyof Messages['log']['lines']

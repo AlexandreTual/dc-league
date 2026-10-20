@@ -5,6 +5,7 @@ import { parseRoll } from '@/lib/game/dice'
 import { addPops, expirePops, playerChanges, POP_MS, type HolderChange, type Pops } from '@/lib/game/player-fx'
 import type { PlayerView } from '@/lib/game/types'
 import type { CardEffects } from '@/lib/table-settings'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Monarque ou initiative qui passe d'un joueur à l'autre. */
 export type Flight = HolderChange & { key: number }
@@ -44,6 +45,9 @@ export function usePlayerFx({ view, me, status, effects, finished, winner }: {
   const victoryTimer = useRef<ReturnType<typeof setTimeout>>()
   const effectsRef = useRef(effects)
   effectsRef.current = effects
+  const you = useT().table.dice.you
+  const youRef = useRef(you)
+  youRef.current = you
 
   useEffect(() => {
     if (status !== 'open') {
@@ -85,7 +89,7 @@ export function usePlayerFx({ view, me, status, effects, finished, winner }: {
       const fresh = added.flatMap((l) => {
         const roll = l.roll ? parseRoll(l.text) : null
         if (!roll) return []
-        const author = l.actor === me ? 'Vous' : (l.actor && view.players[l.actor]?.name) || ''
+        const author = l.actor === me ? youRef.current : (l.actor && view.players[l.actor]?.name) || ''
         return [{ key: ++key.current, author, ...roll }]
       })
       if (fresh.length > 0) {

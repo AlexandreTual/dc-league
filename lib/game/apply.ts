@@ -383,7 +383,9 @@ function venture(state: GameState, action: Extract<GameAction, { type: 'venture'
   if (action.undercity) s = withoutOffer(s, action.actor)
   const verb = step.kind === 'advance' ? 'avance dans' : 'entre dans'
   const end = done ? ` Donjon terminé (${dungeonsDone} au total).` : ''
-  return log(s, action.actor, `${verb} ${DUNGEONS[id].the} : ${room.name} — ${room.text}${end}`)
+  return log(s, action.actor, `${verb} ${DUNGEONS[id].the} : ${room.name} — ${room.text}${end}`, msgOf('venture', {
+    adv: flag(step.kind === 'advance'), d: { dungeon: id }, r: { room: { dungeon: id, room: room.id } }, total: done ? dungeonsDone : undefined,
+  }))
 }
 
 function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): GameState {
@@ -724,7 +726,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return venture(state, action)
 
     case 'skipVenture':
-      return log(withoutOffer(state, action.actor), action.actor, 'n’explore pas Les Souterrains pour l’instant')
+      return log(withoutOffer(state, action.actor), action.actor, 'n’explore pas Les Souterrains pour l’instant',
+        msgOf('skipVenture', { d: { dungeon: 'undercity' } }))
 
     case 'eliminate': {
       let s = setPlayer(state, action.target, { eliminated: true })

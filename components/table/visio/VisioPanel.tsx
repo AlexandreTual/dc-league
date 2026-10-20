@@ -111,7 +111,7 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
   return (
     <div ref={panel} className="absolute z-40 rounded-xl border border-dc-gold/40 bg-dc-surface/95 shadow-xl overflow-hidden select-none"
       style={{ width, right: position.right, top: position.top }} data-testid="visio-panel" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
-      <div className="flex flex-wrap items-center gap-1 px-1.5 py-1 cursor-move touch-none" data-testid="visio-bar" title="Tirer pour déplacer"
+      <div className="flex flex-wrap items-center gap-1 px-1.5 py-1 cursor-move touch-none" data-testid="visio-bar" title={v.move}
         onPointerDown={onMoveStart} onPointerMove={onMoveMove} onPointerUp={onMoveEnd} onPointerCancel={onMoveEnd}>
         <GripVertical className="w-3.5 h-3.5 text-dc-muted shrink-0" aria-hidden />
         <span className="font-fantasy text-xs text-dc-gold mr-auto truncate min-w-0">{v.title}</span>

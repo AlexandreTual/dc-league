@@ -175,14 +175,14 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
         {hasDungeons(view) && (player === view.me && canAct || p.dungeon) && (
           <li className="flex flex-wrap items-center gap-1.5 py-1" data-testid="dungeon-row">
             <Castle className="w-4 h-4 shrink-0 text-dc-gold" />
-            <span className="flex-1">Donjon</span>
+            <span className="flex-1">{t.table.dungeons.row}</span>
             {player === view.me && canAct && <>
-              <button className={dungeonBtn} onClick={() => venture(view, 'dungeon', send)} data-testid="venture-dungeon">Explorer le donjon</button>
+              <button className={dungeonBtn} onClick={() => venture(view, 'dungeon', send)} data-testid="venture-dungeon">{t.table.dungeons.venture}</button>
               {view.initiative === player && (
-                <button className={dungeonBtn} onClick={() => venture(view, 'undercity', send)} data-testid="venture-undercity">Explorer Les Souterrains</button>
+                <button className={dungeonBtn} onClick={() => venture(view, 'undercity', send)} data-testid="venture-undercity">{t.table.dungeons.ventureUndercity}</button>
               )}
             </>}
-            <button className={dungeonBtn} onClick={() => openDungeon({ player, ...(p.dungeon ? { dungeon: p.dungeon.id } : {}) })} data-testid="dungeon-plan-open">Plan</button>
+            <button className={dungeonBtn} onClick={() => openDungeon({ player, ...(p.dungeon ? { dungeon: p.dungeon.id } : {}) })} data-testid="dungeon-plan-open">{t.table.dungeons.plan}</button>
           </li>
         )}
       </ul>

@@ -12,6 +12,9 @@ const join = (items: string[]) => (items.length <= 1 ? items.join('') : `${items
 const libraryOf = (p?: string) => (p === undefined ? 'sa bibliothèque' : `la bibliothèque de ${p}`)
 const topCards = (n: number) => (n === 1 ? 'la carte du dessus' : `les ${n} cartes du dessus`)
 const EOT = ' (jusqu’à la fin du tour)'
+/** Donjon et salle d'une ligne, déjà dans la langue des cartes (lib/game/dungeons.ts). */
+type DungeonName = { name: string; the: string }
+type RoomName = { name: string; text: string }
 
 export const log = {
   panel: {
@@ -105,6 +108,10 @@ export const log = {
     initiative: (v: { p: string }) => `${v.p} prend l’initiative`,
     noInitiative: 'Plus d’initiative',
     eliminated: (v: { p: string }) => `${v.p} est éliminé`,
+    /** Exploration : entre dans un donjon ou avance (`adv`) ; `total` : donjons terminés, si celui-ci vient de l'être. */
+    venture: (v: { adv?: 1; d: DungeonName; r: RoomName; total?: number }) =>
+      `${v.adv ? 'avance dans' : 'entre dans'} ${v.d.the} : ${v.r.name} — ${v.r.text}${v.total ? ` Donjon terminé (${v.total} au total).` : ''}`,
+    skipVenture: (v: { d: DungeonName }) => `n’explore pas ${v.d.the} pour l’instant`,
     revealAll: (v: { cards: string[] }) => `révèle : ${v.cards.join(', ')}`,
     revealTo: (v: { n: number; to: string[] }) => `révèle ${plural(v.n, 'carte')} à ${v.to.join(', ')}`,
     revealedTo: (v: { to: string[]; cards: string[] }) => `Révélé à ${v.to.join(', ')} : ${v.cards.join(', ')}`,
