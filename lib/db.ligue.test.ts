@@ -194,3 +194,71 @@ describe('correction d’une demi-finale', () => {
     expect(await stage('semi2')).toMatchObject({ score_p1: 2, score_p2: 1 })
   })
 })
+
+describe('demi-finale effacée', () => {
+  // semi1 : p1 contre p4, semi2 : p2 contre p3.
+  async function demiFinalesJouees() {
+    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
+    const s1 = semis.find((p) => p.stage === 'semi1')!
+    const s2 = semis.find((p) => p.stage === 'semi2')!
+    await updatePlayoffScore(db, s1.id, 2, 0)
+    await updatePlayoffScore(db, s2.id, 2, 1)
+    return { s1, s2 }
+  }
+  const stages = async () => (await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)
+  const stage = async (s: string) => (await listPlayoffs(db, 'l1')).data!.find((p) => p.stage === s)
+
+  it('retire la finale et la petite finale sans score', async () => {
+    const { s1 } = await demiFinalesJouees()
+    const { data, error } = await resetPlayoffScore(db, s1.id)
+    expect(error).toBeNull()
+    expect(data).toMatchObject({ id: s1.id, score_p1: null, is_completed: false })
+    expect(await stages()).toEqual(['semi1', 'semi2'])
+  })
+
+  it('refuse ensuite un score de finale ou de petite finale', async () => {
+    const { s1 } = await demiFinalesJouees()
+    const final = (await stage('final'))!
+    const third = (await stage('third_place'))!
+    // Retirées par l'effacement : on les remet comme si un ancien serveur les avait laissées.
+    await resetPlayoffScore(db, s1.id)
+    await db.batch([final, third].map((p) =>
+      db.prepare("INSERT INTO playoffs (id, league_id, stage, player1_id, player2_id) VALUES (?, 'l1', ?, ?, ?)")
+        .bind(p.id, p.stage, p.player1_id, p.player2_id)))
+    expect((await updatePlayoffScore(db, final.id, 2, 1)).error).toBe(ERREURS_LIGUE.semisPending)
+    expect((await updatePlayoffScore(db, third.id, 2, 1)).error).toBe(ERREURS_LIGUE.semisPending)
+    expect(await stage('final')).toMatchObject({ is_completed: false, score_p1: null })
+  })
+
+  it('la finale se recrée quand la demi-finale est de nouveau saisie', async () => {
+    const { s1 } = await demiFinalesJouees()
+    await resetPlayoffScore(db, s1.id)
+    await updatePlayoffScore(db, s1.id, 0, 2)
+    expect(await stage('final')).toMatchObject({ player1_id: 'p4', player2_id: 'p2' })
+    expect(await stage('third_place')).toMatchObject({ player1_id: 'p1', player2_id: 'p3' })
+  })
+
+  it('refuse l’effacement si la finale ou la petite finale a un score', async () => {
+    for (const scored of ['final', 'third_place']) {
+      await deleteAllPlayoffs(db, 'l1')
+      const { s1 } = await demiFinalesJouees()
+      await updatePlayoffScore(db, (await stage(scored))!.id, 2, 0)
+      expect((await resetPlayoffScore(db, s1.id)).error).toBe(ERREURS_LIGUE.finalScoredReset)
+      expect(await stage('semi1')).toMatchObject({ score_p1: 2, score_p2: 0, is_completed: true })
+      expect(await stages()).toEqual(['semi1', 'semi2', 'final', 'third_place'])
+    }
+  })
+
+  it('effacer le score de la finale reste possible', async () => {
+    await demiFinalesJouees()
+    const final = (await stage('final'))!
+    await updatePlayoffScore(db, final.id, 2, 0)
+    expect((await resetPlayoffScore(db, final.id)).data).toMatchObject({ is_completed: false })
+    expect(await stages()).toEqual(['semi1', 'semi2', 'final', 'third_place'])
+  })
+
+  it('associe un statut 409 aux nouveaux refus', () => {
+    expect(statusForError(ERREURS_LIGUE.semisPending)).toBe(409)
+    expect(statusForError(ERREURS_LIGUE.finalScoredReset)).toBe(409)
+  })
+})
