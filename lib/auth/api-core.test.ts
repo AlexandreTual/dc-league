@@ -125,6 +125,7 @@ describe('resultError', () => {
       [ERREURS_LIGUE.matchNotFound, 404], [ERREURS_LIGUE.playoffNotFound, 404],
       [ERREURS_LIGUE.matchesExist, 409], [ERREURS_LIGUE.playoffsExist, 409],
       [ERREURS_LIGUE.leagueClosed, 409], [ERREURS_LIGUE.finalScored, 409],
+      [ERREURS_LIGUE.finalScoredReset, 409], [ERREURS_LIGUE.semisPending, 409],
     ]
     for (const [error, status] of expected) {
       const res = resultError(error, STATUTS_LIGUE)
