@@ -27,7 +27,7 @@ import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
 import PlayerHeader from './PlayerHeader'
 import PlayerPortrait from './PlayerPortrait'
-import PileModal from './PileModal'
+import PileModal, { PILE_PANEL, PILE_SLOT } from './PileModal'
 import PreviewPane from './PreviewPane'
 import StartDraw from './StartDraw'
 import TokenModal from './TokenModal'
@@ -82,6 +82,10 @@ function visibleCards(view: PlayerView): Map<string, VisibleCard> {
  */
 const collision: CollisionDetection = (args) => {
   const under = pointerWithin(args)
+  // Fenêtre d'une pile encore affichée pendant le glisser (regard) : seules ses cartes sont des cibles (réordonner).
+  const slots = under.filter((c) => String(c.id).startsWith(PILE_SLOT))
+  if (slots.length > 0) return slots
+  if (under.some((c) => c.id === PILE_PANEL)) return []
   return under.length > 0 ? under : rectIntersection(args)
 }
 
@@ -407,9 +411,10 @@ export default function Table({ source, notice, boardWindow }: {
   }
 
   function onDragStart(e: DragStartEvent) {
-    const id = String(e.active.id)
+    // Carte glissée : l'identifiant du glisser peut différer (vignette Cim., fenêtre d'une pile).
+    const id = String(e.active.data.current?.card ?? e.active.id)
     // offsetHeight ignore la rotation d'une carte engagée, contrairement au rectangle mesuré par dnd-kit.
-    const node = document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)
+    const node = document.querySelector<HTMLElement>(`[data-drag-key="${CSS.escape(String(e.active.id))}"]`)
     const group = live && live.ids.length > 1 && live.ids.includes(id) ? live.ids : undefined
     setDragging({ id, from: e.active.data.current?.from as ZoneRef, height: node?.offsetHeight || 134, group })
   }
@@ -436,8 +441,9 @@ export default function Table({ source, notice, boardWindow }: {
     setDragging(null)
     const to = e.over?.data.current as ZoneRef | undefined
     const from = e.active.data.current?.from as ZoneRef | undefined
-    const id = String(e.active.id)
-    if (!to || !from || !me) return
+    const id = String(e.active.data.current?.card ?? e.active.id)
+    // Lâchée dans la fenêtre d'une pile (réordonnée par la fenêtre elle-même) : pas une zone.
+    if (!to?.zone || !from || !me) return
     const placement: { x?: number; y?: number; position?: Position } = {}
     if (to.zone === 'battlefield') {
       const rect = e.active.rect.current.translated
@@ -532,6 +538,8 @@ export default function Table({ source, notice, boardWindow }: {
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
   return (
+    // Le glisser couvre toute la table, fenêtre des piles comprise (une carte s'en glisse vers le champ de bataille).
+    <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
     <div className="relative h-full flex flex-col">
       {boardWindow ? (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-dc-border bg-dc-surface" data-testid="board-window-bar">
@@ -644,7 +652,6 @@ export default function Table({ source, notice, boardWindow }: {
 
       <div className="relative flex-1 min-h-0 flex flex-col">
         {visio.inCall && <VisioPanel visio={visio} names={Object.fromEntries(Object.entries(view.players).map(([id, p]) => [id, p.name]))} />}
-        <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {boardWindow ? (
             <div className="flex-1 min-h-0 p-2">
               <OpponentBoard
@@ -709,8 +716,7 @@ export default function Table({ source, notice, boardWindow }: {
                 )}
                 {(() => {
                   // Carte du dessus : face visible si je la connais, dos sinon.
-                  const shown = dragging.id.startsWith('top:') ? libraryTop(view, dragging.from.player)
-                    : dragging.from.zone === 'library' ? null : cards.get(dragging.id)
+                  const shown = dragging.id.startsWith('top:') ? libraryTop(view, dragging.from.player) : cards.get(dragging.id)
                   return shown
                     ? <GameCard card={shown} catalog={catalogs[shown.owner]} lang={lang} className="h-full" />
                     : <CardBack className="h-full" />
@@ -718,7 +724,6 @@ export default function Table({ source, notice, boardWindow }: {
               </div>
             )}
           </DragOverlay>
-        </DndContext>
         <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} />
         <DungeonHost view={view} canAct={canAct} animate={settings.cardEffects.dungeon} offers={!boardWindow} send={send} />
         {!boardWindow && <DiceTray rolls={playerFx.rolls} />}
@@ -731,6 +736,7 @@ export default function Table({ source, notice, boardWindow }: {
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}
           title={pile.title}
+          player={pile.player}
           zone={pile.zone}
           cards={pileCards}
           searchable={pile.mode !== 'look'}
@@ -808,5 +814,6 @@ export default function Table({ source, notice, boardWindow }: {
         Tourne l’écran en paysage pour jouer.
       </div>
     </div>
+    </DndContext>
   )
 }
