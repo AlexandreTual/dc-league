@@ -7,6 +7,9 @@ import { playerBadges } from '@/lib/game/player-badges'
 import { lifeLevel, portraitCard } from '@/lib/game/player-summary'
 import type { ClientAction } from '@/lib/game/room'
 import type { Catalog, PlayerView } from '@/lib/game/types'
+import type { Pop, Pops } from '@/lib/game/player-fx'
+import type { CardEffects } from '@/lib/table-settings'
+import DungeonToken from './DungeonToken'
 import type { Lang } from './GameCard'
 import PlayerPanel, { opposingCommanders } from './PlayerPanel'
 import { touchTarget } from './touch'
@@ -21,6 +24,32 @@ const SIZES = {
 /** −, + et « ⋯ » : petits à la souris ; sur tablette, en grand (44 px de haut) sur une rangée sous la ligne portrait. */
 const lifeButton = `w-6 h-5 tablet:w-auto tablet:h-11 flex items-center justify-center rounded tablet:rounded-lg border border-dc-border bg-dc-border/50 hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`
 const lifeIcon = 'w-3 h-3 tablet:w-5 tablet:h-5'
+
+/** Animations du portrait (spec `2026-10-20-player-animations-design.md`) : bulles d'écart, fissures qui s'ouvrent. */
+export type PortraitFx = { effects: CardEffects; pops: Pops; cracking: Set<string> }
+
+const signed = (n: number) => (n > 0 ? `+${n}` : `−${-n}`)
+
+/** Écart qui s'envole (relancé à chaque nouvel écart grâce à sa clé). */
+function PopBubble({ pop, kind, className }: { pop: Pop; kind: 'life' | 'poison' | 'commander'; className: string }) {
+  const text = kind === 'poison' ? `☠ ${signed(pop.delta)}` : kind === 'commander' ? `⚔ ${signed(pop.delta)}` : signed(pop.delta)
+  const color = kind === 'poison' ? 'text-dc-green-light' : kind === 'commander' || pop.delta < 0 ? 'text-dc-red-light' : 'text-dc-green-light'
+  return (
+    <span key={pop.key} className={`fx-pop absolute pointer-events-none z-10 font-bold tabular-nums whitespace-nowrap drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] ${color} ${className}`}
+      data-fx-pop={kind}>{text}</span>
+  )
+}
+
+/** Fissures sur la ligne portrait d'un joueur éliminé ; `opening` : elles s'ouvrent (une fois). */
+function Cracks({ opening }: { opening: boolean }) {
+  return (
+    <svg className={`absolute inset-0 w-full h-full pointer-events-none z-10 ${opening ? 'fx-crack-open' : ''}`} viewBox="0 0 100 40" preserveAspectRatio="none"
+      data-fx-crack={opening ? 'opening' : 'static'} aria-hidden>
+      <path d="M38 0 L42 9 L36 15 L45 22 L41 30 L47 40 M42 9 L55 12 L62 6 M45 22 L58 25 L66 33 L64 40 M36 15 L22 19 L14 27"
+        fill="none" stroke="rgba(230,230,230,0.75)" strokeWidth="0.9" vectorEffect="non-scaling-stroke" strokeLinejoin="bevel" />
+    </svg>
+  )
+}
 
 /**
  * Ligne portrait d'un joueur (colonne ou en-tête de bandeau) : portrait, nom, − et +, vie en gros chiffres
@@ -41,8 +70,10 @@ export default function PlayerPortrait(props: {
   up?: boolean
   /** « Ouvrir dans une fenêtre » (adversaire, en ligne, sur ordinateur). */
   onDetach?: () => void
+  /** Animations du joueur ; absent : aucune. */
+  fx?: PortraitFx
 }) {
-  const { size, up = false, onDetach, ...panelProps } = props
+  const { size, up = false, onDetach, fx, ...panelProps } = props
   const { view, player, catalogs, lang, host, online, canAct, send, onTitleClick } = panelProps
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -60,6 +91,11 @@ export default function PlayerPortrait(props: {
   const image = portrait ? cardInfo(catalogs[portrait.owner], portrait, lang) : null
   const badges = playerBadges(view, player, commanderName)
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
+  const lifePop = fx?.effects.life ? fx.pops[`${player}:life`] : undefined
+  const poisonPop = fx?.effects.life ? fx.pops[`${player}:poison`] : undefined
+  const commanderPop = fx?.effects.life ? fx.pops[`${player}:commander`] : undefined
+  const fallen = p.eliminated && !!fx?.effects.elimination
+  const lifeFx = lifePop ? (lifePop.delta < 0 ? 'fx-life-loss' : 'fx-life-gain') : ''
 
   useEffect(() => {
     if (!open) return
@@ -90,15 +126,29 @@ export default function PlayerPortrait(props: {
   const rank = Object.keys(view.players).length > 1 ? (view.turnOrder?.indexOf(player) ?? -1) + 1 : 0
 
   return (
-    <div className={`relative ${p.eliminated ? 'opacity-50' : ''}`} data-panel={player} ref={ref}>
+    <div className={`relative ${p.eliminated ? 'opacity-50' : ''} ${fallen ? 'grayscale' : ''}`} data-panel={player} ref={ref}>
       {/* Grille : portrait | nom | vie, puis −, + et « ⋯ » sous le nom (souris) ou sur toute la largeur (tablette). Un seul jeu de boutons. */}
-      <div className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
-        {image && !image.hidden && image.image ? (
-          <div className={`${s.portrait} row-span-2 tablet:row-span-1 shrink-0 rounded-md bg-dc-surface bg-no-repeat`} title={image.name}
-            style={{ backgroundImage: `url(${image.image})`, backgroundSize: '160% auto', backgroundPosition: '50% 20%' }} />
-        ) : (
-          <div className={`${s.portrait} row-span-2 tablet:row-span-1 shrink-0 rounded-md bg-dc-purple flex items-center justify-center font-fantasy text-dc-gold`}>{p.name.slice(0, 1).toUpperCase()}</div>
-        )}
+      <div className={`relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-lg border-2 p-1 bg-dc-bg/60 ${active ? 'border-dc-gold/70' : 'border-dc-border'}`}>
+        {fallen && <Cracks opening={!!fx?.cracking.has(player)} />}
+        <div className={`relative ${s.portrait} row-span-2 tablet:row-span-1 shrink-0`} data-portrait-of={player}>
+          {image && !image.hidden && image.image ? (
+            <div className="w-full h-full rounded-md bg-dc-surface bg-no-repeat" title={image.name}
+              style={{ backgroundImage: `url(${image.image})`, backgroundSize: '160% auto', backgroundPosition: '50% 20%' }} />
+          ) : (
+            <div className="w-full h-full rounded-md bg-dc-purple flex items-center justify-center font-fantasy text-dc-gold">{p.name.slice(0, 1).toUpperCase()}</div>
+          )}
+          {poisonPop && poisonPop.delta > 0 && (
+            <span key={`drops-${poisonPop.key}`} className="absolute inset-0 pointer-events-none overflow-hidden rounded-md" aria-hidden>
+              {[18, 48, 74].map((left, i) => <span key={left} className="fx-drop absolute top-0 w-1.5 h-2.5 rounded-b-full rounded-t-[40%] bg-dc-green-light"
+                style={{ left: `${left}%`, animationDelay: `${i * 0.18}s` }} />)}
+            </span>
+          )}
+          {commanderPop && commanderPop.delta > 0 && (
+            <span key={`sword-${commanderPop.key}`} className="fx-sword absolute inset-0 flex items-center justify-center pointer-events-none text-dc-red-light text-2xl" aria-hidden>⚔</span>
+          )}
+          {poisonPop && <PopBubble pop={poisonPop} kind="poison" className="inset-x-0 top-0 text-center text-sm" />}
+          {commanderPop && <PopBubble pop={commanderPop} kind="commander" className={`inset-x-0 ${poisonPop ? 'bottom-0' : 'top-0'} text-center text-sm`} />}
+        </div>
         <div className="col-start-2 row-start-1 min-w-0 flex flex-col gap-1">
           <div className={`flex items-center gap-1 ${s.name} text-dc-text min-w-0`}>
             {online && <span className={`w-2 h-2 shrink-0 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? 'en ligne' : 'hors ligne'} />}
@@ -118,7 +168,12 @@ export default function PlayerPortrait(props: {
           {p.eliminated && <span className="text-[10px] text-dc-red-light">éliminé</span>}
           {!p.kept && !p.eliminated && <span className="text-[10px] text-dc-muted italic">choisit sa main…</span>}
         </div>
-        <span className={`col-start-3 row-start-1 row-span-2 tablet:row-span-1 ${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'}`} data-testid="player-life">{p.life}</span>
+        <span className="relative col-start-3 row-start-1 row-span-2 tablet:row-span-1 flex justify-end">
+          {lifePop && <span key={`halo-${lifePop.key}`} className={`fx-halo absolute -inset-2 rounded-full pointer-events-none ${lifePop.delta < 0 ? 'fx-halo-loss' : 'fx-halo-gain'}`} aria-hidden />}
+          <span key={lifePop?.key ?? 0} className={`relative inline-block ${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'} ${lifeFx}`}
+            data-testid="player-life">{p.life}</span>
+          {lifePop && <PopBubble pop={lifePop} kind="life" className="right-full top-0 mr-1 text-2xl" />}
+        </span>
         <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] items-center gap-1 text-dc-text">
           <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label="moins : points de vie"><Minus className={lifeIcon} /></button>
           <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label="plus : points de vie"><Plus className={lifeIcon} /></button>
@@ -134,6 +189,7 @@ export default function PlayerPortrait(props: {
           ))}
         </div>
       )}
+      <DungeonToken view={view} player={player} animate={fx?.effects.dungeon ?? false} />
       {open && (
         <div ref={bubbleRef} className={`absolute left-0 ${place.up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] overflow-y-auto bg-dc-surface rounded-xl shadow-card`}
           style={{ maxHeight: place.maxHeight }} data-bubble={player}>

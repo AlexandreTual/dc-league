@@ -154,7 +154,7 @@ export type GainedAbility = { keyword: Keyword; untilEndOfTurn?: true; param?: s
 export type AbilityChoice = Keyword | { keyword: Keyword; param: string }
 
 /** « A », « A et B », « A, B et C ». */
-function join(items: string[]): string {
+export function join(items: string[]): string {
   return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} et ${items.at(-1)}`
 }
 
@@ -191,6 +191,27 @@ export function nextAbilities(card: Abilities, gained: AbilityChoice[], lost: Ke
   })
   const lostNext = [...new Set(lost)]
   return { ...(next.length > 0 ? { gained: next } : {}), ...(lostNext.length > 0 ? { lost: lostNext } : {}) }
+}
+
+/**
+ * Capacités après un effet de groupe : celles choisies s'ajoutent aux capacités données, sauf une capacité imprimée
+ * et pas perdue (déjà sur la carte). Une capacité déjà donnée prend la nouvelle précision et devient permanente si
+ * l'effet l'est (jamais l'inverse).
+ */
+export function addAbilities(card: Abilities, printed: string[], choices: AbilityChoice[], untilEndOfTurn: boolean): Abilities {
+  const next = [...(card.gained ?? [])]
+  for (const choice of choices) {
+    const [keyword, param] = typeof choice === 'string' ? [choice, undefined] : [choice.keyword, choice.param]
+    const at = next.findIndex((g) => g.keyword === keyword)
+    if (at < 0 && printed.includes(keyword) && !card.lost?.includes(keyword)) continue
+    const before = at < 0 ? undefined : next[at]
+    const eot = untilEndOfTurn && (!before || !!before.untilEndOfTurn)
+    const kept = param ?? before?.param
+    const ability: GainedAbility = { keyword, ...(kept !== undefined ? { param: kept } : {}), ...(eot ? { untilEndOfTurn: true as const } : {}) }
+    if (at < 0) next.push(ability)
+    else next[at] = ability
+  }
+  return { ...(next.length > 0 ? { gained: next } : {}), ...(card.lost?.length ? { lost: card.lost } : {}) }
 }
 
 const list = (keywords: Keyword[]): string => join(keywords.map(keywordLabel))

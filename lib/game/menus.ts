@@ -3,7 +3,7 @@
 import { cardInfo, taxOf } from './apply'
 import { printedKeywordsOf } from './card-effects'
 import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
-import { basePT, MAX_PT_MOD, NO_PT, ptStats } from './pt'
+import { basePT, MAX_PT_MOD, NO_PT, ptStats, signed } from './pt'
 import type { ClientAction } from './room'
 import type { OrderRequest } from './selection'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
@@ -18,6 +18,8 @@ export type MenuCommand =
   | { kind: 'askAi'; owner: string; ref: number }
   /** Fenêtre « Capacités » d'une carte en jeu (« Donner une capacité… »). */
   | { kind: 'abilities'; id: string }
+  /** Fenêtre « Effet » : force, endurance et capacités données à plusieurs permanents en jeu ; `title` : ce qui est visé. */
+  | { kind: 'effect'; ids: string[]; title: string }
   /** Fenêtre « Ordre des cartes » d'un groupe sélectionné, avant de le poser sur une pile. */
   | ({ kind: 'order' } & OrderRequest)
   /** Vide la sélection de cartes. */
@@ -95,25 +97,40 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
 }
 
 /**
- * « Oracle et règles », puis « Ajouter à la question IA » si l'assistant est disponible : seulement pour une
- * carte que le joueur voit (jamais face cachée) et qui vient d'un deck (un jeton n'a ni Oracle ni règles),
- * données de carte reçues.
+ * « Oracle et règles », puis « Ajouter à la question IA » si l'assistant est disponible, en tête du menu (sous le
+ * nom de la carte) : visibles sans défiler sur tablette et téléphone, où le menu d'une carte en jeu dépasse l'écran.
+ * Seulement pour une carte que le joueur voit (jamais face cachée) et qui vient d'un deck (un jeton n'a ni Oracle
+ * ni règles), données de carte reçues.
  */
 function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (card.faceDown || card.token || card.ref === null) return []
   if (!ctx.catalogs[card.owner]?.entries.some((e) => e.ref === card.ref)) return []
-  const entries = [{ kind: 'separator' } as const, item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  const entries: MenuEntry[] = [item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
   if (ctx.ai) entries.push(item('Ajouter à la question IA', { kind: 'askAi', owner: card.owner, ref: card.ref }))
-  return entries
+  return [...entries, { kind: 'separator' }]
 }
 
 /**
  * Force et endurance d'une carte en jeu, modifiables par tout joueur : valeur affichée, nombre tapé = nouvelle
- * valeur (ou nouvel écart pour une carte sans force connue), « Réinitialiser » quand elle a été modifiée.
+ * valeur (ou nouvel écart pour une carte sans force connue), puis l'écart « ce tour » (effacé à la fin du tour),
+ * « Réinitialiser » quand l'une ou l'autre a été modifiée.
  */
 function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   const id = card.id
   const stats = ptStats(ctx.catalogs[card.owner], card)
+  const clamp = (n: number) => Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, Math.trunc(n)))
+  const turn = card.ptTurn ?? NO_PT
+  const turnStepper = (label: string, stat: 'power' | 'toughness'): MenuEntry => {
+    const change = (n: number) => act({ type: 'ptTurn', id, power: stat === 'power' ? n : 0, toughness: stat === 'toughness' ? n : 0 })
+    return {
+      kind: 'stepper', label, value: signed(turn[stat]), signed: true, minus: change(-1), plus: change(1),
+      set: (n) => {
+        if (!Number.isFinite(n)) return []
+        const delta = clamp(n) - turn[stat]
+        return delta === 0 ? [] : [change(delta)]
+      },
+    }
+  }
   const stepper = (label: string, stat: 'power' | 'toughness'): MenuEntry => {
     const shown = stats?.[stat]
     const current = shown ? (shown.value ?? shown.delta) : 0
@@ -122,17 +139,29 @@ function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
       kind: 'stepper', label, value: shown?.text ?? '+0', signed: true, minus: change(-1), plus: change(1),
       set: (n) => {
         if (!Number.isFinite(n)) return []
-        const delta = Math.max(-MAX_PT_MOD, Math.min(MAX_PT_MOD, Math.trunc(n))) - current
+        const delta = clamp(n) - current
         return delta === 0 ? [] : [change(delta)]
       },
     }
   }
   const mod = card.ptMod ?? NO_PT
-  const entries = [stepper('Force', 'power'), stepper('Endurance', 'toughness')]
-  if (mod.power !== 0 || mod.toughness !== 0) {
-    entries.push(item('Réinitialiser force/endurance', act({ type: 'pt', id, power: -mod.power, toughness: -mod.toughness })))
-  }
+  const entries = [stepper('Force', 'power'), stepper('Endurance', 'toughness'), turnStepper('Force ce tour', 'power'), turnStepper('Endurance ce tour', 'toughness')]
+  const reset: MenuCommand[] = [
+    ...(mod.power !== 0 || mod.toughness !== 0 ? [act({ type: 'pt', id, power: -mod.power || 0, toughness: -mod.toughness || 0 })] : []),
+    ...(turn.power !== 0 || turn.toughness !== 0 ? [act({ type: 'ptTurn', id, power: -turn.power || 0, toughness: -turn.toughness || 0 })] : []),
+  ]
+  if (reset.length > 0) entries.push(item('Réinitialiser force/endurance', ...reset))
   return entries
+}
+
+/** Créatures en phase de mon champ de bataille (une carte face cachée est une créature 2/2), dans l'ordre de la zone. */
+export function myCreatures(ctx: MenuContext): string[] {
+  if (!ctx.me) return []
+  return (ctx.view.players[ctx.me]?.zones.battlefield ?? []).flatMap((c) => {
+    if (c.hidden || c.phasedOut) return []
+    const creature = c.faceDown || cardInfo(ctx.catalogs[c.owner], c, 'en').typeLine.split(' // ')[0].split('—')[0].includes('Creature')
+    return creature ? [c.id] : []
+  })
 }
 
 /**
@@ -198,6 +227,8 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
     counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
     ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card),
     item('Donner une capacité…', { kind: 'abilities', id }))
+  const creatures = controller ? myCreatures(ctx) : []
+  if (creatures.length > 0) entries.push(item('Effet sur toutes mes créatures…', { kind: 'effect', ids: creatures, title: 'toutes mes créatures' }))
   return entries
 }
 
@@ -218,32 +249,32 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
   const flippable = !card.token && (info.faces?.length ?? 0) > 1
   const title: MenuEntry = { kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }
+  const head = [title, ...oracleEntries(ctx, card)]
   const name = (p: string) => ctx.view.players[p]?.name ?? '?'
 
   if (zone.player !== me) {
     // Chez un adversaire : on agit sur la carte, ou on la renvoie dans les zones de son propriétaire.
     const toOwner = (label: string, z: PlayerZone) => item(label, act({ type: 'move', id, to: { player: card.owner, zone: z } }))
     if (zone.zone === 'battlefield') {
-      return [title, ...battlefieldEntries(ctx, card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
+      return [...head, ...battlefieldEntries(ctx, card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
         item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
-        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile'),
-        ...oracleEntries(ctx, card)]
+        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile')]
     }
     if (zone.zone === 'graveyard' || zone.zone === 'exile') {
-      return [title, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
+      return [...head, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
         toOwner('Dans sa main', 'hand'),
-        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')]),
-        ...oracleEntries(ctx, card)]
+        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')])]
     }
     return []
   }
 
   const entries: MenuEntry[] = [title]
+  // Mulligan en cours : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone), avant tout le reste.
+  if (zone.zone === 'hand' && inMulligan(ctx.view.players[me])) {
+    entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
+  }
+  entries.push(...oracleEntries(ctx, card))
   if (zone.zone === 'hand') {
-    // Mulligan en cours : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone).
-    if (inMulligan(ctx.view.players[me])) {
-      entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
-    }
     entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))
     for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
   }
@@ -265,7 +296,6 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     if (dest.position) action.position = dest.position
     entries.push(item(dest.label, act(action)))
   }
-  entries.push(...oracleEntries(ctx, card))
   return entries
 }
 

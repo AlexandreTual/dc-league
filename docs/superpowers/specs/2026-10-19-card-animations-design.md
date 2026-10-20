@@ -43,8 +43,24 @@ seule fois (1,7 s) : la carte **se pose** depuis un peu plus haut et plus grande
   la carte est engagée ou déplacée ; un commandant renvoyé puis relancé a une nouvelle entrée.
 - Un commandant légendaire a aussi son éclat, puis garde son liseré.
 - Commandant face cachée : pas d'entrée (`commanderEntrance`, `lib/game/card-effects.ts`).
-- Coupée par la case « Animations des cartes ». Mouvement réduit : seulement la couronne, immobile, le temps de l'arrivée.
+- Coupée par la case « Entrée du commandant » de la fenêtre « Animations ». Mouvement réduit : seulement la couronne, immobile, le temps de l'arrivée.
 - Les effets d'arrivée restent affichés 2 s (au lieu de 1,5 s) pour laisser finir l'entrée.
+
+## Retour du cimetière (ajouté le 19 octobre)
+
+Quand une carte arrive sur un champ de bataille **depuis un cimetière** (le sien ou celui d'un autre joueur), son retour se
+voit, une seule fois (1,6 s) : une **pierre tombale** grise apparaît sur la carte, **tremble**, puis **se fend en deux** ; les
+deux moitiés basculent et tombent, quelques **éclats** de pierre volent, une **brume** pâle monte, et la carte **remonte** de
+sous la tombe.
+
+- Peu importe le geste : glisser la carte depuis le cimetière, bouton « Champ » de la liste du cimetière, menu, sélection.
+  Une carte est « ramenée du cimetière » si elle arrive en jeu (même notion que l'éclat des légendaires) et qu'elle était
+  visible dans un cimetière dans la vue précédente (`arrivals`, `lib/game/card-effects.ts`). Les cimetières sont publics :
+  rien n'est révélé.
+- Chez tous les joueurs, jamais au premier affichage ; s'ajoute à l'éclat d'un légendaire et au flottement d'une créature
+  volante. Un commandant ramené du cimetière garde son entrée de commandant (il se pose), avec la tombe en plus.
+- Une carte face cachée n'a pas l'effet (rien à montrer de la carte).
+- Coupé par la case « Retour du cimetière » de la fenêtre « Animations ». Mouvement réduit : seulement la tombe fendue, immobile, le temps du retour.
 
 ## Vol : flottement (retenu)
 
@@ -128,7 +144,7 @@ plus tard avec une saisie libre.
 - Les capacités imprimées ne sont pas répétées sur la carte : elles se lisent déjà sur l'image.
 - L'aperçu de la carte (survol, appui long) liste en toutes lettres les capacités données et perdues. C'est utile sur
   tablette, où les symboles sont petits.
-- Les badges restent visibles même si la case « Animations des cartes » est décochée, car c'est une information de jeu, pas
+- Les badges restent visibles même si les animations sont coupées, car c'est une information de jeu, pas
   une décoration.
 
 ### Moteur de partie
@@ -153,9 +169,12 @@ plus tard avec une saisie libre.
 
 ## Réglage et accessibilité
 
-- Nouvelle case dans les réglages de la table : **« Animations des cartes »**. Elle est cochée par défaut et mémorisée sur
-  l'appareil (`TableSettings.cardEffects` ; absente d'une ancienne sauvegarde = cochée). Elle coupe le liseré, l'éclat et le
-  flottement, pas les badges.
+- Fenêtre **« Animations »**, ouverte par le bouton « Animations… » des réglages de la table (comme « Raccourcis
+  clavier… ») : une case par animation, **Légendaires** (liseré et éclat d'arrivée), **Entrée du commandant**, **Retour du cimetière** et **Vol**
+  (flottement), toutes cochées par défaut, plus « Tout activer » et « Tout couper ». Mémorisé sur l'appareil
+  (`TableSettings.cardEffects: { legendary, commander, graveyard, flying, … }` ; absent ou illisible = coché ; l'ancienne case unique
+  « Animations des cartes », `cardEffects: true | false`, est reprise pour les trois). Les badges de capacités restent
+  affichés quoi qu'il en soit.
 - Nouveau choix dans les réglages de la table : **« Capacités sur les cartes : Symboles / Libellés »**. « Symboles » est le
   choix par défaut. Il est mémorisé sur l'appareil (`TableSettings.abilityStyle: 'icons' | 'labels'` ; absent ou illisible
   = `'icons'`). C'est un choix d'affichage propre à chaque joueur, sans effet sur la partie.

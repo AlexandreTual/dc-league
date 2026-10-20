@@ -1,5 +1,6 @@
 import type { CardFace, CardRow } from '@/lib/cards/types'
 import type { AbilityChoice, GainedAbility, Keyword } from './abilities'
+import type { DungeonId, DungeonPosition } from './dungeons'
 
 export type { CardFace }
 
@@ -79,6 +80,13 @@ export type PlayerState = {
   keepMana: boolean
   zones: Record<PlayerZone, string[]>
   stats: { drawn: number; landsPlayed: number }
+  /**
+   * Donjon en cours et salle du jeton ; sur la dernière salle, le donjon est terminé (jusqu'à la prochaine exploration).
+   * Absent : jamais entré dans un donjon (ou serveur de jeu plus ancien, côté navigateur).
+   */
+  dungeon?: DungeonPosition
+  /** Donjons terminés ; absent : aucun (ou serveur de jeu plus ancien). */
+  dungeonsDone?: number
 }
 
 /** Dans `knownBy` : carte révélée à tous (joueurs et spectateurs), jusqu'à ce qu'elle bouge. */
@@ -96,6 +104,8 @@ export type CardInstance = {
   counters: Counters
   /** Absent : aucune modification (0/0), et toujours absent hors du champ de bataille. */
   ptMod?: PtMod
+  /** Modification de force et d'endurance jusqu'à la fin du tour ; absent : aucune, et toujours hors du champ de bataille. */
+  ptTurn?: PtMod
   /** Marqueurs loyauté ajoutés (ou retirés) depuis la loyauté imprimée ; absent : aucun écart, et toujours hors du champ de bataille. */
   loyaltyMod?: number
   /** Pivotée à 180° (ex. jeton imprimé tête-bêche) ; absent sinon, et toujours hors du champ de bataille. */
@@ -128,6 +138,8 @@ export type GameState = {
   firstChosen: boolean
   monarch: string | null
   initiative: string | null
+  /** Joueurs à qui l'exploration des Souterrains est proposée (initiative prise, début de tour) ; absent : aucun. */
+  ventureOffers?: string[]
   cards: Record<string, CardInstance>
   commanderCasts: Record<string, number>
   lookingAt: Record<string, string[]>
@@ -192,6 +204,13 @@ export type GameAction = Stamp & (
   | { type: 'counter'; actor: string; id: string; kind: keyof Counters; delta: number }
   /** Écart ajouté à la modification de force et d'endurance d'une carte en jeu. */
   | { type: 'pt'; actor: string; id: string; power: number; toughness: number }
+  /** Écart ajouté à la modification de force et d'endurance jusqu'à la fin du tour. */
+  | { type: 'ptTurn'; actor: string; id: string; power: number; toughness: number }
+  /**
+   * Effet sur plusieurs permanents (Finale of Devastation…) : écart de force et d'endurance et capacités ajoutées,
+   * pour toujours ou jusqu'à la fin du tour ; une seule ligne de journal.
+   */
+  | { type: 'effect'; actor: string; ids: string[]; power: number; toughness: number; gained: AbilityChoice[]; untilEndOfTurn?: boolean }
   | { type: 'loyalty'; actor: string; id: string; delta: number }
   /** Capacités voulues du permanent (données, imprimées perdues) ; `untilEndOfTurn` : durée de celles ajoutées. */
   | { type: 'abilities'; actor: string; id: string; gained: AbilityChoice[]; lost: Keyword[]; untilEndOfTurn?: boolean }
@@ -203,6 +222,13 @@ export type GameAction = Stamp & (
   | { type: 'commanderTax'; actor: string; id: string; delta: number }
   | { type: 'setMonarch'; actor: string; to: string | null }
   | { type: 'setInitiative'; actor: string; to: string | null }
+  /**
+   * Explore pour son auteur : Les Souterrains (`undercity`, initiative) ou le donjon. `dungeon` : donjon choisi quand il
+   * faut en commencer un ; `room` : salle suivante quand il y en a deux.
+   */
+  | { type: 'venture'; actor: string; undercity?: boolean; dungeon?: DungeonId; room?: string }
+  /** « Plus tard » : retire l'exploration des Souterrains proposée. */
+  | { type: 'skipVenture'; actor: string }
   | { type: 'eliminate'; actor: string; target: string }
   | { type: 'reveal'; actor: string; ids: string[] | 'hand'; to: 'all' | string[] }
   | { type: 'revealTop'; actor: string }
@@ -233,6 +259,8 @@ export type VisibleCard = {
   counters: Counters
   /** Absent : aucune modification, ou serveur de jeu plus ancien. */
   ptMod?: PtMod
+  /** Modification jusqu'à la fin du tour ; absent : aucune, ou serveur de jeu plus ancien. */
+  ptTurn?: PtMod
   /** Absent : aucun écart de loyauté, ou serveur de jeu plus ancien. */
   loyaltyMod?: number
   /** Absent : non pivotée, ou serveur de jeu plus ancien. */
@@ -265,6 +293,8 @@ export type PlayerView = {
   firstChosen?: boolean
   monarch: string | null
   initiative: string | null
+  /** Joueurs à qui l'exploration des Souterrains est proposée. Absent avec un serveur de jeu plus ancien : aucun. */
+  ventureOffers?: string[]
   players: Record<string, PlayerViewState>
   commanderCasts: Record<string, number>
   lookingAt: string[]

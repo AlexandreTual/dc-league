@@ -1,16 +1,22 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { CARD_SCALES, type TableSettings } from '@/lib/table-settings'
+import { CARD_SCALES, GRAVEYARD_ARTS, type TableSettings } from '@/lib/table-settings'
+
+const ART_LABELS = ['Petite', 'Moyenne', 'Grande', 'Très grande']
 
 /** Couleur proposée par le sélecteur quand le fond par défaut est utilisé (proche du fond actuel). */
 const DEFAULT_PICKER = '#0e0e14'
 
 /** Panneau « Réglages » ouvert depuis la barre de la table. */
-export default function TableSettingsPanel({ settings, onChange, onClose }: {
+export default function TableSettingsPanel({ settings, onChange, onClose, onShortcuts, onAnimations }: {
   settings: TableSettings
   onChange: (settings: TableSettings) => void
   onClose: () => void
+  /** Ouvre la fenêtre « Raccourcis clavier ». */
+  onShortcuts: () => void
+  /** Ouvre la fenêtre « Animations ». */
+  onAnimations: () => void
 }) {
   return (
     <>
@@ -54,10 +60,15 @@ export default function TableSettingsPanel({ settings, onChange, onClose }: {
           <input type="checkbox" checked={!settings.pilesBesideHand} onChange={(e) => onChange({ ...settings, pilesBesideHand: !e.target.checked })} />
           Piles dans la colonne (ancienne disposition)
         </label>
-        <label className="flex items-center gap-2 text-sm text-dc-text">
-          <input type="checkbox" checked={settings.cardEffects} onChange={(e) => onChange({ ...settings, cardEffects: e.target.checked })} />
-          Animations des cartes
-        </label>
+        {settings.pilesBesideHand && (
+          <label className="flex items-center gap-2 text-sm text-dc-text">
+            Image du cimetière
+            <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.graveyardArt}
+              onChange={(e) => onChange({ ...settings, graveyardArt: Number(e.target.value) })} aria-label="Image du cimetière">
+              {GRAVEYARD_ARTS.map((h, i) => <option key={h} value={h}>{ART_LABELS[i]}</option>)}
+            </select>
+          </label>
+        )}
         <label className="flex items-center gap-2 text-sm text-dc-text">
           Capacités sur les cartes
           <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.abilityStyle}
@@ -66,6 +77,12 @@ export default function TableSettingsPanel({ settings, onChange, onClose }: {
             <option value="labels">Libellés</option>
           </select>
         </label>
+        <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onAnimations}>
+          Animations…
+        </button>
+        <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onShortcuts}>
+          Raccourcis clavier…
+        </button>
         <p className="text-xs text-dc-muted">Mémorisé sur cet appareil.</p>
       </div>
     </>

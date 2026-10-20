@@ -7,10 +7,17 @@ import type { CardPreview } from '@/lib/game/card-preview'
 import { menuPosition, touchTarget } from './touch'
 
 export type MenuItem =
-  | { kind: 'action'; label: string; onSelect: () => void }
-  | { kind: 'stepper'; label: string; value: number | string; onChange: (delta: number) => void; onSet?: (value: number) => void; signed?: boolean }
+  /** `shortcut` : touche du raccourci clavier, en grisé à droite (cachée au doigt). */
+  | { kind: 'action'; label: string; onSelect: () => void; shortcut?: string | null }
+  | { kind: 'stepper'; label: string; value: number | string; onChange: (delta: number) => void; onSet?: (value: number) => void; signed?: boolean; shortcut?: string | null }
   | { kind: 'separator' }
   | { kind: 'title'; label: string }
+
+/** Touche d'un raccourci dans le menu : en grisé, seulement avec une souris. */
+function ShortcutHint({ keys }: { keys?: string | null }) {
+  if (!keys) return null
+  return <kbd className="ml-auto shrink-0 font-sans text-xs text-dc-muted [@media(pointer:coarse)]:hidden" aria-hidden="true" data-shortcut-hint>{keys}</kbd>
+}
 
 /** Largeur de l'image d'une carte dans son menu (au doigt). */
 const PREVIEW_PX = 224
@@ -68,7 +75,7 @@ export default function CardMenu({ x, y, items, preview, onClose }: {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={preview.image} srcSet={cardSrcSet(preview.image, preview.imageLarge)} sizes={`${PREVIEW_PX}px`} alt={preview.name}
           // Hauteur fixée (format d'une carte) : le menu est placé avant le chargement de l'image.
-          className="rounded-xl shadow-card shrink-0 aspect-[63/88] object-cover" style={{ width: PREVIEW_PX }} data-testid="menu-preview" />
+          className="self-start rounded-xl shadow-card shrink-0 aspect-[63/88] object-cover" style={{ width: PREVIEW_PX }} data-testid="menu-preview" />
       )}
       {preview ? (
         <div className="w-60 flex flex-col">
@@ -92,7 +99,7 @@ function menuItems(items: MenuItem[], onClose: () => void) {
         if (item.kind === 'stepper') {
           return (
             <div key={i} className="flex items-center gap-2 px-3 py-1 text-dc-text">
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1 flex items-center gap-2">{item.label}<ShortcutHint keys={item.shortcut} /></span>
               <button className={`p-1 rounded hover:bg-dc-border ${touchTarget}`} onClick={() => item.onChange(-1)} aria-label={`${item.label} moins`}><Minus className="w-3 h-3" /></button>
               {item.onSet
                 ? <NumberField key={`${item.label}:${item.value}`} label={item.label} value={item.value} onSet={item.onSet} signed={item.signed} />
@@ -105,13 +112,14 @@ function menuItems(items: MenuItem[], onClose: () => void) {
           <button
             key={i}
             role="menuitem"
-            className="w-full text-left px-3 py-1.5 [@media(pointer:coarse)]:min-h-8 rounded-lg text-dc-text hover:bg-dc-border/70"
+            className="w-full flex items-center gap-3 text-left px-3 py-1.5 [@media(pointer:coarse)]:min-h-8 rounded-lg text-dc-text hover:bg-dc-border/70"
             onClick={() => {
               item.onSelect()
               onClose()
             }}
           >
-            {item.label}
+            <span>{item.label}</span>
+            <ShortcutHint keys={item.shortcut} />
           </button>
         )
       })}

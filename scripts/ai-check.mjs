@@ -123,7 +123,8 @@ try {
 
   // ── Partie en ligne en Duel : carte adverse visible, puis face cachée ──
   const anaOnline = await openAs(ANA)
-  const bastien = await openAs(BASTIEN)
+  // Bastien sur tablette : le menu d'une carte en jeu (appui long, avec l'image) dépasse la hauteur de l'écran.
+  const bastien = await openAs(BASTIEN, { viewport: { width: 1180, height: 820 }, isMobile: true, hasTouch: true })
   const chooseDeck = async (who) => {
     await who.page.getByTestId('deck-select').selectOption(`deck-${who.id}`)
     await who.page.locator(`[data-seat="${who.id}"]`).getByText(`Kenrith de ${who.name}`).waitFor()
@@ -170,6 +171,26 @@ try {
   check(true, 'en ligne : question sur l’interaction d’une carte adverse et d’une des siennes')
   await capture(anaOnline.page, 'en-ligne')
   await closePanel(anaOnline.page)
+
+  // Appui long sur sa propre carte en jeu : « Ajouter à la question IA » visible sans faire défiler le menu.
+  const cdp = await bastien.page.context().newCDPSession(bastien.page)
+  const fieldBox = await bastienField(bastien).first().boundingBox()
+  const point = { x: fieldBox.x + fieldBox.width / 2, y: fieldBox.y + fieldBox.height / 2 }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] })
+  await bastien.page.waitForTimeout(700)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  const touchMenu = bastien.page.getByRole('menu')
+  await touchMenu.getByTestId('menu-preview').waitFor()
+  const menuBox = await touchMenu.boundingBox()
+  const aiBox = await touchMenu.getByRole('menuitem', { name: AI }).boundingBox()
+  check(aiBox.y >= menuBox.y && aiBox.y + aiBox.height <= Math.min(menuBox.y + menuBox.height, 820),
+    'tablette en ligne : « Ajouter à la question IA » visible sans défiler sur une carte en jeu')
+  await capture(bastien.page, 'tablette-menu')
+  await bastien.page.waitForTimeout(400) // le toucher qui suit de peu un appui long est ignoré (touch.ts)
+  await touchMenu.getByRole('menuitem', { name: AI }).tap()
+  await bastien.page.getByTestId('ai-panel').waitFor()
+  check((await chips(bastien.page).count()) === 1, 'tablette en ligne : la carte en jeu est ajoutée à la question')
+  await closePanel(bastien.page)
 
   await bastienField(bastien).first().click({ button: 'right' })
   await bastien.page.getByRole('menuitem', { name: 'Face cachée', exact: true }).click()

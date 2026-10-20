@@ -475,7 +475,7 @@ try {
   const dumpedId = await dumped.getAttribute('data-card-id')
   const gb = await tileGrave.boundingBox()
   await drag(dumped, gb.x + gb.width / 2, gb.y + gb.height / 2)
-  check(Number(await tileGrave.getAttribute('data-count')) === graveBefore + 1 && (await tileGrave.locator('[data-card-id]').getAttribute('data-card-id')) === dumpedId,
+  check(Number(await tileGrave.getAttribute('data-count')) === graveBefore + 1 && (await tileGrave.locator('[data-pile-face]').getAttribute('data-pile-face')) === dumpedId,
     'vignette Cim. : dépôt, la dernière carte affichée face visible')
   const handBeforeDraw = await handCount()
   await tiles.locator('[data-zone="library"] [data-card-id]').dblclick()
@@ -485,6 +485,58 @@ try {
   await tileGrave.click()
   check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'vignette Cim. : un clic ouvre tout le cimetière')
   await page.keyboard.press('Escape')
+
+  // ── Cimetière en liste dans ma colonne : la plus récente en haut, nom et haut de l'illustration ──
+  const list = page.locator('[data-column] [data-graveyard-list]')
+  const listBox = await list.boundingBox()
+  const columnNow = await page.locator('[data-column]').boundingBox()
+  check(listBox && listBox.y + listBox.height <= columnNow.y + columnNow.height + 1 && listBox.height > 200,
+    'cimetière en liste : dans ma colonne, sous la ligne portrait, sur la hauteur restante')
+  check(Number(await list.getAttribute('data-count')) === Number(await tileGrave.getAttribute('data-count')), 'cimetière en liste : même nombre que la vignette Cim.')
+  const firstRow = list.locator('[data-card-id]').first()
+  check((await firstRow.getAttribute('data-card-id')) === dumpedId, 'cimetière en liste : la dernière carte arrivée en haut')
+  check((await firstRow.getByTestId('graveyard-list-name').innerText()).trim().length > 0 && (await firstRow.locator('img').count()) === 1,
+    'cimetière en liste : nom de la carte et haut de son illustration')
+  const rowBox = await firstRow.boundingBox()
+  check(rowBox.height < 70, `cimetière en liste : une ligne compacte (${Math.round(rowBox.height)} px)`)
+  const toList = page.locator('[data-zone="hand"] [data-card-id]').first()
+  const toListId = await toList.getAttribute('data-card-id')
+  await drag(toList, listBox.x + listBox.width / 2, listBox.y + listBox.height - 20)
+  check((await list.locator('[data-card-id]').first().getAttribute('data-card-id')) === toListId, 'cimetière en liste : dépôt direct sur la liste')
+  await capture('cimetiere-liste')
+  const backId = await list.locator('[data-card-id]').nth(1).getAttribute('data-card-id')
+  const fb = await page.locator('[data-zone="battlefield"]').boundingBox()
+  // Pas seulement la plus récente : une carte plus ancienne de la liste se glisse aussi.
+  await drag(list.locator('[data-card-id]').nth(1), fb.x + 150, fb.y + 120)
+  check((await page.locator(`[data-zone="battlefield"] [data-card-id="${backId}"]`).count()) === 1, 'cimetière en liste : une carte se glisse vers le champ de bataille')
+  await list.click({ position: { x: 20, y: 6 } })
+  check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'cimetière en liste : un clic ouvre tout le cimetière')
+  await page.keyboard.press('Escape')
+
+  // Réglage « Image du cimetière » : hauteur de l'illustration ; la liste défile quand elle dépasse.
+  check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 36, 'image du cimetière : moyenne (36 px) par défaut')
+  const artSize = async (label) => {
+    await page.getByRole('button', { name: 'Réglages' }).click()
+    await page.getByLabel('Image du cimetière').selectOption({ label })
+    await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  }
+  await artSize('Très grande')
+  check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 90, 'image du cimetière : très grande (90 px)')
+  const scroller = list.getByTestId('graveyard-list-scroll')
+  const overflow = await scroller.evaluate((e) => e.scrollHeight > e.clientHeight + 10)
+  check(overflow, 'image du cimetière très grande : la liste dépasse la colonne')
+  const oldest = list.locator('[data-card-id]').last()
+  const sb = await scroller.boundingBox()
+  check((await oldest.boundingBox()).y > sb.y + sb.height, 'avant défilement : la carte la plus ancienne est cachée en bas')
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2)
+  await page.mouse.wheel(0, 3000)
+  await page.waitForTimeout(300)
+  const ob = await oldest.boundingBox()
+  check(ob.y >= sb.y - 1 && ob.y + ob.height <= sb.y + sb.height + 1, 'molette : la liste défile jusqu’à la carte la plus ancienne')
+  await capture('cimetiere-liste-defile')
+  await artSize('Petite')
+  check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 16, 'image du cimetière : petite (16 px)')
+  await artSize('Moyenne')
 
   // ── « Nouvelle partie » en cours de jeu : la table repart du tour 1 avec une main neuve ──
   page.once('dialog', (d) => d.accept())

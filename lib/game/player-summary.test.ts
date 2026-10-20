@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { viewFor } from './view'
-import { commanderPlace, frameOf, graveyardTail, lifeLevel, portraitCard } from './player-summary'
+import { commanderPlace, frameOf, graveyardList, graveyardTail, lifeLevel, portraitCard } from './player-summary'
 
 const game = () => run(setupFor('commander', 2), start(1))
 const forests = (n: number) => Array.from({ length: n }, (_, i) => ({ id: card('p1', 3, i + 1), player: 'p1', zone: 'graveyard' as const }))
@@ -26,6 +26,19 @@ describe('graveyardTail', () => {
     const view = viewFor(place(game(), forests(2)), 'p2')
     expect(graveyardTail(view.players.p1.zones.graveyard)).toHaveLength(2)
     expect(graveyardTail(view.players.p2.zones.graveyard)).toEqual([])
+  })
+})
+
+describe('graveyardList', () => {
+  it('tout le cimetière, la plus récente en premier (en haut de la liste)', () => {
+    const view = viewFor(place(game(), forests(8)), 'p2')
+    const ids = graveyardList(view.players.p1.zones.graveyard).map((c) => c.id)
+    expect(ids).toEqual([8, 7, 6, 5, 4, 3, 2, 1].map((n) => card('p1', 3, n)))
+  })
+
+  it('cimetière vide : aucune', () => {
+    const view = viewFor(game(), 'p1')
+    expect(graveyardList(view.players.p1.zones.graveyard)).toEqual([])
   })
 })
 

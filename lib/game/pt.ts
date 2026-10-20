@@ -1,11 +1,12 @@
-// Force et endurance d'une carte en jeu : imprimée (ou 2/2 face cachée), plus marqueurs et modification libre.
+// Force et endurance d'une carte en jeu : imprimée (ou 2/2 face cachée), plus marqueurs et modifications libres
+// (pour toujours, et jusqu'à la fin du tour).
 import type { CardInstance, Catalog, PtMod } from './types'
 
 export const NO_PT: PtMod = { power: 0, toughness: 0 }
 /** Plus grande modification gardée, dans un sens comme dans l'autre. */
 export const MAX_PT_MOD = 999
 
-type PtCard = Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown' | 'counters' | 'ptMod'>
+type PtCard = Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown' | 'counters' | 'ptMod' | 'ptTurn'>
 type Base = { power: string; toughness: string }
 
 /** Une valeur affichée : `value` numérique quand la base l'est, `delta` = écart avec la base. */
@@ -44,13 +45,25 @@ export function valueOf(base: string | null, delta: number): PtValue {
   return { text: delta === 0 ? base : `${base}${signed(delta)}`, delta, value: null }
 }
 
+/** Modification libre totale : pour toujours plus jusqu'à la fin du tour. */
+export function totalMod(card: Pick<CardInstance, 'ptMod' | 'ptTurn'>): PtMod {
+  const mod = card.ptMod ?? NO_PT
+  const turn = card.ptTurn ?? NO_PT
+  return { power: mod.power + turn.power, toughness: mod.toughness + turn.toughness }
+}
+
+const isZero = (mod: PtMod | undefined) => !mod || (mod.power === 0 && mod.toughness === 0)
+
+/** « +3/+2 ». */
+export const ptText = (mod: PtMod) => `${signed(mod.power)}/${signed(mod.toughness)}`
+
 /**
- * Force et endurance affichées : base + marqueurs +1/+1 − marqueurs -1/-1 + modification libre.
+ * Force et endurance affichées : base + marqueurs +1/+1 − marqueurs -1/-1 + modifications libres.
  * Sans base connue, seulement l'écart, et null s'il est nul (rien à afficher).
  */
 export function ptStats(catalog: Catalog | undefined, card: PtCard): PtStats | null {
   const base = basePT(catalog, card)
-  const mod = card.ptMod ?? NO_PT
+  const mod = totalMod(card)
   const counters = card.counters.plus - card.counters.minus
   const power = counters + mod.power
   const toughness = counters + mod.toughness
@@ -58,12 +71,18 @@ export function ptStats(catalog: Catalog | undefined, card: PtCard): PtStats | n
   return { power: valueOf(base?.power ?? null, power), toughness: valueOf(base?.toughness ?? null, toughness), base: base !== null }
 }
 
-/** Texte du journal : « 5/4 (+3/+2) », la modification libre entre parenthèses quand il y en a une. */
+/**
+ * Texte du journal : « 5/4 (+3/+2) », les modifications libres entre parenthèses quand il y en a,
+ * celle jusqu'à la fin du tour suivie de « ce tour » (« 9/8 (+1/+0, +3/+3 ce tour) »).
+ */
 export function ptLog(catalog: Catalog | undefined, card: PtCard): string {
   const stats = ptStats(catalog, card)
   if (!stats) return 'force et endurance d’origine'
   const shown = `${stats.power.text}/${stats.toughness.text}`
-  const mod = card.ptMod ?? NO_PT
-  if (!stats.base || (mod.power === 0 && mod.toughness === 0)) return shown
-  return `${shown} (${signed(mod.power)}/${signed(mod.toughness)})`
+  if (!stats.base) return shown
+  const mods = [
+    ...(isZero(card.ptMod) ? [] : [ptText(card.ptMod!)]),
+    ...(isZero(card.ptTurn) ? [] : [`${ptText(card.ptTurn!)} ce tour`]),
+  ]
+  return mods.length > 0 ? `${shown} (${mods.join(', ')})` : shown
 }
