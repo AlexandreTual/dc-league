@@ -38,8 +38,18 @@ async function capture(page, label) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const panel = (page, id) => page.locator(`[data-panel="${id}"]`).filter({ has: page.getByTestId('player-life') }).first()
-const popText = async (page, id, kind) => (await panel(page, id).locator(`[data-fx-pop="${kind}"]`).innerText()).trim()
 const animationOf = (locator) => locator.evaluate((el) => getComputedStyle(el).animationName)
+const hasClass = (locator, name) => locator.evaluate((el, n) => el.classList.contains(n), name)
+/** Attend que la bulle affiche ce texte (les actions arrivent l'une après l'autre ; machine lente comprise). */
+async function waitPop(page, id, kind, text) {
+  try {
+    await page.waitForFunction(([p, k, t]) => [...document.querySelectorAll(`[data-panel="${p}"] [data-fx-pop="${k}"]`)].some((el) => el.textContent.trim() === t),
+      [id, kind, text], { timeout: 5000 })
+    return true
+  } catch {
+    return false
+  }
+}
 
 async function openTest(who) {
   await who.page.goto(`${base}/decks/deck-${who.id}`)
@@ -75,22 +85,22 @@ try {
   check((await panel(solo.page, SOLO.id).locator('[data-fx-pop]').count()) === 0, 'mode test : aucune bulle à l’ouverture')
   for (let i = 0; i < 3; i++) await minus.click()
   await panel(solo.page, SOLO.id).locator('[data-fx-pop="life"]').waitFor()
-  check((await popText(solo.page, SOLO.id, 'life')) === '−3', 'trois clics rapprochés sur « − » : une seule bulle « −3 »')
-  check((await animationOf(panel(solo.page, SOLO.id).getByTestId('player-life'))) === 'fx-life-loss', 'perte de vie : le nombre tremble')
+  check(await waitPop(solo.page, SOLO.id, 'life', '−3'), 'trois clics rapprochés sur « − » : une seule bulle « −3 »')
+  check(await hasClass(panel(solo.page, SOLO.id).getByTestId('player-life'), 'fx-life-loss'), 'perte de vie : le nombre tremble')
   check((await panel(solo.page, SOLO.id).locator('.fx-halo-loss').count()) === 1, 'perte de vie : halo rouge')
   await capture(solo.page, 'vie-moins-3')
   await panel(solo.page, SOLO.id).locator('[data-fx-pop]').waitFor({ state: 'detached', timeout: 4000 })
   check(true, 'la bulle disparaît')
   await plus.click()
   await panel(solo.page, SOLO.id).locator('[data-fx-pop="life"]').waitFor()
-  check((await popText(solo.page, SOLO.id, 'life')) === '+1', 'gain plus tard : nouvelle bulle « +1 »')
-  check((await animationOf(panel(solo.page, SOLO.id).getByTestId('player-life'))) === 'fx-life-gain', 'gain de vie : le nombre grossit')
+  check(await waitPop(solo.page, SOLO.id, 'life', '+1'), 'gain plus tard : nouvelle bulle « +1 »')
+  check(await hasClass(panel(solo.page, SOLO.id).getByTestId('player-life'), 'fx-life-gain'), 'gain de vie : le nombre grossit')
   check((await panel(solo.page, SOLO.id).getByTestId('player-life').innerText()) === '38', 'la vie reste lisible (38)')
 
   const bubble = await openBubble(solo.page, SOLO.id, SOLO.name)
   await bubble.locator('[data-marker="poison"]').getByRole('button', { name: /^plus/ }).click()
   await panel(solo.page, SOLO.id).locator('[data-fx-pop="poison"]').waitFor()
-  check((await popText(solo.page, SOLO.id, 'poison')) === '☠ +1', 'poison : bulle « ☠ +1 »')
+  check(await waitPop(solo.page, SOLO.id, 'poison', '☠ +1'), 'poison : bulle « ☠ +1 »')
   check((await panel(solo.page, SOLO.id).locator('.fx-drop').count()) === 3, 'poison : trois gouttes coulent sur le portrait')
   await capture(solo.page, 'poison')
   await bubble.getByRole('switch', { name: 'Monarque' }).click()
