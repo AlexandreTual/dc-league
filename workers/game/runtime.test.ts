@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { setupFor } from '@/test/game-fixtures'
-import { createTable, getTable, joinTable, markPlaying } from '../../lib/db-games'
+import { createTable, finishTable, getTable, joinTable, markPlaying } from '../../lib/db-games'
 import { replay } from '../../lib/game/replay'
 import type { ServerMessage } from '../../lib/game/room'
 import { RoomRuntime, type KvStorage, type Socket, type SocketInfo } from './runtime'
@@ -351,6 +351,42 @@ describe('destroy et nettoyage', () => {
     expect((await getTable(db, tableId)).data).not.toBeNull()
     expect((await getTable(db, other)).data).not.toBeNull()
     expect((await getTable(db, third)).data).toBeNull()
+  })
+
+  it('cleanupStale garde en D1 une partie finie depuis 30 jours, efface son Durable Object une seule fois', async () => {
+    await finishTable(db, tableId, 'p1', { duration: 1200, playTime: { p1: 600, p2: 600 } })
+    const abandoned = (await createTable(db, { hostPlayerId: 'p2', format: 'duel', seats: 2, eliminatedSeeAll: false })).data!.id
+    await markPlaying(db, abandoned)
+    await db.prepare("UPDATE game_tables SET last_activity_at = '2026-09-04 00:00:00'").run()
+    const calls: string[] = []
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: (id: string) => ({ fetch: async (_url: string, init?: RequestInit) => { calls.push(`${init?.method} ${id}`); return new Response(null) } }),
+    } as unknown as DurableObjectNamespace
+    expect(await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))).toBe(1)
+    expect(calls).toEqual([`POST ${abandoned}`, `DELETE ${abandoned}`, `DELETE ${tableId}`])
+    expect((await getTable(db, abandoned)).data).toBeNull()
+    expect((await getTable(db, tableId)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p1', durationSeconds: 1200, gameArchived: true })
+    expect((await getTable(db, tableId)).data!.players.map((p) => p.playerId)).toEqual(['p1', 'p2'])
+
+    calls.length = 0
+    expect(await cleanupStale({ DB: db, GAME }, new Date('2026-10-05T00:00:00Z'))).toBe(0)
+    expect(calls).toEqual([])
+  })
+
+  it('cleanupStale : partie finie dont le Durable Object résiste, réessayée au passage suivant', async () => {
+    await finishTable(db, tableId, 'p1')
+    await db.prepare("UPDATE game_tables SET last_activity_at = '2026-09-04 00:00:00'").run()
+    let fail = true
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async () => new Response(null, { status: fail ? 500 : 204 }) }),
+    } as unknown as DurableObjectNamespace
+    await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))
+    expect((await getTable(db, tableId)).data!.gameArchived).toBe(false)
+    fail = false
+    await cleanupStale({ DB: db, GAME }, new Date('2026-10-05T00:00:00Z'))
+    expect((await getTable(db, tableId)).data!.gameArchived).toBe(true)
   })
 })
 

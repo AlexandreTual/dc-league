@@ -18,6 +18,8 @@ export type GameTable = {
   winnerPlayerId: string | null
   /** Durée de la partie finie (secondes) ; null avant la fin ou sans minuteur. */
   durationSeconds: number | null
+  /** Partie finie dont l'état du serveur de jeu a été effacé : il ne reste que l'historique en D1. */
+  gameArchived: boolean
   createdAt: string
   lastActivityAt: string
   players: GameTablePlayer[]
@@ -89,6 +91,7 @@ function normalize(row: Record<string, unknown>, players: GameTablePlayer[]): Ga
     status: row.status as TableStatus,
     winnerPlayerId: (row.winner_player_id as string) ?? null,
     durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
+    gameArchived: row.game_archived_at != null,
     createdAt: row.created_at as string,
     lastActivityAt: row.last_activity_at as string,
     players,
@@ -310,10 +313,26 @@ export async function playingTables(db: D1Database): Promise<Result<string[]>> {
   })
 }
 
-/** Tables (tous statuts) sans activité depuis `before`. */
+/** Tables non terminées sans activité depuis `before` (les parties finies restent comme historique). */
 export async function staleTables(db: D1Database, before: Date): Promise<Result<string[]>> {
   return guard(async () => {
-    const { results } = await db.prepare('SELECT id FROM game_tables WHERE last_activity_at < ?').bind(sqlTime(before)).all<{ id: string }>()
+    const { results } = await db
+      .prepare("SELECT id FROM game_tables WHERE status != 'finished' AND last_activity_at < ?")
+      .bind(sqlTime(before)).all<{ id: string }>()
     return ok(results.map((r) => r.id))
   })
 }
+
+/** Parties finies sans activité depuis `before` dont l'état du serveur de jeu n'est pas encore effacé. */
+export async function finishedGamesToArchive(db: D1Database, before: Date): Promise<Result<string[]>> {
+  return guard(async () => {
+    const { results } = await db
+      .prepare("SELECT id FROM game_tables WHERE status = 'finished' AND game_archived_at IS NULL AND last_activity_at < ?")
+      .bind(sqlTime(before)).all<{ id: string }>()
+    return ok(results.map((r) => r.id))
+  })
+}
+
+/** Note que l'état du serveur de jeu de cette partie finie est effacé. */
+export const markGameArchived = (db: D1Database, id: string, now: Date) =>
+  run(db, "UPDATE game_tables SET game_archived_at = ? WHERE id = ? AND status = 'finished'", sqlTime(now), id)
