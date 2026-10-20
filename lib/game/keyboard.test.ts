@@ -1,3 +1,4 @@
+import { fr } from '@/lib/i18n/messages'
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import {
@@ -122,7 +123,7 @@ describe('raccourcis de la carte survolée', () => {
     { id: card('p2', 2), player: 'p2', zone: 'battlefield' },
     { id: card('p2', 4), player: 'p2', zone: 'graveyard' },
   ])
-  const ctx = (s: GameState): MenuContext => ({ me: 'p1', view: viewFor(s, 'p1'), catalogs: s.catalogs, lang: 'fr', readOnly: false })
+  const ctx = (s: GameState): MenuContext => ({ me: 'p1', view: viewFor(s, 'p1'), catalogs: s.catalogs, lang: 'fr', t: fr, readOnly: false })
   const visible = (s: GameState, id: string) => {
     const c = s.cards[id]
     return { hidden: false, id, owner: c.owner, ref: c.ref, token: c.token, isCommander: c.isCommander, tapped: c.tapped, flipped: c.flipped,

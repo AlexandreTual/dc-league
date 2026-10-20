@@ -41,7 +41,7 @@ import { useVisio } from './visio/useVisio'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import LanguageMenu from '@/components/i18n/LanguageMenu'
-import { useCardLang } from '@/components/i18n/I18nProvider'
+import { useCardLang, useT } from '@/components/i18n/I18nProvider'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import { boardWindowName } from './boardWindows'
@@ -102,6 +102,7 @@ export default function Table({ source, notice, boardWindow }: {
   // Plateaux d'adversaires sortis dans des fenêtres à part : seulement depuis la table principale d'une partie en ligne.
   const windows = useBoardWindows(source.online && !boardWindow ? source.online.tableId : null)
   const [lang] = useCardLang()
+  const t = useT()
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   // `group` : cartes sélectionnées emportées avec celle qu'on glisse.
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number; group?: string[] } | null>(null)
@@ -151,7 +152,7 @@ export default function Table({ source, notice, boardWindow }: {
   const visio = useVisio(boardWindow ? undefined : source.online?.visio, me, source.online?.players ?? [], status)
   const cards = useMemo(() => visibleCards(view), [view])
   const ai = useAi()
-  const menuCtx: MenuContext = { me, view, catalogs, lang, readOnly: !canAct, ai: ai !== null }
+  const menuCtx: MenuContext = { me, view, catalogs, lang, t, readOnly: !canAct, ai: ai !== null }
   const send = source.send
   // Seules restent sélectionnées les cartes encore dans leur zone ; rien pour un spectateur ou une partie finie.
   const live = canAct ? liveSelection(view, selection) : null
