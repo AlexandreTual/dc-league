@@ -188,6 +188,24 @@ export async function listPlayers(db: D1Database): Promise<Result<DbPlayer[]>> {
   }
 }
 
+/** Joueurs inscrits à une ligue, dans l'ordre d'arrivée sur le site (celui de listPlayers). */
+export async function listEnrolledPlayers(db: D1Database, leagueId: string): Promise<Result<DbPlayer[]>> {
+  try {
+    const { results } = await db
+      .prepare(`
+        SELECT p.* FROM players p
+        JOIN league_players lp ON lp.player_id = p.id
+        WHERE lp.league_id = ?
+        ORDER BY p.created_at ASC
+      `)
+      .bind(leagueId)
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizePlayer))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function getPlayer(db: D1Database, id: string): Promise<Result<DbPlayer | null>> {
   try {
     const row = await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first<Record<string, unknown>>()
