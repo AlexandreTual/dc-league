@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useT } from '@/components/i18n/I18nProvider'
 import Image from 'next/image'
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 export default function PlayerName({ name, commanderImageUrl, className = '', variant = 'hover' }: Props) {
   const [visible, setVisible] = useState(false)
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>()
+  const t = useT()
 
   if (!commanderImageUrl) {
     return <span className={className}>{name}</span>
@@ -40,7 +42,7 @@ export default function PlayerName({ name, commanderImageUrl, className = '', va
             <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none block w-[220px]">
               <Image
                 src={commanderImageUrl}
-                alt={`Commandant de ${name}`}
+                alt={t.leagues.commanderOf(name)}
                 width={220}
                 height={308}
                 className="rounded-xl shadow-xl border border-dc-gold/40 w-[220px] h-auto"
@@ -66,7 +68,7 @@ export default function PlayerName({ name, commanderImageUrl, className = '', va
         <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none block w-[220px]">
           <Image
             src={commanderImageUrl}
-            alt={`Commandant de ${name}`}
+            alt={t.leagues.commanderOf(name)}
             width={220}
             height={308}
             className="rounded-xl shadow-xl border border-dc-gold/20 w-[220px] h-auto"

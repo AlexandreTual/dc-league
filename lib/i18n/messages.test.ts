@@ -7,6 +7,7 @@ const SAME = new Set([
   'Mulligan', 'Initiative', 'Poison', 'Oracle', 'Visio', 'Total', 'Points', 'Score', 'Message', 'Format', 'Description',
   'Ok', 'OK', 'Admin', 'Email', 'Moxfield', 'Archidekt', 'Gemini', 'Instant', 'Rad', 'Tickets', 'Bushido', 'Absorption',
   'Annihilator', 'Phasing', 'Champion', '+1/+1', '-1/-1', '…', '',
+  'pts', 'Pts', 'Round',
 ])
 
 type Leaf = { path: string; fr: string; en: string }

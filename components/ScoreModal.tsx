@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Check } from 'lucide-react'
 import { Match, Player } from '@/lib/leaderboard'
+import { useT } from '@/components/i18n/I18nProvider'
 
 interface Props {
   match: Match & { player1: Player; player2: Player }
@@ -20,6 +21,8 @@ const ALL_SCORES = [
 ]
 
 export default function ScoreModal({ match, onClose, onSave, allowDraw = true }: Props) {
+  const t = useT()
+  const s = t.leagues.score
   const VALID_SCORES = allowDraw ? ALL_SCORES : ALL_SCORES.filter((s) => s.s1 !== s.s2)
   const [selected, setSelected] = useState<{ s1: number; s2: number } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -40,10 +43,10 @@ export default function ScoreModal({ match, onClose, onSave, allowDraw = true }:
       <div className="bg-dc-surface border border-dc-border rounded-2xl w-full max-w-sm shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-dc-border">
-          <h2 className="font-fantasy font-bold text-dc-gold">Résultat du match</h2>
+          <h2 className="font-fantasy font-bold text-dc-gold">{s.title}</h2>
           <button
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t.common.close}
             className="text-dc-muted hover:text-dc-text transition-colors"
           >
             <X className="w-5 h-5" />
@@ -54,12 +57,12 @@ export default function ScoreModal({ match, onClose, onSave, allowDraw = true }:
         <div className="p-5">
           <div className="flex items-center justify-center gap-4 mb-6">
             <span className="font-fantasy font-semibold text-dc-text">{match.player1.name}</span>
-            <span className="text-dc-muted text-sm">vs</span>
+            <span className="text-dc-muted text-sm">{s.vs}</span>
             <span className="font-fantasy font-semibold text-dc-text">{match.player2.name}</span>
           </div>
 
           <p className="text-dc-muted text-xs text-center mb-4">
-            Sélectionne le score ({match.player1.name} – {match.player2.name})
+            {s.pick(match.player1.name, match.player2.name)}
           </p>
 
           {/* Score buttons */}
@@ -67,9 +70,9 @@ export default function ScoreModal({ match, onClose, onSave, allowDraw = true }:
             {VALID_SCORES.map(({ label, s1, s2 }) => {
               const isSelected = selected?.s1 === s1 && selected?.s2 === s2
               let resultLabel = ''
-              if (s1 > s2) resultLabel = `${match.player1.name} gagne`
-              else if (s2 > s1) resultLabel = `${match.player2.name} gagne`
-              else resultLabel = 'Match nul'
+              if (s1 > s2) resultLabel = s.wins(match.player1.name)
+              else if (s2 > s1) resultLabel = s.wins(match.player2.name)
+              else resultLabel = s.draw
 
               return (
                 <button
@@ -98,14 +101,14 @@ export default function ScoreModal({ match, onClose, onSave, allowDraw = true }:
             onClick={onClose}
             className="flex-1 px-4 py-2.5 rounded-xl border border-dc-border text-dc-muted hover:text-dc-text hover:border-dc-text/30 transition-all text-sm"
           >
-            Annuler
+            {t.common.cancel}
           </button>
           <button
             onClick={handleSave}
             disabled={!selected || loading}
             className="flex-1 px-4 py-2.5 rounded-xl bg-dc-gold/20 border border-dc-gold/40 text-dc-gold font-semibold hover:bg-dc-gold/30 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {loading ? 'Enregistrement…' : 'Valider'}
+            {loading ? s.saving : s.confirm}
           </button>
         </div>
       </div>

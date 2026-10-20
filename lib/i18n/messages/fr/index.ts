@@ -13,7 +13,8 @@ import { admin } from './admin'
 import { ai } from './ai'
 import { errors } from './errors'
 import { mail } from './mail'
+import { site } from './site'
 
-export const fr = { common, language, nav, table, menus, online, log, leagues, account, decks, admin, ai, errors, mail }
+export const fr = { common, language, nav, table, menus, online, log, leagues, account, decks, admin, ai, errors, mail, site }
 
 export type Messages = typeof fr

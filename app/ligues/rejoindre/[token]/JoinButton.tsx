@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { errorClass, sendJson } from '@/components/formStyles'
+import { useT } from '@/components/i18n/I18nProvider'
 
 export default function JoinButton({ token, children }: { token: string; children: React.ReactNode }) {
   const router = useRouter()
+  const t = useT()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -29,7 +31,7 @@ export default function JoinButton({ token, children }: { token: string; childre
         disabled={loading}
         className="inline-flex items-center gap-2 bg-dc-gold text-dc-bg px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-dc-gold-light disabled:opacity-40"
       >
-        {loading ? 'Inscription…' : children}
+        {loading ? t.leagues.join.joining : children}
       </button>
       {error && <p className={errorClass}>{error}</p>}
     </div>

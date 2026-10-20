@@ -2,19 +2,20 @@
 
 import { Globe, Lock } from 'lucide-react'
 import type { LeagueVisibility } from '@/lib/db-leagues'
-
-const OPTIONS: { value: LeagueVisibility; label: string; text: string; Icon: typeof Globe }[] = [
-  { value: 'public', label: 'Publique', text: 'Visible par tout le monde, même sans compte.', Icon: Globe },
-  { value: 'private', label: 'Privée', text: 'Visible seulement par ses joueurs.', Icon: Lock },
-]
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Choix publique / privée, en deux grandes cases faciles à toucher. */
 export default function VisibilityChoice({ value, onChange }: { value: LeagueVisibility; onChange: (v: LeagueVisibility) => void }) {
+  const t = useT().leagues.visibility
+  const options: { value: LeagueVisibility; label: string; text: string; Icon: typeof Globe }[] = [
+    { value: 'public', label: t.public, text: t.publicText, Icon: Globe },
+    { value: 'private', label: t.private, text: t.privateText, Icon: Lock },
+  ]
   return (
     <fieldset className="space-y-2">
-      <legend className="block text-dc-muted text-xs mb-1.5">Visibilité</legend>
+      <legend className="block text-dc-muted text-xs mb-1.5">{t.legend}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
-        {OPTIONS.map(({ value: v, label, text, Icon }) => (
+        {options.map(({ value: v, label, text, Icon }) => (
           <label
             key={v}
             className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors ${
