@@ -48,6 +48,18 @@ describe('GameHistory', () => {
     expect(h.undo('p1')).toBe(false)
     expect(h.actions).toHaveLength(3)
   })
+
+  it('annuler : jamais une élimination (un éliminé peut avoir vu toutes les cartes)', () => {
+    const h = new GameHistory(setupFor('commander', 3, { eliminatedSeeAll: true }), [start(1)])
+    h.push({ type: 'eliminate', actor: 'p2', target: 'p2' })
+    expect(h.canUndo('p2')).toBe(false)
+    expect(h.undo('p2')).toBe(false)
+    h.push({ type: 'eliminate', actor: 'p1', target: 'p3' })
+    expect(h.canUndo('p1')).toBe(false)
+    expect(h.undo('p1')).toBe(false)
+    expect(h.state.players.p2.eliminated).toBe(true)
+    expect(h.state.players.p3.eliminated).toBe(true)
+  })
 })
 
 describe('GameHistory (cas repris du mode solo)', () => {
