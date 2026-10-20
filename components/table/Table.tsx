@@ -189,7 +189,7 @@ export default function Table({ source, notice, boardWindow }: {
       clearTimeout(highlightTimer.current)
       highlightTimer.current = setTimeout(() => setHighlighted(new Set()), HIGHLIGHT_MS)
     }
-    const fresh = added.map((l) => ({ key: ++lineKey.current, author: l.actor === me ? '' : view.players[l.actor]?.name ?? '', text: l.text, roll: l.roll }))
+    const fresh = added.map((l) => ({ key: ++lineKey.current, author: l.actor === me ? '' : view.players[l.actor]?.name ?? '', text: l.text, roll: l.roll, msg: l.msg }))
     setLines((current) => [...current, ...fresh].slice(-MAX_LINES))
     const keys = new Set(fresh.map((l) => l.key))
     setTimeout(() => setLines((current) => current.filter((l) => !keys.has(l.key))), LINE_MS)
@@ -701,8 +701,8 @@ export default function Table({ source, notice, boardWindow }: {
             )}
           </DragOverlay>
         </DndContext>
-        <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} />
-        {logOpen && <LogPanel view={view} onClose={() => setLogOpen(false)} />}
+        <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} view={view} catalogs={catalogs} />
+        {logOpen && <LogPanel view={view} catalogs={catalogs} onClose={() => setLogOpen(false)} />}
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
 
