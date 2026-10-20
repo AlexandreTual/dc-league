@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, VISIO_MSG, clampPanelWidth, isOfferer, loadPanelWidth,
+  PANEL_DEFAULT_POSITION, PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, VISIO_MSG, clampPanelPosition, clampPanelWidth, isOfferer,
+  loadPanelPosition, loadPanelWidth, savePanelPosition,
   mediaErrorMessage, newPeerId, parseSignal, savePanelWidth, tileColumns,
 } from './protocol'
 
@@ -69,4 +70,33 @@ it('messages d’erreur de la caméra en français', () => {
   expect(mediaErrorMessage({ name: 'NotAllowedError' })).toBe(VISIO_MSG.denied)
   expect(mediaErrorMessage({ name: 'NotFoundError' })).toBe(VISIO_MSG.noDevice)
   expect(mediaErrorMessage(new Error('x'))).toBe(VISIO_MSG.failed)
+})
+
+describe('position de la fenêtre', () => {
+  const area = { width: 1000, height: 700 }
+  const size = { width: 240, height: 200 }
+
+  it('reste dans la zone de jeu, à 8 px des bords au moins', () => {
+    expect(clampPanelPosition({ right: 100, top: 50 }, size, area)).toEqual({ right: 100, top: 50 })
+    expect(clampPanelPosition({ right: -50, top: -20 }, size, area)).toEqual({ right: 8, top: 8 })
+    expect(clampPanelPosition({ right: 5000, top: 5000 }, size, area)).toEqual({ right: 752, top: 492 })
+    expect(clampPanelPosition({ right: 100.6, top: 50.2 }, size, area)).toEqual({ right: 101, top: 50 })
+  })
+
+  it('fenêtre plus grande que la zone : collée en haut à droite', () => {
+    expect(clampPanelPosition({ right: 300, top: 300 }, { width: 1200, height: 900 }, area)).toEqual({ right: 8, top: 8 })
+  })
+
+  it('retient la position, défaut en haut à droite si absente ou invalide', () => {
+    const data = new Map<string, string>()
+    const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) }
+    expect(loadPanelPosition(storage)).toEqual(PANEL_DEFAULT_POSITION)
+    savePanelPosition(storage, { right: 320.4, top: 40 })
+    expect(loadPanelPosition(storage)).toEqual({ right: 320, top: 40 })
+    data.set('dc-visio-position', '{"right":"a"}')
+    expect(loadPanelPosition(storage)).toEqual(PANEL_DEFAULT_POSITION)
+    const broken = { getItem: () => { throw new Error('bloqué') }, setItem: () => { throw new Error('bloqué') } }
+    expect(loadPanelPosition(broken)).toEqual(PANEL_DEFAULT_POSITION)
+    expect(() => savePanelPosition(broken, { right: 8, top: 8 })).not.toThrow()
+  })
 })

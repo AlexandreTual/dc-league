@@ -199,8 +199,9 @@ try {
   await capture(page, 'libelles')
 
   await page.getByRole('button', { name: 'Réglages' }).click()
-  await page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes').uncheck()
-  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  await page.getByRole('dialog', { name: 'Réglages de la table' }).getByRole('button', { name: 'Animations…' }).click()
+  await page.getByRole('dialog', { name: 'Animations' }).getByRole('button', { name: 'Tout couper' }).click()
+  await page.getByRole('button', { name: 'Fermer les animations' }).click()
   check((await badgesOf(page.locator(elves))).badges.length === 5, 'animations coupées : les capacités restent affichées')
 
   // L'Ange, posé au même endroit, recouvre les Elfes : au cimetière d'abord.

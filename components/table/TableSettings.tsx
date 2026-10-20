@@ -8,12 +8,14 @@ import { useT } from '@/components/i18n/I18nProvider'
 const DEFAULT_PICKER = '#0e0e14'
 
 /** Panneau « Réglages » ouvert depuis la barre de la table. */
-export default function TableSettingsPanel({ settings, onChange, onClose, onShortcuts }: {
+export default function TableSettingsPanel({ settings, onChange, onClose, onShortcuts, onAnimations }: {
   settings: TableSettings
   onChange: (settings: TableSettings) => void
   onClose: () => void
   /** Ouvre la fenêtre « Raccourcis clavier ». */
   onShortcuts: () => void
+  /** Ouvre la fenêtre « Animations ». */
+  onAnimations: () => void
 }) {
   const r = useT().table.settings
   return (
@@ -68,10 +70,6 @@ export default function TableSettingsPanel({ settings, onChange, onClose, onShor
           </label>
         )}
         <label className="flex items-center gap-2 text-sm text-dc-text">
-          <input type="checkbox" checked={settings.cardEffects} onChange={(e) => onChange({ ...settings, cardEffects: e.target.checked })} />
-          {r.cardEffects}
-        </label>
-        <label className="flex items-center gap-2 text-sm text-dc-text">
           {r.abilityStyle}
           <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.abilityStyle}
             onChange={(e) => onChange({ ...settings, abilityStyle: e.target.value === 'labels' ? 'labels' : 'icons' })} aria-label={r.abilityStyle}>
@@ -79,6 +77,9 @@ export default function TableSettingsPanel({ settings, onChange, onClose, onShor
             <option value="labels">{r.labels}</option>
           </select>
         </label>
+        <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onAnimations}>
+          Animations…
+        </button>
         <button className="w-full text-left text-sm px-2 py-1 rounded border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={onShortcuts}>
           {r.shortcuts}
         </button>

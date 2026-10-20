@@ -8,7 +8,7 @@ import {
 import { Crown, ExternalLink, Flag, Undo2, Video, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
-import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
+import { arrivals, printedKeywordsOf, type Arrival } from '@/lib/game/card-effects'
 import { appliesPerCard, cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, selectionShortcutCommands, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
@@ -17,6 +17,7 @@ import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/l
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import DiceModal from './DiceModal'
+import DungeonHost from './DungeonHost'
 import GameCard, { CardBack } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
@@ -35,6 +36,11 @@ import GameTimer from './GameTimer'
 import TopBar, { barButton } from './TopBar'
 import TableSettingsPanel from './TableSettings'
 import ShortcutsModal from './ShortcutsModal'
+import AnimationsModal from './AnimationsModal'
+import DiceTray from './DiceTray'
+import HolderFlights from './HolderFlights'
+import VictoryScreen from './VictoryScreen'
+import { usePlayerFx } from './usePlayerFx'
 import ManaPool from './ManaPool'
 import VisioPanel from './visio/VisioPanel'
 import { useVisio } from './visio/useVisio'
@@ -82,7 +88,7 @@ const collision: CollisionDetection = (args) => {
 
 /** Durées des repères d'activité. */
 const HIGHLIGHT_MS = 1500
-/** Durée des effets d'arrivée en jeu (un peu plus que l'entrée d'un commandant, 1,7 s ; l'éclat d'un légendaire dure 1,1 s). */
+/** Durée des effets d'arrivée en jeu (un peu plus que l'entrée d'un commandant, 1,7 s, ou le retour du cimetière, 1,6 s ; l'éclat d'un légendaire dure 1,1 s). */
 const ARRIVAL_MS = 2000
 const LINE_MS = 4000
 const MAX_LINES = 3
@@ -136,10 +142,11 @@ export default function Table({ source, notice, boardWindow }: {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bindings, setBindings] = useState<Bindings>(DEFAULT_BINDINGS)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [animationsOpen, setAnimationsOpen] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
-  const [arriving, setArriving] = useState<Set<string>>(new Set())
+  const [arriving, setArriving] = useState<Map<string, Arrival>>(new Map())
   const arrivingTimer = useRef<ReturnType<typeof setTimeout>>()
   const [lines, setLines] = useState<ActivityLine[]>([])
   const prevView = useRef<PlayerView | null>(null)
@@ -150,6 +157,7 @@ export default function Table({ source, notice, boardWindow }: {
   const status = source.online?.status ?? 'open'
   const canAct = me !== null && !finished && status === 'open'
   // Visio : table principale d'une partie en ligne, joueurs assis, serveur de jeu qui la relaie.
+  const playerFx = usePlayerFx({ view, me, status, effects: settings.cardEffects, finished, winner: source.online?.winner ?? null })
   const visio = useVisio(boardWindow ? undefined : source.online?.visio, me, source.online?.players ?? [], status)
   const cards = useMemo(() => visibleCards(view), [view])
   const ai = useAi()
@@ -177,11 +185,11 @@ export default function Table({ source, notice, boardWindow }: {
     }
     const prev = prevView.current
     prevView.current = view
-    const entered = enteredBattlefield(prev, view)
-    if (entered.length > 0) {
-      setArriving(new Set(entered))
+    const entered = arrivals(prev, view)
+    if (entered.size > 0) {
+      setArriving(entered)
       clearTimeout(arrivingTimer.current)
-      arrivingTimer.current = setTimeout(() => setArriving(new Set()), ARRIVAL_MS)
+      arrivingTimer.current = setTimeout(() => setArriving(new Map()), ARRIVAL_MS)
     }
     const { changed, lines: added } = diffViews(prev, view, me)
     if (added.length === 0) return
@@ -321,12 +329,13 @@ export default function Table({ source, notice, boardWindow }: {
       setLogOpen(false)
       setSettingsOpen(false)
       setShortcutsOpen(false)
+      setAnimationsOpen(false)
       setOrdering(null)
       setSelection(null)
       return
     }
     // Pas de raccourci de jeu tant qu'une fenêtre est ouverte.
-    if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || effectFor || menu || ordering || shortcutsOpen) return
+    if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || effectFor || menu || ordering || shortcutsOpen || animationsOpen) return
     if (shortcut === 'help') {
       e.preventDefault()
       setSettingsOpen(false)
@@ -508,7 +517,8 @@ export default function Table({ source, notice, boardWindow }: {
    */
   const portraitFor = (player: string, size: 'column' | 'header' = 'column', up = false, onTitleClick?: () => void, onDetach?: () => void) => (
     <PlayerPortrait view={view} player={player} catalogs={catalogs} lang={lang} host={source.online?.host} online={source.online?.players}
-      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach} />
+      canAct={canAct} send={send} size={size} up={up} onTitleClick={onTitleClick} onDetach={onDetach}
+      fx={{ effects: settings.cardEffects, pops: playerFx.pops, cracking: playerFx.cracking }} />
   )
   /** Réserve de mana d'un joueur, posée sur son champ de bataille : modifiable pour la mienne, lecture seule sinon. */
   const manaOf = (player: string) => {
@@ -703,6 +713,8 @@ export default function Table({ source, notice, boardWindow }: {
           </DragOverlay>
         </DndContext>
         <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} view={view} catalogs={catalogs} />
+        <DungeonHost view={view} canAct={canAct} animate={settings.cardEffects.dungeon} offers={!boardWindow} send={send} />
+        {!boardWindow && <DiceTray rolls={playerFx.rolls} />}
         {logOpen && <LogPanel view={view} catalogs={catalogs} onClose={() => setLogOpen(false)} />}
       </div>
       {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
@@ -777,8 +789,13 @@ export default function Table({ source, notice, boardWindow }: {
         />
       )}
       {settingsOpen && <TableSettingsPanel settings={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)}
-        onShortcuts={() => { setSettingsOpen(false); setShortcutsOpen(true) }} />}
+        onShortcuts={() => { setSettingsOpen(false); setShortcutsOpen(true) }}
+        onAnimations={() => { setSettingsOpen(false); setAnimationsOpen(true) }} />}
+      <HolderFlights flights={playerFx.flights} />
+      {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory} />}
       {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
+      {animationsOpen && <AnimationsModal effects={settings.cardEffects} onChange={(cardEffects) => changeSettings({ ...settings, cardEffects })}
+        onClose={() => setAnimationsOpen(false)} />}
       {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
       <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
         {tb.rotate}

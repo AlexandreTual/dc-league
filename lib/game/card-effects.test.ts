@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow, deckCardView } from '@/test/factories'
 import { buildCatalog } from './catalog'
-import { commanderEntrance, effectDelay, enteredBattlefield, hasFlying, isLegendary } from './card-effects'
+import { arrivals, commanderEntrance, effectDelay, enteredBattlefield, hasFlying, isLegendary } from './card-effects'
 import type { CardView, Counters, PlayerView, TokenData, VisibleCard } from './types'
 
 const face = (name: string, type: string) => ({
@@ -127,5 +127,34 @@ describe('enteredBattlefield', () => {
 
   it('ignore les cartes cachées', () => {
     expect(enteredBattlefield(viewWith({ p1: [] }), viewWith({ p1: [{ hidden: true }] }))).toEqual([])
+  })
+})
+
+/** Vue réduite aux champs de bataille et aux cimetières, seules parties lues par `arrivals`. */
+const viewWithGraves = (zones: Record<string, { battlefield: CardView[]; graveyard?: CardView[] }>) =>
+  ({ players: Object.fromEntries(Object.entries(zones).map(([p, z]) => [p, { zones: { graveyard: [], ...z } }])) }) as unknown as PlayerView
+
+describe('arrivals', () => {
+  it('arrivée ordinaire, ou retour depuis un cimetière (le sien ou celui d’un autre joueur)', () => {
+    const before = viewWithGraves({
+      p1: { battlefield: [], graveyard: [onTable(1)] },
+      p2: { battlefield: [], graveyard: [onTable(3)] },
+    })
+    const after = viewWithGraves({
+      p1: { battlefield: [onTable(1), onTable(2), onTable(3)] },
+      p2: { battlefield: [] },
+    })
+    expect([...arrivals(before, after)].sort()).toEqual([['c1', 'graveyard'], ['c2', 'play'], ['c3', 'graveyard']])
+  })
+
+  it('rien au premier affichage ; rien pour une carte déjà en jeu', () => {
+    const view = viewWithGraves({ p1: { battlefield: [onTable(1)], graveyard: [onTable(2)] } })
+    expect(arrivals(null, view).size).toBe(0)
+    expect(arrivals(view, view).size).toBe(0)
+  })
+
+  it('carte partie au cimetière puis revenue : retour du cimetière ; ignore les cartes cachées', () => {
+    const dead = viewWithGraves({ p1: { battlefield: [], graveyard: [onTable(1), { hidden: true }] } })
+    expect(arrivals(dead, viewWithGraves({ p1: { battlefield: [onTable(1), { hidden: true }] } })).get('c1')).toBe('graveyard')
   })
 })
