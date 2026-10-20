@@ -10,13 +10,23 @@ export function replay(setup: GameSetup, actions: readonly GameAction[]): GameSt
   return actions.reduce(applyAction, createInitialState(setup))
 }
 
+/** Mulligan, mélange, ordre aléatoire : annulés puis rejoués, ils donneraient un nouveau tirage (graine neuve). */
+export function isRandomDraw(action: GameAction): boolean {
+  if (action.type === 'mulligan' || action.type === 'shuffle') return true
+  if (action.type === 'endLook') return action.shuffle
+  return action.type === 'moveMany' && !!action.random
+}
+
 /** Partie = liste d'actions acceptées. Un état est mis de côté toutes les 20 actions pour annuler vite. */
 export class GameHistory {
   private list: GameAction[] = []
   private snapshots = new Map<number, GameState>()
   private current: GameState
+  private undoRandom: boolean
 
-  constructor(setup: GameSetup, actions: readonly GameAction[] = []) {
+  /** `undoRandom` : le mode test (seul à la table) peut annuler un tirage, pas une partie en ligne. */
+  constructor(setup: GameSetup, actions: readonly GameAction[] = [], { undoRandom = false }: { undoRandom?: boolean } = {}) {
+    this.undoRandom = undoRandom
     this.current = createInitialState(setup)
     this.snapshots.set(0, this.current)
     for (const action of actions) this.push(action)
@@ -42,12 +52,13 @@ export class GameHistory {
 
   /**
    * Vrai si la dernière action est de `actor` (personne n'a joué depuis) et n'est ni le début de partie,
-   * ni un lancer de dés (sinon on pourrait relancer jusqu'au résultat voulu), ni une élimination
-   * (un éliminé peut avoir vu toutes les cartes, il ne doit pas revenir en jeu).
+   * ni un lancer de dés, ni (hors mode test) un tirage au hasard : sinon on relancerait jusqu'au résultat voulu.
+   * Jamais une élimination non plus : un éliminé peut avoir vu toutes les cartes, il ne doit pas revenir en jeu.
    */
   canUndo(actor: string): boolean {
     const last = this.list.at(-1)
-    return !!last && !FINAL.has(last.type) && last.actor === actor
+    if (!last || FINAL.has(last.type) || last.actor !== actor) return false
+    return this.undoRandom || !isRandomDraw(last)
   }
 
   undo(actor: string): boolean {

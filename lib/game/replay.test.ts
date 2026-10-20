@@ -60,6 +60,32 @@ describe('GameHistory', () => {
     expect(h.state.players.p2.eliminated).toBe(true)
     expect(h.state.players.p3.eliminated).toBe(true)
   })
+
+  it('un tirage au hasard ne s’annule pas (sinon on relancerait jusqu’au résultat voulu)', () => {
+    const random: GameAction[] = [
+      { type: 'mulligan', actor: 'p1', seed: 5 },
+      { type: 'shuffle', actor: 'p1', seed: 6 },
+      { type: 'moveMany', actor: 'p1', ids: [], zone: 'library', position: 'top', random: true, seed: 7 },
+      { type: 'endLook', actor: 'p1', target: 'p1', shuffle: true, seed: 8 },
+    ]
+    for (const action of random) {
+      const h = new GameHistory(setup, [start(1)])
+      if (action.type === 'moveMany') action.ids = h.state.players.p1.zones.hand.slice(0, 2)
+      if (action.type === 'endLook') expect(h.push({ type: 'look', actor: 'p1', target: 'p1', count: 3 })).toBeNull()
+      expect(h.push(action)).toBeNull()
+      expect(h.canUndo('p1')).toBe(false)
+      expect(h.undo('p1')).toBe(false)
+    }
+  })
+
+  it('sans mélange ni ordre aléatoire, la fin d’un regard et un déplacement groupé s’annulent', () => {
+    const h = new GameHistory(setup, [start(1)])
+    h.push({ type: 'look', actor: 'p1', target: 'p1', count: 3 })
+    expect(h.push({ type: 'endLook', actor: 'p1', target: 'p1', shuffle: false })).toBeNull()
+    expect(h.canUndo('p1')).toBe(true)
+    expect(h.push({ type: 'moveMany', actor: 'p1', ids: h.state.players.p1.zones.hand.slice(0, 2), zone: 'library', position: 'top' })).toBeNull()
+    expect(h.canUndo('p1')).toBe(true)
+  })
 })
 
 describe('GameHistory (cas repris du mode solo)', () => {
@@ -71,8 +97,8 @@ describe('GameHistory (cas repris du mode solo)', () => {
     expect(new GameHistory(setup, list).state).toEqual(replay(setup, list))
   })
 
-  it('annuler un mulligan redonne la même main', () => {
-    const h = new GameHistory(one, [start(4)])
+  it('annuler un mulligan redonne la même main (mode test seulement)', () => {
+    const h = new GameHistory(one, [start(4)], { undoRandom: true })
     const hand = h.state.players.p1.zones.hand
     h.push({ type: 'mulligan', actor: 'p1', seed: 99 })
     expect(h.state.players.p1.zones.hand).not.toEqual(hand)

@@ -33,6 +33,29 @@ describe('actions', () => {
     expect(state(r).players.p2.mulligans).toBe(0)
   })
 
+  it('un mulligan ne s’annule pas : pas de nouvelle main à volonté', () => {
+    const r = room()
+    act(r, 'p1', { type: 'mulligan' }, ctx(77))
+    const hand = state(r).players.p1.zones.hand
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
+    expect(viewMessageFor(r, 'p1', {}, 0).view.canUndo).toBe(false)
+    expect(state(r).players.p1.zones.hand).toEqual(hand)
+    expect(state(r).players.p1.mulligans).toBe(1)
+  })
+
+  it('un mélange ou un ordre aléatoire ne s’annule pas', () => {
+    const r = room()
+    keepAll(r)
+    act(r, 'p1', { type: 'shuffle' }, ctx(11))
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false })
+    act(r, 'p1', { type: 'search', target: 'p1' })
+    act(r, 'p1', { type: 'endLook', target: 'p1', shuffle: true }, ctx(12))
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false })
+    act(r, 'p1', { type: 'moveMany', ids: state(r).players.p1.zones.hand.slice(0, 2), zone: 'library', position: 'top', random: true }, ctx(13))
+    expect(r.history.actions.at(-1)).toMatchObject({ type: 'moveMany', random: true, seed: 13 })
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false })
+  })
+
   it('graine du serveur pour shuffle et endLook', () => {
     const r = room()
     keepAll(r)
