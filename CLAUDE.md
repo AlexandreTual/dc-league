@@ -43,7 +43,7 @@ node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lan
 node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
 node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, tablette, en ligne)
 node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loyauté d'un planeswalker sur la carte (mode test, tablette, en ligne)
-node scripts/card-effects-check.mjs http://localhost:8788 <dossier>        # légendaires (liseré, éclat d'arrivée), entrée du commandant et créatures volantes (mode test, réglage, mouvement réduit, tablette, en ligne)
+node scripts/card-effects-check.mjs http://localhost:8788 <dossier>        # légendaires (liseré, éclat d'arrivée), entrée du commandant et créatures volantes (mode test, fenêtre « Animations » : tout ou une à la fois, mouvement réduit, tablette, en ligne)
 node scripts/abilities-check.mjs http://localhost:8788 <dossier>           # « Donner une capacité… » (fenêtre, Protection/Parade, symboles/libellés, fin du tour, vol donné/perdu, tablette, en ligne)
 node scripts/phasing-check.mjs http://localhost:8788 <dossier>             # permanent hors phase (mode test, retour au début du tour, tablette, en ligne)
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
@@ -54,6 +54,7 @@ node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin
 node scripts/selection-check.mjs http://localhost:8788 <dossier>          # sélection de plusieurs cartes (rectangle, groupe, ordre ; souris, tablette, en ligne)
 node scripts/visio-check.mjs http://localhost:8788 <dossier>              # visio en ligne (caméras simulées, 3 joueurs dont tablette, taille, couper, quitter)
 node scripts/effect-check.mjs http://localhost:8788 <dossier>             # force/endurance « ce tour » et fenêtre « Effet » (toutes mes créatures, sélection, fin du tour ; tablette, en ligne)
+node scripts/player-fx-check.mjs http://localhost:8788 <dossier>          # animations des joueurs (vie, poison, blessures, monarque/initiative en vol, dés, cases coupées, mouvement réduit, tablette ; en ligne : abandon, fissures, victoire)
 ```
 
 Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.

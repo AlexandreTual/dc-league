@@ -6,7 +6,7 @@ import { Crown } from 'lucide-react'
 import { commanderEntrance, effectDelay, hasFlying, isLegendary } from '@/lib/game/card-effects'
 import { loyaltyStats } from '@/lib/game/loyalty'
 import { ptStats, ptText, type PtValue } from '@/lib/game/pt'
-import type { AbilityStyle } from '@/lib/table-settings'
+import { NO_EFFECTS, type AbilityStyle, type CardEffects } from '@/lib/table-settings'
 import { AbilityBadges } from './abilities'
 import type { MenuPoint } from './touch'
 
@@ -87,14 +87,14 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
 /**
  * Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe.
  * `pt` : encart loyauté ou force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
- * `effects` : effets d'une carte en jeu (liseré doré d'un permanent légendaire, créature volante qui flotte tant
- * qu'elle n'est pas engagée), si le réglage les permet ;
+ * `effects` : animations d'une carte en jeu permises par le réglage (liseré doré d'un permanent légendaire, entrée du
+ * commandant, créature volante qui flotte tant qu'elle n'est pas engagée), chacune activée ou non ;
  * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire ; un commandant se pose avec halo, ondes
  *   et couronne ; une seule fois) ;
  * `abilityStyle` : carte en jeu, capacités données ou perdues affichées en symboles ou en libellés (même sans animations).
  * Carte en jeu (`pt`) hors phase : estompée, avec la mention « Hors phase ».
  */
-export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false, abilityStyle }: {
+export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = NO_EFFECTS, arriving = false, abilityStyle }: {
   card: CardView | null | undefined
   catalog: Catalog
   lang: Lang
@@ -102,7 +102,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   className?: string
   pt?: boolean
   onPtEdit?: (at: MenuPoint) => void
-  effects?: boolean
+  effects?: CardEffects
   arriving?: boolean
   abilityStyle?: AbilityStyle
 }) {
@@ -133,9 +133,9 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   const { plus, minus, other } = card.counters
   const net = plus - minus
   const badge = tokenBadge(card)
-  const legendary = effects && isLegendary(catalog, card)
-  const flying = effects && !card.tapped && !phasedOut && hasFlying(catalog, card)
-  const commander = effects && arriving && commanderEntrance(card)
+  const legendary = effects.legendary && isLegendary(catalog, card)
+  const flying = effects.flying && !card.tapped && !phasedOut && hasFlying(catalog, card)
+  const commander = effects.commander && arriving && commanderEntrance(card)
 
   const body = (
     <>
