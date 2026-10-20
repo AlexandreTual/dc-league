@@ -2,6 +2,7 @@
 import type { Keyword, NumberedKeyword, PlainKeyword } from '@/lib/game/abilities'
 import type { CardType } from '@/lib/game/card-types'
 import type { Shortcut } from '@/lib/game/keyboard'
+import type { CardEffect } from '@/lib/table-settings'
 import type { ManaColor } from '@/lib/game/types'
 
 type ColorCode = 'W' | 'U' | 'B' | 'R' | 'G'
@@ -178,6 +179,7 @@ export const table = {
     lost: 'Connexion perdue…',
     connecting: 'Connexion…',
     resize: 'Tirer pour changer la taille',
+    move: 'Tirer pour déplacer',
     /** Messages du navigateur (mêmes clés que `VISIO_MSG`). */
     notices: {
       denied: 'Accès à la caméra et au micro refusé : autorise-les dans les réglages du navigateur, puis relance la visio.',
@@ -187,6 +189,54 @@ export const table = {
     },
   },
   rotate: 'Tourne l’écran en paysage pour jouer.',
+  /** Fenêtre « Animations » (Réglages). */
+  animations: {
+    title: 'Animations',
+    close: 'Fermer les animations',
+    groups: { cards: 'Cartes sur le champ de bataille', players: 'Joueurs et partie' },
+    effects: {
+      legendary: { label: 'Légendaires', hint: 'Liseré doré, et éclat qui traverse la carte à son arrivée en jeu.' },
+      commander: { label: 'Entrée du commandant', hint: 'Il se pose avec un halo, des ondes dorées et une couronne.' },
+      graveyard: { label: 'Retour du cimetière', hint: 'Une pierre tombale se brise et la carte ramenée remonte de sous la tombe.' },
+      flying: { label: 'Vol', hint: 'Les créatures volantes flottent au-dessus de leur ombre tant qu’elles ne sont pas engagées.' },
+      life: { label: 'Vie, poison et blessures', hint: 'Le compteur réagit et l’écart (« -3 », « +2 ») s’envole au-dessus du portrait.' },
+      crowns: { label: 'Monarque et initiative', hint: 'La couronne et le drapeau volent d’un portrait à l’autre.' },
+      dungeon: { label: 'Donjon', hint: 'Le jeton avance de salle en salle et la salle atteinte s’allume.' },
+      elimination: { label: 'Élimination et victoire', hint: 'Portrait fissuré du joueur éliminé, confettis pour le gagnant.' },
+      dice: { label: 'Dés', hint: 'Le dé roule avant d’afficher le résultat.' },
+    } as Record<CardEffect, { label: string; hint: string }>,
+    allOn: 'Tout activer',
+    allOff: 'Tout couper',
+  },
+  /** Écran de victoire (le titre : `status.winner`). */
+  victory: { close: 'Toucher pour fermer' },
+  /** Donjons : plan, proposition d'explorer, jeton sous le portrait, ligne du panneau du joueur. */
+  dungeons: {
+    title: 'Donjons',
+    close: 'Fermer les donjons',
+    lastRoom: 'Dernière salle : le donjon est terminé.',
+    playerDone: ' — donjon terminé',
+    playerHere: ' est ici',
+    venture: 'Explorer le donjon',
+    ventureUndercity: 'Explorer Les Souterrains',
+    enterThis: 'Entrer dans ce donjon',
+    undercityOnly: 'On n’entre dans Les Souterrains qu’avec l’initiative : choisis un autre donjon.',
+    enterUndercity: 'Entrer dans Les Souterrains',
+    current: (name: string) => `Ton donjon en cours : ${name}.`,
+    advance: (room: string) => `Avancer ici : ${room}`,
+    chooseRoom: 'Choisis la salle suivante (en surbrillance).',
+    offer: 'Initiative : explorer Les Souterrains ?',
+    offerGo: 'Explorer',
+    offerLater: 'Plus tard',
+    /** Bulle du jeton : donjon, salle et texte (dans la langue des cartes). */
+    roomTitle: (dungeon: string, room: string, text: string) => `${dungeon} : ${room} — ${text}`,
+    allDone: 'Donjons terminés',
+    tokenAria: (name: string) => `Donjon de ${name}`,
+    doneCount: (n: number) => `${n} donjon${n > 1 ? 's' : ''} terminé${n > 1 ? 's' : ''}`,
+    finished: 'Donjon terminé',
+    row: 'Donjon',
+    plan: 'Plan',
+  },
   opponents: { all: 'Tous' },
   zones: {
     battlefield: 'Champ de bataille',
@@ -284,6 +334,10 @@ export const table = {
     fewer: 'Un dé de moins',
     more: 'Un dé de plus',
     coin: 'Pile ou face',
+    /** Plateau de dés au milieu de la table : faces de la pièce, auteur du lancer quand c'est moi. */
+    heads: 'Pile',
+    tails: 'Face',
+    you: 'Vous',
   },
   token: {
     title: 'Créer un jeton',
@@ -311,7 +365,7 @@ export const table = {
     pilesInColumn: 'Piles dans la colonne (ancienne disposition)',
     graveyardArt: 'Image du cimetière',
     artSizes: ['Petite', 'Moyenne', 'Grande', 'Très grande'] as readonly string[],
-    cardEffects: 'Animations des cartes',
+    animations: 'Animations…',
     abilityStyle: 'Capacités sur les cartes',
     icons: 'Symboles',
     labels: 'Libellés',

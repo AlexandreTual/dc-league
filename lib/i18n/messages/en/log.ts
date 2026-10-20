@@ -102,6 +102,8 @@ export const log: Messages['log'] = {
     initiative: (v) => `${v.p} takes the initiative`,
     noInitiative: 'No one has the initiative',
     eliminated: (v) => `${v.p} is eliminated`,
+    venture: (v) => `${v.adv ? 'ventures deeper into' : 'enters'} ${v.d.name}: ${v.r.name} — ${v.r.text}${v.total ? ` Dungeon completed (${v.total} total).` : ''}`,
+    skipVenture: (v) => `doesn't venture into ${v.d.name} for now`,
     revealAll: (v) => `reveals: ${v.cards.join(', ')}`,
     revealTo: (v) => `reveals ${cards(v.n)} to ${v.to.join(', ')}`,
     revealedTo: (v) => `Revealed to ${v.to.join(', ')}: ${v.cards.join(', ')}`,

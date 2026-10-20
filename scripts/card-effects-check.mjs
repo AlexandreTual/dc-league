@@ -1,5 +1,5 @@
 // Effets des cartes en jeu, dans de vrais navigateurs : liseré doré et éclat d'arrivée des permanents légendaires,
-// entrée du commandant (halo, ondes, couronne), flottement des créatures volantes ; mode test à la souris (réglage « Animations des cartes »), mouvement réduit,
+// entrée du commandant (halo, ondes, couronne), retour du cimetière (tombe qui se brise), flottement des créatures volantes ; mode test à la souris (fenêtre « Animations » : tout, ou une animation à la fois), mouvement réduit,
 // tablette (1180 × 820, tactile), puis partie en ligne à 2.
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs : Teferi légendaire,
 // Anneau solaire, Ange de Serra volant, jeton Esprit volant, commandant Kenrith).
@@ -76,6 +76,20 @@ async function commanderOnBattlefield(who, solo = false) {
   return card
 }
 
+/** Carte du champ de bataille mise au cimetière (menu), puis ramenée par la liste du cimetière (bouton « Champ »). */
+async function backFromGraveyard(who, card, solo = false) {
+  const { page } = who
+  const me = solo ? await page.locator('[data-zone="hand"][data-player]').first().getAttribute('data-player') : who.id
+  const id = await card.getAttribute('data-card-id')
+  await card.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Cimetière', exact: true }).click()
+  await page.locator(`[data-zone="graveyard"][data-player="${me}"]`).first().click()
+  await page.locator(`[data-pile-card="${id}"]`).getByRole('button', { name: 'Champ', exact: true }).click()
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click().catch(() => {})
+  await card.waitFor()
+  return id
+}
+
 async function playtest(who) {
   await who.page.goto(`${base}/decks/deck-${who.id}`)
   await who.page.evaluate((id) => {
@@ -109,6 +123,19 @@ const arrived = async (locator) => {
   await locator.locator('[data-commander-arrival]').waitFor({ timeout: 1500 }).catch(() => {})
   return locator
 }
+/** Retour du cimetière : en cours, tombe (et son animation), deux moitiés, brume affichée, carte qui remonte. */
+const graveFx = (locator) => locator.evaluate((el) => {
+  const stone = el.querySelector('.card-grave-stone')
+  const mist = el.querySelector('.card-grave-mist')
+  const rise = el.querySelector('.card-grave-rise')
+  return {
+    arrival: !!el.querySelector('[data-grave-arrival]') || el.matches('[data-grave-arrival]'),
+    stone: stone ? getComputedStyle(stone).animationName : null,
+    halves: el.querySelectorAll('.card-grave-half').length,
+    mist: !!mist && getComputedStyle(mist).display !== 'none',
+    rise: rise ? getComputedStyle(rise).animationName : null,
+  }
+})
 /** Flottement d'une carte : présent, nom de l'animation (« none » en mouvement réduit) et hauteur de la carte. */
 const flightOf = (locator) => locator.evaluate((el) => {
   const lift = el.querySelector('.card-lift')
@@ -123,12 +150,27 @@ const waitTapped = async (page, locator, tapped) =>
 /** L'éclat dure 1,1 s, l'entrée du commandant 1,7 s ; les effets d'arrivée disparaissent au bout de 2 s. */
 const afterGlint = (page) => page.waitForTimeout(2300)
 
-async function setEffects(page, on) {
+/** Fenêtre « Animations » (depuis Réglages) : true / false pour tout activer ou couper, ou chaque animation. */
+async function setEffects(page, effects) {
   await page.getByRole('button', { name: 'Réglages' }).click()
-  const box = page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes')
-  if (on) await box.check()
-  else await box.uncheck()
-  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  await page.getByRole('dialog', { name: 'Réglages de la table' }).getByRole('button', { name: 'Animations…' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Animations' })
+  if (effects === true) await dialog.getByRole('button', { name: 'Tout activer' }).click()
+  else if (effects === false) await dialog.getByRole('button', { name: 'Tout couper' }).click()
+  else for (const [id, on] of Object.entries(effects)) await dialog.locator(`[data-effect="${id}"] input`).setChecked(on)
+  await page.getByRole('button', { name: 'Fermer les animations' }).click()
+}
+
+/** Cases de la fenêtre « Animations ». */
+async function effectsShown(page) {
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  await page.getByRole('dialog', { name: 'Réglages de la table' }).getByRole('button', { name: 'Animations…' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Animations' })
+  const shown = {}
+  for (const id of ['legendary', 'commander', 'flying']) shown[id] = await dialog.locator(`[data-effect="${id}"] input`).isChecked()
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached' })
+  return shown
 }
 
 try {
@@ -187,6 +229,23 @@ try {
   await waitTapped(page, angel, false)
   check((await flightOf(angel)).flying, 'Ange dégagé : il flotte de nouveau')
 
+  // Retour du cimetière : une tombe se brise et la carte remonte, une seule fois.
+  check(!(await graveFx(angel)).arrival && !(await graveFx(sol)).arrival, 'arrivée ordinaire (main, bibliothèque) : pas de tombe')
+  await afterGlint(page)
+  await backFromGraveyard(solo, angel, true)
+  const risen = await graveFx(angel)
+  check(risen.arrival && risen.stone === 'grave-stone' && risen.halves === 2 && risen.mist && risen.rise === 'grave-rise', 'Ange ramené du cimetière : la tombe se brise, la carte remonte')
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `${outDir}/card-effects-retour-cimetiere.png` })
+  console.log(`📸 ${outDir}/card-effects-retour-cimetiere.png`)
+  await afterGlint(page)
+  check(!(await graveFx(angel)).arrival && (await flightOf(angel)).flying, 'puis plus de tombe, l’Ange flotte de nouveau')
+  await setEffects(page, { graveyard: false })
+  await backFromGraveyard(solo, angel, true)
+  check(!(await graveFx(angel)).arrival && (await flightOf(angel)).flying, '« Retour du cimetière » décoché : pas de tombe, l’Ange flotte toujours')
+  await setEffects(page, { graveyard: true })
+  await afterGlint(page)
+
   await page.getByRole('button', { name: 'Jeton', exact: true }).click()
   const tokenDialog = page.getByRole('dialog', { name: 'Créer un jeton' })
   await tokenDialog.getByRole('button', { name: /Esprit/ }).click()
@@ -195,24 +254,55 @@ try {
   check((await flightOf(spirit)).flying, 'jeton Esprit du deck (vol) : flotte')
   await page.keyboard.press('Escape')
 
-  await setEffects(page, false)
-  check(!(await fxOf(teferi)).frame, 'réglage « Animations des cartes » décoché : plus de liseré')
-  check(!(await flightOf(angel)).flying, 'réglage décoché : l’Ange ne flotte plus')
+  // Une animation à la fois (fenêtre « Animations »).
+  await setEffects(page, { flying: false })
+  check(!(await flightOf(angel)).flying && !(await flightOf(spirit)).flying, '« Vol » décoché : l’Ange et l’Esprit ne flottent plus')
+  check((await fxOf(teferi)).frame, '« Vol » décoché : Teferi garde son liseré')
+  await setEffects(page, { commander: false })
+  // L'Ange et l'Esprit, posés au même endroit, recouvrent Kenrith : son menu ouvert directement.
+  const kBox = await kenrith.boundingBox()
+  await kenrith.dispatchEvent('contextmenu', { button: 2, clientX: kBox.x + 10, clientY: kBox.y + 10 })
+  await page.getByRole('menuitem', { name: 'Zone de commandement' }).click()
+  await kenrith.waitFor({ state: 'detached' })
+  const kenrith2 = page.locator(await commanderOnBattlefield(solo, true))
+  await page.waitForTimeout(300)
+  check(!(await commanderFx(kenrith2)).arrival, '« Entrée du commandant » décochée : le commandant arrive sans halo ni couronne')
+  check((await fxOf(kenrith2)).glint, 'mais son éclat de légendaire reste')
+  await setEffects(page, { legendary: false, flying: true })
+  check(!(await fxOf(teferi)).frame && !(await fxOf(kenrith2)).frame, '« Légendaires » décoché : plus de liseré')
+  check((await flightOf(angel)).flying, '« Vol » recoché : l’Ange flotte de nouveau')
+  await capture(page, 'animations-au-choix')
   await page.reload()
   await page.getByRole('button', { name: /Reprendre la partie/ }).click()
   await page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
-  await page.getByRole('button', { name: 'Réglages' }).click()
-  const box2 = page.getByRole('dialog', { name: 'Réglages de la table' }).getByLabel('Animations des cartes')
-  check(!(await box2.isChecked()), 'réglage mémorisé après rechargement')
-  await page.getByRole('button', { name: 'Fermer les réglages' }).click()
+  const kept = await effectsShown(page)
+  check(!kept.legendary && !kept.commander && kept.flying, 'choix de chaque animation mémorisé après rechargement')
+
+  await setEffects(page, false)
+  check(!(await fxOf(teferi)).frame, '« Tout couper » : plus de liseré')
+  check(!(await flightOf(angel)).flying, '« Tout couper » : l’Ange ne flotte plus')
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await page.waitForSelector('[data-zone="hand"] [data-card-id]', { timeout: 15_000 })
+  const off = await effectsShown(page)
+  check(!off.legendary && !off.commander && !off.flying, 'réglage mémorisé après rechargement')
   check(!(await fxOf(teferi)).frame, 'partie reprise : Teferi toujours sans liseré')
   await setEffects(page, true)
   const back = await fxOf(teferi)
-  check(back.frame && !back.glint, 'recoché : liseré revenu, sans éclat (la carte était déjà en jeu)')
+  check(back.frame && !back.glint, '« Tout activer » : liseré revenu, sans éclat (la carte était déjà en jeu)')
   await page.reload()
   await page.getByRole('button', { name: /Reprendre la partie/ }).click()
   await teferi.waitFor()
   check(!(await fxOf(teferi)).glint, 'partie reprise : pas d’éclat au chargement')
+
+  // Ancienne case unique « Animations des cartes » décochée : toutes les animations restent coupées.
+  await page.evaluate(() => localStorage.setItem('dc-table-settings', JSON.stringify({ grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: false })))
+  await page.reload()
+  await page.getByRole('button', { name: /Reprendre la partie/ }).click()
+  await teferi.waitFor()
+  const legacy = await effectsShown(page)
+  check(!(await fxOf(teferi)).frame && !legacy.legendary && !legacy.commander && !legacy.flying, 'ancien réglage « Animations des cartes » coupé : toutes les animations coupées')
+  await setEffects(page, true)
 
   // ── Mouvement réduit (réglage du système) ──
   const calm = await openAs(ANA, { reducedMotion: 'reduce' })
@@ -223,6 +313,10 @@ try {
   const calmAngel = calm.page.locator(await onBattlefield(calm, ANGEL, true))
   const calmFlight = await flightOf(calmAngel)
   check(calmFlight.flying && calmFlight.animation === 'none' && calmFlight.transform !== 'none', 'mouvement réduit : l’Ange reste surélevé, immobile')
+  await afterGlint(calm.page)
+  await backFromGraveyard(calm, calmAngel, true)
+  const calmGrave = await graveFx(calmAngel)
+  check(calmGrave.arrival && calmGrave.stone === 'none' && calmGrave.halves === 2 && !calmGrave.mist && calmGrave.rise === 'none', 'mouvement réduit : la carte ramenée du cimetière montre la tombe fendue, immobile')
   const calmCommander = await commanderFx(await arrived(calm.page.locator(await commanderOnBattlefield(calm, true))))
   check(calmCommander.arrival && calmCommander.crown && calmCommander.crownAnimation === 'none' && !calmCommander.wave, 'mouvement réduit : le commandant qui arrive montre sa couronne, immobile, sans ondes')
 
@@ -291,6 +385,11 @@ try {
   const angelForBastien = bastien.page.locator(`[data-zone="battlefield"][data-player="${ANA.id}"] [data-card-id="${angelId}"], [data-zone="battlefield"][data-player="${ANA.id}"] [data-strip-card="${angelId}"]`)
   await angelForBastien.waitFor()
   check((await flightOf(angelForBastien)).flying, 'en ligne : Bastien voit l’Ange d’Ana flotter')
+  await afterGlint(ana.page)
+  await backFromGraveyard(ana, ana.page.locator(anaAngel))
+  check((await graveFx(ana.page.locator(anaAngel))).arrival, 'en ligne : Ana voit la tombe de son Ange ramené du cimetière')
+  await angelForBastien.locator('[data-grave-arrival]').waitFor({ timeout: 1500 }).catch(() => {})
+  check((await graveFx(angelForBastien)).arrival, 'en ligne : Bastien voit l’Ange d’Ana revenir du cimetière')
   await capture(ana.page, 'en-ligne-ana')
   await capture(bastien.page, 'en-ligne-bastien')
 

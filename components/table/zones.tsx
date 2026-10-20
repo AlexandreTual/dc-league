@@ -1,6 +1,7 @@
 'use client'
 
 import { useDroppable } from '@dnd-kit/core'
+import type { Arrival } from '@/lib/game/card-effects'
 import { canSelectIn } from '@/lib/game/selection'
 import type { Catalog, CardView, PlayerView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
@@ -46,8 +47,8 @@ export type ZoneProps = {
   highlighted?: Set<string>
   /** Réglages d'affichage (quadrillage, couleur du fond, taille des cartes). */
   settings?: TableSettings
-  /** Cartes qui viennent d'arriver en jeu (éclat d'un légendaire). */
-  arriving?: Set<string>
+  /** Cartes qui viennent d'arriver en jeu, avec leur provenance (éclat d'un légendaire, retour du cimetière). */
+  arriving?: Map<string, Arrival>
   /** Sélection de cartes ; absente : pas de rectangle de sélection (plateaux des adversaires, spectateur). */
   selection?: ZoneSelection
 }
@@ -131,7 +132,7 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
           className="absolute"
           style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
-          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} effects={settings.cardEffects} arriving={props.arriving?.has(card.id)} abilityStyle={settings.abilityStyle} />
+          <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} pt onPtEdit={ptEdit(props.handlers, card.id, ref)} effects={settings.cardEffects} arriving={props.arriving?.get(card.id)} abilityStyle={settings.abilityStyle} />
         </Draggable>
       ))}
       {props.corner && <div className="absolute bottom-1.5 left-1.5 z-[5] pointer-events-none">{props.corner}</div>}

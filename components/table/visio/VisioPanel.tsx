@@ -1,13 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, Mic, MicOff, PhoneOff, Video, VideoOff, X } from 'lucide-react'
-import { clampPanelWidth, loadPanelWidth, savePanelWidth, tileColumns, VISIO_MSG } from '@/lib/visio/protocol'
+import { ChevronDown, ChevronUp, GripVertical, Mic, MicOff, PhoneOff, Video, VideoOff, X } from 'lucide-react'
+import {
+  clampPanelPosition, clampPanelWidth, loadPanelPosition, loadPanelWidth, savePanelPosition, savePanelWidth, tileColumns, VISIO_MSG,
+  type PanelPosition,
+} from '@/lib/visio/protocol'
 import { useT } from '@/components/i18n/I18nProvider'
 import type { Visio } from './useVisio'
 
 const iconButton =
-  'flex items-center justify-center w-7 h-7 tablet:w-11 tablet:h-11 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-40 disabled:cursor-not-allowed'
+  'shrink-0 flex items-center justify-center w-7 h-7 tablet:w-11 tablet:h-11 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-40 disabled:cursor-not-allowed'
 
 /** Vidéo d'un flux ; `muted` pour la mienne (pas d'écho), le son des autres passe par l'élément même réduit. */
 function StreamVideo({ stream, muted, mirrored, hidden }: { stream: MediaStream | null; muted?: boolean; mirrored?: boolean; hidden?: boolean }) {
@@ -24,13 +27,23 @@ function StreamVideo({ stream, muted, mirrored, hidden }: { stream: MediaStream 
   )
 }
 
+/** Zone de jeu dans laquelle la fenêtre se pose (son parent positionné). */
+function areaOf(el: HTMLElement | null): { width: number; height: number } {
+  const parent = el?.offsetParent
+  return parent ? { width: parent.clientWidth, height: parent.clientHeight } : { width: window.innerWidth, height: window.innerHeight }
+}
+
+const sizeOf = (el: HTMLElement | null) => ({ width: el?.offsetWidth ?? 0, height: el?.offsetHeight ?? 0 })
+
 /**
- * Fenêtre de visio, en haut à droite de la table : une vignette par joueur en visio, la mienne en incrustation.
- * Le coin en bas à gauche se tire pour l'agrandir ou la réduire (largeur retenue par le navigateur) ;
- * « Réduire » ne garde que la barre (le son continue).
+ * Fenêtre de visio, en haut à droite de la table au départ : une vignette par joueur en visio, la mienne en incrustation.
+ * Sa barre se tire pour la poser où l'on veut dans la zone de jeu ; le coin en bas à gauche se tire pour l'agrandir
+ * ou la réduire (place et largeur retenues par le navigateur) ; « Réduire » ne garde que la barre (le son continue).
  */
 export default function VisioPanel({ visio, names }: { visio: Visio; names: Record<string, string> }) {
-  const [width, setWidth] = useState(() => loadPanelWidth(typeof window === 'undefined' ? undefined : window.localStorage))
+  const storage = () => (typeof window === 'undefined' ? undefined : window.localStorage)
+  const [width, setWidth] = useState(() => loadPanelWidth(storage()))
+  const [position, setPosition] = useState<PanelPosition>(() => loadPanelPosition(storage()))
   const [collapsed, setCollapsed] = useState(false)
   const t = useT()
   const v = t.table.visio
@@ -38,43 +51,70 @@ export default function VisioPanel({ visio, names }: { visio: Visio; names: Reco
   const noticeKey = (Object.keys(VISIO_MSG) as (keyof typeof VISIO_MSG)[]).find((k) => VISIO_MSG[k] === visio.notice)
   const notice = noticeKey ? v.notices[noticeKey] : visio.notice
   const panel = useRef<HTMLDivElement>(null)
-  const drag = useRef<{ x: number; width: number; available: number } | null>(null)
+  const resize = useRef<{ x: number; width: number; available: number } | null>(null)
+  const move = useRef<{ x: number; y: number; from: PanelPosition } | null>(null)
 
-  const available = () => panel.current?.offsetParent?.clientWidth ?? window.innerWidth
-  // Toujours dans la place disponible (fenêtre du navigateur réduite).
+  const area = () => areaOf(panel.current)
+  const size = () => sizeOf(panel.current)
+
+  // Toujours entière dans la zone de jeu : fenêtre du navigateur réduite, taille changée, fenêtre réduite ou rouverte.
   useEffect(() => {
-    const fit = () => setWidth((w) => clampPanelWidth(w, available()))
+    const fit = () => {
+      setWidth((w) => clampPanelWidth(w, areaOf(panel.current).width))
+      setPosition((p) => clampPanelPosition(p, sizeOf(panel.current), areaOf(panel.current)))
+    }
     fit()
     window.addEventListener('resize', fit)
     return () => window.removeEventListener('resize', fit)
-  }, [])
+  }, [width, collapsed, visio.remotes.length])
 
   const onResizeStart = (e: React.PointerEvent) => {
     e.preventDefault()
     e.stopPropagation()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    drag.current = { x: e.clientX, width, available: available() }
+    resize.current = { x: e.clientX, width, available: area().width }
   }
   const onResizeMove = (e: React.PointerEvent) => {
-    const d = drag.current
+    const d = resize.current
     if (!d) return
-    // Fenêtre accrochée à droite : tirer vers la gauche l'agrandit.
+    // Fenêtre accrochée par son bord droit : tirer vers la gauche l'agrandit (et la décale si elle touche le bord gauche).
     setWidth(clampPanelWidth(d.width + d.x - e.clientX, d.available))
   }
   const onResizeEnd = () => {
-    if (!drag.current) return
-    drag.current = null
+    if (!resize.current) return
+    resize.current = null
     savePanelWidth(window.localStorage, width)
+    savePanelPosition(window.localStorage, position)
+  }
+
+  // Déplacement : on tire la barre, ailleurs que sur ses boutons.
+  const onMoveStart = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    e.preventDefault()
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    move.current = { x: e.clientX, y: e.clientY, from: position }
+  }
+  const onMoveMove = (e: React.PointerEvent) => {
+    const d = move.current
+    if (!d) return
+    setPosition(clampPanelPosition({ right: d.from.right - (e.clientX - d.x), top: d.from.top + (e.clientY - d.y) }, size(), area()))
+  }
+  const onMoveEnd = () => {
+    if (!move.current) return
+    move.current = null
+    savePanelPosition(window.localStorage, position)
   }
 
   const tiles = visio.remotes
   const columns = tileColumns(tiles.length)
 
   return (
-    <div ref={panel} className="absolute top-2 right-2 z-40 rounded-xl border border-dc-gold/40 bg-dc-surface/95 shadow-xl overflow-hidden select-none"
-      style={{ width }} data-testid="visio-panel" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
-      <div className="flex items-center gap-1 px-1.5 py-1">
-        <span className="font-fantasy text-xs text-dc-gold mr-auto pl-1">{v.title}</span>
+    <div ref={panel} className="absolute z-40 rounded-xl border border-dc-gold/40 bg-dc-surface/95 shadow-xl overflow-hidden select-none"
+      style={{ width, right: position.right, top: position.top }} data-testid="visio-panel" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
+      <div className="flex flex-wrap items-center gap-1 px-1.5 py-1 cursor-move touch-none" data-testid="visio-bar" title={v.move}
+        onPointerDown={onMoveStart} onPointerMove={onMoveMove} onPointerUp={onMoveEnd} onPointerCancel={onMoveEnd}>
+        <GripVertical className="w-3.5 h-3.5 text-dc-muted shrink-0" aria-hidden />
+        <span className="font-fantasy text-xs text-dc-gold mr-auto truncate min-w-0">{v.title}</span>
         <button className={iconButton} onClick={() => visio.setMic(!visio.mic)} disabled={!visio.hasMic}
           aria-label={visio.mic ? v.micOff : v.micOn} title={visio.mic ? v.micOff : v.micOn} data-testid="visio-mic">
           {visio.mic ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5 text-dc-red-light" />}

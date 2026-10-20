@@ -2,6 +2,7 @@ import { rollDice, rollText } from './dice'
 import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
 import { abilitiesLog, abilityText, addAbilities, join, nextAbilities, type Abilities } from './abilities'
 import { printedKeywordsOf } from './card-effects'
+import { DUNGEONS, firstRoom, roomOf, ventureStep } from './dungeons'
 import { MAX_PT_MOD, NO_PT, ptLog, ptStats, ptText } from './pt'
 import { shuffle } from './random'
 import { canApply, controllerOf, zoneOf } from './rules'
@@ -353,9 +354,38 @@ function passTurn(state: GameState, actor: string | null, byHost = false, at?: n
     let s: GameState = { ...withoutEndOfTurnEffects(stampTurn(state, at)), activePlayer: next, turn, firstTurnDone: true }
     s = log(s, actor, `Tour ${turn} : ${s.players[next].name}${byHost ? ' (passé par l’hôte)' : ''}`,
       msgOf('turn', { n: turn, p: { player: next }, host: flag(byHost) }))
+    // Règle 725.2 : au début de l'entretien du joueur qui a l'initiative, il explore Les Souterrains (proposé).
+    if (s.initiative === next) s = offerVenture(s, next)
     return draw(untapAllOf(phaseInAllOf(emptyManaPools(s), next), next), next, 1)
   }
   return state
+}
+
+/** Propose au joueur d'explorer Les Souterrains (une seule proposition à la fois). */
+function offerVenture(state: GameState, player: string): GameState {
+  const offers = state.ventureOffers ?? []
+  return offers.includes(player) ? state : { ...state, ventureOffers: [...offers, player] }
+}
+
+function withoutOffer(state: GameState, player: string): GameState {
+  return { ...state, ventureOffers: (state.ventureOffers ?? []).filter((p) => p !== player) }
+}
+
+/** Explore (règle 701.49) : entre dans la première salle d'un donjon, ou avance d'une salle ; dernière salle : donjon terminé. */
+function venture(state: GameState, action: Extract<GameAction, { type: 'venture' }>): GameState {
+  const player = state.players[action.actor]
+  const step = ventureStep(player.dungeon, action.undercity ? 'undercity' : 'dungeon')
+  const id = step.kind === 'advance' ? step.dungeon : step.kind === 'enter' ? step.dungeon : action.dungeon!
+  const room = step.kind === 'advance' ? roomOf(id, action.room ?? step.next[0])! : firstRoom(id)
+  const done = room.next.length === 0
+  const dungeonsDone = (player.dungeonsDone ?? 0) + (done ? 1 : 0)
+  let s = setPlayer(state, action.actor, { dungeon: { id, room: room.id }, ...(done ? { dungeonsDone } : {}) })
+  if (action.undercity) s = withoutOffer(s, action.actor)
+  const verb = step.kind === 'advance' ? 'avance dans' : 'entre dans'
+  const end = done ? ` Donjon terminé (${dungeonsDone} au total).` : ''
+  return log(s, action.actor, `${verb} ${DUNGEONS[id].the} : ${room.name} — ${room.text}${end}`, msgOf('venture', {
+    adv: flag(step.kind === 'advance'), d: { dungeon: id }, r: { room: { dungeon: id, room: room.id } }, total: done ? dungeonsDone : undefined,
+  }))
 }
 
 function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): GameState {
@@ -685,9 +715,19 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return log({ ...state, monarch: action.to }, action.actor, action.to ? `${state.players[action.to].name} devient le monarque` : 'Plus de monarque',
         action.to ? msgOf('monarch', { p: { player: action.to } }) : msgOf('noMonarch'))
 
-    case 'setInitiative':
-      return log({ ...state, initiative: action.to }, action.actor, action.to ? `${state.players[action.to].name} prend l’initiative` : 'Plus d’initiative',
+    case 'setInitiative': {
+      // Règle 725 : prendre l'initiative fait explorer Les Souterrains ; proposé au joueur par un bouton.
+      const s = action.to ? offerVenture(state, action.to) : state
+      return log({ ...s, initiative: action.to }, action.actor, action.to ? `${state.players[action.to].name} prend l’initiative` : 'Plus d’initiative',
         action.to ? msgOf('initiative', { p: { player: action.to } }) : msgOf('noInitiative'))
+    }
+
+    case 'venture':
+      return venture(state, action)
+
+    case 'skipVenture':
+      return log(withoutOffer(state, action.actor), action.actor, 'n’explore pas Les Souterrains pour l’instant',
+        msgOf('skipVenture', { d: { dungeon: 'undercity' } }))
 
     case 'eliminate': {
       let s = setPlayer(state, action.target, { eliminated: true })

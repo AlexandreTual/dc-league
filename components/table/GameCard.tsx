@@ -3,10 +3,10 @@
 import type { Catalog, CardView, VisibleCard } from '@/lib/game/types'
 import { cardInfo, tokenBadge } from '@/lib/game/apply'
 import { Crown } from 'lucide-react'
-import { commanderEntrance, effectDelay, hasFlying, isLegendary } from '@/lib/game/card-effects'
+import { commanderEntrance, effectDelay, hasFlying, isLegendary, type Arrival } from '@/lib/game/card-effects'
 import { loyaltyStats } from '@/lib/game/loyalty'
 import { ptStats, ptText, type PtValue } from '@/lib/game/pt'
-import type { AbilityStyle } from '@/lib/table-settings'
+import { NO_EFFECTS, type AbilityStyle, type CardEffects } from '@/lib/table-settings'
 import { AbilityBadges } from './abilities'
 import type { MenuPoint } from './touch'
 import { useT } from '@/components/i18n/I18nProvider'
@@ -86,17 +86,38 @@ function StatBox({ card, catalog, onEdit }: { card: VisibleCard; catalog: Catalo
   )
 }
 
+/** Pierre tombale qui se fend en deux au-dessus d'une carte ramenée du cimetière, avec une brume et des éclats (globals.css). */
+function GraveBreak() {
+  return (
+    <span className="card-grave" aria-hidden="true">
+      <span className="card-grave-mist" />
+      <svg viewBox="0 0 40 48" className="card-grave-stone">
+        <g className="card-grave-half card-grave-left">
+          <path d="M26 3.2 L24 13 L28 21 L23 30 L27 39 L24 48 H4 V18 A16 16 0 0 1 26 3.2 Z" />
+          <path d="M14 10 V26 M9 15 H19" className="card-grave-cross" />
+        </g>
+        <g className="card-grave-half card-grave-right">
+          <path d="M26 3.2 A16 16 0 0 1 36 18 V48 H24 L27 39 L23 30 L28 21 L24 13 Z" />
+        </g>
+      </svg>
+      <i className="card-grave-chip" />
+      <i className="card-grave-chip" />
+      <i className="card-grave-chip" />
+    </span>
+  )
+}
+
 /**
  * Une carte : image, dos (carte cachée ou face cachée), ou carte texte (jeton sans image), avec marqueurs et taxe.
  * `pt` : encart loyauté ou force/endurance (cartes en jeu) ; `onPtEdit` : encart cliquable pour la modifier.
- * `effects` : effets d'une carte en jeu (liseré doré d'un permanent légendaire, créature volante qui flotte tant
- * qu'elle n'est pas engagée), si le réglage les permet ;
- * `arriving` : carte qui vient d'arriver en jeu (un éclat traverse un légendaire ; un commandant se pose avec halo, ondes
- *   et couronne ; une seule fois) ;
+ * `effects` : animations d'une carte en jeu permises par le réglage (liseré doré d'un permanent légendaire, entrée du
+ * commandant, retour du cimetière, créature volante qui flotte tant qu'elle n'est pas engagée), chacune activée ou non ;
+ * `arriving` : carte qui vient d'arriver en jeu, et d'où (un éclat traverse un légendaire ; un commandant se pose avec halo,
+ *   ondes et couronne ; une carte ramenée du cimetière sort d'une pierre tombale qui se brise ; une seule fois) ;
  * `abilityStyle` : carte en jeu, capacités données ou perdues affichées en symboles ou en libellés (même sans animations).
  * Carte en jeu (`pt`) hors phase : estompée, avec la mention « Hors phase ».
  */
-export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = false, arriving = false, abilityStyle }: {
+export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = NO_EFFECTS, arriving, abilityStyle }: {
   card: CardView | null | undefined
   catalog: Catalog
   lang: Lang
@@ -104,8 +125,8 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   className?: string
   pt?: boolean
   onPtEdit?: (at: MenuPoint) => void
-  effects?: boolean
-  arriving?: boolean
+  effects?: CardEffects
+  arriving?: Arrival
   abilityStyle?: AbilityStyle
 }) {
   const c = useT().table.card
@@ -137,9 +158,10 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
   const net = plus - minus
   const badgeKind = tokenBadge(card)
   const badge = badgeKind && (badgeKind === 'Copie' ? c.copyBadge : c.tokenBadge)
-  const legendary = effects && isLegendary(catalog, card)
-  const flying = effects && !card.tapped && !phasedOut && hasFlying(catalog, card)
-  const commander = effects && arriving && commanderEntrance(card)
+  const legendary = effects.legendary && isLegendary(catalog, card)
+  const flying = effects.flying && !card.tapped && !phasedOut && hasFlying(catalog, card)
+  const commander = effects.commander && !!arriving && commanderEntrance(card)
+  const grave = effects.graveyard && arriving === 'graveyard'
 
   const body = (
     <>
@@ -178,12 +200,15 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
     </>
   )
 
-  // Commandant qui arrive en jeu : il se pose (globals.css) ; seul l'intérieur bouge, comme pour le vol.
-  const landed = commander ? <div className="card-commander-land absolute inset-0">{body}</div> : body
+  // Commandant qui arrive en jeu : il se pose ; carte ramenée du cimetière : elle remonte de sous la tombe (globals.css).
+  // Seul l'intérieur bouge, comme pour le vol.
+  const landed = commander ? <div className="card-commander-land absolute inset-0">{body}</div>
+    : grave ? <div className="card-grave-rise absolute inset-0">{body}</div> : body
 
   return (
     <div className={`relative aspect-[63/88] select-none ${className}`} title={data.name}
       data-legendary={legendary || undefined} data-flying={flying || undefined} data-commander-arrival={commander || undefined}
+      data-grave-arrival={grave || undefined}
       data-phased={phasedOut || undefined}
       style={flying ? ({ '--fx-delay': effectDelay(card.id) } as React.CSSProperties) : undefined}>
       {/* Halo doré derrière le commandant qui arrive. */}
@@ -203,6 +228,7 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
           <span className="card-commander-crown" aria-hidden="true"><Crown className="w-[60%] h-[60%]" strokeWidth={2.5} /></span>
         </>
       )}
+      {grave && <GraveBreak />}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-// Effets visuels des cartes en jeu (éclat d'arrivée des légendaires) : ce qui se lit dans le catalogue et la vue, sans rien révéler.
+// Effets visuels des cartes en jeu (éclat d'arrivée des légendaires, retour du cimetière) : ce qui se lit dans le catalogue et la vue, sans rien révéler.
 import { cardInfo } from './apply'
 import type { Keyword } from './abilities'
 import type { Catalog, PlayerView, VisibleCard } from './types'
@@ -40,10 +40,11 @@ export function effectDelay(id: string): string {
   return `-${hash / 10}s`
 }
 
-/** Identifiants des cartes visibles sur tous les champs de bataille. */
-function battlefieldIds(view: PlayerView): Set<string> {
-  return new Set(Object.values(view.players).flatMap((p) => p.zones.battlefield.flatMap((c) => (c.hidden ? [] : [c.id]))))
+/** Identifiants des cartes visibles dans cette zone, chez tous les joueurs. */
+function zoneIds(view: PlayerView, zone: 'battlefield' | 'graveyard'): Set<string> {
+  return new Set(Object.values(view.players).flatMap((p) => (p.zones[zone] ?? []).flatMap((c) => (c.hidden ? [] : [c.id]))))
 }
+const battlefieldIds = (view: PlayerView) => zoneIds(view, 'battlefield')
 
 /**
  * Cartes arrivées sur un champ de bataille depuis la vue précédente (la leur ou celle d'un adversaire).
@@ -53,4 +54,14 @@ export function enteredBattlefield(prev: PlayerView | null, next: PlayerView): s
   if (!prev) return []
   const before = battlefieldIds(prev)
   return [...battlefieldIds(next)].filter((id) => !before.has(id))
+}
+
+/** D'où vient une carte qui arrive en jeu : `graveyard` si elle était dans un cimetière (ramenée), `play` sinon. */
+export type Arrival = 'play' | 'graveyard'
+
+/** Cartes arrivées sur un champ de bataille depuis la vue précédente, avec leur provenance (cimetières : zones publiques). */
+export function arrivals(prev: PlayerView | null, next: PlayerView): Map<string, Arrival> {
+  const entered = enteredBattlefield(prev, next)
+  const graves = prev ? zoneIds(prev, 'graveyard') : new Set<string>()
+  return new Map(entered.map((id) => [id, graves.has(id) ? 'graveyard' : 'play']))
 }

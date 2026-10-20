@@ -88,6 +88,41 @@ export function savePanelWidth(storage: Pick<Storage, 'setItem'> | undefined, wi
   }
 }
 
+/** Place de la fenêtre dans la zone de jeu : écart à droite et en haut (accrochée par son coin haut droit). */
+export type PanelPosition = { right: number; top: number }
+
+const PANEL_MARGIN = 8
+export const PANEL_DEFAULT_POSITION: PanelPosition = { right: PANEL_MARGIN, top: PANEL_MARGIN }
+
+/** Garde la fenêtre entière dans la zone de jeu ; trop grande, elle se colle en haut à droite. */
+export function clampPanelPosition(pos: PanelPosition, size: { width: number; height: number }, area: { width: number; height: number }): PanelPosition {
+  const clamp = (v: number, max: number) => Math.round(Math.max(PANEL_MARGIN, Math.min(max, v)))
+  return {
+    right: clamp(pos.right, area.width - size.width - PANEL_MARGIN),
+    top: clamp(pos.top, area.height - size.height - PANEL_MARGIN),
+  }
+}
+
+const POSITION_KEY = 'dc-visio-position'
+
+export function loadPanelPosition(storage: Pick<Storage, 'getItem'> | undefined): PanelPosition {
+  try {
+    const raw = JSON.parse(storage?.getItem(POSITION_KEY) ?? 'null') as Partial<PanelPosition> | null
+    const ok = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
+    return raw && ok(raw.right) && ok(raw.top) ? { right: raw.right, top: raw.top } : PANEL_DEFAULT_POSITION
+  } catch {
+    return PANEL_DEFAULT_POSITION
+  }
+}
+
+export function savePanelPosition(storage: Pick<Storage, 'setItem'> | undefined, pos: PanelPosition): void {
+  try {
+    storage?.setItem(POSITION_KEY, JSON.stringify({ right: Math.round(pos.right), top: Math.round(pos.top) }))
+  } catch {
+    // stockage indisponible : la fenêtre repart en haut à droite
+  }
+}
+
 // ── Accès à la caméra ────────────────────────────────────────────────────────
 
 export const VISIO_MSG = {

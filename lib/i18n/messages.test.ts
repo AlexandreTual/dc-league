@@ -8,7 +8,7 @@ const SAME = new Set([
   'Ok', 'OK', 'Admin', 'Email', 'Moxfield', 'Archidekt', 'Gemini', 'Instant', 'Rad', 'Tickets', 'Bushido', 'Absorption',
   'Annihilator', 'Phasing', 'Champion', 'Planeswalkers', '+1/+1', '-1/-1', '…', '',
   'pts', 'Pts', 'Round', 'admin',
-  'Cmd', 'Planeswalker', 'Scryfall', 'Table', 'Vigilance', 'Indestructible', 'Menace', 'Protection', 'Mentor',
+  'Cmd', 'Planeswalker', 'Animations', 'Animations…', 'Scryfall', 'Table', 'Vigilance', 'Indestructible', 'Menace', 'Protection', 'Mentor',
 ])
 
 type Leaf = { path: string; fr: string; en: string }

@@ -122,7 +122,14 @@ function fullGame(): GameState {
     { type: 'setMonarch', actor: 'p1', to: 'p2' },
     { type: 'setMonarch', actor: 'p1', to: null },
     { type: 'setInitiative', actor: 'p1', to: 'p3' },
+    { type: 'skipVenture', actor: 'p3' },
     { type: 'setInitiative', actor: 'p1', to: null },
+    // Donjons : entrer, avancer, terminer ; Les Souterrains.
+    { type: 'venture', actor: 'p1', dungeon: 'phandelver' },
+    { type: 'venture', actor: 'p1', room: 'goblinLair' },
+    { type: 'venture', actor: 'p1', room: 'storeroom' },
+    { type: 'venture', actor: 'p1' },
+    { type: 'venture', actor: 'p2', undercity: true },
     // Révélations et bibliothèques.
     { type: 'reveal', actor: 'p1', ids: 'hand', to: 'all' },
     { type: 'reveal', actor: 'p1', ids: 'hand', to: ['p2', 'p3'] },
@@ -249,6 +256,11 @@ describe('journal structuré', () => {
     expect(lines).toContain('shuffles their library, puts one card on top and 2 cards on the bottom')
     expect(lines).toContain('shuffles Alex\'s library and puts one card on the bottom')
     expect(lines).toContain('Library is empty')
+    expect(lines).toContain("doesn't venture into Undercity for now")
+    expect(lines).toContain('enters Lost Mine of Phandelver: Cave Entrance — Scry 1.')
+    expect(lines).toContain('ventures deeper into Lost Mine of Phandelver: Goblin Lair — Create a 1/1 red Goblin creature token.')
+    expect(lines).toContain('ventures deeper into Lost Mine of Phandelver: Temple of Dumathoin — Draw a card. Dungeon completed (1 total).')
+    expect(lines).toContain('enters Undercity: Secret Entrance — Search your library for a basic land card, reveal it, put it into your hand, then shuffle.')
     expect(byKey.get('roll')).toMatch(/^(Rolls|Coin flip|Flips)/)
     expect(lines.filter((l) => l.startsWith('Rolls a d20: ') || l.startsWith('Rolls 3d6: ') || l.startsWith('Coin flip: ') || l.startsWith('Flips 3 coins: '))).toHaveLength(4)
     expect(lines.some((l) => /^gives \+1\/\+1 and Flying to Kenrith, the Returned King and Delver/.test(l))).toBe(true)
@@ -262,6 +274,17 @@ describe('journal structuré', () => {
     expect(formatLog(solLine, fr, 'fr', view, state.catalogs)).toBe('Anneau solaire : main → champ de bataille')
     expect(formatLog(solLine, fr, 'en', view, state.catalogs)).toBe('Sol Ring : main → champ de bataille')
     expect(formatLog(solLine, en, 'fr', view, state.catalogs)).toBe('Anneau solaire: hand → battlefield')
+  })
+
+  it('donjons et salles dans la langue des cartes, comme les cartes ; donjon inconnu : la phrase française', () => {
+    const enter = entries.find((e) => e.msg?.key === 'venture' && e.text.startsWith('entre dans la Mine'))!
+    expect(enter.text).toBe('entre dans la Mine oubliée de Phancreux : Entrée du souterrain — Regard 1.')
+    expect(formatLog(enter, fr, 'en', view, state.catalogs)).toBe('entre dans Lost Mine of Phandelver : Cave Entrance — Scry 1.')
+    expect(formatLog(enter, en, 'fr', view, state.catalogs)).toBe('enters Mine oubliée de Phancreux: Entrée du souterrain — Regard 1.')
+    const skip = entries.find((e) => e.msg?.key === 'skipVenture')!
+    expect(formatLog(skip, en, 'fr', view, state.catalogs)).toBe("doesn't venture into Les Souterrains for now")
+    const odd = { ...enter, msg: { key: 'venture', params: { d: { dungeon: 'abyss' }, r: { room: { dungeon: 'abyss', room: 'x' } } } } } as unknown as LogEntry
+    expect(formatLog(odd, en, 'en', view, state.catalogs)).toBe(enter.text)
   })
 
   it('carte face cachée jamais nommée, en français comme en anglais', () => {

@@ -26,3 +26,18 @@ export function rollText(sides: number, results: number[]): string {
   const total = results.reduce((a, b) => a + b, 0)
   return `Lance ${results.length}d${sides} : ${results.join(', ')} (total ${total})`
 }
+
+/** Dé et résultats d'une ligne de `rollText` (lancer vu au journal, même d'un serveur de jeu plus ancien) ; rien pour une autre ligne. */
+export function parseRoll(text: string): { sides: number; results: number[] } | null {
+  const coin = /^(?:Pile ou face|Lance \d+ pièces) : (.+)$/.exec(text)
+  if (coin) {
+    const results = coin[1].split(', ').map((f) => (f === 'Pile' ? 1 : f === 'Face' ? 2 : 0))
+    return results.every((n) => n > 0) ? { sides: 2, results } : null
+  }
+  const dice = /^Lance (?:un |\d+)d(\d+) : ([\d, ]+?)(?: \(total \d+\))?$/.exec(text)
+  if (!dice) return null
+  const sides = Number(dice[1])
+  const results = dice[2].split(', ').map(Number)
+  if (!(DICE_SIDES as readonly number[]).includes(sides) || results.some((n) => !Number.isInteger(n) || n < 1 || n > sides)) return null
+  return { sides, results }
+}
