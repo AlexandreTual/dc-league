@@ -54,6 +54,7 @@ export function viewFor(state: GameState, playerId: string, canUndo = false): Pl
     firstChosen: state.firstChosen,
     monarch: state.monarch,
     initiative: state.initiative,
+    ventureOffers: state.ventureOffers ?? [],
     players,
     commanderCasts: state.commanderCasts,
     lookingAt: state.lookingAt[playerId] ?? [],

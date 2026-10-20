@@ -2,6 +2,7 @@
 import type { ClientAction } from './room'
 import { isKeyword, isValidParam, KEYWORDS, takesParam } from './abilities'
 import { DICE_SIDES, MAX_DICE } from './dice'
+import { DUNGEON_IDS } from './dungeons'
 import { MANA_COLORS, PLAYER_ZONES } from './types'
 
 /** Plus grand écart accepté pour un compteur, des points de vie, du mana… */
@@ -123,6 +124,8 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   commanderTax: { id, delta },
   setMonarch: { to: nullable(player) },
   setInitiative: { to: nullable(player) },
+  venture: { undercity: optional(bool), dungeon: optional(oneOf(DUNGEON_IDS)), room: optional(str(40)) },
+  skipVenture: {},
   eliminate: { target: player },
   reveal: { ids: either(oneOf(['hand']), listOf(id, MAX_CARDS)), to: either(oneOf(['all']), listOf(player, 10)) },
   revealTop: {},

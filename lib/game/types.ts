@@ -1,5 +1,6 @@
 import type { CardFace, CardRow } from '@/lib/cards/types'
 import type { AbilityChoice, GainedAbility, Keyword } from './abilities'
+import type { DungeonId, DungeonPosition } from './dungeons'
 
 export type { CardFace }
 
@@ -79,6 +80,13 @@ export type PlayerState = {
   keepMana: boolean
   zones: Record<PlayerZone, string[]>
   stats: { drawn: number; landsPlayed: number }
+  /**
+   * Donjon en cours et salle du jeton ; sur la dernière salle, le donjon est terminé (jusqu'à la prochaine exploration).
+   * Absent : jamais entré dans un donjon (ou serveur de jeu plus ancien, côté navigateur).
+   */
+  dungeon?: DungeonPosition
+  /** Donjons terminés ; absent : aucun (ou serveur de jeu plus ancien). */
+  dungeonsDone?: number
 }
 
 /** Dans `knownBy` : carte révélée à tous (joueurs et spectateurs), jusqu'à ce qu'elle bouge. */
@@ -130,6 +138,8 @@ export type GameState = {
   firstChosen: boolean
   monarch: string | null
   initiative: string | null
+  /** Joueurs à qui l'exploration des Souterrains est proposée (initiative prise, début de tour) ; absent : aucun. */
+  ventureOffers?: string[]
   cards: Record<string, CardInstance>
   commanderCasts: Record<string, number>
   lookingAt: Record<string, string[]>
@@ -212,6 +222,13 @@ export type GameAction = Stamp & (
   | { type: 'commanderTax'; actor: string; id: string; delta: number }
   | { type: 'setMonarch'; actor: string; to: string | null }
   | { type: 'setInitiative'; actor: string; to: string | null }
+  /**
+   * Explore pour son auteur : Les Souterrains (`undercity`, initiative) ou le donjon. `dungeon` : donjon choisi quand il
+   * faut en commencer un ; `room` : salle suivante quand il y en a deux.
+   */
+  | { type: 'venture'; actor: string; undercity?: boolean; dungeon?: DungeonId; room?: string }
+  /** « Plus tard » : retire l'exploration des Souterrains proposée. */
+  | { type: 'skipVenture'; actor: string }
   | { type: 'eliminate'; actor: string; target: string }
   | { type: 'reveal'; actor: string; ids: string[] | 'hand'; to: 'all' | string[] }
   | { type: 'revealTop'; actor: string }
@@ -276,6 +293,8 @@ export type PlayerView = {
   firstChosen?: boolean
   monarch: string | null
   initiative: string | null
+  /** Joueurs à qui l'exploration des Souterrains est proposée. Absent avec un serveur de jeu plus ancien : aucun. */
+  ventureOffers?: string[]
   players: Record<string, PlayerViewState>
   commanderCasts: Record<string, number>
   lookingAt: string[]

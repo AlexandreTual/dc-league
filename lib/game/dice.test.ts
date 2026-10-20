@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction } from './apply'
 import { diffViews } from './activity'
-import { DICE_SIDES, MAX_DICE, rollDice, rollText } from './dice'
+import { DICE_SIDES, MAX_DICE, parseRoll, rollDice, rollText } from './dice'
 import { GameHistory } from './replay'
 import { createRoom, handleMessage } from './room'
 import { canApply } from './rules'
@@ -107,5 +107,20 @@ describe('roll en ligne', () => {
     expect(viewFor(next, 'p2').log.at(-1)).toMatchObject({ actor: 'p1', roll: true })
     const mine = diffViews(viewFor(s, 'p1'), viewFor(next, 'p1'), 'p1')
     expect(mine.lines).toEqual([{ actor: 'p1', text: next.log.at(-1)!.text, roll: true }])
+  })
+})
+
+describe('parseRoll', () => {
+  it('relit les lignes de rollText', () => {
+    expect(parseRoll(rollText(20, [17]))).toEqual({ sides: 20, results: [17] })
+    expect(parseRoll(rollText(6, [4, 2, 6]))).toEqual({ sides: 6, results: [4, 2, 6] })
+    expect(parseRoll(rollText(2, [1]))).toEqual({ sides: 2, results: [1] })
+    expect(parseRoll(rollText(2, [2, 1, 2]))).toEqual({ sides: 2, results: [2, 1, 2] })
+  })
+
+  it('autre ligne : rien', () => {
+    expect(parseRoll('Ana pioche une carte')).toBeNull()
+    expect(parseRoll('Lance un d7 : 3')).toBeNull()
+    expect(parseRoll('Lance un d6 : 9')).toBeNull()
   })
 })
