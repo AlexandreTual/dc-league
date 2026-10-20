@@ -1,7 +1,7 @@
 // Journal de partie (spec 2026-10-19-english-interface-design, « Journal de partie structuré ») : panneau, fil
 // d'activité et phrases de chaque ligne écrite par le moteur. Les phrases françaises doivent redonner exactement le
 // `text` écrit par le moteur (lib/game/apply.ts) : un test le vérifie pour chaque sorte de ligne.
-import { abilityText, keywordLabel, type Keyword } from '@/lib/game/abilities'
+import { abilityText, type Keyword } from '@/lib/game/abilities'
 
 const A_CARD = 'une carte'
 const FACE_DOWN = 'une carte face cachée'
@@ -37,10 +37,10 @@ export const log = {
   },
   /** Zone de l'auteur de la ligne (`owner` absent) ou d'un autre joueur. */
   zone: (label: string, owner?: string) => (owner === undefined ? label : `${label} de ${owner}`),
-  keyword: (keyword: Keyword) => keywordLabel(keyword),
+  keyword: (keyword: Keyword) => abilityText({ keyword }),
   ability: (ability: { keyword: Keyword; param?: string }) => abilityText(ability),
   /** Précision seule d'une capacité : « contre le rouge », « {2} », « 2 ». */
-  abilityParam: (ability: { keyword: Keyword; param: string }) => abilityText(ability).slice(keywordLabel(ability.keyword).length + 1),
+  abilityParam: (ability: { keyword: Keyword; param: string }) => abilityText(ability).slice(abilityText({ keyword: ability.keyword }).length + 1),
   lines: {
     start: (v: { p: string; chosen?: 1 }) => `Début de partie : ${v.p} commence${v.chosen ? " (choisi par l'hôte)" : ''}`,
     turn: (v: { n: number; p: string; host?: 1 }) => `Tour ${v.n} : ${v.p}${v.host ? ' (passé par l’hôte)' : ''}`,

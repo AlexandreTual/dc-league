@@ -4,6 +4,7 @@ import type { MenuPoint } from './touch'
 import { PileTiles } from './PileCases'
 import PlayerColumn from './PlayerColumn'
 import { Battlefield, Hand, type ZoneProps } from './zones'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Mon plateau : ma colonne à gauche, puis mon champ de bataille et ma main sur toute la largeur restante.
@@ -23,7 +24,8 @@ export default function MyBoard(props: Omit<ZoneProps, 'player'> & {
 }) {
   const { onLibraryMenu, onHandMenu, onPile, me, portrait, mana, ...zoneProps } = props
   const beside = zoneProps.settings?.pilesBesideHand ?? true
-  const titles = { graveyard: 'Cimetière', exile: 'Exil' }
+  const z = useT().table.zones
+  const titles = { graveyard: z.graveyard, exile: z.exile }
   return (
     <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-2 p-2" data-board={zoneProps.player}>
       <PlayerColumn {...zoneProps} me={me} portrait={portrait} onLibraryMenu={onLibraryMenu} onPile={onPile} piles={!beside} />

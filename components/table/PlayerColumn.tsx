@@ -3,6 +3,7 @@
 import type { MenuPoint } from './touch'
 import { CommandBlock, GraveyardCascade, GraveyardList, PileCases } from './PileCases'
 import type { ZoneProps } from './zones'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Colonne d'un joueur, à gauche de son plateau : ligne portrait (vie en gros), cases chiffrées,
@@ -18,7 +19,8 @@ export default function PlayerColumn(props: ZoneProps & {
   piles?: boolean
 }) {
   const { portrait, onPile, piles = true, ...zoneProps } = props
-  const titles = { graveyard: 'Cimetière', exile: 'Exil' }
+  const z = useT().table.zones
+  const titles = { graveyard: z.graveyard, exile: z.exile }
   return (
     <div className="sm:w-[216px] tablet:sm:w-[188px] shrink-0 min-h-0 flex max-sm:flex-row max-sm:items-center flex-col gap-1 rounded-xl border border-dc-border bg-dc-surface/60 p-1.5"
       data-column={props.player}>

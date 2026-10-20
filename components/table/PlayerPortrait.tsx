@@ -10,6 +10,7 @@ import type { Catalog, PlayerView } from '@/lib/game/types'
 import type { Lang } from './GameCard'
 import PlayerPanel, { opposingCommanders } from './PlayerPanel'
 import { touchTarget } from './touch'
+import { useT } from '@/components/i18n/I18nProvider'
 
 const BADGE_COLORS = { normal: 'border-dc-border text-dc-text', warn: 'border-dc-gold/50 text-dc-gold', lethal: 'border-dc-red-light/60 text-dc-red-light font-semibold' }
 
@@ -44,6 +45,8 @@ export default function PlayerPortrait(props: {
 }) {
   const { size, up = false, onDetach, ...panelProps } = props
   const { view, player, catalogs, lang, host, online, canAct, send, onTitleClick } = panelProps
+  const t = useT()
+  const pl = t.table.player
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
@@ -54,11 +57,11 @@ export default function PlayerPortrait(props: {
   const commanders = view.format === 'commander' ? opposingCommanders(view, player) : []
   const commanderName = (id: string) => {
     const c = commanders.find((x) => x.id === id)
-    return c ? cardInfo(catalogs[c.owner], c, lang).name : 'commandant'
+    return c ? cardInfo(catalogs[c.owner], c, lang).name : pl.commanderFallback
   }
   const portrait = portraitCard(view, player)
   const image = portrait ? cardInfo(catalogs[portrait.owner], portrait, lang) : null
-  const badges = playerBadges(view, player, commanderName)
+  const badges = playerBadges(view, player, commanderName, t)
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
 
   useEffect(() => {
@@ -101,28 +104,28 @@ export default function PlayerPortrait(props: {
         )}
         <div className="col-start-2 row-start-1 min-w-0 flex flex-col gap-1">
           <div className={`flex items-center gap-1 ${s.name} text-dc-text min-w-0`}>
-            {online && <span className={`w-2 h-2 shrink-0 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? 'en ligne' : 'hors ligne'} />}
+            {online && <span className={`w-2 h-2 shrink-0 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? pl.online : pl.offline} />}
             {rank > 0 && (
               <span className="shrink-0 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full border border-dc-gold/50 text-dc-gold text-[10px] leading-none flex items-center justify-center tabular-nums"
-                title={rank === 1 ? 'Premier joueur' : `${rank}e dans l'ordre du tour`} data-testid="turn-rank">{rank}</span>
+                title={pl.rank(rank)} data-testid="turn-rank">{rank}</span>
             )}
             <button className={`font-semibold truncate hover:text-dc-gold ${p.eliminated ? 'line-through' : ''}`} onClick={onTitleClick} disabled={!onTitleClick} data-testid="player-name">{p.name}</button>
-            {host === player && <Crown className="w-3.5 h-3.5 shrink-0 text-dc-gold" aria-label="hôte" />}
+            {host === player && <Crown className="w-3.5 h-3.5 shrink-0 text-dc-gold" aria-label={pl.host} />}
             {onDetach && (
-              <button className="ml-auto shrink-0 text-dc-muted hover:text-dc-gold" onClick={onDetach} title="Ouvrir dans une fenêtre"
-                aria-label={`Ouvrir le plateau de ${p.name} dans une fenêtre`} data-testid="detach">
+              <button className="ml-auto shrink-0 text-dc-muted hover:text-dc-gold" onClick={onDetach} title={pl.detach}
+                aria-label={pl.detachAria(p.name)} data-testid="detach">
                 <ExternalLink className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
-          {p.eliminated && <span className="text-[10px] text-dc-red-light">éliminé</span>}
-          {!p.kept && !p.eliminated && <span className="text-[10px] text-dc-muted italic">choisit sa main…</span>}
+          {p.eliminated && <span className="text-[10px] text-dc-red-light">{pl.eliminated}</span>}
+          {!p.kept && !p.eliminated && <span className="text-[10px] text-dc-muted italic">{pl.choosingHand}</span>}
         </div>
         <span className={`col-start-3 row-start-1 row-span-2 tablet:row-span-1 ${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'}`} data-testid="player-life">{p.life}</span>
         <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] items-center gap-1 text-dc-text">
-          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label="moins : points de vie"><Minus className={lifeIcon} /></button>
-          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label="plus : points de vie"><Plus className={lifeIcon} /></button>
-          <button className={`${lifeButton} ml-auto tablet:ml-0`} aria-label={`Compteurs de ${p.name}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label={pl.lifeMinus}><Minus className={lifeIcon} /></button>
+          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label={pl.lifePlus}><Plus className={lifeIcon} /></button>
+          <button className={`${lifeButton} ml-auto tablet:ml-0`} aria-label={pl.countersOf(p.name)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
             <MoreHorizontal className={lifeIcon} />
           </button>
         </div>
@@ -141,7 +144,7 @@ export default function PlayerPortrait(props: {
           {onDetach && (
             <button className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 border-t border-dc-border text-dc-text hover:text-dc-gold"
               onClick={() => { setOpen(false); onDetach() }} data-testid="detach-bubble">
-              <ExternalLink className="w-3.5 h-3.5" /> Ouvrir dans une fenêtre
+              <ExternalLink className="w-3.5 h-3.5" /> {pl.detach}
             </button>
           )}
         </div>
