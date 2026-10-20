@@ -75,10 +75,13 @@ const MSG = {
 
 const sameRef = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
 
-const isPlayer = (state: GameState, id: string | null) => id !== null && id in state.players
+// Object.hasOwn et non `in` : un identifiant venu du navigateur comme « toString » ou « __proto__ » n'est pas un joueur.
+const isPlayer = (state: GameState, id: string | null) => typeof id === 'string' && Object.hasOwn(state.players, id)
+/** Carte d'identifiant `id`, sans jamais lire une clé héritée de l'objet. */
+const cardOf = (state: GameState, id: string) => (Object.hasOwn(state.cards, id) ? state.cards[id] : undefined)
 
 function canMove(state: GameState, action: Extract<GameAction, { type: 'move' }>): string | null {
-  const card = state.cards[action.id]
+  const card = cardOf(state, action.id)
   const from = zoneOf(state, action.id)
   if (!card || !from) return MSG.unknownCard
   if (!isPlayer(state, action.to.player)) return MSG.unknownPlayer
@@ -100,8 +103,8 @@ export function canApply(state: GameState, action: GameAction): string | null {
     if (action.actor !== 'server' || state.started) return 'Seul le serveur démarre la partie, une seule fois'
     return action.first === undefined || isPlayer(state, action.first) ? null : MSG.unknownPlayer
   }
+  if (!isPlayer(state, action.actor)) return MSG.unknownPlayer
   const actor = state.players[action.actor]
-  if (!actor) return MSG.unknownPlayer
   if (!state.started) return MSG.notStarted
   if (actor.eliminated) return MSG.eliminated
 
@@ -147,7 +150,7 @@ export function canApply(state: GameState, action: GameAction): string | null {
       if (action.ids.length === 0 || new Set(action.ids).size !== action.ids.length) return MSG.badCount
       // Droits de chaque carte d'abord, comme pour un déplacement seul : rien n'est dit d'une carte cachée.
       for (const id of action.ids) {
-        const to = { player: action.zone === 'battlefield' ? action.actor : state.cards[id]?.owner ?? action.actor, zone: action.zone }
+        const to = { player: action.zone === 'battlefield' ? action.actor : cardOf(state, id)?.owner ?? action.actor, zone: action.zone }
         const error = canMove(state, { type: 'move', actor: action.actor, id, to })
         if (error !== null) return error
       }
@@ -203,13 +206,13 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'commanderDamage': {
       if (!FORMAT_RULES[state.format].commanderDamage) return MSG.noCommanderDamage
       if (!isPlayer(state, action.target)) return MSG.unknownPlayer
-      const commander = state.cards[action.commander]
+      const commander = cardOf(state, action.commander)
       if (!commander?.isCommander || commander.owner === action.target) return MSG.notCommander
       return null
     }
 
     case 'commanderTax': {
-      const card = state.cards[action.id]
+      const card = cardOf(state, action.id)
       if (!card?.isCommander) return MSG.unknownCard
       return card.owner === action.actor ? null : MSG.notOwner
     }
