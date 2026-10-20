@@ -47,6 +47,7 @@ export const ERREURS_LIGUE = {
   leagueClosed: 'La ligue est close : ses scores ne sont plus modifiables.',
   finalScored:
     'La finale ou la petite finale a déjà un score : réinitialise-le avant de changer le vainqueur de cette demi-finale.',
+  playoffsStarted: 'Les playoffs sont lancés : réinitialise-les avant de corriger un match de ligue.',
 } as const
 
 /** Statut HTTP des erreurs métier de la ligue (pour `resultError` des routes API). */
@@ -57,6 +58,7 @@ export const STATUTS_LIGUE: Readonly<Record<string, number>> = {
   [ERREURS_LIGUE.playoffsExist]: 409,
   [ERREURS_LIGUE.leagueClosed]: 409,
   [ERREURS_LIGUE.finalScored]: 409,
+  [ERREURS_LIGUE.playoffsStarted]: 409,
 }
 
 /** Statut HTTP d'une erreur renvoyée par les fonctions de ligue (500 si elle est inattendue). */
@@ -111,18 +113,31 @@ function openLeague(table: 'matches' | 'playoffs'): string {
   return `NOT EXISTS (SELECT 1 FROM leagues l WHERE l.id = ${table}.league_id AND l.is_active = 0)`
 }
 
-/** Raison pour laquelle une écriture de score n'a modifié aucune ligne (null si ce n'est ni l'une ni l'autre). */
+/**
+ * Condition SQL : la ligue du match de round robin n'a pas encore de playoffs, tirés d'après
+ * le classement du moment (corriger un score ensuite fausserait le Top 4 sans prévenir).
+ */
+const NO_PLAYOFFS = 'NOT EXISTS (SELECT 1 FROM playoffs p WHERE p.league_id = matches.league_id)'
+
+/** Raison pour laquelle une écriture de score n'a modifié aucune ligne (null si ce n'est aucune de celles-ci). */
 async function scoreRefusal(db: D1Database, table: 'matches' | 'playoffs', id: string): Promise<string | null> {
   const row = await db
-    .prepare(`SELECT l.is_active FROM ${table} t LEFT JOIN leagues l ON l.id = t.league_id WHERE t.id = ?`)
+    .prepare(
+      `SELECT l.is_active, EXISTS (SELECT 1 FROM playoffs p WHERE p.league_id = t.league_id) AS has_playoffs
+       FROM ${table} t LEFT JOIN leagues l ON l.id = t.league_id WHERE t.id = ?`,
+    )
     .bind(id)
-    .first<{ is_active: number | null }>()
+    .first<{ is_active: number | null; has_playoffs: number }>()
   if (!row) return table === 'matches' ? ERREURS_LIGUE.matchNotFound : ERREURS_LIGUE.playoffNotFound
   if (row.is_active != null && Number(row.is_active) === 0) return ERREURS_LIGUE.leagueClosed
+  if (table === 'matches' && Number(row.has_playoffs)) return ERREURS_LIGUE.playoffsStarted
   return null
 }
 
-/** Écrit un score si la ligue du match est ouverte, puis relit la ligne. */
+/**
+ * Écrit un score si la ligue du match est ouverte (et, pour un match de round robin,
+ * si ses playoffs ne sont pas tirés), puis relit la ligne.
+ */
 async function writeScore(
   db: D1Database,
   table: 'matches' | 'playoffs',
@@ -131,7 +146,7 @@ async function writeScore(
   values: number[],
 ): Promise<Result<Record<string, unknown>>> {
   const { meta } = await db
-    .prepare(`UPDATE ${table} SET ${sets} WHERE id = ? AND ${openLeague(table)}`)
+    .prepare(`UPDATE ${table} SET ${sets} WHERE id = ? AND ${openLeague(table)}${table === 'matches' ? ` AND ${NO_PLAYOFFS}` : ''}`)
     .bind(...values, id)
     .run()
   const notFound = table === 'matches' ? ERREURS_LIGUE.matchNotFound : ERREURS_LIGUE.playoffNotFound

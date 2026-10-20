@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { generateRoundRobinMatches } from './leaderboard'
 import {
-  ERREURS_LIGUE, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
+  ERREURS_LIGUE, deleteAllPlayoffs, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
   statusForError, updateMatchScore, updatePlayoffScore,
 } from './db'
 
@@ -58,8 +58,8 @@ describe('doubles clics', () => {
 describe('ligue close et match inconnu', () => {
   async function ligueClose() {
     const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
-    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
     await updateMatchScore(db, m.id, 2, 0)
+    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
     await updatePlayoffScore(db, semis[0].id, 2, 0)
     await db.prepare("UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = 'l1'").run()
     return { m, semi: semis[0] }
@@ -92,6 +92,7 @@ describe('ligue close et match inconnu', () => {
     expect(statusForError(ERREURS_LIGUE.leagueClosed)).toBe(409)
     expect(statusForError(ERREURS_LIGUE.finalScored)).toBe(409)
     expect(statusForError(ERREURS_LIGUE.matchesExist)).toBe(409)
+    expect(statusForError(ERREURS_LIGUE.playoffsStarted)).toBe(409)
     expect(statusForError('SQLITE_BUSY')).toBe(500)
   })
 
@@ -99,6 +100,37 @@ describe('ligue close et match inconnu', () => {
     const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
     expect((await updateMatchScore(db, m.id, 2, 1)).data).toMatchObject({ score_p1: 2, score_p2: 1, is_completed: true })
     expect((await resetMatchScore(db, m.id)).data).toMatchObject({ score_p1: null, is_completed: false })
+  })
+})
+
+describe('match de ligue après le tirage des playoffs', () => {
+  async function playoffsTires() {
+    const [m] = (await insertMatches(db, generateRoundRobinMatches(players(5)), 'l1')).data!
+    await updateMatchScore(db, m.id, 2, 0)
+    await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')
+    return m
+  }
+  const scoreDe = async (id: string) => (await listMatches(db, 'l1')).data!.find((x) => x.id === id)
+
+  it('refuse de modifier ou réinitialiser un score tant que les playoffs existent', async () => {
+    const m = await playoffsTires()
+    expect((await updateMatchScore(db, m.id, 0, 2)).error).toBe(ERREURS_LIGUE.playoffsStarted)
+    expect((await resetMatchScore(db, m.id)).error).toBe(ERREURS_LIGUE.playoffsStarted)
+    expect(await scoreDe(m.id)).toMatchObject({ score_p1: 2, score_p2: 0, is_completed: true })
+  })
+
+  it('accepte de nouveau la correction une fois les playoffs supprimés', async () => {
+    const m = await playoffsTires()
+    await deleteAllPlayoffs(db, 'l1')
+    expect((await updateMatchScore(db, m.id, 0, 2)).data).toMatchObject({ score_p1: 0, score_p2: 2 })
+    expect((await resetMatchScore(db, m.id)).data).toMatchObject({ score_p1: null, is_completed: false })
+  })
+
+  it('les playoffs d’une autre ligue ne bloquent rien', async () => {
+    await db.prepare("INSERT INTO leagues (id, name) VALUES ('l2', 'Saison 2')").run()
+    await generateSemifinals(db, 'l2', 'p1', 'p2', 'p3', 'p4')
+    const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
+    expect((await updateMatchScore(db, m.id, 2, 1)).error).toBeNull()
   })
 })
 
