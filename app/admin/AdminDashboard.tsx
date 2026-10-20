@@ -11,6 +11,8 @@ import AiSettingsPanel from '@/components/admin/AiSettingsPanel'
 import type { AiAdminStatus } from '@/lib/ai/admin'
 import GamesPanel from '@/components/admin/GamesPanel'
 import type { GameTable } from '@/lib/db-games'
+import ErrorsPanel from '@/components/admin/ErrorsPanel'
+import type { LoggedError } from '@/lib/db-errors'
 
 interface Props {
   players: Player[]
@@ -18,12 +20,14 @@ interface Props {
   leagues: DbLeague[]
   ai: AiAdminStatus
   tables: GameTable[]
+  /** null : journal illisible. */
+  errors: LoggedError[] | null
   currentUserId: string | null
   isBootstrap: boolean
 }
 
-/** Administration du site : comptes et invitations, gestion de toutes les ligues, parties en cours, assistant IA. */
-export default function AdminDashboard({ players, accountStatuses, leagues, ai, tables, currentUserId, isBootstrap }: Props) {
+/** Administration du site : comptes et invitations, gestion de toutes les ligues, parties en cours, assistant IA, journal des erreurs. */
+export default function AdminDashboard({ players, accountStatuses, leagues, ai, tables, errors, currentUserId, isBootstrap }: Props) {
   const { toast, showToast, call } = useAdminApi()
 
   return (
@@ -66,6 +70,8 @@ export default function AdminDashboard({ players, accountStatuses, leagues, ai, 
       <GamesPanel initial={tables} call={call} onToast={showToast} />
 
       <AiSettingsPanel initial={ai} onToast={showToast} />
+
+      <ErrorsPanel initial={errors} call={call} onToast={showToast} />
     </div>
   )
 }

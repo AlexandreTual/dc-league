@@ -1,15 +1,17 @@
 'use client'
 
+import ErrorCode from '@/components/ErrorCode'
 import './globals.css'
 
 // Remplace la mise en page racine quand celle-ci plante : elle doit fournir <html> et <body>.
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <html lang="fr" className="dark">
       <body className="min-h-screen bg-dc-bg text-dc-text antialiased">
         <main role="alert" className="max-w-5xl mx-auto px-4 py-16 flex flex-col items-center gap-4 text-center">
           <h1 className="font-fantasy text-3xl font-bold text-dc-gold">Une erreur est survenue</h1>
           <p className="text-dc-muted text-sm">Le site n&apos;a pas pu s&apos;afficher. Réessaie dans un instant.</p>
+          <ErrorCode error={error} />
           <div className="flex items-center gap-4">
             <button
               onClick={reset}

@@ -1,12 +1,14 @@
 'use client'
 
+import ErrorCode from '@/components/ErrorCode'
 import Link from 'next/link'
 
-export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <div role="alert" className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-center">
       <h1 className="font-fantasy text-3xl font-bold text-dc-gold">Une erreur est survenue</h1>
       <p className="text-dc-muted text-sm">La page n&apos;a pas pu s&apos;afficher. Réessaie dans un instant.</p>
+      <ErrorCode error={error} />
       <div className="flex items-center gap-4">
         <button
           onClick={reset}

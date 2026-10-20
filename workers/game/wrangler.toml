@@ -22,3 +22,7 @@ migrations_dir = "../../migrations"
 
 [triggers]
 crons = ["17 3 * * *"]
+
+# Workers Logs : journaux conservés et consultables dans le tableau de bord Cloudflare (docs/journaux.md).
+[observability]
+enabled = true
