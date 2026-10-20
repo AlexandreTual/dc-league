@@ -399,3 +399,57 @@ describe('minuteur', () => {
     expect(gameTiming(r)).toEqual({ duration: null, playTime: {} })
   })
 })
+
+describe('identifiants hérités de l’objet (toString, __proto__…)', () => {
+  const KEYS = ['toString', '__proto__', 'constructor', 'hasOwnProperty']
+  const byPlayer = (k: string): ClientAction[] => [
+    { type: 'life', target: k, delta: 1 },
+    { type: 'poison', target: k, delta: 1 },
+    { type: 'playerCounter', target: k, name: 'Énergie', delta: 1 },
+    { type: 'commanderDamage', target: k, commander: 'p1-c0', delta: 1 },
+    { type: 'setMonarch', to: k },
+    { type: 'setInitiative', to: k },
+    { type: 'look', target: k, count: 1 },
+    { type: 'search', target: k },
+    { type: 'endLook', target: k, shuffle: false },
+    { type: 'reorderTop', target: k, ids: ['x'] },
+    { type: 'reveal', ids: 'hand', to: [k] },
+    { type: 'eliminate', target: k },
+    { type: 'moveTop', to: { player: k, zone: 'battlefield' } },
+  ]
+  const byCard = (k: string): ClientAction[] => [
+    { type: 'move', id: k, to: { player: 'p2', zone: 'battlefield' } },
+    { type: 'moveMany', ids: [k], zone: 'graveyard' },
+    { type: 'giveControl', id: k, to: 'p1' },
+    { type: 'tap', id: k },
+    { type: 'flip', id: k },
+    { type: 'commanderTax', id: k, delta: 1 },
+    { type: 'commanderDamage', target: 'p1', commander: k, delta: 1 },
+  ]
+
+  it.each(KEYS)('« %s » : refusé partout, la partie reste lisible', (k) => {
+    const r = room(2)
+    keepAll(r)
+    const actions = r.history.actions.length
+    for (const action of [...byPlayer(k), ...byCard(k)]) {
+      expect(act(r, 'p2', action), JSON.stringify(action)).toMatchObject({ changed: false })
+    }
+    expect(host(r, 'p1', 'eliminate', k)).toMatchObject({ changed: false, error: 'Ce joueur n’est pas à la table' })
+    expect(host(r, 'p1', 'passTurn', k)).toMatchObject({ changed: false })
+    expect(r.history.actions).toHaveLength(actions)
+    expect(Object.keys(state(r).players)).toEqual(['p1', 'p2'])
+    expect(state(r).monarch).toBeNull()
+    for (const viewer of ['p1', 'p2', null]) expect(() => viewMessageFor(r, viewer, {}, 0)).not.toThrow()
+  })
+
+  it.each(['constructor', '__proto__', 'toString'])('compteur de joueur nommé « %s » : 1 après un +1', (name) => {
+    const r = room(2)
+    keepAll(r)
+    act(r, 'p2', { type: 'playerCounter', target: 'p2', name, delta: 1 })
+    expect(Object.hasOwn(state(r).players.p2.counters, name)).toBe(true)
+    expect(state(r).players.p2.counters[name]).toBe(1)
+    expect(state(r).log.at(-1)?.text).toBe(`Bob : ${name} 1`)
+    expect(replay(setupFor('commander', 2), r.history.actions)).toEqual(state(r))
+    expect(() => viewMessageFor(r, 'p1', {}, 0)).not.toThrow()
+  })
+})

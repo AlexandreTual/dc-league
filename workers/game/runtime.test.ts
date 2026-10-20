@@ -167,6 +167,33 @@ describe('réveil', () => {
     const cards = (s1.last() as Extract<ServerMessage, { type: 'view' }>).cards
     expect(Object.keys(cards.p1).length).toBeGreaterThan(1)
   })
+  it('identifiant hérité (« toString »…) refusé : rien d’enregistré, la partie se recharge', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const s2 = await open(rt, 'p2')
+    await send(rt, s1, { type: 'action', action: { type: 'keep' } })
+    await send(rt, s2, { type: 'action', action: { type: 'keep' } })
+    const actions = rt.state()!.history.actions.length
+    for (const target of ['toString', '__proto__', 'constructor']) {
+      await send(rt, s2, { type: 'action', action: { type: 'life', target, delta: 1 } })
+      expect(s2.last()).toEqual({ type: 'rejected', error: 'Joueur inconnu' })
+      await send(rt, s1, { type: 'host', op: 'eliminate', target })
+      expect(s1.last()).toMatchObject({ type: 'rejected' })
+    }
+    await send(rt, s2, { type: 'action', action: { type: 'playerCounter', target: 'p2', name: '__proto__', delta: 1 } })
+    expect(rt.state()!.history.actions).toHaveLength(actions + 1)
+
+    const awake = runtime()
+    await awake.load()
+    expect(Object.keys(awake.state()!.history.state.players)).toEqual(['p1', 'p2'])
+    expect(awake.state()!.history.state.players.p2.counters).toEqual(rt.state()!.history.state.players.p2.counters)
+    expect(Object.hasOwn(awake.state()!.history.state.players.p2.counters, '__proto__')).toBe(true)
+    const again = new FakeSocket(journal, 'p1 bis')
+    sockets.push({ socket: again, info: { playerId: 'p1' } })
+    await awake.connect(again, { playerId: 'p1' })
+    expect(again.last()).toMatchObject({ type: 'view' })
+  })
 })
 
 describe('D1', () => {

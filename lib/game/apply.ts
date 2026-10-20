@@ -604,7 +604,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
     case 'playerCounter': {
       const target = state.players[action.target]
-      const value = Math.max(0, (target.counters[action.name] ?? 0) + action.delta)
+      const current = Object.hasOwn(target.counters, action.name) ? target.counters[action.name] : 0
+      const value = Math.max(0, current + action.delta)
       const s = setPlayer(state, action.target, { counters: { ...target.counters, [action.name]: value } })
       return log(s, action.actor, `${target.name} : ${action.name} ${value}`)
     }

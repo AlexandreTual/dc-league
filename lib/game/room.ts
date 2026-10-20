@@ -81,6 +81,7 @@ const MSG = {
   nothingToUndo: 'Rien à annuler',
   eliminateOther: 'Seul l’hôte peut éliminer un autre joueur',
   unknown: 'Message inconnu',
+  notSeated: 'Ce joueur n’est pas à la table',
 }
 
 const refused = (error: string): Outcome => ({ changed: false, error, events: [] })
@@ -188,6 +189,7 @@ function checkHost(room: RoomState, now: number): RoomEvent[] {
 function hostCommand(room: RoomState, from: string, msg: Extract<ClientMessage, { type: 'host' }>, now: number): Outcome {
   if (from !== room.hostId) return refused(MSG.notHost)
   if (msg.op === 'close') return finish(room, null, now)
+  if (!isSeated(room, typeof msg.target === 'string' ? msg.target : null)) return refused(MSG.notSeated)
   if (msg.op === 'eliminate') return play(room, { type: 'eliminate', actor: from, target: msg.target }, now)
   if (room.history.state.activePlayer !== msg.target) return refused(MSG.notTheirTurn)
   return play(room, { type: 'endTurn', actor: msg.target, byHost: true }, now)
