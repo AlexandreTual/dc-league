@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { adminResetMail, forgotMail, invitationMail } from './templates'
+import { adminResetMail, emailChangedMail, forgotMail, invitationMail } from './templates'
 
 const url = 'https://dc-league.pages.dev/invitation/abc123'
 
@@ -19,6 +19,15 @@ describe('modèles de mails', () => {
     expect(m.html).toContain('Bonjour Ana')
   })
 
+  it('adresse modifiée : prévient et renvoie vers la connexion', () => {
+    const m = emailChangedMail({ name: 'Ana', url: 'https://site.test/connexion' })
+    expect(m.subject).toBe('Commander League — adresse mail modifiée')
+    expect(m.text).toContain("Bonjour Ana, l'adresse mail de ton compte vient d'être modifiée ou effacée depuis ton profil")
+    expect(m.text).toContain('https://site.test/connexion')
+    expect(m.html).toContain('href="https://site.test/connexion"')
+    expect(m.text).toContain("Si ce n'est pas toi")
+  })
+
   it('mot de passe oublié : texte de la spec', () => {
     const m = forgotMail({ name: 'Ana', url })
     expect(m.text).toContain(`Bonjour Ana, voici ton lien pour choisir un nouveau mot de passe (valable 1 heure) : ${url}`)
@@ -26,7 +35,7 @@ describe('modèles de mails', () => {
     expect(m.html).toContain('Si tu n&#39;as rien demandé, ignore ce mail.')
   })
 
-  it.each([invitationMail, adminResetMail, forgotMail])('nom échappé dans le HTML', (tpl) => {
+  it.each([invitationMail, adminResetMail, forgotMail, emailChangedMail])('nom échappé dans le HTML', (tpl) => {
     const m = tpl({ name: '<script>x</script> & "co" \'l\'', url })
     expect(m.html).toContain('&lt;script&gt;x&lt;/script&gt; &amp; &quot;co&quot; &#39;l&#39;')
     expect(m.html).not.toContain('<script>')

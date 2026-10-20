@@ -23,7 +23,7 @@ import {
 } from '@/lib/db-auth'
 import { getPlayer } from '@/lib/db'
 import type { Mailer, MailResult } from '@/lib/mail'
-import { adminResetMail, forgotMail, invitationMail } from '@/lib/mail/templates'
+import { adminResetMail, emailChangedMail, forgotMail, invitationMail } from '@/lib/mail/templates'
 import { generateToken, hashPassword, hashToken, verifyDummyPassword, verifyPassword } from './crypto'
 import { SESSION_TTL_MS } from './resolve'
 import type { CurrentUser, ServiceResult } from './types'
@@ -278,12 +278,23 @@ export async function requestPasswordReset(
   }
 }
 
+/**
+ * Changer ou effacer son adresse demande le mot de passe actuel : sinon une session restée ouverte
+ * suffirait à détourner « Mot de passe oublié ? ». L'ancienne adresse est prévenue (sans citer la nouvelle).
+ */
 export async function updateEmail(
   db: D1Database,
   user: CurrentUser,
-  input: string | null,
+  input: { email: string | null; currentPassword: string },
+  ctx: MailContext,
 ): Promise<ServiceResult<{ email: string | null }>> {
-  const email = normalizeEmail(input)
+  const { data: account, error } = await getUserById(db, user.id)
+  if (error !== null) return internal(error)
+  // Vérifié avant tout le reste : sans le mot de passe, on ne dit pas non plus si une adresse est prise.
+  if (!account || !(await verifyPassword(input.currentPassword, account.password_hash))) {
+    return fail(400, MSG.BAD_CURRENT_PASSWORD)
+  }
+  const email = normalizeEmail(input.email)
   if (email) {
     const emailError = validateEmail(email)
     if (emailError) return fail(400, emailError)
@@ -291,6 +302,13 @@ export async function updateEmail(
   const r = await setUserEmail(db, user.id, email)
   if (r.error === AUTH_ERR.EMAIL_TAKEN) return fail(409, MSG.EMAIL_TAKEN)
   if (r.error !== null) return internal(r.error)
+
+  const previous = account.email
+  if (previous && previous.toLowerCase() !== email?.toLowerCase()) {
+    const content = emailChangedMail({ name: user.playerName, url: `${ctx.baseUrl}/connexion` })
+    const sent = await sendSafely(ctx.mailer, { to: previous, ...content })
+    if (sent !== 'sent' && sent !== 'disabled') console.error('[email] ancienne adresse non prévenue :', sent)
+  }
   return { ok: true, value: { email } }
 }
 

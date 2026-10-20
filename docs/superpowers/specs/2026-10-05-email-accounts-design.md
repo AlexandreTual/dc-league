@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS test_mails (
 
 ## 2. Saisie de l'adresse
 
-- **Profil** (`/profil`) : champ « Adresse mail » (ajout, modification, effacement). Bandeau discret tant qu'il est vide : « Ajoute ton adresse mail pour pouvoir récupérer ton mot de passe ».
+- **Profil** (`/profil`) : champ « Adresse mail » (ajout, modification, effacement). Bandeau discret tant qu'il est vide : « Ajoute ton adresse mail pour pouvoir récupérer ton mot de passe ». Changer ou effacer l'adresse demande le mot de passe actuel (sinon une session restée ouverte suffirait à détourner « Mot de passe oublié ? ») ; l'ancienne adresse reçoit un mail « adresse mail modifiée » qui ne cite pas la nouvelle (#220).
 - **Admin, invitation** : champ « Adresse mail » facultatif à côté d'« Inviter ». L'adresse est gardée sur l'invitation puis copiée sur le compte à sa création (`createUserFromInvitation`).
 - **Validation** : format `x@y.z` (une seule `@`, pas d'espace, 254 caractères au plus) ; adresse déjà portée par un autre compte → « Cette adresse est déjà utilisée ».
 - **Visibilité** : le joueur voit la sienne ; l'admin voit celles de tous dans « Comptes joueurs » ; jamais sur les pages publiques ni dans les réponses d'API publiques.
