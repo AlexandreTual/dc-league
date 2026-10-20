@@ -3,6 +3,9 @@ import { canApply } from './rules'
 import { createInitialState } from './setup'
 import { SNAPSHOT_EVERY, type GameAction, type GameSetup, type GameState } from './types'
 
+/** Actions qu'on ne peut jamais annuler. */
+const FINAL = new Set<GameAction['type']>(['start', 'roll', 'eliminate'])
+
 export function replay(setup: GameSetup, actions: readonly GameAction[]): GameState {
   return actions.reduce(applyAction, createInitialState(setup))
 }
@@ -50,10 +53,11 @@ export class GameHistory {
   /**
    * Vrai si la dernière action est de `actor` (personne n'a joué depuis) et n'est ni le début de partie,
    * ni un lancer de dés, ni (hors mode test) un tirage au hasard : sinon on relancerait jusqu'au résultat voulu.
+   * Jamais une élimination non plus : un éliminé peut avoir vu toutes les cartes, il ne doit pas revenir en jeu.
    */
   canUndo(actor: string): boolean {
     const last = this.list.at(-1)
-    if (!last || last.type === 'start' || last.type === 'roll' || last.actor !== actor) return false
+    if (!last || FINAL.has(last.type) || last.actor !== actor) return false
     return this.undoRandom || !isRandomDraw(last)
   }
 

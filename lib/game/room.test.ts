@@ -132,6 +132,15 @@ describe('actions', () => {
     expect(state(r).players.p2.eliminated).toBe(true)
   })
 
+  it('abandonner ne s’annule pas : l’éliminé qui voit tout ne revient pas en jeu', () => {
+    const r = createRoom('t1', setupFor('commander', 3, { eliminatedSeeAll: true }), 'p1', seeds(), 0)
+    keepAll(r)
+    handleMessage(r, 'p2', { type: 'concede' }, ctx())
+    expect(viewMessageFor(r, 'p2', {}, 0).view.canUndo).toBe(false)
+    expect(handleMessage(r, 'p2', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
+    expect(state(r).players.p2.eliminated).toBe(true)
+  })
+
   it('reste égal au rejeu de ses actions', () => {
     const r = room()
     keepAll(r)
