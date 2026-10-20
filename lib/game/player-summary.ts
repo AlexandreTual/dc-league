@@ -1,4 +1,5 @@
 // Règles d'affichage de la colonne joueur : vie basse, cascade du cimetière, portrait, emplacement d'un commandant.
+import type { Messages } from '@/lib/i18n/messages'
 import type { CardView, PlayerView, PlayerZone, VisibleCard } from './types'
 
 export const LOW_LIFE = 10
@@ -18,14 +19,13 @@ export function graveyardList(cards: CardView[]): VisibleCard[] {
   return visible(cards).reverse()
 }
 
-const PLACES: [Exclude<PlayerZone, 'library'>, string][] = [
-  ['command', 'zone de commandement'], ['battlefield', 'en jeu'], ['graveyard', 'au cimetière'], ['exile', 'en exil'], ['hand', 'en main'],
-]
+/** Zones publiques ou connues où chercher un commandant, dans l'ordre. */
+const PLACES: Exclude<PlayerZone, 'library'>[] = ['command', 'battlefield', 'graveyard', 'exile', 'hand']
 
 /** Premier commandant du joueur visible dans les zones publiques ou connues. */
 export function portraitCard(view: PlayerView, player: string): VisibleCard | null {
   for (const p of Object.values(view.players)) {
-    for (const [zone] of PLACES) {
+    for (const zone of PLACES) {
       const found = visible(p.zones[zone]).find((c) => c.isCommander && c.owner === player)
       if (found) return found
     }
@@ -33,9 +33,10 @@ export function portraitCard(view: PlayerView, player: string): VisibleCard | nu
   return null
 }
 
-export function commanderPlace(view: PlayerView, id: string): string | null {
+/** Où se trouve un commandant, en toutes lettres (« en jeu ») ; null s'il n'est pas visible. */
+export function commanderPlace(view: PlayerView, id: string, t: Messages): string | null {
   for (const p of Object.values(view.players)) {
-    for (const [zone, label] of PLACES) if (visible(p.zones[zone]).some((c) => c.id === id)) return label
+    for (const zone of PLACES) if (visible(p.zones[zone]).some((c) => c.id === id)) return t.table.zones.places[zone]
   }
   return null
 }

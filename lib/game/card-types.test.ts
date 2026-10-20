@@ -45,9 +45,9 @@ describe('filterPile et countByType', () => {
   it('comptes par type, dans l’ordre des boutons, seulement les types présents', () => {
     const { s, cards } = pile()
     expect(countByType(cards, s.catalogs)).toEqual([
-      { type: 'creature', label: 'Créature', count: 3 },
-      { type: 'land', label: 'Terrain', count: 2 },
-      { type: 'artifact', label: 'Artefact', count: 1 },
+      { type: 'creature', count: 3 },
+      { type: 'land', count: 2 },
+      { type: 'artifact', count: 1 },
     ])
   })
 
@@ -78,7 +78,7 @@ describe('filterPile et countByType', () => {
     const { s } = pile()
     const delver = visible(s, card('p1', 4), { flipped: true })
     expect(filterPile([delver], { text: '', types: ['creature'] }, s.catalogs)).toEqual([delver])
-    expect(countByType([delver], s.catalogs)).toEqual([{ type: 'creature', label: 'Créature', count: 1 }])
+    expect(countByType([delver], s.catalogs)).toEqual([{ type: 'creature', count: 1 }])
   })
 
   it('texte sans accents, ni casse, œ = oe, apostrophes équivalentes', () => {

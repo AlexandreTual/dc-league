@@ -8,6 +8,7 @@ import GameCard, { CardBack, type Lang } from './GameCard'
 import { useLasso, type Box } from './lasso'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
 import { battlefieldStyle, cardSize, DEFAULT_TABLE_SETTINGS, type TableSettings } from '@/lib/table-settings'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Identifiant de dépôt d'une zone : « joueur:zone ». */
 export const dropId = (ref: ZoneRef) => `${ref.player}:${ref.zone}`
@@ -117,11 +118,12 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
   const settings = props.settings ?? DEFAULT_TABLE_SETTINGS
   const size = cardSize(settings.cardScale)
   const lasso = useZoneLasso(props, ref)
+  const t = useT()
   return (
     <div ref={setNodeRef} data-zone="battlefield" data-player={player} style={battlefieldStyle(settings)} onPointerDown={lasso.onPointerDown}
       className={`relative flex-1 overflow-hidden rounded-xl border border-dc-border bg-dc-surface/40 ${lasso.enabled ? `touch-none ${longPressClass}` : ''} ${highlight}`}>
       <LassoBox box={lasso.box} />
-      <span className="absolute top-2 left-3 text-dc-muted text-xs pointer-events-none">{props.label ?? 'Champ de bataille'}</span>
+      <span className="absolute top-2 left-3 text-dc-muted text-xs pointer-events-none">{props.label ?? t.table.zones.battlefield}</span>
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
           key={card.id}
@@ -146,6 +148,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
   const press = menuGesture(props.onZoneContextMenu)
   // Avec la sélection, l'appui long dans le vide trace le rectangle ; relâché sans glisser, il ouvre le menu de la main.
   const lasso = useZoneLasso(props, ref, props.onZoneContextMenu)
+  const t = useT()
   const gestures = lasso.enabled ? {
     onPointerDown: lasso.onPointerDown,
     onContextMenu: (e: React.MouseEvent) => {
@@ -163,7 +166,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
       {...gestures}
     >
       <LassoBox box={lasso.box} />
-      <span className="absolute top-1 left-3 text-dc-muted text-xs pointer-events-none">Main ({hand.length})</span>
+      <span className="absolute top-1 left-3 text-dc-muted text-xs pointer-events-none">{t.table.zones.handCount(hand.length)}</span>
       {hand.map((card, i) =>
         card.hidden ? (
           <CardBack key={`h${i}`} className="h-[90%]" />
@@ -191,6 +194,7 @@ export function OpponentHand(props: ZoneProps) {
   const { setNodeRef, highlight } = useZone(ref)
   const hand = view.players[player].zones.hand
   const shown = hand.slice(0, COMPACT_HAND_MAX)
+  const t = useT()
   return (
     <div
       ref={setNodeRef}
@@ -198,7 +202,7 @@ export function OpponentHand(props: ZoneProps) {
       data-player={player}
       className={`h-7 shrink-0 flex items-center gap-2 px-3 rounded-lg border border-dc-border bg-dc-surface/60 ${highlight}`}
     >
-      <span className="text-dc-muted text-xs shrink-0">Main : {hand.length}</span>
+      <span className="text-dc-muted text-xs shrink-0">{t.table.zones.handColon(hand.length)}</span>
       <div className="h-5 flex items-center">
         {shown.map((card, i) =>
           card.hidden ? (

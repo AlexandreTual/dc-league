@@ -41,7 +41,7 @@ import { useVisio } from './visio/useVisio'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import LanguageMenu from '@/components/i18n/LanguageMenu'
-import { useCardLang } from '@/components/i18n/I18nProvider'
+import { useCardLang, useT } from '@/components/i18n/I18nProvider'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import { boardWindowName } from './boardWindows'
@@ -102,6 +102,8 @@ export default function Table({ source, notice, boardWindow }: {
   // Plateaux d'adversaires sortis dans des fenêtres à part : seulement depuis la table principale d'une partie en ligne.
   const windows = useBoardWindows(source.online && !boardWindow ? source.online.tableId : null)
   const [lang] = useCardLang()
+  const t = useT()
+  const tb = t.table
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   // `group` : cartes sélectionnées emportées avec celle qu'on glisse.
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number; group?: string[] } | null>(null)
@@ -227,7 +229,7 @@ export default function Table({ source, notice, boardWindow }: {
 
   /** `target` : la carte du menu, pour afficher les touches de ses raccourcis. */
   const toItems = (entries: MenuEntry[], target?: { card: VisibleCard; zone: ZoneRef }): MenuItem[] => {
-    const hints = menuHints(entries, bindings, target)
+    const hints = menuHints(entries, bindings, t, target)
     return entries.map((e, i) => {
       if (e.kind === 'item') return { kind: 'action', label: e.label, onSelect: () => run(e.commands), shortcut: hints[i] }
       if (e.kind === 'stepper') {
@@ -268,7 +270,7 @@ export default function Table({ source, notice, boardWindow }: {
   const menuImage = (m: NonNullable<typeof menu>) => {
     if (!m.touch) return null
     const card = m.library ? libraryTop(view, m.library) ?? undefined : m.card && cards.get(m.card.id)
-    return cardPreview(card, catalogs[card?.owner ?? ''], lang)
+    return cardPreview(card, catalogs[card?.owner ?? ''], lang, t)
   }
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
@@ -386,7 +388,7 @@ export default function Table({ source, notice, boardWindow }: {
       const card = cards.get(id)
       const entries = card ? cardMenu(menuCtx, card, zone) : []
       // Au doigt, pas d'aperçu au survol : l'image de la carte est dans le menu, même sans entrée.
-      const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang) : null
+      const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang, t) : null
       if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
     onHover: (id) => setHovered(id),
@@ -489,14 +491,14 @@ export default function Table({ source, notice, boardWindow }: {
     const host = source.online?.hostCommands
     if (!host) return []
     const name = (p: string) => view.players[p].name
-    const items: MenuItem[] = [{ kind: 'title', label: 'Hôte' }]
+    const items: MenuItem[] = [{ kind: 'title', label: tb.host.title }]
     if (view.activePlayer !== me) {
-      items.push({ kind: 'action', label: `Passer le tour de ${name(view.activePlayer)}`, onSelect: () => host.passTurn(view.activePlayer) })
+      items.push({ kind: 'action', label: tb.host.passTurn(name(view.activePlayer)), onSelect: () => host.passTurn(view.activePlayer) })
     }
     for (const p of opponents.filter((p) => !view.players[p].eliminated)) {
-      items.push({ kind: 'action', label: `Éliminer ${name(p)}`, onSelect: () => confirm(`Éliminer ${name(p)} ?`) && host.eliminate(p) })
+      items.push({ kind: 'action', label: tb.host.eliminate(name(p)), onSelect: () => confirm(tb.host.eliminateConfirm(name(p))) && host.eliminate(p) })
     }
-    items.push({ kind: 'separator' }, { kind: 'action', label: 'Clore la partie', onSelect: () => confirm('Clore la partie sans vainqueur ?') && host.close() })
+    items.push({ kind: 'separator' }, { kind: 'action', label: tb.host.close, onSelect: () => confirm(tb.host.closeConfirm) && host.close() })
     return items
   }
 
@@ -521,19 +523,19 @@ export default function Table({ source, notice, boardWindow }: {
     <div className="relative h-full flex flex-col">
       {boardWindow ? (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-dc-border bg-dc-surface" data-testid="board-window-bar">
-          <span className="font-fantasy text-dc-gold text-sm">Plateau de {view.players[boardWindow.player]?.name}</span>
-          <span className="text-dc-gold font-fantasy text-sm ml-2" data-testid="turn">Tour {view.turn}</span>
-          <span className="text-xs text-dc-muted" data-testid="active-player">Joueur actif : <span className="text-dc-text">{view.players[view.activePlayer]?.name}</span></span>
+          <span className="font-fantasy text-dc-gold text-sm">{tb.windows.boardOf(view.players[boardWindow.player]?.name ?? '?')}</span>
+          <span className="text-dc-gold font-fantasy text-sm ml-2" data-testid="turn">{tb.bar.turn(view.turn)}</span>
+          <span className="text-xs text-dc-muted" data-testid="active-player">{tb.bar.activePlayer} <span className="text-dc-text">{view.players[view.activePlayer]?.name}</span></span>
           <div className="flex items-center gap-2 ml-auto">
             <LanguageMenu buttonClass={barButton} />
             <button className={barButton} onClick={boardWindow.onReturn} data-testid="board-window-return">
-              <Undo2 className="w-3.5 h-3.5" /> Ramener sur la table
+              <Undo2 className="w-3.5 h-3.5" /> {tb.windows.returnToTable}
             </button>
           </div>
         </div>
       ) : (
       <TopBar
-        back={source.local ? { href: `/decks/${source.local.deckId}`, label: source.local.deckName } : { href: '/salon', label: 'Salon' }}
+        back={source.local ? { href: `/decks/${source.local.deckId}`, label: source.local.deckName } : { href: '/salon', label: tb.bar.lobby }}
         turn={view.turn}
         activeName={source.mode === 'online' ? view.players[view.activePlayer]?.name : undefined}
         timer={source.online?.clock && <GameTimer clock={source.online.clock} />}
@@ -547,13 +549,13 @@ export default function Table({ source, notice, boardWindow }: {
         onDice={() => setDiceOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
-        onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
+        onNewGame={source.local ? () => confirm(tb.bar.newGameConfirm) && source.local?.newGame() : undefined}
         extra={source.online && me && (
           <>
             {source.online.visio && !visio.inCall && (
               <button className={barButton} onClick={() => void visio.join()} disabled={visio.starting} data-testid="visio-join"
-                title={visio.presentPlayers.length > 0 ? `En visio : ${visio.presentPlayers.map((p) => view.players[p]?.name ?? '?').join(', ')}` : 'Visio avec les autres joueurs'}>
-                <Video className="w-3.5 h-3.5" /> {visio.starting ? 'Visio…' : 'Visio'}
+                title={visio.presentPlayers.length > 0 ? tb.visio.present(visio.presentPlayers.map((p) => view.players[p]?.name ?? '?').join(', ')) : tb.visio.joinTitle}>
+                <Video className="w-3.5 h-3.5" /> {visio.starting ? tb.visio.starting : tb.visio.title}
                 {visio.presentPlayers.length > 0 && (
                   <span className="ml-0.5 rounded-full bg-dc-gold/20 px-1.5 text-dc-gold" data-testid="visio-count">{visio.presentPlayers.length}</span>
                 )}
@@ -562,12 +564,12 @@ export default function Table({ source, notice, boardWindow }: {
             {!finished && (<>
             {source.online.hostCommands && (
               <button className={barButton} onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, entries: [], items: hostItems() })}>
-                <Crown className="w-3.5 h-3.5 text-dc-gold" /> Hôte
+                <Crown className="w-3.5 h-3.5 text-dc-gold" /> {tb.host.title}
               </button>
             )}
             {!mine?.eliminated && (
-              <button className={barButton} onClick={() => confirm('Abandonner la partie ?') && source.online?.concede()}>
-                <Flag className="w-3.5 h-3.5" /> Abandonner
+              <button className={barButton} onClick={() => confirm(tb.bar.concedeConfirm) && source.online?.concede()}>
+                <Flag className="w-3.5 h-3.5" /> {tb.bar.concede}
               </button>
             )}
             </>)}
@@ -580,33 +582,33 @@ export default function Table({ source, notice, boardWindow }: {
 
       {status !== 'open' && (
         <div className="px-3 py-1.5 text-sm bg-dc-red/30 border-b border-dc-red-light/40 text-dc-text" data-testid="reconnecting">
-          {status === 'connecting' ? 'Connexion…' : 'Reconnexion…'}
+          {status === 'connecting' ? tb.status.connecting : tb.status.reconnecting}
         </div>
       )}
       {!me && (
-        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">Tu regardes cette partie</div>
+        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">{tb.status.spectator}</div>
       )}
       {finished && (
         <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30" data-testid="finished">
-          {source.online?.winner ? `Victoire de ${view.players[source.online.winner]?.name ?? '?'}` : 'Partie close'}
+          {source.online?.winner ? tb.status.winner(view.players[source.online.winner]?.name ?? '?') : tb.status.closed}
         </div>
       )}
 
       {windows.blocked && (
         <div className="px-3 py-1.5 text-sm bg-dc-gold/10 border-b border-dc-gold/30 text-dc-text flex items-center gap-2" data-testid="board-window-blocked">
-          <span>Le navigateur a bloqué la fenêtre.</span>
+          <span>{tb.windows.blocked}</span>
           <a className="text-dc-gold underline" href={windows.url(windows.blocked)} target={boardWindowName(windows.blocked)} onClick={windows.dismissBlocked}>
-            Ouvrir le plateau de {view.players[windows.blocked]?.name}
+            {tb.windows.openBoard(view.players[windows.blocked]?.name ?? '?')}
           </a>
-          <button className="ml-auto text-dc-muted hover:text-dc-text" onClick={windows.dismissBlocked} aria-label="Fermer"><X className="w-4 h-4" /></button>
+          <button className="ml-auto text-dc-muted hover:text-dc-text" onClick={windows.dismissBlocked} aria-label={t.common.close}><X className="w-4 h-4" /></button>
         </div>
       )}
       {windows.detached.length > 0 && (
         <div className="px-3 py-1 text-xs bg-dc-surface/60 border-b border-dc-border text-dc-muted flex flex-wrap items-center gap-3" data-testid="detached-bar">
           {windows.detached.map((p) => (
             <span key={p} className="flex items-center gap-1.5" data-detached={p}>
-              <ExternalLink className="w-3.5 h-3.5" /> Plateau de <span className="text-dc-text">{view.players[p]?.name}</span> dans une fenêtre à part
-              <button className="px-2 py-0.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={() => windows.bring(p)}>Ramener</button>
+              <ExternalLink className="w-3.5 h-3.5" /> {tb.windows.detachedBefore}<span className="text-dc-text">{view.players[p]?.name}</span>{tb.windows.detachedAfter}
+              <button className="px-2 py-0.5 rounded-lg border border-dc-border text-dc-text hover:border-dc-gold/50" onClick={() => windows.bring(p)}>{tb.windows.bring}</button>
             </span>
           ))}
         </div>
@@ -615,11 +617,11 @@ export default function Table({ source, notice, boardWindow }: {
       {!boardWindow && mine && !mine.kept && canAct && (
         <div className="px-3 py-2 text-sm bg-dc-gold/10 border-b border-dc-gold/30 text-dc-gold flex items-center gap-3" data-testid="mulligan-banner">
           <span>
-            {mine.mulligans === 0 ? 'Main de départ' : `Mulligan n°${mine.mulligans}`}
-            {mine.mulligans > 0 && ' : mets au-dessous les cartes convenues (menu de la carte : « Mettre au-dessous », ou Maj + glisser), puis Garder'}
+            {mine.mulligans === 0 ? tb.mulligan.opening : tb.mulligan.count(mine.mulligans)}
+            {mine.mulligans > 0 && tb.mulligan.hint}
           </span>
-          <button className="px-3 py-1 rounded-lg bg-dc-gold/20 border border-dc-gold/40" onClick={() => send({ type: 'keep' })}>Garder</button>
-          <button className="px-3 py-1 rounded-lg border border-dc-gold/40" onClick={() => send({ type: 'mulligan' })}>Mulligan</button>
+          <button className="px-3 py-1 rounded-lg bg-dc-gold/20 border border-dc-gold/40" onClick={() => send({ type: 'keep' })}>{tb.mulligan.keep}</button>
+          <button className="px-3 py-1 rounded-lg border border-dc-gold/40" onClick={() => send({ type: 'mulligan' })}>{tb.mulligan.mulligan}</button>
         </div>
       )}
 
@@ -728,8 +730,8 @@ export default function Table({ source, notice, boardWindow }: {
       )}
       {ordering && orderCards.length > 0 && (
         <OrderModal
-          title={ordering.zone === 'graveyard' ? 'Cimetière : ordre des cartes'
-            : `${ordering.position === 'bottom' ? 'Dessous' : 'Dessus'} de la bibliothèque : ordre des cartes`}
+          title={ordering.zone === 'graveyard' ? tb.pile.orderGraveyard
+            : ordering.position === 'bottom' ? tb.pile.orderBottom : tb.pile.orderTop}
           cards={orderCards}
           catalogs={catalogs}
           lang={lang}
@@ -744,7 +746,7 @@ export default function Table({ source, notice, boardWindow }: {
       {startDraw && <StartDraw view={view} onClose={() => setStartDraw(false)} />}
       {abilitiesCard && (
         <AbilitiesModal
-          name={abilitiesCard.faceDown ? 'carte face cachée' : cardInfo(catalogs[abilitiesCard.owner], abilitiesCard, lang).name}
+          name={abilitiesCard.faceDown ? tb.card.faceDownName : cardInfo(catalogs[abilitiesCard.owner], abilitiesCard, lang).name}
           printed={printedKeywordsOf(catalogs[abilitiesCard.owner], abilitiesCard)}
           gained={abilitiesCard.gained ?? []}
           lost={abilitiesCard.lost ?? []}
@@ -779,7 +781,7 @@ export default function Table({ source, notice, boardWindow }: {
       {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
       {/* Écran tactile en portrait : la table ne tient qu'en paysage ; la partie continue derrière. Message neutre : un téléphone tenu droit (hors cible) le voit aussi. */}
       <div className="hidden tablet-portrait:flex fixed inset-0 z-[80] items-center justify-center p-8 bg-dc-bg text-center font-fantasy text-xl text-dc-gold" data-testid="rotate">
-        Tourne l’écran en paysage pour jouer.
+        {tb.rotate}
       </div>
     </div>
   )
