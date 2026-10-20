@@ -6,9 +6,8 @@ import { useRouter } from 'next/navigation'
 import { BookOpen, BotMessageSquare, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, X } from 'lucide-react'
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
-import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
+import { displayCard, displayName, groupDeckCards } from '@/lib/cards/groups'
 import { cardSrcSet } from '@/lib/cards/images'
-import { readLang, saveLang } from '@/lib/cards/lang'
 import { readDeckView, saveDeckView, type DeckViewMode } from '@/lib/cards/deck-view'
 import { sendJson } from '@/components/formStyles'
 import ImportPanel, { ImportProgressBar } from '@/components/decks/ImportPanel'
@@ -17,6 +16,8 @@ import type { ImportSummary } from '@/lib/cards/types'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
+import LanguageMenu from '@/components/i18n/LanguageMenu'
+import { useCardLang } from '@/components/i18n/I18nProvider'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
 
 export default function DeckView({ deck, playerName, cards, canEdit }: {
@@ -27,7 +28,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
 }) {
   const router = useRouter()
   const ai = useAi()
-  const [lang, setLang] = useState<Lang>('fr')
+  const [lang] = useCardLang()
   const [view, setView] = useState<DeckViewMode>('images')
   const [hover, setHover] = useState<{ card: DeckCardView; x: number; y: number } | null>(null)
   const [selected, setSelected] = useState<DeckCardView | null>(null)
@@ -40,7 +41,6 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
   const [pasting, setPasting] = useState(false)
 
   useEffect(() => {
-    setLang(readLang())
     setView(readDeckView())
   }, [])
   useEffect(() => {
@@ -49,12 +49,6 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selected])
-
-  function toggleLang() {
-    const next = lang === 'fr' ? 'en' : 'fr'
-    setLang(next)
-    saveLang(next)
-  }
 
   function chooseView(next: DeckViewMode) {
     setHover(null)
@@ -130,11 +124,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={toggleLang} className="text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-text hover:border-dc-gold/40" aria-label="Changer la langue des cartes">
-            <span className={lang === 'fr' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>FR</span>
-            {' / '}
-            <span className={lang === 'en' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>EN</span>
-          </button>
+          <LanguageMenu buttonClass="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border rounded-lg text-dc-text hover:border-dc-gold/40" />
           {canEdit && (
             <button
               onClick={reimport}

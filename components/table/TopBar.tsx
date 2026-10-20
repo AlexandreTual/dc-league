@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, BookOpen, Dices, Layers, Maximize, Minimize, RotateCcw, Settings, SkipForward, Sparkles, Undo2 } from 'lucide-react'
-import type { Lang } from './GameCard'
 import { isFullscreen, toggleFullscreen } from './fullscreen'
+import LanguageMenu from '@/components/i18n/LanguageMenu'
 
 export const barButton =
   'flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-dc-border rounded-lg text-dc-text hover:border-dc-gold/50 disabled:opacity-40 disabled:cursor-not-allowed tablet:min-h-11'
@@ -13,19 +13,17 @@ export const barButton =
  * Barre du haut de la table. En mode test : « Nouvelle partie » (la vie est dans ma colonne, la réserve de mana sur mon champ de bataille).
  * En ligne : joueur actif, « Piocher », et les commandes passées dans `extra` (abandon, hôte).
  */
-export default function TopBar({ back, turn, activeName, timer, lang, canAct, canUndo, canEndTurn, onNextTurn, onDraw, onLang, onUndo, onNewGame, onToken, onDice, onLog, onSettings, extra }: {
+export default function TopBar({ back, turn, activeName, timer, canAct, canUndo, canEndTurn, onNextTurn, onDraw, onUndo, onNewGame, onToken, onDice, onLog, onSettings, extra }: {
   back: { href: string; label: string }
   turn: number
   activeName?: string
   /** Minuteur (en ligne). */
   timer?: React.ReactNode
-  lang: Lang
   canAct: boolean
   canUndo: boolean
   canEndTurn: boolean
   onNextTurn: () => void
   onDraw?: () => void
-  onLang: () => void
   onUndo: () => void
   onNewGame?: () => void
   onToken: () => void
@@ -43,10 +41,7 @@ export default function TopBar({ back, turn, activeName, timer, lang, canAct, ca
       <button className={barButton} onClick={onNextTurn} disabled={!canEndTurn} title="Fin de tour (N)"><SkipForward className="w-3.5 h-3.5" /> Fin de tour</button>
       {onDraw && <button className={barButton} onClick={onDraw} disabled={!canAct} title="Piocher (D)"><Layers className="w-3.5 h-3.5" /> Piocher</button>}
       <div className="flex flex-wrap items-center gap-2 ml-auto">
-        <button className={barButton} onClick={onLang} aria-label="Langue des cartes">
-          <span className={lang === 'fr' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>FR</span>/
-          <span className={lang === 'en' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>EN</span>
-        </button>
+        <LanguageMenu buttonClass={barButton} />
         <button className={barButton} onClick={onUndo} disabled={!canUndo} title="Annuler (Ctrl+Z)" aria-label="Annuler"><Undo2 className="w-3.5 h-3.5" /> <Label>Annuler</Label></button>
         <button className={barButton} onClick={onToken} disabled={!canAct} title="Jeton" aria-label="Jeton"><Sparkles className="w-3.5 h-3.5" /> <Label>Jeton</Label></button>
         <button className={barButton} onClick={onDice} disabled={!canAct} title="Dés" aria-label="Dés"><Dices className="w-3.5 h-3.5" /> <Label>Dés</Label></button>

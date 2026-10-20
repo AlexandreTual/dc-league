@@ -1,0 +1,2 @@
+// Textes du domaine « decks » (spec 2026-10-19-english-interface-design) ; à compléter par la tâche du plan qui le traduit.
+export const decks = {}

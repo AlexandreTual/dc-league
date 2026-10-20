@@ -14,7 +14,7 @@ function check(ok, label) {
   if (!ok) failures++
 }
 async function pageAs(playerId, viewport = { width: 1280, height: 900 }) {
-  const context = await browser.newContext({ viewport })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport })
   if (playerId) await context.addCookies([{ name: 'dc_session', value: `jeton-de-test-${playerId}`, url: base }])
   return context.newPage()
 }

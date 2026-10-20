@@ -17,7 +17,7 @@ import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/l
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import DiceModal from './DiceModal'
-import GameCard, { CardBack, type Lang } from './GameCard'
+import GameCard, { CardBack } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
 import OrderModal from './OrderModal'
@@ -40,7 +40,8 @@ import VisioPanel from './visio/VisioPanel'
 import { useVisio } from './visio/useVisio'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
-import { readLang, saveLang } from '@/lib/cards/lang'
+import LanguageMenu from '@/components/i18n/LanguageMenu'
+import { useCardLang } from '@/components/i18n/I18nProvider'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
 import type { GameSource } from './source'
 import { boardWindowName } from './boardWindows'
@@ -100,7 +101,7 @@ export default function Table({ source, notice, boardWindow }: {
   const { view, me, catalogs } = source
   // Plateaux d'adversaires sortis dans des fenêtres à part : seulement depuis la table principale d'une partie en ligne.
   const windows = useBoardWindows(source.online && !boardWindow ? source.online.tableId : null)
-  const [lang, setLang] = useState<Lang>('fr')
+  const [lang] = useCardLang()
   // Taille de l'aperçu pendant le glisser : celle de la carte d'origine (hauteur ; largeur au format d'une carte).
   // `group` : cartes sélectionnées emportées avec celle qu'on glisse.
   const [dragging, setDragging] = useState<{ id: string; from: ZoneRef; height: number; group?: string[] } | null>(null)
@@ -155,7 +156,6 @@ export default function Table({ source, notice, boardWindow }: {
   // Seules restent sélectionnées les cartes encore dans leur zone ; rien pour un spectateur ou une partie finie.
   const live = canAct ? liveSelection(view, selection) : null
 
-  useEffect(() => setLang(readLang()), [])
   useEffect(() => setSettings(loadTableSettings()), [])
   useEffect(() => setBindings(loadBindings()), [])
   const changeBindings = useCallback((next: Bindings) => {
@@ -513,11 +513,7 @@ export default function Table({ source, notice, boardWindow }: {
     const p = view.players[player]
     return p && <ManaPool pool={p.mana} keep={p.keepMana} editable={canAct && player === me} send={send} />
   }
-  const toggleLang = () => {
-    const next = lang === 'fr' ? 'en' : 'fr'
-    setLang(next)
-    saveLang(next)
-  }
+
   const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
@@ -529,10 +525,7 @@ export default function Table({ source, notice, boardWindow }: {
           <span className="text-dc-gold font-fantasy text-sm ml-2" data-testid="turn">Tour {view.turn}</span>
           <span className="text-xs text-dc-muted" data-testid="active-player">Joueur actif : <span className="text-dc-text">{view.players[view.activePlayer]?.name}</span></span>
           <div className="flex items-center gap-2 ml-auto">
-            <button className={barButton} onClick={toggleLang} aria-label="Langue des cartes">
-              <span className={lang === 'fr' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>FR</span>/
-              <span className={lang === 'en' ? 'text-dc-gold font-semibold' : 'text-dc-muted'}>EN</span>
-            </button>
+            <LanguageMenu buttonClass={barButton} />
             <button className={barButton} onClick={boardWindow.onReturn} data-testid="board-window-return">
               <Undo2 className="w-3.5 h-3.5" /> Ramener sur la table
             </button>
@@ -544,13 +537,11 @@ export default function Table({ source, notice, boardWindow }: {
         turn={view.turn}
         activeName={source.mode === 'online' ? view.players[view.activePlayer]?.name : undefined}
         timer={source.online?.clock && <GameTimer clock={source.online.clock} />}
-        lang={lang}
         canAct={canAct}
         canUndo={canAct && source.canUndo}
         canEndTurn={canAct && (source.mode === 'local' || view.activePlayer === me)}
         onNextTurn={() => send({ type: 'endTurn' })}
         onDraw={source.mode === 'online' && me ? () => send({ type: 'draw', count: 1 }) : undefined}
-        onLang={toggleLang}
         onUndo={source.undo}
         onToken={() => setTokenOpen(true)}
         onDice={() => setDiceOpen(true)}

@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import I18nProvider from '@/components/i18n/I18nProvider'
 import { getCurrentUser } from '@/lib/auth/session'
+import { getLang } from '@/lib/i18n/server'
+import { messages } from '@/lib/i18n/messages'
 
 export const runtime = 'edge'
 
-export const metadata: Metadata = {
-  title: 'Commander League',
-  description: 'Gestionnaire de ligue Duel Commander',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = messages(await getLang())
+  return { title: t.common.siteName, description: t.common.siteDescription }
 }
 
 export default async function RootLayout({
@@ -15,15 +18,17 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const user = await getCurrentUser()
+  const [user, lang] = await Promise.all([getCurrentUser(), getLang()])
 
   return (
-    <html lang="fr" className="dark">
+    <html lang={lang} className="dark">
       <body className="min-h-screen bg-dc-bg text-dc-text antialiased">
-        <Navbar user={user} />
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          {children}
-        </main>
+        <I18nProvider lang={lang}>
+          <Navbar user={user} />
+          <main className="max-w-5xl mx-auto px-4 py-8">
+            {children}
+          </main>
+        </I18nProvider>
       </body>
     </html>
   )
