@@ -54,6 +54,7 @@ node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin
 node scripts/selection-check.mjs http://localhost:8788 <dossier>          # sélection de plusieurs cartes (rectangle, groupe, ordre ; souris, tablette, en ligne)
 node scripts/visio-check.mjs http://localhost:8788 <dossier>              # visio en ligne (caméras simulées, 3 joueurs dont tablette, taille, couper, quitter)
 node scripts/effect-check.mjs http://localhost:8788 <dossier>             # force/endurance « ce tour » et fenêtre « Effet » (toutes mes créatures, sélection, fin du tour ; tablette, en ligne)
+node scripts/player-fx-check.mjs http://localhost:8788 <dossier>          # animations des joueurs (vie, poison, blessures, monarque/initiative en vol, dés, cases coupées, mouvement réduit, tablette ; en ligne : abandon, fissures, victoire)
 node scripts/dungeon-check.mjs http://localhost:8788 <dossier>            # donjons : explorer, choix du chemin, donjon terminé, initiative proposée, animation (coupée, mouvement réduit), tablette, en ligne ; --ancien-serveur avec le Worker de main
 ```
 
