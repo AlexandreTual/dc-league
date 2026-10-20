@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { localized } from '@/lib/auth/api'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { assertSameOrigin, requireAdmin } from '@/lib/auth/session'
 import { AUTH_ERR, setAdmin } from '@/lib/db-auth'
 
 export const runtime = 'edge'
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = localized(async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const refused = assertSameOrigin(req)
   if (refused) return refused
   const admin = await requireAdmin()
@@ -21,4 +22,4 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error === AUTH_ERR.NOT_FOUND) return NextResponse.json({ error: 'Compte introuvable' }, { status: 404 })
   if (error !== null) return NextResponse.json({ error: 'Erreur interne, réessaie plus tard' }, { status: 500 })
   return NextResponse.json({ ok: true })
-}
+})

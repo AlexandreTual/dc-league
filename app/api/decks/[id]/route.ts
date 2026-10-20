@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { localized } from '@/lib/auth/api'
 import { deleteDeck, updateDeck } from '@/lib/db-decks'
 import { INTERNAL_ERROR, loadEditableDeck } from '@/lib/cards/deck-access'
 import { MAX_LENGTH, optionalCardImage, optionalDeckLink, optionalText } from '@/lib/auth/validation'
@@ -7,7 +8,7 @@ export const runtime = 'edge'
 
 type Params = { params: Promise<{ id: string }> }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export const PATCH = localized(async function PATCH(req: NextRequest, { params }: Params) {
   const ctx = await loadEditableDeck(req, params)
   if (ctx instanceof NextResponse) return ctx
 
@@ -27,9 +28,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   })
   if (error !== null) return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
   return NextResponse.json(data)
-}
+})
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export const DELETE = localized(async function DELETE(req: NextRequest, { params }: Params) {
   const ctx = await loadEditableDeck(req, params)
   if (ctx instanceof NextResponse) return ctx
 
@@ -42,4 +43,4 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   }
   if (error !== null) return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
   return NextResponse.json({ ok: true })
-}
+})

@@ -55,8 +55,8 @@ export default function AccountsPanel({ players, statuses, currentUserId, isBoot
       kind,
       grant_admin: kind === 'signup' && (grantAdmin[playerId] ?? false),
       ...(kind === 'signup' && email ? { email } : {}),
-      // Langue du mail d'invitation : par défaut celle de l'interface de l'admin.
-      ...(kind === 'signup' ? { lang: mailLangs[playerId] ?? lang } : {}),
+      // Langue du mail : choisie pour une invitation, sinon (et par défaut) celle de l'interface de l'admin.
+      lang: kind === 'signup' ? (mailLangs[playerId] ?? lang) : lang,
     })
     setBusy(null)
     if (error) return onToast(messages.admin.error(error))
