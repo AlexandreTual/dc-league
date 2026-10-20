@@ -24,7 +24,7 @@ describe('parseTableSettings', () => {
   })
 
   it('animations des cartes absentes (sauvegarde d’avant) ou invalides : toutes activées', () => {
-    expect(ALL_EFFECTS).toEqual({ legendary: true, commander: true, flying: true, life: true, crowns: true, dungeon: true, elimination: true, dice: true })
+    expect(ALL_EFFECTS).toEqual({ legendary: true, commander: true, graveyard: true, flying: true, life: true, crowns: true, dungeon: true, elimination: true, dice: true })
     expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1 })).cardEffects).toEqual(ALL_EFFECTS)
     expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, cardEffects: 'non' })).cardEffects).toEqual(ALL_EFFECTS)
     expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, cardEffects: [false] })).cardEffects).toEqual(ALL_EFFECTS)
@@ -41,13 +41,13 @@ describe('parseTableSettings', () => {
     expect(fx({ legendary: false, commander: true, flying: true })).toEqual({ ...ALL_EFFECTS, legendary: false })
     expect(fx({ commander: false })).toEqual({ ...ALL_EFFECTS, commander: false })
     expect(fx({ legendary: 'non', commander: false, flying: 0 })).toEqual({ ...ALL_EFFECTS, commander: false })
-    // Réglage enregistré avant les animations des joueurs : elles sont activées.
-    expect(fx({ legendary: false, commander: false, flying: false })).toEqual({ ...NO_EFFECTS, life: true, crowns: true, dungeon: true, elimination: true, dice: true })
+    // Réglage enregistré avant le retour du cimetière et les animations des joueurs : ils sont activés.
+    expect(fx({ legendary: false, commander: false, flying: false })).toEqual({ ...NO_EFFECTS, graveyard: true, life: true, crowns: true, dungeon: true, elimination: true, dice: true })
     expect(fx({ ...ALL_EFFECTS, dice: false, life: false })).toEqual({ ...ALL_EFFECTS, dice: false, life: false })
   })
 
   it('fenêtre « Animations » : cartes (légendaires, entrée du commandant, vol), puis joueurs et partie', () => {
-    expect(CARD_EFFECTS.filter((e) => e.group === 'cards').map((e) => e.label)).toEqual(['Légendaires', 'Entrée du commandant', 'Vol'])
+    expect(CARD_EFFECTS.filter((e) => e.group === 'cards').map((e) => e.label)).toEqual(['Légendaires', 'Entrée du commandant', 'Retour du cimetière', 'Vol'])
     expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => e.id)).toEqual(['life', 'crowns', 'dungeon', 'elimination', 'dice'])
     expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => e.label))
       .toEqual(['Vie, poison et blessures', 'Monarque et initiative', 'Donjon', 'Élimination et victoire', 'Dés'])

@@ -8,7 +8,7 @@ import {
 import { Crown, ExternalLink, Flag, Undo2, Video, X } from 'lucide-react'
 import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
-import { enteredBattlefield, printedKeywordsOf } from '@/lib/game/card-effects'
+import { arrivals, printedKeywordsOf, type Arrival } from '@/lib/game/card-effects'
 import { appliesPerCard, cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, selectionShortcutCommands, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
@@ -87,7 +87,7 @@ const collision: CollisionDetection = (args) => {
 
 /** Durées des repères d'activité. */
 const HIGHLIGHT_MS = 1500
-/** Durée des effets d'arrivée en jeu (un peu plus que l'entrée d'un commandant, 1,7 s ; l'éclat d'un légendaire dure 1,1 s). */
+/** Durée des effets d'arrivée en jeu (un peu plus que l'entrée d'un commandant, 1,7 s, ou le retour du cimetière, 1,6 s ; l'éclat d'un légendaire dure 1,1 s). */
 const ARRIVAL_MS = 2000
 const LINE_MS = 4000
 const MAX_LINES = 3
@@ -143,7 +143,7 @@ export default function Table({ source, notice, boardWindow }: {
   const [hovered, setHovered] = useState<string | null>(null)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
-  const [arriving, setArriving] = useState<Set<string>>(new Set())
+  const [arriving, setArriving] = useState<Map<string, Arrival>>(new Map())
   const arrivingTimer = useRef<ReturnType<typeof setTimeout>>()
   const [lines, setLines] = useState<ActivityLine[]>([])
   const prevView = useRef<PlayerView | null>(null)
@@ -183,11 +183,11 @@ export default function Table({ source, notice, boardWindow }: {
     }
     const prev = prevView.current
     prevView.current = view
-    const entered = enteredBattlefield(prev, view)
-    if (entered.length > 0) {
-      setArriving(new Set(entered))
+    const entered = arrivals(prev, view)
+    if (entered.size > 0) {
+      setArriving(entered)
       clearTimeout(arrivingTimer.current)
-      arrivingTimer.current = setTimeout(() => setArriving(new Set()), ARRIVAL_MS)
+      arrivingTimer.current = setTimeout(() => setArriving(new Map()), ARRIVAL_MS)
     }
     const { changed, lines: added } = diffViews(prev, view, me)
     if (added.length === 0) return

@@ -21,13 +21,15 @@ export type AbilityStyle = 'icons' | 'labels'
 
 /**
  * Animations, chacune activée ou non (fenêtre « Animations ») :
- * - des cartes en jeu : liseré et éclat d'arrivée des légendaires, entrée du commandant, créatures volantes qui flottent ;
+ * - des cartes en jeu : liseré et éclat d'arrivée des légendaires, entrée du commandant, retour du cimetière, créatures
+ *   volantes qui flottent ;
  * - des joueurs et de la partie : vie, poison et blessures de commandant qui changent, monarque et initiative qui passent
  *   d'un joueur à l'autre, jeton du donjon qui avance, joueur éliminé et victoire, dé qui roule.
  */
 export type CardEffects = {
   legendary: boolean
   commander: boolean
+  graveyard: boolean
   flying: boolean
   life: boolean
   crowns: boolean
@@ -41,6 +43,7 @@ export type CardEffect = keyof CardEffects
 export const CARD_EFFECTS: { id: CardEffect; label: string; hint: string; group: 'cards' | 'players' }[] = [
   { id: 'legendary', label: 'Légendaires', hint: 'Liseré doré, et éclat qui traverse la carte à son arrivée en jeu.', group: 'cards' },
   { id: 'commander', label: 'Entrée du commandant', hint: 'Il se pose avec un halo, des ondes dorées et une couronne.', group: 'cards' },
+  { id: 'graveyard', label: 'Retour du cimetière', hint: 'Une pierre tombale se brise et la carte ramenée remonte de sous la tombe.', group: 'cards' },
   { id: 'flying', label: 'Vol', hint: 'Les créatures volantes flottent au-dessus de leur ombre tant qu’elles ne sont pas engagées.', group: 'cards' },
   { id: 'life', label: 'Vie, poison et blessures', hint: 'Le compteur réagit et l’écart (« -3 », « +2 ») s’envole au-dessus du portrait.', group: 'players' },
   { id: 'crowns', label: 'Monarque et initiative', hint: 'La couronne et le drapeau volent d’un portrait à l’autre.', group: 'players' },

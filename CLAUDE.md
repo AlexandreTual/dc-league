@@ -43,7 +43,7 @@ node scripts/dice-check.mjs http://localhost:8788 <dossier>                # lan
 node scripts/first-player-check.mjs http://localhost:8788 <dossier>        # qui commence (choix de l'hôte, tirage au sort)
 node scripts/pt-check.mjs http://localhost:8788 <dossier>                  # force/endurance sur la carte (mode test, tablette, en ligne)
 node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loyauté d'un planeswalker sur la carte (mode test, tablette, en ligne)
-node scripts/card-effects-check.mjs http://localhost:8788 <dossier>        # légendaires (liseré, éclat d'arrivée), entrée du commandant et créatures volantes (mode test, fenêtre « Animations » : tout ou une à la fois, mouvement réduit, tablette, en ligne)
+node scripts/card-effects-check.mjs http://localhost:8788 <dossier>        # légendaires (liseré, éclat d'arrivée), entrée du commandant, retour du cimetière et créatures volantes (mode test, fenêtre « Animations » : tout ou une à la fois, mouvement réduit, tablette, en ligne)
 node scripts/abilities-check.mjs http://localhost:8788 <dossier>           # « Donner une capacité… » (fenêtre, Protection/Parade, symboles/libellés, fin du tour, vol donné/perdu, tablette, en ligne)
 node scripts/phasing-check.mjs http://localhost:8788 <dossier>             # permanent hors phase (mode test, retour au début du tour, tablette, en ligne)
 node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
