@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { ALL_EFFECTS, battlefieldStyle, CARD_EFFECTS, cardSize, DEFAULT_TABLE_SETTINGS, GRAVEYARD_ARTS, NO_EFFECTS, parseTableSettings } from './table-settings'
+import { ALL_EFFECTS, battlefieldStyle, CARD_EFFECTS, cardSize, DEFAULT_TABLE_SETTINGS, GRAVEYARD_ARTS, HAND_SCALES, handRowStyle, NO_EFFECTS, parseTableSettings } from './table-settings'
 
 describe('parseTableSettings', () => {
   it('rien ou illisible : réglages par défaut (quadrillage, fond actuel)', () => {
-    expect(DEFAULT_TABLE_SETTINGS).toEqual({ grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })
+    expect(DEFAULT_TABLE_SETTINGS).toEqual({ grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })
     expect(parseTableSettings(null)).toEqual(DEFAULT_TABLE_SETTINGS)
     expect(parseTableSettings('pas du json')).toEqual(DEFAULT_TABLE_SETTINGS)
     expect(parseTableSettings('[1]')).toEqual(DEFAULT_TABLE_SETTINGS)
@@ -11,16 +11,16 @@ describe('parseTableSettings', () => {
 
   it('relit les réglages enregistrés', () => {
     expect(parseTableSettings(JSON.stringify({ grid: false, background: '#1E3A2F', cardScale: 1, pilesBesideHand: true })))
-      .toEqual({ grid: false, background: '#1e3a2f', cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })
+      .toEqual({ grid: false, background: '#1e3a2f', cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })
   })
 
   it('piles à côté de la main absent (sauvegarde d’avant) ou invalide : activé (par défaut), sans perdre le reste', () => {
-    expect(parseTableSettings(JSON.stringify({ grid: false, background: null, cardScale: 1.3 }))).toEqual({ grid: false, background: null, cardScale: 1.3, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })
-    expect(parseTableSettings(JSON.stringify({ grid: false, background: null, cardScale: 1, pilesBesideHand: 'oui' }))).toEqual({ grid: false, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })
+    expect(parseTableSettings(JSON.stringify({ grid: false, background: null, cardScale: 1.3 }))).toEqual({ grid: false, background: null, cardScale: 1.3, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })
+    expect(parseTableSettings(JSON.stringify({ grid: false, background: null, cardScale: 1, pilesBesideHand: 'oui' }))).toEqual({ grid: false, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })
   })
 
   it('ancienne disposition choisie (piles dans la colonne) : gardée', () => {
-    expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })).pilesBesideHand).toBe(false)
+    expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })).pilesBesideHand).toBe(false)
   })
 
   it('animations des cartes absentes (sauvegarde d’avant) ou invalides : toutes activées', () => {
@@ -82,12 +82,12 @@ describe('battlefieldStyle', () => {
   })
 
   it('sans quadrillage : aucune image de fond', () => {
-    expect(battlefieldStyle({ grid: false, background: null, cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })).toEqual({})
-    expect(battlefieldStyle({ grid: false, background: '#1e3a2f', cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })).toEqual({ backgroundColor: '#1e3a2f' })
+    expect(battlefieldStyle({ grid: false, background: null, cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })).toEqual({})
+    expect(battlefieldStyle({ grid: false, background: '#1e3a2f', cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })).toEqual({ backgroundColor: '#1e3a2f' })
   })
 
   it('fond clair : lignes sombres pour rester visibles', () => {
-    const style = battlefieldStyle({ grid: true, background: '#f0e6c8', cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })
+    const style = battlefieldStyle({ grid: true, background: '#f0e6c8', cardScale: 1, pilesBesideHand: false, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })
     expect(style.backgroundColor).toBe('#f0e6c8')
     expect(style.backgroundImage).toContain('rgba(0, 0, 0, 0.08)')
   })
@@ -95,7 +95,7 @@ describe('battlefieldStyle', () => {
 
 describe('taille des cartes', () => {
   it('réglage absent (sauvegarde d’avant) : 100 %, le reste est gardé', () => {
-    expect(parseTableSettings(JSON.stringify({ grid: false, background: '#1e3a2f' }))).toEqual({ grid: false, background: '#1e3a2f', cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 })
+    expect(parseTableSettings(JSON.stringify({ grid: false, background: '#1e3a2f' }))).toEqual({ grid: false, background: '#1e3a2f', cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 })
   })
 
   it('relit une taille proposée, ignore une valeur hors liste', () => {
@@ -108,5 +108,24 @@ describe('taille des cartes', () => {
     expect(cardSize(1)).toEqual({ width: '7%', minWidth: '72px' })
     expect(cardSize(1.5)).toEqual({ width: '10.5%', minWidth: '108px' })
     expect(cardSize(0.8)).toEqual({ width: '5.6%', minWidth: '58px' })
+  })
+})
+
+describe('taille de la main', () => {
+  it('propose de 60 % à 140 %, 100 % par défaut', () => {
+    expect(HAND_SCALES).toEqual([0.6, 0.8, 1, 1.2, 1.4])
+    expect(DEFAULT_TABLE_SETTINGS.handScale).toBe(1)
+  })
+
+  it('relit une taille proposée ; absente ou hors liste : 100 %, sans perdre les autres réglages', () => {
+    expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1.3, handScale: 0.6 }))).toMatchObject({ cardScale: 1.3, handScale: 0.6 })
+    expect(parseTableSettings(JSON.stringify({ grid: true, background: null, cardScale: 1.3 }))).toMatchObject({ cardScale: 1.3, handScale: 1 })
+    expect(parseTableSettings(JSON.stringify({ grid: true, background: null, handScale: 3 })).handScale).toBe(1)
+    expect(parseTableSettings(JSON.stringify({ grid: true, background: null, handScale: '0.8' })).handScale).toBe(1)
+  })
+
+  it('handRowStyle : le réglage passé à la bande main + piles en variable CSS', () => {
+    expect(handRowStyle(1)).toEqual({ '--hand-scale': '1' })
+    expect(handRowStyle(0.6)).toEqual({ '--hand-scale': '0.6' })
   })
 })

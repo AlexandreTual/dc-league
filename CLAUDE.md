@@ -35,6 +35,7 @@ npm run game:dev &                                  # serveur de jeu, port 8787
 npx wrangler pages dev --port 8788 &                # site (relancer après chaque build)
 node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test (59 vérifications)
 node scripts/playtest-tablet-check.mjs http://localhost:8788 <deckId> <dossier>  # mode test sur tablette (1180×820 et 1024×768, tactile, puis portrait)
+node scripts/hand-size-check.mjs http://localhost:8788 <dossier>                 # taille de la main (réglage, piles plafonnées sur écran étroit, mémorisé, tablette)
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
 node scripts/board-window-check.mjs http://localhost:8788 <dossier>        # plateau d'un adversaire en fenêtre à part
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
