@@ -54,6 +54,7 @@ node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin
 node scripts/selection-check.mjs http://localhost:8788 <dossier>          # sélection de plusieurs cartes (rectangle, groupe, ordre ; souris, tablette, en ligne)
 node scripts/visio-check.mjs http://localhost:8788 <dossier>              # visio en ligne (caméras simulées, 3 joueurs dont tablette, taille, couper, quitter)
 node scripts/effect-check.mjs http://localhost:8788 <dossier>             # force/endurance « ce tour » et fenêtre « Effet » (toutes mes créatures, sélection, fin du tour ; tablette, en ligne)
+node scripts/player-fx-check.mjs http://localhost:8788 <dossier>          # animations des joueurs (vie, poison, blessures, monarque/initiative en vol, dés, cases coupées, mouvement réduit, tablette ; en ligne : abandon, fissures, victoire)
 ```
 
 Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.

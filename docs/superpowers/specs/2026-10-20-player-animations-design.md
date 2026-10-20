@@ -14,7 +14,8 @@ sa case « Donjon » est déjà dans la fenêtre « Animations ».
 
 ## Règles communes
 
-- Visible chez tous les joueurs, en mode test comme en ligne, et dans la fenêtre à part d'un plateau.
+- Visible chez tous les joueurs, en mode test comme en ligne. Dans la fenêtre à part d'un plateau : vie, couronnes et
+  fissures ; pas les dés ni l'écran de victoire (comme les lignes d'activité, réservés à la table principale).
 - Seulement quand la valeur change d'une vue à la suivante : rien au chargement de la page, à la reprise d'une partie, à la
   reconnexion ni à l'ouverture d'une fenêtre à part (même notion que l'éclat des légendaires).
 - Chaque animation a sa case dans la fenêtre « Animations », groupe **Joueurs et partie** (mémorisé sur l'appareil, activée

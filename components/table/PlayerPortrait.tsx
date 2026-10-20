@@ -145,8 +145,8 @@ export default function PlayerPortrait(props: {
           {commanderPop && commanderPop.delta > 0 && (
             <span key={`sword-${commanderPop.key}`} className="fx-sword absolute inset-0 flex items-center justify-center pointer-events-none text-dc-red-light text-2xl" aria-hidden>⚔</span>
           )}
-          {poisonPop && <PopBubble pop={poisonPop} kind="poison" className="left-0 bottom-full text-xs" />}
-          {commanderPop && <PopBubble pop={commanderPop} kind="commander" className={`${poisonPop ? 'left-full' : 'left-0'} bottom-full text-xs`} />}
+          {poisonPop && <PopBubble pop={poisonPop} kind="poison" className="inset-x-0 top-0 text-center text-sm" />}
+          {commanderPop && <PopBubble pop={commanderPop} kind="commander" className={`inset-x-0 ${poisonPop ? 'bottom-0' : 'top-0'} text-center text-sm`} />}
         </div>
         <div className="col-start-2 row-start-1 min-w-0 flex flex-col gap-1">
           <div className={`flex items-center gap-1 ${s.name} text-dc-text min-w-0`}>
@@ -171,7 +171,7 @@ export default function PlayerPortrait(props: {
           {lifePop && <span key={`halo-${lifePop.key}`} className={`fx-halo absolute -inset-2 rounded-full pointer-events-none ${lifePop.delta < 0 ? 'fx-halo-loss' : 'fx-halo-gain'}`} aria-hidden />}
           <span key={lifePop?.key ?? 0} className={`relative inline-block ${s.life} leading-none font-bold tabular-nums ${lifeLevel(p.life) === 'low' ? 'text-dc-red-light' : 'text-dc-text'} ${lifeFx}`}
             data-testid="player-life">{p.life}</span>
-          {lifePop && <PopBubble pop={lifePop} kind="life" className="right-0 bottom-full text-lg" />}
+          {lifePop && <PopBubble pop={lifePop} kind="life" className="right-full top-0 mr-1 text-2xl" />}
         </span>
         <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] items-center gap-1 text-dc-text">
           <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label="moins : points de vie"><Minus className={lifeIcon} /></button>
