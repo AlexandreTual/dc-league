@@ -9,6 +9,7 @@ import { buildCatalog } from '@/lib/game/catalog'
 import LocalTable from '@/components/table/LocalTable'
 import AiProvider from '@/components/ai/AiProvider'
 import { getCurrentUser } from '@/lib/auth/session'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 
@@ -27,10 +28,11 @@ export default async function PlaytestPage({ params }: { params: Promise<{ id: s
   const { catalog, excluded } = buildCatalog(deck.id, await fillCardStats(env.DB, scryfall, cards ?? []))
 
   if (catalog.entries.length === 0) {
+    const t = await getMessages()
     return (
       <div className="text-center space-y-3 py-16">
-        <p className="text-dc-text">Importe d&apos;abord la liste du deck pour pouvoir le tester.</p>
-        <Link href="/profil/decks" className="text-dc-gold hover:underline">Aller à mes decks</Link>
+        <p className="text-dc-text">{t.decks.playtest.noCards}</p>
+        <Link href="/profil/decks" className="text-dc-gold hover:underline">{t.decks.playtest.goToDecks}</Link>
       </div>
     )
   }

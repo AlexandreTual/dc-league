@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow } from '@/test/factories'
 import type { CardRow, DeckCardView } from './types'
+import { en, fr } from '@/lib/i18n/messages'
 import { displayCard, displayName, groupDeckCards } from './groups'
 
 let position = 0
@@ -16,7 +17,7 @@ function view(en: Partial<CardRow> | null, opts: { quantity?: number; section?: 
   }
 }
 
-const groupOf = (cards: DeckCardView[]) => groupDeckCards(cards, 'en').map((g) => [g.group, g.cards.map((c) => c.en?.name ?? c.requested_name)])
+const groupOf = (cards: DeckCardView[]) => groupDeckCards(cards, 'en', fr).map((g) => [g.group, g.cards.map((c) => c.en?.name ?? c.requested_name)])
 
 describe('groupDeckCards', () => {
   it('classe selon la priorité des types', () => {
@@ -56,6 +57,7 @@ describe('groupDeckCards', () => {
         view({ name: 'Kenrith', type_line: 'Legendary Creature' }, { section: 'commander' }),
       ],
       'en',
+      fr,
     )
     expect(groups.map((g) => g.group)).toEqual([
       'commander', 'creature', 'planeswalker', 'battle', 'sorcery', 'instant', 'enchantment', 'land', 'other',
@@ -64,15 +66,27 @@ describe('groupDeckCards', () => {
     expect(groups[0].label).toBe('Commandant')
   })
 
+  it('titres des groupes dans la langue de l’interface, indépendante de celle des cartes', () => {
+    const cards = [
+      view({ name: 'Kenrith', type_line: 'Legendary Creature' }, { section: 'commander' }),
+      view({ name: 'Llanowar Elves', type_line: 'Creature — Elf Druid' }),
+      view({ name: 'Wrath', type_line: 'Sorcery' }),
+      view({ name: 'Bolt', type_line: 'Instant' }),
+      view(null),
+    ]
+    expect(groupDeckCards(cards, 'fr', en).map((g) => g.label)).toEqual(['Commander', 'Creatures', 'Sorceries', 'Instants', 'Not found'])
+    expect(groupDeckCards(cards, 'en', fr).map((g) => g.label)).toEqual(['Commandant', 'Créatures', 'Rituels', 'Éphémères', 'Introuvables'])
+  })
+
   it('trie par coût puis par nom affiché', () => {
     const cards = [
       view({ name: 'Zebra', type_line: 'Creature', cmc: 2 }),
       view({ name: 'Apple', type_line: 'Creature', cmc: 3 }),
       view({ name: 'Mango', type_line: 'Creature', cmc: 2 }, { fr: { printed_name: 'Abricot' } }),
     ]
-    expect(groupDeckCards(cards, 'en')[0].cards.map((c) => c.en!.name)).toEqual(['Mango', 'Zebra', 'Apple'])
-    expect(groupDeckCards(cards, 'fr')[0].cards.map((c) => c.en!.name)).toEqual(['Mango', 'Zebra', 'Apple'])
-    const frOrder = groupDeckCards([cards[0], cards[2]], 'fr')[0].cards.map((c) => displayCard(c, 'fr')!.printed_name ?? c.en!.name)
+    expect(groupDeckCards(cards, 'en', fr)[0].cards.map((c) => c.en!.name)).toEqual(['Mango', 'Zebra', 'Apple'])
+    expect(groupDeckCards(cards, 'fr', fr)[0].cards.map((c) => c.en!.name)).toEqual(['Mango', 'Zebra', 'Apple'])
+    const frOrder = groupDeckCards([cards[0], cards[2]], 'fr', fr)[0].cards.map((c) => displayCard(c, 'fr')!.printed_name ?? c.en!.name)
     expect(frOrder).toEqual(['Abricot', 'Zebra'])
   })
 })

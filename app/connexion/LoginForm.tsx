@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/components/i18n/I18nProvider'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
 export default function LoginForm({ target, showBootstrap }: { target: string; showBootstrap: boolean }) {
   const router = useRouter()
+  const t = useT()
+  const m = t.account.login
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
@@ -28,31 +31,31 @@ export default function LoginForm({ target, showBootstrap }: { target: string; s
     <div className="space-y-6">
       <form onSubmit={(e) => submit(e, { username, password }, target)} className={cardClass}>
         <div>
-          <label className={labelClass} htmlFor="username">Pseudo</label>
+          <label className={labelClass} htmlFor="username">{m.username}</label>
           <input id="username" className={inputClass} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus />
         </div>
         <div>
-          <label className={labelClass} htmlFor="password">Mot de passe</label>
+          <label className={labelClass} htmlFor="password">{m.password}</label>
           <input id="password" type="password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
         </div>
         {error && <p className={errorClass}>{error}</p>}
         <button type="submit" disabled={!username || !password || loading} className={primaryButtonClass}>
-          {loading ? 'Connexion…' : 'Se connecter'}
+          {loading ? m.submitting : m.submit}
         </button>
         <p className="text-xs text-center">
-          <Link href="/mot-de-passe-oublie" className="text-dc-muted hover:text-dc-gold underline">Mot de passe oublié ?</Link>
+          <Link href="/mot-de-passe-oublie" className="text-dc-muted hover:text-dc-gold underline">{m.forgot}</Link>
         </p>
       </form>
 
       {showBootstrap && (
         <details className="bg-dc-surface border border-dc-border rounded-2xl p-4 text-sm">
-          <summary className="cursor-pointer text-dc-muted">Première configuration : mot de passe admin</summary>
+          <summary className="cursor-pointer text-dc-muted">{m.bootstrapTitle}</summary>
           <form onSubmit={(e) => submit(e, { adminPassword }, '/admin')} className="space-y-3 mt-4">
             <p className="text-dc-muted text-xs">
-              Disponible uniquement tant qu&apos;aucun compte admin n&apos;existe. Une fois connecté, génère ton invitation « admin » depuis l&apos;administration.
+              {m.bootstrapHelp}
             </p>
-            <input type="password" className={inputClass} value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Mot de passe admin" />
-            <button type="submit" disabled={!adminPassword || loading} className={primaryButtonClass}>Entrer</button>
+            <input type="password" className={inputClass} value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder={m.adminPassword} />
+            <button type="submit" disabled={!adminPassword || loading} className={primaryButtonClass}>{m.enter}</button>
           </form>
         </details>
       )}
