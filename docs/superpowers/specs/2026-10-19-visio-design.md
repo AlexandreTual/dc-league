@@ -20,6 +20,10 @@ dont on change la taille en tirant sur un coin.
   défaut. Une vignette 4:3 par joueur en visio, avec son nom (une colonne pour un adversaire, deux au-delà) ; ma
   propre image en incrustation (miroir) en bas à droite ; seule elle tant que personne d'autre n'est là (« En attente
   des autres joueurs… »).
+- **Place** (ajout du 19 octobre, demande du propriétaire) : tirer la **barre** de la fenêtre (ailleurs que sur ses
+  boutons, poignée ⋮⋮ à gauche), à la souris ou au doigt, pour la poser n'importe où dans la zone de jeu. Elle reste
+  toujours entière dans la zone (à 8 px des bords au moins), y compris quand on l'agrandit ou qu'on réduit la fenêtre
+  du navigateur. Place retenue par le navigateur, comme la largeur.
 - **Taille** : tirer le **coin bas gauche** (souris ou doigt) ; de 160 à 720 px de large (jamais plus que la place
   disponible), la hauteur suit. Largeur retenue par le navigateur.
 - Barre de la fenêtre : couper / rallumer le **micro**, la **caméra**, **réduire** (seule la barre reste, le son
@@ -46,7 +50,7 @@ dont on change la taille en tirant sur un coin.
 
 ## Hors périmètre
 
-- Pas de déplacement libre de la fenêtre (toujours en haut à droite), pas d'enregistrement, pas de visio en mode test.
+- Pas d'enregistrement, pas de visio en mode test.
 - Pas de serveur de diffusion (SFU) : inutile à 5 joueurs au plus.
 
 Vérifié par `scripts/visio-check.mjs` (caméras simulées par Chromium, 3 joueurs dont un sur tablette).
