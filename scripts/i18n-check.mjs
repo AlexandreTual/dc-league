@@ -26,7 +26,7 @@ async function pageAs({ locale = 'en-US', player = null, uiLang = null, viewport
 }
 
 /** Contenu des joueurs et des cartes, jamais traduit : exclu de la recherche de français. */
-const USER_CONTENT = ['Ana', 'Bastien', 'Chloé', 'Damien', 'Émilie', 'Saison e2e']
+const USER_CONTENT = ['Ana', 'Bastien', 'Chloé', 'Damien', 'Émilie', 'Émile Mailcheck', 'ÉM', 'Saison e2e']
 const FRENCH_WORDS = /\b(le|la|les|des|du|une|pour|avec|sur|dans|aux|est|ton|ta|tes|vos|votre|pas)\b/i
 const ACCENTS = /[àâçéèêëîïôûùüÿœ]/i
 
@@ -190,19 +190,19 @@ const barTexts = async (page) => (await page.locator('nav').first().locator('a')
   await page.locator('[data-zone="hand"] [data-card-id]').first().click({ button: 'right' })
   await page.getByRole('menu').waitFor()
   await noFrench(page, 'mode test : menu d’une carte en main', '[role="menu"]')
-  await page.getByRole('menu').getByRole('button', { name: 'Battlefield', exact: true }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: /^Battlefield\b/ }).click()
   const onField = page.locator('[data-zone="battlefield"] [data-card-id]').first()
   await onField.waitFor()
   await onField.click({ button: 'right' })
   await page.getByRole('menu').waitFor()
-  check(await page.getByRole('menu').getByRole('button', { name: 'Tap', exact: true }).isVisible(), 'menu d’une carte en jeu : « Tap »')
+  check(await page.getByRole('menu').getByRole('menuitem', { name: /^Tap\b/ }).isVisible(), 'menu d’une carte en jeu : « Tap »')
   await noFrench(page, 'mode test : menu d’une carte en jeu', '[role="menu"]')
-  await page.getByRole('menu').getByRole('button', { name: 'Tap', exact: true }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: /^Tap\b/ }).click()
   await page.locator('[data-zone="library"]').click({ button: 'right' })
   await page.getByRole('menu').waitFor()
-  check(await page.getByRole('menu').getByRole('button', { name: 'Shuffle', exact: true }).isVisible(), 'menu de la bibliothèque : « Shuffle »')
+  check(await page.getByRole('menu').getByRole('menuitem', { name: /^Shuffle\b/ }).isVisible(), 'menu de la bibliothèque : « Shuffle »')
   await noFrench(page, 'mode test : menu de la bibliothèque', '[role="menu"]')
-  await page.getByRole('menu').getByRole('button', { name: 'Draw 1', exact: true }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: /^Draw\ 1\b/ }).click()
   for (const [button, dialog] of [['Dice', 'Roll dice'], ['Token', 'Create a token'], ['Settings', 'Table settings']]) {
     await page.getByTestId('top-bar').getByRole('button', { name: button, exact: true }).click()
     const box = page.getByRole('dialog', { name: dialog })

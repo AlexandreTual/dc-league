@@ -119,7 +119,7 @@ export default async function HomePage() {
       <section aria-labelledby="saison" className="bg-dc-surface border border-dc-border rounded-2xl p-5 md:p-6 shadow-card space-y-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="saison" className="font-fantasy text-xl font-bold text-dc-gold">
-            {season.state === 'ok' ? season.league.name : h.ongoingLeagues}
+            {season.state === 'ok' ? <span data-user-content>{season.league.name}</span> : h.ongoingLeagues}
           </h2>
           <Link href="/ligues" className="text-dc-gold text-xs hover:underline">{h.allLeagues}</Link>
         </div>
