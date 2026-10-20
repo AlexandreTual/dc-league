@@ -2,9 +2,9 @@ import Link from 'next/link'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { BarChart2, BookOpen, Calendar, Layers, Lock, LogIn, Play, Sword, Trophy, Users } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
-import { computeLeaderboard } from '@/lib/leaderboard'
-import { listPlayers, listCompletedMatches, countMatches, listPlayoffs } from '@/lib/db'
-import { getFeaturedLeague, listLeaguePlayers } from '@/lib/db-leagues'
+import { countMatches, listPlayoffs } from '@/lib/db'
+import { getFeaturedLeague } from '@/lib/db-leagues'
+import { loadStandings } from '@/lib/standings'
 import { viewerOf, type Viewer } from '@/lib/leagues/access'
 import { listTables } from '@/lib/db-games'
 import { features, seasonProgress, type Feature } from '@/lib/home'
@@ -35,26 +35,19 @@ async function loadSeason(db: D1Database, viewer: Viewer) {
   const { data: league, error } = await getFeaturedLeague(db, viewer)
   if (error) return { state: 'failed' as const }
   if (!league) return { state: 'none' as const }
-  const [players, completed, total, enrolled, playoffs] = await Promise.all([
-    listPlayers(db),
-    listCompletedMatches(db, league.id),
+  const [standings, total, playoffs] = await Promise.all([
+    loadStandings(db, league.id),
     countMatches(db, league.id),
-    listLeaguePlayers(db, league.id),
     listPlayoffs(db, league.id),
   ])
-  if ([players, completed, total, enrolled, playoffs].some((r) => r.error)) return { state: 'failed' as const }
-  const enrolledIds = new Set((enrolled.data ?? []).map((lp) => lp.player_id))
-  const podium = computeLeaderboard(
-    (players.data ?? []).filter((p) => enrolledIds.has(p.id)),
-    completed.data ?? [],
-  ).slice(0, 3)
+  if (standings.error !== null || [total, playoffs].some((r) => r.error)) return { state: 'failed' as const }
   return {
     state: 'ok' as const,
     league,
-    played: completed.data?.length ?? 0,
+    played: standings.data.played,
     total: total.data ?? 0,
-    playerCount: enrolledIds.size,
-    podium,
+    playerCount: standings.data.standings.length,
+    podium: standings.data.standings.slice(0, 3),
     hasPlayoffs: (playoffs.data ?? []).length > 0,
   }
 }
