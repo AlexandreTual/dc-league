@@ -1,6 +1,6 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
-import { computeLeaderboard } from '@/lib/leaderboard'
-import { listPlayers, listCompletedMatches, countMatches } from '@/lib/db'
+import { countMatches } from '@/lib/db'
+import { loadStandings } from '@/lib/standings'
 import { listLeaguePlayers } from '@/lib/db-leagues'
 import { loadVisibleLeague } from '@/lib/leagues/load'
 import { listPlayerDecks } from '@/lib/db-decks'
@@ -22,24 +22,19 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
   if (!access) return <LoadError what="le classement" />
 
   const me = access.isMember && access.viewer ? access.viewer.playerId : null
-  const [playersRes, completedRes, countRes, leaguePlayersRes, myDecksRes] = await Promise.all([
-    listPlayers(db),
-    listCompletedMatches(db, id),
+  const [standingsRes, countRes, leaguePlayersRes, myDecksRes] = await Promise.all([
+    loadStandings(db, id),
     countMatches(db, id),
     listLeaguePlayers(db, id),
     me ? listPlayerDecks(db, me) : Promise.resolve({ data: [], error: null }),
   ])
-  const players = playersRes.data
-  if (loadFailed(playersRes, completedRes, countRes, leaguePlayersRes, myDecksRes)) {
+  if (loadFailed(standingsRes, countRes, leaguePlayersRes, myDecksRes)) {
     return <LoadError what="le classement" />
   }
-  const completedMatches = completedRes.data
+  const { standings: leaderboard, played } = standingsRes.data!
   const totalMatchCount = countRes.data
   const leaguePlayers = leaguePlayersRes.data
 
-  const enrolledIds = new Set((leaguePlayers ?? []).map((lp) => lp.player_id))
-  const enrolledPlayers = (players ?? []).filter((p) => enrolledIds.has(p.id))
-  const leaderboard = computeLeaderboard(enrolledPlayers, completedMatches ?? [], id)
   const deckMap = new Map((leaguePlayers ?? []).map((lp) => [lp.player_id, lp]))
   const leaderboardWithDecks = leaderboard.map((p) => {
     const lp = deckMap.get(p.id)
@@ -72,7 +67,7 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
           <div className="inline-flex items-center gap-2 bg-dc-surface border border-dc-border rounded-full px-4 py-1.5 text-sm">
             <Sword className="w-3.5 h-3.5 text-dc-gold" />
             <span className="text-dc-muted">
-              <span className="text-dc-text font-semibold">{completedMatches?.length ?? 0}</span>
+              <span className="text-dc-text font-semibold">{played}</span>
               {' '}/ {totalMatchCount} matchs joués
             </span>
           </div>
@@ -83,12 +78,12 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
         <div className="text-center py-16 text-dc-muted">
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
           <p>La ligue n&apos;a pas encore démarré.</p>
-          <p className="text-sm mt-1">{enrolledPlayers.length} joueur{enrolledPlayers.length > 1 ? 's' : ''} inscrit{enrolledPlayers.length > 1 ? 's' : ''}.</p>
+          <p className="text-sm mt-1">{leaderboard.length} joueur{leaderboard.length > 1 ? 's' : ''} inscrit{leaderboard.length > 1 ? 's' : ''}.</p>
         </div>
       ) : (
         <LeaderboardTable
           players={leaderboardWithDecks}
-          totalPlayers={enrolledPlayers.length}
+          totalPlayers={leaderboard.length}
         />
       )}
     </div>

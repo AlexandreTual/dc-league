@@ -3,7 +3,7 @@
 Le site peut envoyer deux sortes de mails :
 
 - le lien d'**invitation** (création de compte) et le lien de **réinitialisation** générés par l'admin ;
-- le lien « **Mot de passe oublié ?** » demandé par un joueur depuis la page de connexion (valable 1 heure, 3 demandes par heure au plus).
+- le lien « **Mot de passe oublié ?** » demandé par un joueur depuis la page de connexion (valable 1 heure, 3 demandes par heure au plus pour un compte, 10 demandes en 15 minutes au plus depuis une même adresse IP, et 30 mails « mot de passe oublié » par jour au plus pour tout le site, pour garder du quota Google aux invitations).
 
 Sans configuration, rien ne change : l'admin copie le lien et l'envoie lui-même (« Envoi de mails non configuré : copie le lien »).
 

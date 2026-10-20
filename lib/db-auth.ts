@@ -479,28 +479,35 @@ export async function playerExists(db: D1Database, playerId: string): Promise<Re
 // ── Mot de passe oublié ───────────────────────────────────────────────────────
 
 export const PASSWORD_REQUEST_WINDOW_MS = 3600 * 1000
+/** Les demandes sont gardées un jour pour le plafond global de mails. */
+export const PASSWORD_REQUEST_DAY_MS = 24 * 3600 * 1000
 
-const requestWindowStart = (now: Date) => new Date(now.getTime() - PASSWORD_REQUEST_WINDOW_MS).toISOString()
+const before = (now: Date, ms: number) => new Date(now.getTime() - ms).toISOString()
 
-export async function countPasswordRequests(db: D1Database, userId: string, now: Date): Promise<Result<number>> {
+/**
+ * Réserve une demande « mot de passe oublié » si le compte en a moins de `perUser` dans l'heure
+ * et le site moins de `perDay` dans la journée. Une seule requête (INSERT … SELECT … WHERE) :
+ * des demandes simultanées ne peuvent pas toutes passer sous les limites. Renvoie `true` si réservée.
+ */
+export async function reservePasswordRequest(
+  db: D1Database,
+  userId: string,
+  now: Date,
+  limits: { perUser: number; perDay: number },
+): Promise<Result<boolean>> {
   try {
-    const row = await db
-      .prepare('SELECT COUNT(*) AS n FROM password_requests WHERE user_id = ? AND requested_at > ?')
-      .bind(userId, requestWindowStart(now))
-      .first<{ n: number }>()
-    return ok(Number(row?.n ?? 0))
-  } catch (e) {
-    return err((e as Error).message)
-  }
-}
-
-export async function recordPasswordRequest(db: D1Database, userId: string, now: Date): Promise<Result<true>> {
-  try {
-    await db.batch([
-      db.prepare('DELETE FROM password_requests WHERE requested_at <= ?').bind(requestWindowStart(now)),
-      db.prepare('INSERT INTO password_requests (user_id, requested_at) VALUES (?, ?)').bind(userId, now.toISOString()),
+    const [, inserted] = await db.batch([
+      db.prepare('DELETE FROM password_requests WHERE requested_at <= ?').bind(before(now, PASSWORD_REQUEST_DAY_MS)),
+      db
+        .prepare(
+          `INSERT INTO password_requests (user_id, requested_at)
+           SELECT ?1, ?2
+           WHERE (SELECT COUNT(*) FROM password_requests WHERE user_id = ?1 AND requested_at > ?3) < ?4
+             AND (SELECT COUNT(*) FROM password_requests WHERE requested_at > ?5) < ?6`,
+        )
+        .bind(userId, now.toISOString(), before(now, PASSWORD_REQUEST_WINDOW_MS), limits.perUser, before(now, PASSWORD_REQUEST_DAY_MS), limits.perDay),
     ])
-    return ok(true)
+    return ok(Number(inserted.meta?.changes ?? 0) > 0)
   } catch (e) {
     return err((e as Error).message)
   }

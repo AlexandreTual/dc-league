@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import {
   listPlayoffs, hasPlayoffs, generateSemifinals, deleteAllPlayoffs,
-  countMatches, countCompletedMatches, listPlayers, listCompletedMatches, STATUTS_LIGUE,
+  countMatches, countCompletedMatches, STATUTS_LIGUE,
 } from '@/lib/db'
-import { computeLeaderboard, Player, Match } from '@/lib/leaderboard'
-import { listLeaguePlayers } from '@/lib/db-leagues'
+import { loadStandings } from '@/lib/standings'
 import { leagueFor } from '@/lib/leagues/route-access'
 import { LEAGUE_FINISHED } from '@/lib/leagues/join'
 
@@ -45,18 +44,9 @@ export function POST(req: NextRequest, { params }: Params) {
     if (already.error !== null) return resultError(already.error)
     if (already.data) return NextResponse.json({ error: 'Les playoffs ont déjà été générés.' }, { status: 409 })
 
-    const [leaguePlayers, allPlayers, matches] = await Promise.all([
-      listLeaguePlayers(db, id),
-      listPlayers(db),
-      listCompletedMatches(db, id),
-    ])
-    if (leaguePlayers.error !== null) return resultError(leaguePlayers.error)
-    if (allPlayers.error !== null) return resultError(allPlayers.error)
-    if (matches.error !== null) return resultError(matches.error)
-
-    const enrolledIds = new Set(leaguePlayers.data.map((lp) => lp.player_id))
-    const enrolledPlayers = allPlayers.data.filter((p) => enrolledIds.has(p.id))
-    const leaderboard = computeLeaderboard(enrolledPlayers as Player[], matches.data as Match[], id)
+    const loaded = await loadStandings(db, id)
+    if (loaded.error !== null) return resultError(loaded.error)
+    const leaderboard = loaded.data.standings
 
     if (leaderboard.length < 4) {
       return badRequest(`Il faut au moins 4 joueurs inscrits pour générer les playoffs (${leaderboard.length} inscrits).`)

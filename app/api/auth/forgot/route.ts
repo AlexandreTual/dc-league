@@ -11,7 +11,9 @@ export function POST(req: NextRequest) {
     const identifier = typeof body.identifier === 'string' ? body.identifier : ''
     if (identifier.trim()) {
       // Traité après la réponse : même réponse et même durée, que le compte existe ou non.
-      const work = requestPasswordReset(db, identifier, new Date(), mailContext(req))
+      // Adresse du client fournie par Cloudflare (absente en local) : limite des demandes par IP.
+      const ip = req.headers.get('CF-Connecting-IP')
+      const work = requestPasswordReset(db, identifier, new Date(), mailContext(req), ip)
       try {
         getRequestContext().ctx.waitUntil(work)
       } catch {
