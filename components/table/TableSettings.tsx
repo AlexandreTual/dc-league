@@ -1,7 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { CARD_SCALES, GRAVEYARD_ARTS, type TableSettings } from '@/lib/table-settings'
+import { CARD_SCALES, GRAVEYARD_ARTS, HAND_SCALES, type TableSettings } from '@/lib/table-settings'
 
 const ART_LABELS = ['Petite', 'Moyenne', 'Grande', 'Très grande']
 
@@ -54,6 +54,13 @@ export default function TableSettingsPanel({ settings, onChange, onClose, onShor
           <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.cardScale}
             onChange={(e) => onChange({ ...settings, cardScale: Number(e.target.value) })} aria-label="Taille des cartes">
             {CARD_SCALES.map((s) => <option key={s} value={s}>{Math.round(s * 100)} %</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-dc-text">
+          Taille de la main
+          <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.handScale}
+            onChange={(e) => onChange({ ...settings, handScale: Number(e.target.value) })} aria-label="Taille de la main">
+            {HAND_SCALES.map((s) => <option key={s} value={s}>{Math.round(s * 100)} %</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 text-sm text-dc-text">
