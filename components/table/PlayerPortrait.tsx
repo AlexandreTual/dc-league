@@ -9,6 +9,7 @@ import type { ClientAction } from '@/lib/game/room'
 import type { Catalog, PlayerView } from '@/lib/game/types'
 import type { Pop, Pops } from '@/lib/game/player-fx'
 import type { CardEffects } from '@/lib/table-settings'
+import DungeonToken from './DungeonToken'
 import type { Lang } from './GameCard'
 import PlayerPanel, { opposingCommanders } from './PlayerPanel'
 import { touchTarget } from './touch'
@@ -188,6 +189,7 @@ export default function PlayerPortrait(props: {
           ))}
         </div>
       )}
+      <DungeonToken view={view} player={player} animate={fx?.effects.dungeon ?? false} />
       {open && (
         <div ref={bubbleRef} className={`absolute left-0 ${place.up ? 'bottom-full mb-1' : 'top-full mt-1'} z-[58] w-[24rem] max-w-[90vw] overflow-y-auto bg-dc-surface rounded-xl shadow-card`}
           style={{ maxHeight: place.maxHeight }} data-bubble={player}>

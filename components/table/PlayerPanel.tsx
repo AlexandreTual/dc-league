@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Crown, Flag, Heart, Minus, Plus, Radiation, Skull, Star, Swords, Tag, Ticket, Zap, type LucideIcon } from 'lucide-react'
+import { Castle, Crown, Flag, Heart, Minus, Plus, Radiation, Skull, Star, Swords, Tag, Ticket, Zap, type LucideIcon } from 'lucide-react'
 import { cardInfo } from '@/lib/game/apply'
 import type { ClientAction } from '@/lib/game/room'
 import { MARKER_NAME_MAX, markerRows, newMarkerError, PRESET_MARKERS, sameMarker, type MarkerRow } from '@/lib/game/player-markers'
 import type { Catalog, PlayerView, VisibleCard } from '@/lib/game/types'
 import type { Lang } from './GameCard'
+import { hasDungeons, openDungeon, venture } from './dungeon'
 import { touchTarget } from './touch'
 
 const stepBtn = `p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent ${touchTarget}`
@@ -55,6 +56,7 @@ function markerIcon(row: MarkerRow) {
 /** −, + et interrupteurs de la liste : 28 px à la souris, 44 px sur tablette. */
 const rowBtn = `w-7 h-7 tablet:w-11 tablet:h-11 shrink-0 flex items-center justify-center rounded-md tablet:rounded-lg border border-dc-border bg-dc-border/50 hover:border-dc-gold/50 disabled:opacity-30 disabled:hover:border-dc-border`
 const rowIcon = 'w-3.5 h-3.5 tablet:w-5 tablet:h-5'
+const dungeonBtn = 'px-2 h-7 tablet:h-11 rounded-md tablet:rounded-lg border border-dc-gold/40 text-dc-gold hover:border-dc-gold'
 
 /** Une ligne : icône, nom, valeur, −, + (Maj : ±5). */
 function MarkerLine({ row, icon, label, title, disabled, onChange }: {
@@ -164,6 +166,19 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
           onToggle={() => send({ type: 'setMonarch', to: view.monarch === player ? null : player })} />
         <Toggle icon={<Flag className="w-4 h-4 text-dc-gold" />} label="Initiative" on={view.initiative === player} disabled={disabled}
           onToggle={() => send({ type: 'setInitiative', to: view.initiative === player ? null : player })} />
+        {hasDungeons(view) && (player === view.me && canAct || p.dungeon) && (
+          <li className="flex flex-wrap items-center gap-1.5 py-1" data-testid="dungeon-row">
+            <Castle className="w-4 h-4 shrink-0 text-dc-gold" />
+            <span className="flex-1">Donjon</span>
+            {player === view.me && canAct && <>
+              <button className={dungeonBtn} onClick={() => venture(view, 'dungeon', send)} data-testid="venture-dungeon">Explorer le donjon</button>
+              {view.initiative === player && (
+                <button className={dungeonBtn} onClick={() => venture(view, 'undercity', send)} data-testid="venture-undercity">Explorer Les Souterrains</button>
+              )}
+            </>}
+            <button className={dungeonBtn} onClick={() => openDungeon({ player, ...(p.dungeon ? { dungeon: p.dungeon.id } : {}) })} data-testid="dungeon-plan-open">Plan</button>
+          </li>
+        )}
       </ul>
       {canAct && (
         <form className="pt-1 space-y-1" onSubmit={(e) => {

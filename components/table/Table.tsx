@@ -17,6 +17,7 @@ import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/l
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import DiceModal from './DiceModal'
+import DungeonHost from './DungeonHost'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
@@ -719,6 +720,7 @@ export default function Table({ source, notice, boardWindow }: {
           </DragOverlay>
         </DndContext>
         <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} />
+        <DungeonHost view={view} canAct={canAct} animate={settings.cardEffects.dungeon} offers={!boardWindow} send={send} />
         {!boardWindow && <DiceTray rolls={playerFx.rolls} />}
         {logOpen && <LogPanel view={view} onClose={() => setLogOpen(false)} />}
       </div>

@@ -1,4 +1,5 @@
 import { isDiceRoll } from './dice'
+import { roomOf, ventureStep } from './dungeons'
 import { EVERYONE, FORMAT_RULES, HIDDEN_ZONES, MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
 
 // ── Lecture ───────────────────────────────────────────────────────────────────
@@ -64,6 +65,12 @@ const MSG = {
   mixedZones: 'Les cartes doivent venir de la même zone',
   badPlaces: 'Positions invalides',
   nothingToApply: 'Rien à appliquer',
+  chooseDungeon: 'Choisis un donjon',
+  undercityOnly: "On n'entre dans Les Souterrains qu'avec l'initiative",
+  dungeonOngoing: 'Tu as déjà un donjon en cours',
+  chooseRoom: 'Choisis la salle suivante',
+  badRoom: "Cette salle n'est pas accessible d'ici",
+  noVenture: 'Aucune exploration proposée',
 }
 
 const sameRef = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
@@ -210,6 +217,21 @@ export function canApply(state: GameState, action: GameAction): string | null {
     case 'setMonarch':
     case 'setInitiative':
       return action.to === null || isPlayer(state, action.to) ? null : MSG.unknownPlayer
+
+    case 'venture': {
+      const step = ventureStep(actor.dungeon, action.undercity ? 'undercity' : 'dungeon')
+      if (step.kind === 'choose') {
+        if (!action.dungeon) return MSG.chooseDungeon
+        return action.dungeon === 'undercity' ? MSG.undercityOnly : null
+      }
+      if (step.kind === 'enter') return action.dungeon && action.dungeon !== step.dungeon ? MSG.undercityOnly : null
+      if (action.dungeon && action.dungeon !== step.dungeon) return MSG.dungeonOngoing
+      if (action.room === undefined) return step.next.length > 1 ? MSG.chooseRoom : null
+      return step.next.includes(action.room) && roomOf(step.dungeon, action.room) ? null : MSG.badRoom
+    }
+
+    case 'skipVenture':
+      return (state.ventureOffers ?? []).includes(action.actor) ? null : MSG.noVenture
 
     case 'eliminate':
       if (!isPlayer(state, action.target)) return MSG.unknownPlayer
