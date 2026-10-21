@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { generateRoundRobinMatches } from '@/lib/leaderboard'
-import { countMatches, insertMatches, deleteAllMatches, deleteAllPlayoffs, STATUTS_LIGUE } from '@/lib/db'
+import { countMatches, insertMatches, resetLeague, STATUTS_LIGUE } from '@/lib/db'
 import { listLeaguePlayers } from '@/lib/db-leagues'
 import { leagueFor } from '@/lib/leagues/route-access'
 import { LEAGUE_FINISHED } from '@/lib/leagues/join'
@@ -27,7 +27,7 @@ export function POST(req: NextRequest, { params }: Params) {
     if (enrolled.length < 2) return badRequest('Il faut au moins 2 joueurs inscrits pour générer la ligue.')
 
     const matchDefs = generateRoundRobinMatches(enrolled.map((p) => p.player_id))
-    const { data, error } = await insertMatches(db, matchDefs, id)
+    const { data, error } = await insertMatches(db, matchDefs, id, enrolled.length)
     if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json({ ok: true, count: data.length, matches: data }, { status: 201 })
   })
@@ -41,10 +41,8 @@ export function DELETE(req: NextRequest, { params }: Params) {
     if (access instanceof NextResponse) return access
     if (!access.league.is_active) return badRequest(LEAGUE_FINISHED)
 
-    const { error } = await deleteAllMatches(db, id)
+    const { error } = await resetLeague(db, id)
     if (error !== null) return resultError(error)
-    const { error: pErr } = await deleteAllPlayoffs(db, id)
-    if (pErr !== null) return resultError(pErr)
     return NextResponse.json({ ok: true })
   })
 }

@@ -41,6 +41,7 @@ export type Result<T> = Ok<T> | Err
 /** Erreurs métier de la ligue, affichées telles quelles. */
 export const ERREURS_LIGUE = {
   matchesExist: 'Les matchs ont déjà été générés.',
+  playersChanged: 'Les inscrits ont changé pendant la génération : relance-la.',
   playoffsExist: 'Les playoffs ont déjà été générés.',
   matchNotFound: 'Match introuvable.',
   playoffNotFound: 'Match de playoffs introuvable.',
@@ -58,6 +59,7 @@ export const STATUTS_LIGUE: Readonly<Record<string, number>> = {
   [ERREURS_LIGUE.matchNotFound]: 404,
   [ERREURS_LIGUE.playoffNotFound]: 404,
   [ERREURS_LIGUE.matchesExist]: 409,
+  [ERREURS_LIGUE.playersChanged]: 409,
   [ERREURS_LIGUE.playoffsExist]: 409,
   [ERREURS_LIGUE.leagueClosed]: 409,
   [ERREURS_LIGUE.finalScored]: 409,
@@ -281,23 +283,22 @@ export const PLAYER_ERR = {
 
 export async function deletePlayer(db: D1Database, id: string): Promise<Result<true>> {
   try {
-    const row = await db
-      .prepare('SELECT COUNT(*) as n FROM league_players WHERE player_id = ?')
-      .bind(id)
-      .first<{ n: number }>()
-    if ((row?.n ?? 0) > 0) return err(PLAYER_ERR.HAS_HISTORY)
-    // Suppression conditionnée en une seule requête : le compte lié (supprimé en cascade)
-    // ne doit pas être le dernier admin.
+    // Suppression conditionnée en une seule requête : le joueur n'a participé à aucune ligue,
+    // et le compte lié (supprimé en cascade) n'est pas le dernier admin.
     const r = await db
       .prepare(
-        `DELETE FROM players WHERE id = ?1 AND NOT (
-           EXISTS (SELECT 1 FROM users WHERE player_id = ?1 AND is_admin = 1)
-           AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1
-         )`,
+        `DELETE FROM players WHERE id = ?1
+           AND NOT EXISTS (SELECT 1 FROM league_players WHERE player_id = ?1)
+           AND NOT (
+             EXISTS (SELECT 1 FROM users WHERE player_id = ?1 AND is_admin = 1)
+             AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1
+           )`,
       )
       .bind(id)
       .run()
     if (r.meta.changes === 0) {
+      const history = await db.prepare('SELECT 1 AS found FROM league_players WHERE player_id = ? LIMIT 1').bind(id).first()
+      if (history) return err(PLAYER_ERR.HAS_HISTORY)
       const lastAdmin = await db.prepare('SELECT 1 AS found FROM users WHERE player_id = ? AND is_admin = 1').bind(id).first()
       if (lastAdmin) return err(PLAYER_ERR.LAST_ADMIN)
     }
@@ -361,27 +362,41 @@ export async function countCompletedMatches(db: D1Database, leagueId: string): P
   }
 }
 
+/**
+ * Insère le round robin d'une ligue. `enrolledCount` : nombre d'inscrits lus pour le générer ;
+ * s'il a changé entre-temps (inscription ou départ simultané), rien n'est inséré.
+ */
 export async function insertMatches(
   db: D1Database,
   matches: Array<{ player1_id: string; player2_id: string; round_number: number }>,
-  leagueId: string
+  leagueId: string,
+  enrolledCount?: number,
 ): Promise<Result<DbMatch[]>> {
   try {
     if (matches.length === 0) return ok([])
     const ids = matches.map(() => uuid())
+    const sameEnrolled = enrolledCount === undefined ? '' : ' AND (SELECT COUNT(*) FROM league_players WHERE league_id = ?) = ?'
     // Garde atomique contre le double clic : le premier match n'est inséré que si la ligue n'en a
-    // aucun, les suivants seulement si le premier l'a été (le batch est une transaction).
+    // aucun (et a toujours le même nombre d'inscrits), les suivants seulement si le premier l'a été
+    // (le batch est une transaction).
     const stmts = matches.map((m, i) =>
-      db
-        .prepare(
-          `INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE ${
-            i === 0 ? 'NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?)' : 'EXISTS (SELECT 1 FROM matches WHERE id = ?)'
-          }`,
-        )
-        .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, i === 0 ? leagueId : ids[0]),
+      i === 0
+        ? db
+            .prepare(
+              `INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?)${sameEnrolled}`,
+            )
+            .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, leagueId, ...(enrolledCount === undefined ? [] : [leagueId, enrolledCount]))
+        : db
+            .prepare(
+              'INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM matches WHERE id = ?)',
+            )
+            .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, ids[0]),
     )
     const [first] = await db.batch(stmts)
-    if (!first.meta.changes) return err(ERREURS_LIGUE.matchesExist)
+    if (!first.meta.changes) {
+      const { data: existing } = await countMatches(db, leagueId)
+      return err(existing === 0 ? ERREURS_LIGUE.playersChanged : ERREURS_LIGUE.matchesExist)
+    }
     const rows: Record<string, unknown>[] = []
     for (const part of chunks(ids)) {
       const { results } = await db
@@ -396,9 +411,13 @@ export async function insertMatches(
   }
 }
 
-export async function deleteAllMatches(db: D1Database, leagueId: string): Promise<Result<true>> {
+/** Réinitialise la ligue : supprime ses matchs et ses playoffs ensemble, ou rien. */
+export async function resetLeague(db: D1Database, leagueId: string): Promise<Result<true>> {
   try {
-    await db.prepare('DELETE FROM matches WHERE league_id = ?').bind(leagueId).run()
+    await db.batch([
+      db.prepare('DELETE FROM matches WHERE league_id = ?').bind(leagueId),
+      db.prepare('DELETE FROM playoffs WHERE league_id = ?').bind(leagueId),
+    ])
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
