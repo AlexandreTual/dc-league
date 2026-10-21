@@ -105,6 +105,15 @@ try {
     await who.page.getByTestId('start-draw').waitFor({ timeout: 10_000 })
     await who.page.keyboard.press('Escape')
     await who.page.getByTestId('start-draw').waitFor({ state: 'detached' })
+    if (who === ana) {
+      // Tour 1, main pas encore gardée : la fenêtre à part ne rejoue pas « Qui commence ? » (#217).
+      const early = await detach(ana, strip(ana.page, CHLOE.id).getByTestId('detach'))
+      await early.popup.locator(`[data-board="${CHLOE.id}"]`).waitFor()
+      await early.popup.waitForTimeout(500)
+      check((await early.popup.getByTestId('start-draw').count()) === 0, 'fenêtre à part ouverte au tour 1 : pas de « Qui commence ? »')
+      await early.popup.close({ runBeforeUnload: true })
+      await strip(ana.page, CHLOE.id).waitFor({ timeout: 6000 })
+    }
     await who.page.getByRole('button', { name: 'Garder' }).click()
     await who.page.getByRole('button', { name: 'Garder' }).waitFor({ state: 'detached' })
   }
