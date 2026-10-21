@@ -170,6 +170,35 @@ describe('move', () => {
   })
 })
 
+describe('move : prendre le contrôle', () => {
+  it('garde l’état de la carte (règle 110.2a), seule sa place change', () => {
+    let s = place(kept4(), [{ id: sol('p2'), player: 'p2', zone: 'battlefield' }])
+    s = apply(s,
+      { type: 'tap', actor: 'p2', id: sol('p2') },
+      { type: 'counter', actor: 'p2', id: sol('p2'), kind: 'plus', delta: 3 },
+      { type: 'pt', actor: 'p2', id: sol('p2'), power: 2, toughness: 2 },
+      { type: 'ptTurn', actor: 'p2', id: sol('p2'), power: 1, toughness: 0 },
+      { type: 'abilities', actor: 'p2', id: sol('p2'), gained: ['Flying'], lost: [] },
+      { type: 'faceDown', actor: 'p2', id: sol('p2') })
+    const before = s.cards[sol('p2')]
+    expect(before.gained).toEqual([{ keyword: 'Flying' }])
+    s = applyAction(s, { type: 'move', actor: 'p1', id: sol('p2'), to: { player: 'p1', zone: 'battlefield' }, x: 30, y: 40 })
+    expect(zoneOf(s, sol('p2'))).toEqual({ player: 'p1', zone: 'battlefield' })
+    expect(s.players.p2.zones.battlefield).not.toContain(sol('p2'))
+    const after = s.cards[sol('p2')]
+    expect(after).toMatchObject({ tapped: true, counters: before.counters, ptMod: before.ptMod, ptTurn: before.ptTurn, gained: before.gained, faceDown: true, owner: 'p2', x: 30, y: 40 })
+    expect(after.knownBy.sort()).toEqual(['p1', 'p2'])
+    expect(texts(s).at(-1)).toBe('une carte : champ de bataille de Bob → champ de bataille')
+  })
+
+  it('garde la loyauté', () => {
+    let s = place(kept4(), [{ id: sol('p2'), player: 'p2', zone: 'battlefield' }])
+    s = { ...s, cards: { ...s.cards, [sol('p2')]: { ...s.cards[sol('p2')], loyaltyMod: 2 } } }
+    s = applyAction(s, { type: 'move', actor: 'p1', id: sol('p2'), to: { player: 'p1', zone: 'battlefield' } })
+    expect(s.cards[sol('p2')].loyaltyMod).toBe(2)
+  })
+})
+
 describe('giveControl', () => {
   it('donne la carte avec son état', () => {
     let s = place(kept4(), [{ id: sol('p1'), player: 'p1', zone: 'battlefield' }])
