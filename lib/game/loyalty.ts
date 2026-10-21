@@ -1,5 +1,6 @@
 // Loyauté d'un planeswalker en jeu : imprimée, plus l'écart des marqueurs loyauté ajoutés ou retirés.
 import { cardInfo } from './apply'
+import { catalogEntry } from './catalog'
 import { valueOf, type PtValue } from './pt'
 import type { CardInstance, Catalog } from './types'
 
@@ -14,7 +15,7 @@ type LoyaltyCard = Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown' |
  */
 export function baseLoyalty(catalog: Catalog | undefined, card: Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown'>): string | null {
   if (card.faceDown || card.token) return null
-  const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
+  const entry = catalogEntry(catalog, card.ref)
   if (!entry) return null
   const faces = entry.en.faces
   if (card.flipped && faces && faces.length > 1) return faces[1].loyalty ?? null

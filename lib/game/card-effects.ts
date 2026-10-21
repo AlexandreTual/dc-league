@@ -1,5 +1,6 @@
 // Effets visuels des cartes en jeu (éclat d'arrivée des légendaires, retour du cimetière) : ce qui se lit dans le catalogue et la vue, sans rien révéler.
 import { cardInfo } from './apply'
+import { catalogEntry } from './catalog'
 import type { Keyword } from './abilities'
 import type { Catalog, PlayerView, VisibleCard } from './types'
 
@@ -14,7 +15,7 @@ export function isLegendary(catalog: Catalog | undefined, card: VisibleCard): bo
 export function printedKeywordsOf(catalog: Catalog | undefined, card: Pick<VisibleCard, 'ref' | 'token' | 'flipped' | 'faceDown'>): string[] {
   if (card.faceDown) return []
   if (card.token) return card.token.keywords ?? []
-  const en = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)?.en
+  const en = catalogEntry(catalog, card.ref)?.en
   if (!en) return []
   const faces = en.faces
   if (card.flipped && faces && faces.length > 1) return faces[1].keywords ?? []

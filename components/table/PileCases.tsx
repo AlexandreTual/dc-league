@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDndContext } from '@dnd-kit/core'
 import { cardInfo, taxOf } from '@/lib/game/apply'
+import { catalogEntry } from '@/lib/game/catalog'
 import { commanderPlace, frameOf, graveyardList, graveyardTail } from '@/lib/game/player-summary'
 import type { Catalog, CardView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
@@ -19,7 +20,7 @@ const visible = (cards: CardView[]) => cards.filter((c): c is VisibleCard => !c.
 
 function frameColor(catalog: Catalog | undefined, card: VisibleCard): string {
   if (card.token) return FRAMES[frameOf(card.token.colors, card.token.typeLine)]
-  const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
+  const entry = catalogEntry(catalog, card.ref)
   return entry ? FRAMES[frameOf(entry.en.colors, entry.en.type_line)] : FRAMES.colorless
 }
 
