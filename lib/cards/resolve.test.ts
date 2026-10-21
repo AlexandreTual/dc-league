@@ -119,6 +119,17 @@ describe('resolveLines', () => {
     expect((await getLookups(db, ['arcane signet|xxx|1'])).data!['arcane signet|xxx|1'].en_card_id).toBe('signet')
   })
 
+  it('édition et numéro d’une autre carte → la carte du nom, pas celle du numéro', async () => {
+    const { client, calls } = fakeClient()
+    // C21 263 est Sol Ring : la ligne demande Arcane Signet.
+    const r = await resolveLines(db, client, [line('Arcane Signet', 'C21', '263')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+    expect(calls.collection).toBe(2)
+    const lookup = (await getLookups(db, ['arcane signet|c21|263'])).data!['arcane signet|c21|263']
+    expect(lookup.en_card_id).toBe('signet')
+    expect(lookup.fr_card_id).toBe('signet-fr')
+  })
+
   it('carte introuvable : mémorisée et signalée', async () => {
     const { client } = fakeClient()
     const r = await resolveLines(db, client, [line('Sol Rnig'), line('Sol Ring', null, null, 2)], now)
