@@ -1,8 +1,9 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
-import { listPlayers, listMatches } from '@/lib/db'
+import { listPlayers, listMatches, listEnrolledPlayers } from '@/lib/db'
 import { DbMatch, DbPlayer } from '@/lib/db'
 import { loadVisibleLeague } from '@/lib/leagues/load'
 import { Match, Player } from '@/lib/leaderboard'
+import { byesByRound } from '@/lib/leagues/byes'
 import MatchCard from '@/components/MatchCard'
 import { Calendar, CheckCircle, Clock } from 'lucide-react'
 import LoadError from '@/components/LoadError'
@@ -18,12 +19,13 @@ export default async function CalendarPage({ params }: { params: Promise<{ id: s
   const access = await loadVisibleLeague(id)
   if (!access) return <LoadError what="le calendrier" />
 
-  const [{ data: players, error: playersError }, { data: matches, error: matchesError }] = await Promise.all([
-    listPlayers(db),
-    listMatches(db, id, true),
-  ])
+  const [
+    { data: players, error: playersError },
+    { data: matches, error: matchesError },
+    { data: enrolled, error: enrolledError },
+  ] = await Promise.all([listPlayers(db), listMatches(db, id, true), listEnrolledPlayers(db, id)])
 
-  if (playersError || matchesError) return <LoadError what="le calendrier" />
+  if (playersError || matchesError || enrolledError) return <LoadError what="le calendrier" />
 
   if (!matches || matches.length === 0) {
     return (
@@ -48,6 +50,8 @@ export default async function CalendarPage({ params }: { params: Promise<{ id: s
     if (!rounds[r]) rounds[r] = []
     rounds[r].push(match)
   }
+
+  const byes = byesByRound((enrolled ?? []).map((p) => p.id), matches)
 
   const completedCount = matches.filter((m) => m.is_completed).length
   const totalCount = matches.length
@@ -87,6 +91,7 @@ export default async function CalendarPage({ params }: { params: Promise<{ id: s
           .sort(([a], [b]) => Number(a) - Number(b))
           .map(([round, roundMatches]) => {
             const allDone = roundMatches.every((m) => m.is_completed)
+            const exempt = (byes.get(Number(round)) ?? []).map((pid) => playerMap[pid]?.name).filter(Boolean)
             return (
               <div key={round}>
                 <div className="flex items-center gap-3 mb-3">
@@ -116,6 +121,12 @@ export default async function CalendarPage({ params }: { params: Promise<{ id: s
                     )
                   })}
                 </div>
+
+                {exempt.length > 0 && (
+                  <p className="mt-2 text-sm text-dc-muted" data-testid="round-bye">
+                    {exempt.length > 1 ? 'Exempts' : 'Exempt'} : <span className="text-dc-text">{exempt.join(', ')}</span>
+                  </p>
+                )}
               </div>
             )
           })}
