@@ -57,7 +57,7 @@ const TYPE_LABEL = Object.fromEntries(CARD_TYPES.map((t) => [t.type, t.label])) 
  * en les glissant l'une sur l'autre ou avec les flèches ; la première est le dessus de la bibliothèque.
  * En regard, la fenêtre ne s'efface qu'une fois le pointeur sorti de son cadre.
  */
-export default function PileModal({ title, player, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onReorder, onClose }: {
+export default function PileModal({ title, player, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onReorder, onShuffleChange, onClose }: {
   title: string
   /** Joueur à qui est la pile. */
   player: string
@@ -72,6 +72,8 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
   onMove: (card: VisibleCard, to: PlayerZone, position?: Position) => void
   /** Ordre choisi des cartes encore affichées, à chaque changement. */
   onReorder?: (ids: string[]) => void
+  /** Case « Mélanger en fermant » changée : la table s'en sert pour fermer avec Échap. */
+  onShuffleChange?: (shuffle: boolean) => void
   onClose: (shuffle: boolean) => void
 }) {
   const [moved, setMoved] = useState<Set<string>>(new Set())
@@ -134,7 +136,7 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
           )}
           {shuffleDefault !== null && (
             <label className="flex items-center gap-1.5 text-xs text-dc-muted ml-auto">
-              <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} /> Mélanger en fermant
+              <input type="checkbox" checked={shuffle} onChange={(e) => { setShuffle(e.target.checked); onShuffleChange?.(e.target.checked) }} /> Mélanger en fermant
             </label>
           )}
           <button onClick={() => onClose(shuffle)} className="text-dc-muted hover:text-dc-text" aria-label="Fermer"><X className="w-5 h-5" /></button>

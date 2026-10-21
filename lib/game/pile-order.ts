@@ -25,3 +25,30 @@ export function syncOrder(order: string[], current: string[]): string[] {
   const kept = order.filter((id) => current.includes(id))
   return [...kept, ...current.filter((id) => !kept.includes(id))]
 }
+
+/** Actions envoyées à la fermeture de la fenêtre de la bibliothèque. */
+export type ClosePileAction =
+  | { type: 'reorderTop'; target: string; ids: string[] }
+  | { type: 'endLook'; target: string; shuffle: boolean }
+
+/**
+ * Fermeture de la fenêtre de la bibliothèque (bouton, clic à côté ou Échap), avec la case « Mélanger en fermant » :
+ * en regard, l'ordre choisi des cartes encore regardées (`seen`) est appliqué s'il a changé et sans mélange, puis le regard prend fin.
+ */
+export function closePileActions({ target, mode, seen, order, shuffle }: {
+  target: string
+  mode: 'look' | 'search' | 'browse'
+  seen: string[]
+  order: string[] | null
+  shuffle: boolean
+}): ClosePileAction[] {
+  if (mode === 'browse') return []
+  // Seules comptent les cartes encore regardées (une carte mise dessous ou jouée n'y est plus).
+  const kept = (order ?? []).filter((id) => seen.includes(id))
+  const current = seen.filter((id) => kept.includes(id))
+  const reorder = mode === 'look' && !shuffle && kept.some((id, i) => id !== current[i])
+  return [
+    ...(reorder ? [{ type: 'reorderTop' as const, target, ids: kept }] : []),
+    { type: 'endLook', target, shuffle },
+  ]
+}
