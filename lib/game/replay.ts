@@ -24,12 +24,16 @@ export class GameHistory {
   private current: GameState
   private undoRandom: boolean
 
-  /** `undoRandom` : le mode test (seul à la table) peut annuler un tirage, pas une partie en ligne. */
+  /**
+   * `undoRandom` : le mode test (seul à la table) peut annuler un tirage, pas une partie en ligne.
+   * `actions` : déjà acceptées, rejouées sans revalidation. Une règle ajoutée au moteur depuis ne doit ni en
+   * sauter une (pioches suivantes faussées), ni décaler l'index où le serveur écrit la suivante.
+   */
   constructor(setup: GameSetup, actions: readonly GameAction[] = [], { undoRandom = false }: { undoRandom?: boolean } = {}) {
     this.undoRandom = undoRandom
     this.current = createInitialState(setup)
     this.snapshots.set(0, this.current)
-    for (const action of actions) this.push(action)
+    for (const action of actions) this.record(action)
   }
 
   get state(): GameState {
@@ -44,10 +48,14 @@ export class GameHistory {
   push(action: GameAction): string | null {
     const error = canApply(this.current, action)
     if (error !== null) return error
+    this.record(action)
+    return null
+  }
+
+  private record(action: GameAction): void {
     this.current = applyAction(this.current, action)
     this.list.push(action)
     if (this.list.length % SNAPSHOT_EVERY === 0) this.snapshots.set(this.list.length, this.current)
-    return null
   }
 
   /**

@@ -101,6 +101,24 @@ describe('actions et persistance', () => {
     expect(s2.last()).toMatchObject({ type: 'view' })
   })
 
+  it('réveil avec une action que le moteur refuse désormais : rien n’est sauté ni écrasé', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const start = storage.data.get('a:000000')
+    const other = replay(setup, [start as never]).turnOrder[1]
+    const refused = { type: 'endTurn', actor: other }
+    const kept = { type: 'draw', actor: 'p1', count: 1 }
+    storage.data.set('a:000001', refused)
+    storage.data.set('a:000002', kept)
+    const back = runtime()
+    const s1 = await open(back, 'p1')
+    expect(back.state()!.history.actions).toHaveLength(3)
+    await send(back, s1, { type: 'action', action: { type: 'draw', count: 1 } })
+    expect(storage.data.get('a:000001')).toEqual(refused)
+    expect(storage.data.get('a:000002')).toEqual(kept)
+    expect(storage.data.get('a:000003')).toEqual({ type: 'draw', actor: 'p1', count: 1 })
+  })
+
   it('refus du moteur : seul l’auteur est prévenu', async () => {
     const rt = runtime()
     await rt.init({ tableId, setup, hostId: 'p1' })

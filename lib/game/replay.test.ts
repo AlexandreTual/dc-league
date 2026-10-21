@@ -25,6 +25,15 @@ describe('GameHistory', () => {
     expect(h.actions).toHaveLength(2)
   })
 
+  it('rechargement : rejoue les actions enregistrées sans les revalider (règle durcie depuis)', () => {
+    const other = new GameHistory(setup, [start(1)]).state.turnOrder[1]
+    // Refusée par le moteur actuel, mais acceptée par une version précédente.
+    const list: GameAction[] = [start(1), { type: 'endTurn', actor: other }, { type: 'draw', actor: 'p1', count: 1 }]
+    const h = new GameHistory(setup, list)
+    expect(h.actions).toEqual(list)
+    expect(h.state).toEqual(replay(setup, list))
+  })
+
   it('état égal au rejeu, y compris après annulation autour des snapshots', () => {
     const all = actions()
     for (const n of [19, 20, 21, 41]) {
