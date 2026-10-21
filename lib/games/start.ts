@@ -5,6 +5,7 @@ import { INTERNAL_ERROR, claimStart, getTable, markPlaying, releaseStart, startC
 import type { Result } from '@/lib/db'
 import { buildCatalog } from '@/lib/game/catalog'
 import type { GameSetup } from '@/lib/game/types'
+import type { DestroyGame } from './remove'
 
 export { INTERNAL_ERROR }
 
@@ -17,9 +18,10 @@ export type GameInit = (tableId: string, body: { setup: GameSetup; hostId: strin
  * la création de la partie, et deux démarrages simultanés n'en créent qu'un. En cas d'échec, elle redevient ouverte.
  * `firstPlayer` : joueur de la table choisi par l'hôte pour commencer ; absent : tirage au sort.
  * `scryfall` : pour rattraper la force et l'endurance des cartes importées avant leur ajout (voir fillCardStats).
+ * `destroy` : défait une partie restée dans le serveur de jeu (table supprimée pendant le démarrage, essai précédent interrompu).
  */
 export async function startTable(
-  db: D1Database, init: GameInit, tableId: string, playerId: string, firstPlayer?: string, scryfall?: ScryfallClient,
+  db: D1Database, init: GameInit, destroy: DestroyGame, tableId: string, playerId: string, firstPlayer?: string, scryfall?: ScryfallClient,
 ): Promise<Result<GameTable>> {
   const { data: table, error } = await getTable(db, tableId)
   if (error !== null) return { data: null, error: INTERNAL_ERROR }
@@ -37,7 +39,7 @@ export async function startTable(
 
   let started = false
   try {
-    const result = await createGame(db, init, tableId, firstPlayer, scryfall)
+    const result = await createGame(db, init, destroy, tableId, firstPlayer, scryfall)
     started = result.error === null
     return result
   } finally {
@@ -47,7 +49,9 @@ export async function startTable(
 }
 
 /** Table réservée : relue (places désormais figées), partie créée, table passée en cours. */
-async function createGame(db: D1Database, init: GameInit, tableId: string, firstPlayer?: string, scryfall?: ScryfallClient): Promise<Result<GameTable>> {
+async function createGame(
+  db: D1Database, init: GameInit, destroy: DestroyGame, tableId: string, firstPlayer?: string, scryfall?: ScryfallClient,
+): Promise<Result<GameTable>> {
   const { data: table, error } = await getTable(db, tableId)
   if (error !== null || !table) return { data: null, error: INTERNAL_ERROR }
   const reason = startCheck({ ...table, status: 'open' })
@@ -62,12 +66,34 @@ async function createGame(db: D1Database, init: GameInit, tableId: string, first
   }
   const setup: GameSetup = { format: table.format, players, options: { eliminatedSeeAll: table.eliminatedSeeAll } }
 
-  // 409 : partie déjà créée lors d'un essai précédent interrompu, on termine le démarrage.
   // Places relues après la réservation : un premier joueur parti entre-temps est ignoré (tirage au sort).
   const first = firstPlayer !== undefined && table.players.some((p) => p.playerId === firstPlayer) ? { firstPlayer } : {}
-  const res = await init(tableId, { setup, hostId: table.hostPlayerId, ...first })
-  if (!res.ok && res.status !== 409) return { data: null, error: INTERNAL_ERROR }
-  if ((await markPlaying(db, tableId)).error !== null) return { data: null, error: INTERNAL_ERROR }
+  const body = { setup, hostId: table.hostPlayerId, ...first }
+  let res = await init(tableId, body)
+  // 409 : partie restée d'un essai précédent interrompu, alors que la table a été rouverte (places peut-être changées
+  // depuis) : elle est défaite puis recréée avec les places actuelles.
+  if (res.status === 409) {
+    if (!(await destroyQuietly(destroy, tableId))) return { data: null, error: INTERNAL_ERROR }
+    res = await init(tableId, body)
+  }
+  if (!res.ok) return { data: null, error: INTERNAL_ERROR }
+  const { data: marked, error: markError } = await markPlaying(db, tableId)
+  if (markError !== null) return { data: null, error: INTERNAL_ERROR }
+  if (!marked) {
+    // Table supprimée (par l'admin) pendant la création : la partie ne doit pas rester orpheline.
+    if (!(await destroyQuietly(destroy, tableId))) console.error(`Partie ${tableId} orpheline : suppression impossible`)
+    return { data: null, error: 'Table introuvable' }
+  }
   const { data: started } = await getTable(db, tableId)
   return started ? { data: started, error: null } : { data: null, error: INTERNAL_ERROR }
+}
+
+/** Supprime la partie du serveur de jeu ; false en cas de refus ou d'exception (journalisée). */
+async function destroyQuietly(destroy: DestroyGame, tableId: string): Promise<boolean> {
+  try {
+    return await destroy(tableId)
+  } catch (e) {
+    console.error(`Suppression de la partie ${tableId} impossible`, e)
+    return false
+  }
 }
