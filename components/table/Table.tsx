@@ -44,6 +44,7 @@ import HolderFlights from './HolderFlights'
 import VictoryScreen from './VictoryScreen'
 import { usePlayerFx } from './usePlayerFx'
 import ManaPool from './ManaPool'
+import { cardLabel, dragAnnouncements, dragInstructions } from './a11y'
 import VisioPanel from './visio/VisioPanel'
 import { useVisio } from './visio/useVisio'
 import OracleModal from '@/components/OracleModal'
@@ -546,9 +547,19 @@ export default function Table({ source, notice, boardWindow }: {
   const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
+  // Annonces du glisser lues par les lecteurs d'écran : en français, avec le nom de la carte.
+  const accessibility = {
+    screenReaderInstructions: dragInstructions,
+    announcements: dragAnnouncements({
+      me,
+      cardName: (id: string) => { const card = cards.get(id); return card && cardLabel(catalogs[card.owner], card, lang) },
+      playerName: (id: string) => view.players[id]?.name,
+    }),
+  }
+
   return (
     // Le glisser couvre toute la table, fenêtre des piles comprise (une carte s'en glisse vers le champ de bataille).
-    <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
+    <DndContext sensors={sensors} collisionDetection={collision} accessibility={accessibility} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
     <div className="relative h-full flex flex-col">
       {boardWindow ? (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-dc-border bg-dc-surface" data-testid="board-window-bar">
