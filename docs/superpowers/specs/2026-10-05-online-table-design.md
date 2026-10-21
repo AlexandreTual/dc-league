@@ -114,7 +114,7 @@ Les composants actuels de `components/playtest/` sont déplacés et généralis�
 | pile de la bibliothèque d'un autre | « Regarder les X du dessus… », « Chercher… » (fenêtre de pile ; fermeture = `endLook`) |
 | spectateur ou partie finie | aucun menu |
 
-Menu de la main : « Révéler ma main ».
+Menu de la main : « Révéler ma main à tous », « Révéler ma main à … » (un par joueur encore en lice ; seul ce joueur voit les cartes).
 
 ### Rangées triées (`lib/game/battlefield.ts`, pur)
 

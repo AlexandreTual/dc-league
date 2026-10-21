@@ -418,9 +418,19 @@ describe('libraryMenu et handMenu', () => {
     ])
   })
 
-  it('ma main : la révéler', () => {
+  it('ma main : la révéler à tous ou à un seul joueur', () => {
     const s = setup()
-    expect(item(handMenu(ctx(s)), 'Révéler ma main')).toEqual([{ kind: 'action', action: { type: 'reveal', ids: 'hand', to: 'all' } }])
+    const entries = handMenu(ctx(s))
+    expect(item(entries, 'Révéler ma main à tous')).toEqual([{ kind: 'action', action: { type: 'reveal', ids: 'hand', to: 'all' } }])
+    for (const p of Object.keys(s.players).filter((p) => p !== 'p1')) {
+      expect(item(entries, `Révéler ma main à ${s.players[p].name}`)).toEqual([{ kind: 'action', action: { type: 'reveal', ids: 'hand', to: [p] } }])
+    }
+  })
+
+  it('ma main : pas de révélation à un joueur éliminé', () => {
+    const s = setup()
+    const out = { ...s, players: { ...s.players, p2: { ...s.players.p2, eliminated: true } } }
+    expect(labels(handMenu(ctx(out)))).not.toContain(`Révéler ma main à ${s.players.p2.name}`)
   })
 })
 
