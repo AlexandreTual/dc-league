@@ -10,6 +10,7 @@ import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { arrivals, printedKeywordsOf, type Arrival } from '@/lib/game/card-effects'
 import { appliesPerCard, cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, selectionShortcutCommands, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
+import { opensStartDraw } from '@/lib/game/first-player'
 import { closePileActions } from '@/lib/game/pile-order'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
@@ -141,8 +142,7 @@ export default function Table({ source, notice, boardWindow }: {
   const [diceOpen, setDiceOpen] = useState(false)
   const [diceCount, setDiceCount] = useState(1)
   // En ligne, à l'ouverture d'une partie qui commence (tour 1, ma main pas encore gardée) : qui commence.
-  const [startDraw, setStartDraw] = useState(() => source.mode === 'online' && me !== null && Object.keys(view.players).length > 1
-    && view.turn === 1 && view.players[me]?.kept === false && (view.turnOrder?.length ?? 0) > 0)
+  const [startDraw, setStartDraw] = useState(() => opensStartDraw(view, me, { online: source.mode === 'online', boardWindow: !!boardWindow }))
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   /** Carte dont la fenêtre « Capacités » est ouverte. */
   const [abilitiesFor, setAbilitiesFor] = useState<string | null>(null)

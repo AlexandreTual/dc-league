@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { run, setupFor } from '@/test/game-fixtures'
-import { drawSequence } from './first-player'
+import { drawSequence, opensStartDraw } from './first-player'
 import { startAction } from './random'
 import { createRoom } from './room'
 import { canApply } from './rules'
@@ -63,5 +63,28 @@ describe('drawSequence', () => {
       expect(total).toBeGreaterThan(1500)
       expect(total).toBeLessThan(4000)
     }
+  })
+})
+
+describe('opensStartDraw', () => {
+  const started = viewFor(run(setup, { type: 'start', actor: 'server', seed: 1 }), 'p1')
+
+  it('en ligne, tour 1, main pas encore gardée : « Qui commence ? » s’ouvre', () => {
+    expect(opensStartDraw(started, 'p1', { online: true, boardWindow: false })).toBe(true)
+  })
+
+  it('jamais dans le plateau d’un adversaire sorti en fenêtre à part', () => {
+    expect(opensStartDraw(started, 'p1', { online: true, boardWindow: true })).toBe(false)
+  })
+
+  it('ni en mode test, ni pour un spectateur, ni une fois la main gardée', () => {
+    expect(opensStartDraw(started, 'p1', { online: false, boardWindow: false })).toBe(false)
+    expect(opensStartDraw(started, null, { online: true, boardWindow: false })).toBe(false)
+    const kept = viewFor(run(setup, { type: 'start', actor: 'server', seed: 1 }, { type: 'keep', actor: 'p1' }), 'p1')
+    expect(opensStartDraw(kept, 'p1', { online: true, boardWindow: false })).toBe(false)
+  })
+
+  it('serveur plus ancien sans ordre du tour : rien', () => {
+    expect(opensStartDraw({ ...started, turnOrder: undefined as unknown as string[] }, 'p1', { online: true, boardWindow: false })).toBe(false)
   })
 })
