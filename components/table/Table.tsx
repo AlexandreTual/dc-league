@@ -49,7 +49,7 @@ import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import { readLang, saveLang } from '@/lib/cards/lang'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
-import type { GameSource } from './source'
+import { canAct as acceptsGestures, type GameSource } from './source'
 import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
 import type { MenuPoint } from './touch'
@@ -166,7 +166,8 @@ export default function Table({ source, notice, boardWindow }: {
 
   const finished = source.online?.finished ?? false
   const status = source.online?.status ?? 'open'
-  const canAct = me !== null && !finished && status === 'open'
+  // Ni spectateur, ni éliminé, ni partie finie, ni reconnexion : sinon lecture seule.
+  const canAct = acceptsGestures(source)
   // Visio : table principale d'une partie en ligne, joueurs assis, serveur de jeu qui la relaie.
   const playerFx = usePlayerFx({ view, me, status, effects: settings.cardEffects, finished, winner: source.online?.winner ?? null })
   const visio = useVisio(boardWindow ? undefined : source.online?.visio, me, source.online?.players ?? [], status)
@@ -620,6 +621,9 @@ export default function Table({ source, notice, boardWindow }: {
       )}
       {!me && (
         <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">Tu regardes cette partie</div>
+      )}
+      {me && view.players[me]?.eliminated && !finished && (
+        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="eliminated">Tu es éliminé, tu regardes la fin de la partie</div>
       )}
       {finished && (
         <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30" data-testid="finished">

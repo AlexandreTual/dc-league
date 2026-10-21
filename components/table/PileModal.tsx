@@ -53,7 +53,7 @@ const TYPE_LABEL = Object.fromEntries(CARD_TYPES.map((t) => [t.type, t.label])) 
 /**
  * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination ; chaque carte se glisse aussi
  * directement sur une zone de la table (champ de bataille, main…) : la fenêtre s'efface pendant le glisser et revient après.
- * Une carte déplacée disparaît de la liste. Avec `onReorder` (regard), les cartes se réordonnent
+ * Une carte déplacée disparaît de la liste dès que la vue la montre ailleurs. Avec `onReorder` (regard), les cartes se réordonnent
  * en les glissant l'une sur l'autre ou avec les flèches ; la première est le dessus de la bibliothèque.
  * En regard, la fenêtre ne s'efface qu'une fois le pointeur sorti de son cadre.
  */
@@ -76,7 +76,6 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
   onShuffleChange?: (shuffle: boolean) => void
   onClose: (shuffle: boolean) => void
 }) {
-  const [moved, setMoved] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
   const [types, setTypes] = useState<CardType[]>([])
   const [shuffle, setShuffle] = useState(shuffleDefault ?? false)
@@ -86,7 +85,8 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
   const [dragged, setDragged] = useState<{ id: string; away: boolean } | null>(null)
   const panel = useRef<HTMLDivElement>(null)
 
-  const present = cards.filter((card) => !moved.has(card.id))
+  // Une carte ne quitte la liste que quand la vue la montre hors de la zone (un geste refusé la laisse là).
+  const present = cards
   const ordered = onReorder ? syncOrder(order, present.map((c) => c.id)) : null
   const remaining = ordered ? ordered.map((id) => present.find((c) => c.id === id)!) : present
   const reorder = (next: string[]) => {
@@ -174,10 +174,7 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
                   <button
                     key={t.label}
                     className="text-[10px] px-1 py-0.5 [@media(pointer:coarse)]:min-h-8 rounded border border-dc-border text-dc-text hover:border-dc-gold/50"
-                    onClick={() => {
-                      onMove(card, t.to, t.position)
-                      setMoved((prev) => new Set(prev).add(card.id))
-                    }}
+                    onClick={() => onMove(card, t.to, t.position)}
                   >
                     {t.label}
                   </button>
