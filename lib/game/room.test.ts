@@ -318,6 +318,16 @@ describe('pouvoirs de l’hôte', () => {
     expect(state(r).activePlayer).not.toBe(active)
   })
 
+  it('le joueur dont l’hôte a passé le tour ne peut pas l’annuler', () => {
+    const r = room()
+    keepAll(r)
+    const active = state(r).activePlayer
+    host(r, 'p1', 'passTurn', active)
+    expect(r.history.canUndo(active)).toBe(false)
+    expect(handleMessage(r, active, { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
+    expect(state(r).activePlayer).not.toBe(active)
+  })
+
   it('élimine un joueur', () => {
     const r = room()
     host(r, 'p1', 'eliminate', 'p2')
