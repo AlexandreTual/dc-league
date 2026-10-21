@@ -54,10 +54,12 @@ export class GameHistory {
    * Vrai si la dernière action est de `actor` (personne n'a joué depuis) et n'est ni le début de partie,
    * ni un lancer de dés, ni (hors mode test) un tirage au hasard : sinon on relancerait jusqu'au résultat voulu.
    * Jamais une élimination non plus : un éliminé peut avoir vu toutes les cartes, il ne doit pas revenir en jeu.
+   * Ni un tour passé par l'hôte : le joueur absent ne doit pas pouvoir retrouver son tour à son retour.
    */
   canUndo(actor: string): boolean {
     const last = this.list.at(-1)
     if (!last || FINAL.has(last.type) || last.actor !== actor) return false
+    if (last.type === 'endTurn' && last.byHost) return false
     return this.undoRandom || !isRandomDraw(last)
   }
 
