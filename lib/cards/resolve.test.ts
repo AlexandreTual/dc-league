@@ -24,6 +24,8 @@ const EN = [
   sc('ruins', 'o-ruins', 'Academy Ruins', 'tsp', '269'),
   sc('limdul', 'o-limdul', 'Lim-Dûl the Necromancer', 'hml', '12'),
   sc('fire-ice', 'o-fire-ice', 'Fire // Ice', 'mh2', '290'),
+  sc('delver', 'o-delver', 'Delver of Secrets // Insectile Aberration', 'isd', '51'),
+  sc('borrower', 'o-borrower', 'Brazen Borrower // Petty Theft', 'eld', '39'),
 ]
 const FR = [
   sc('sol-cmr-fr', 'o-sol', 'Sol Ring', 'cmr', '472', 'fr'),
@@ -43,12 +45,12 @@ function fakeClient() {
       for (const id of ids) {
         calls.names.push(...('name' in id ? [id.name] : []))
         const plain = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-        // Comme Scryfall : le nom « A // B » d'une carte double est introuvable, sa face avant suffit.
+        // Comme Scryfall : le nom « A // B » d'une carte double est introuvable, le nom d'une de ses faces suffit.
         const found =
           'name' in id
             ? id.name.includes(' // ')
               ? undefined
-              : EN.find((c) => plain(c.name) === plain(id.name) || plain(c.name.split(' // ')[0]) === plain(id.name))
+              : EN.find((c) => plain(c.name) === plain(id.name) || c.name.split(' // ').some((f) => plain(f) === plain(id.name)))
             : 'set' in id
               ? EN.find((c) => c.set === id.set && c.collector_number === id.collector_number)
               : undefined
@@ -157,6 +159,20 @@ describe('resolveLines', () => {
     const r = await resolveLines(db, client, [line('Fire // Ice')], now)
     expect(r).toEqual({ resolved: 1, notFound: [] })
     expect(calls.names).toEqual(['Fire'])
+  })
+
+  it('carte transformable écrite avec le nom de sa face arrière', async () => {
+    const { client } = fakeClient()
+    const r = await resolveLines(db, client, [line('Insectile Aberration')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+    expect((await getLookups(db, ['insectile aberration||'])).data!['insectile aberration||'].en_card_id).toBe('delver')
+  })
+
+  it('carte aventure écrite avec le nom de sa partie aventure', async () => {
+    const { client } = fakeClient()
+    const r = await resolveLines(db, client, [line('Petty Theft')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+    expect((await getLookups(db, ['petty theft||'])).data!['petty theft||'].en_card_id).toBe('borrower')
   })
 
   it('compare les noms sans accents', async () => {
