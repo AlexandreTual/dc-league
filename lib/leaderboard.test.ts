@@ -14,9 +14,12 @@ function ligne(classement: ReturnType<typeof computeLeaderboard>, id: string) {
   return classement.find((s) => s.id === id)!
 }
 
+/** Classement d'une ligue quelconque : ces tests ne touchent pas au départage des égalités parfaites. */
+const classer = (joueurs: Player[], matchs: Match[]) => computeLeaderboard(joueurs, matchs, 'ligue')
+
 describe('computeLeaderboard', () => {
   it('compte 3 points pour une victoire, 1 pour un nul, 0 pour une défaite', () => {
-    const c = computeLeaderboard([joueur('a'), joueur('b'), joueur('c')], [
+    const c = classer([joueur('a'), joueur('b'), joueur('c')], [
       match('a', 'b', 2, 0),
       match('b', 'c', 1, 1),
       match('c', 'a', 2, 1),
@@ -29,14 +32,14 @@ describe('computeLeaderboard', () => {
 
   it('départage à points égaux par la différence de manches, puis par le nombre de victoires', () => {
     // a et b : 3 points chacun ; a gagne 2-0 (+2), b gagne 2-1 (+1) → a devant
-    const c = computeLeaderboard([joueur('b'), joueur('a'), joueur('c'), joueur('d')], [
+    const c = classer([joueur('b'), joueur('a'), joueur('c'), joueur('d')], [
       match('a', 'c', 2, 0),
       match('b', 'd', 2, 1),
     ])
     expect(c.map((s) => s.id)).toEqual(['a', 'b', 'd', 'c'])
 
     // e et f : 3 points et différence 0 ; e a une victoire, f a trois nuls → e devant
-    const d = computeLeaderboard([joueur('f'), joueur('e'), joueur('x'), joueur('y'), joueur('z')], [
+    const d = classer([joueur('f'), joueur('e'), joueur('x'), joueur('y'), joueur('z')], [
       match('e', 'x', 2, 0),
       match('e', 'y', 0, 2),
       match('f', 'x', 1, 1),
@@ -49,7 +52,7 @@ describe('computeLeaderboard', () => {
   })
 
   it('ignore un match non terminé, même avec un score saisi', () => {
-    const c = computeLeaderboard([joueur('a'), joueur('b')], [
+    const c = classer([joueur('a'), joueur('b')], [
       match('a', 'b', 2, 0, false),
       match('a', 'b', null, null, false),
     ])
@@ -57,7 +60,7 @@ describe('computeLeaderboard', () => {
   })
 
   it('ignore un match où figure un joueur non inscrit', () => {
-    const c = computeLeaderboard([joueur('a'), joueur('b')], [
+    const c = classer([joueur('a'), joueur('b')], [
       match('a', 'intrus', 2, 0),
       match('intrus', 'b', 2, 0),
     ])
@@ -66,23 +69,86 @@ describe('computeLeaderboard', () => {
   })
 
   it('garde un joueur sans match, à zéro', () => {
-    const c = computeLeaderboard([joueur('a'), joueur('b'), joueur('c')], [match('a', 'b', 2, 0)])
+    const c = classer([joueur('a'), joueur('b'), joueur('c')], [match('a', 'b', 2, 0)])
     expect(ligne(c, 'c')).toMatchObject({ points: 0, wins: 0, losses: 0, draws: 0, played: 0 })
     expect(c.map((s) => s.id)).toEqual(['a', 'c', 'b'])
   })
 
   it('compte un score manquant comme 0 sur un match terminé', () => {
-    const c = computeLeaderboard([joueur('a'), joueur('b')], [match('a', 'b', 1, null)])
+    const c = classer([joueur('a'), joueur('b')], [match('a', 'b', 1, null)])
     expect(ligne(c, 'a')).toMatchObject({ points: 3, gw: 1, gl: 0 })
     expect(ligne(c, 'b')).toMatchObject({ points: 0, losses: 1 })
   })
+})
 
-  it("en cas d'égalité parfaite, garde l'ordre des joueurs reçus, à chaque appel", () => {
-    const joueurs = [joueur('c'), joueur('a'), joueur('b')]
-    const matchs = [match('a', 'b', 1, 1), match('b', 'c', 1, 1), match('c', 'a', 1, 1)]
-    const premier = computeLeaderboard(joueurs, matchs).map((s) => s.id)
-    expect(premier).toEqual(['c', 'a', 'b'])
-    expect(computeLeaderboard(joueurs, matchs).map((s) => s.id)).toEqual(premier)
+describe('computeLeaderboard : départage des égalités parfaites', () => {
+  const ordre = (c: ReturnType<typeof computeLeaderboard>) => c.map((s) => s.id)
+
+  it('à deux, la confrontation directe départage, quel que soit le tirage', () => {
+    // a et b : 4 points, différence 0, 1 victoire ; b a battu a
+    const matchs = [match('a', 'b', 1, 2), match('a', 'c', 2, 1), match('b', 'c', 1, 1), match('c', 'd', 1, 1), match('a', 'd', 1, 1), match('b', 'd', 1, 2)]
+    for (const ligue of ['l1', 'l2', 'l3', 'l4', 'l5', 'l6']) {
+      const c = computeLeaderboard([joueur('a'), joueur('b'), joueur('c'), joueur('d')], matchs, ligue)
+      expect(ligne(c, 'a')).toMatchObject({ points: 4, gw: 4, gl: 4, wins: 1 })
+      expect(ligne(c, 'b')).toMatchObject({ points: 4, gw: 4, gl: 4, wins: 1 })
+      expect(ordre(c).indexOf('b')).toBeLessThan(ordre(c).indexOf('a'))
+    }
+  })
+
+  it('match nul ou non joué entre eux : tirage fixe, stable et indépendant de l’ordre des joueurs', () => {
+    const nul = [match('a', 'b', 1, 1)]
+    const nonJoue = [match('a', 'b', null, null, false)]
+    for (const matchs of [nul, nonJoue]) {
+      const tirages = new Set<string>()
+      for (let i = 0; i < 20; i++) {
+        const ligue = `ligue-${i}`
+        const premier = ordre(computeLeaderboard([joueur('a'), joueur('b')], matchs, ligue))
+        expect(ordre(computeLeaderboard([joueur('b'), joueur('a')], matchs, ligue))).toEqual(premier)
+        expect(ordre(computeLeaderboard([joueur('a'), joueur('b')], matchs, ligue))).toEqual(premier)
+        tirages.add(premier.join(''))
+      }
+      // une autre ligue peut donner l'autre ordre
+      expect(tirages).toEqual(new Set(['ab', 'ba']))
+    }
+  })
+
+  it('à trois, mini-classement aux points sur leurs seuls matchs entre eux, puis tirage pour ceux qui restent', () => {
+    // a, b, c : 6 points, +2, 2 victoires chacun. Entre eux : a bat b et c, b-c non joué
+    // → a 6 points, b et c 0 : a devant, puis tirage fixe entre b et c.
+    const matchs = [
+      match('a', 'b', 2, 1), match('a', 'c', 2, 1),
+      match('b', 'd', 2, 1), match('b', 'e', 2, 0),
+      match('c', 'd', 2, 1), match('c', 'e', 2, 0),
+    ]
+    const ordres = new Set<string>()
+    for (let i = 0; i < 20; i++) {
+      const c = computeLeaderboard([joueur('c'), joueur('b'), joueur('d'), joueur('e'), joueur('a')], matchs, `ligue-${i}`)
+      for (const id of ['a', 'b', 'c']) expect(ligne(c, id)).toMatchObject({ points: 6, wins: 2 })
+      for (const id of ['a', 'b', 'c']) expect(ligne(c, id).gw - ligne(c, id).gl).toBe(2)
+      expect(ordre(c).slice(0, 3)[0]).toBe('a')
+      ordres.add(ordre(c).slice(0, 3).join(''))
+    }
+    expect(ordres).toEqual(new Set(['abc', 'acb']))
+  })
+
+  it('à trois en cycle parfait (a > b > c > a) : tirage fixe, stable et indépendant de l’ordre des joueurs', () => {
+    const matchs = [match('a', 'b', 2, 1), match('b', 'c', 2, 1), match('c', 'a', 2, 1)]
+    const ordres = new Set<string>()
+    for (let i = 0; i < 40; i++) {
+      const ligue = `ligue-${i}`
+      const c1 = ordre(computeLeaderboard([joueur('a'), joueur('b'), joueur('c')], matchs, ligue))
+      expect(ordre(computeLeaderboard([joueur('c'), joueur('a'), joueur('b')], matchs, ligue))).toEqual(c1)
+      ordres.add(c1.join(''))
+    }
+    expect(ordres.size).toBeGreaterThan(1)
+  })
+
+  it('ne change rien aux critères points, différence de manches et victoires', () => {
+    const c = computeLeaderboard([joueur('b'), joueur('a'), joueur('c'), joueur('d')], [
+      match('a', 'c', 2, 0),
+      match('b', 'd', 2, 1),
+    ], 'ligue')
+    expect(ordre(c)).toEqual(['a', 'b', 'd', 'c'])
   })
 })
 

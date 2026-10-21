@@ -19,7 +19,7 @@ beforeEach(async () => {
 })
 
 describe('loadStandings', () => {
-  it('rend les inscrits sans match à zéro, dans l’ordre d’arrivée sur le site', async () => {
+  it('rend les inscrits sans match à zéro, départagés par le tirage fixe de la ligue', async () => {
     const { data, error } = await loadStandings(db, 'l1')
     expect(error).toBeNull()
     expect(data!.played).toBe(0)

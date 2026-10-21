@@ -97,6 +97,7 @@ describe('computeAllStats', () => {
       matchs.map(([p1, p2, s1, s2], i) => ({
         id: `m${i}`, player1_id: p1, player2_id: p2, score_p1: s1, score_p2: s2, is_completed: true, round_number: 1,
       })),
+      'ligue',
     )
     const { players } = computeAllStats(matchs.map(([p1, p2, s1, s2]) => ligne({ player1_id: p1, player2_id: p2, score_p1: s1, score_p2: s2 })))
 

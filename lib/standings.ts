@@ -13,5 +13,5 @@ export async function loadStandings(db: D1Database, leagueId: string): Promise<R
   const [players, matches] = await Promise.all([listEnrolledPlayers(db, leagueId), listCompletedMatches(db, leagueId)])
   if (players.error !== null) return players
   if (matches.error !== null) return matches
-  return { data: { standings: computeLeaderboard(players.data, matches.data), played: matches.data.length }, error: null }
+  return { data: { standings: computeLeaderboard(players.data, matches.data, leagueId), played: matches.data.length }, error: null }
 }

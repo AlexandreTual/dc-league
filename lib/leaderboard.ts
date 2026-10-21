@@ -32,7 +32,11 @@ export type Tally = {
 
 export type PlayerStats = Player & Tally
 
-export function computeLeaderboard(players: Player[], matches: Match[]): PlayerStats[] {
+/**
+ * Classement d'une ligue : points, différence de manches, victoires, puis départage des égalités
+ * parfaites (confrontation directe, puis tirage fixe propre à la ligue : `breakTies`).
+ */
+export function computeLeaderboard(players: Player[], matches: Match[], leagueId: string): PlayerStats[] {
   const stats: Record<string, PlayerStats> = {}
 
   for (const player of players) {
@@ -48,18 +52,59 @@ export function computeLeaderboard(players: Player[], matches: Match[]): PlayerS
     }
   }
 
-  for (const match of matches) {
-    if (!match.is_completed) continue
-
-    const p1 = stats[match.player1_id]
-    const p2 = stats[match.player2_id]
-
-    if (!p1 || !p2) continue
-
-    recordMatch(p1, p2, match.score_p1 ?? 0, match.score_p2 ?? 0)
+  const counted = matches.filter((m) => m.is_completed && stats[m.player1_id] && stats[m.player2_id])
+  for (const match of counted) {
+    recordMatch(stats[match.player1_id], stats[match.player2_id], match.score_p1 ?? 0, match.score_p2 ?? 0)
   }
 
-  return Object.values(stats).sort(compareStandings)
+  return breakTies(Object.values(stats).sort(compareStandings), counted, leagueId)
+}
+
+/**
+ * Départage des joueurs à égalité parfaite (`compareStandings` nul) : mini-classement aux points
+ * sur leurs seuls matchs entre eux (à deux : la confrontation directe), puis tirage fixe.
+ */
+function breakTies<T extends Player & Tally>(sorted: T[], matches: Match[], leagueId: string): T[] {
+  const result: T[] = []
+  let start = 0
+  while (start < sorted.length) {
+    let end = start + 1
+    while (end < sorted.length && compareStandings(sorted[start], sorted[end]) === 0) end++
+    const group = sorted.slice(start, end)
+    if (group.length > 1) {
+      const ids = new Set(group.map((p) => p.id))
+      const headToHead = new Map(group.map((p) => [p.id, 0]))
+      for (const m of matches) {
+        if (!ids.has(m.player1_id) || !ids.has(m.player2_id)) continue
+        const s1 = m.score_p1 ?? 0
+        const s2 = m.score_p2 ?? 0
+        if (s1 > s2) headToHead.set(m.player1_id, headToHead.get(m.player1_id)! + 3)
+        else if (s2 > s1) headToHead.set(m.player2_id, headToHead.get(m.player2_id)! + 3)
+        else {
+          headToHead.set(m.player1_id, headToHead.get(m.player1_id)! + 1)
+          headToHead.set(m.player2_id, headToHead.get(m.player2_id)! + 1)
+        }
+      }
+      const draw = new Map(group.map((p) => [p.id, drawKey(leagueId, p.id)]))
+      group.sort((a, b) =>
+        headToHead.get(b.id)! - headToHead.get(a.id)!
+        || draw.get(a.id)! - draw.get(b.id)!
+        || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    }
+    result.push(...group)
+    start = end
+  }
+  return result
+}
+
+/** Tirage au sort fixe : empreinte FNV-1a (32 bits) de « ligue:joueur », la même à chaque affichage. */
+function drawKey(leagueId: string, playerId: string): number {
+  let hash = 0x811c9dc5
+  for (const char of `${leagueId}:${playerId}`) {
+    hash ^= char.codePointAt(0)!
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return hash >>> 0
 }
 
 /** Barème de la ligue : victoire 3 points, nul 1, défaite 0. Met à jour les deux bilans. */
@@ -87,7 +132,7 @@ export function recordMatch(a: Tally, b: Tally, scoreA: number, scoreB: number):
   }
 }
 
-/** Ordre du classement : points, puis différence de manches, puis victoires (tri stable sinon). */
+/** Ordre du classement : points, puis différence de manches, puis victoires (égalités : `breakTies` dans une ligue). */
 export function compareStandings(a: Tally, b: Tally): number {
   if (b.points !== a.points) return b.points - a.points
   const diffA = a.gw - a.gl
