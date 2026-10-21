@@ -19,3 +19,17 @@ export function drawSequence(players: readonly string[], first: string, rounds =
     return { id: players[(offset + i) % n], delay: Math.round(FAST_MS + (SLOW_MS - FAST_MS) * t * t) }
   })
 }
+
+/**
+ * « Qui commence ? » à l'ouverture de la table : en ligne, à plusieurs, au tour 1 tant que ma main n'est pas gardée.
+ * Jamais dans le plateau d'un adversaire sorti en fenêtre à part (la table l'a déjà montré).
+ * Serveur plus ancien sans `turnOrder` : rien.
+ */
+export function opensStartDraw(
+  view: { turn: number; turnOrder?: readonly string[]; players: Record<string, { kept?: boolean }> },
+  me: string | null,
+  { online, boardWindow }: { online: boolean; boardWindow: boolean },
+): boolean {
+  return online && !boardWindow && me !== null && Object.keys(view.players).length > 1
+    && view.turn === 1 && view.players[me]?.kept === false && (view.turnOrder?.length ?? 0) > 0
+}
