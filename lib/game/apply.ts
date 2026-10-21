@@ -26,7 +26,7 @@ import {
   type ZoneRef,
 } from './types'
 
-const ZONE_LABELS: Record<PlayerZone, string> = {
+export const ZONE_LABELS: Record<PlayerZone, string> = {
   library: 'bibliothèque',
   hand: 'main',
   battlefield: 'champ de bataille',
