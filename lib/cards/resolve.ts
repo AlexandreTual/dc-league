@@ -32,10 +32,10 @@ function isStale(lookup: StoredCardLookup | undefined, now: Date): boolean {
   return !Number.isFinite(fetched) || now.getTime() - fetched > NEGATIVE_CACHE_MS
 }
 
+// Une édition et un numéro qui désignent une autre carte (faute de frappe, numérotation d'un autre site)
+// ne la remplacent pas : la ligne repart dans la recherche par nom.
 function matches(card: ScryfallCard, w: Wanted, byName: boolean): boolean {
-  if (!byName && w.set && w.number) {
-    return card.set === w.set.toLowerCase() && card.collector_number === w.number
-  }
+  if (!byName && w.set && w.number && (card.set !== w.set.toLowerCase() || card.collector_number !== w.number)) return false
   return sameName(card, w.name)
 }
 
