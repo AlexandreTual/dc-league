@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { CARD_TYPES, countByType, filterPile, type CardType } from '@/lib/game/card-types'
 import { placeAt, shiftCard, syncOrder } from '@/lib/game/pile-order'
 import type { Catalog, PlayerZone, Position, VisibleCard } from '@/lib/game/types'
+import { cardLabel } from './a11y'
 import Draggable from './Draggable'
 import GameCard, { type Lang } from './GameCard'
 import { touchTarget } from './touch'
@@ -155,7 +156,7 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
           {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">Aucune carte</p>}
           {visible.map((card, index) => (
             <PileCard key={card.id} card={card} slot={inPanel}>
-              <Draggable id={card.id} dragKey={pileKey(card.id)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
+              <Draggable id={card.id} dragKey={pileKey(card.id)} label={cardLabel(catalogs[card.owner], card, lang)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
                 <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
                 {ordered && index === 0 && (
                   <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold" data-pile-top>Dessus</span>
