@@ -8,7 +8,7 @@ L'assistant IA explique une carte ou l'interaction entre plusieurs cartes, dans 
 
 Il utilise **Google Gemini, en offre gratuite**. Le site envoie à Gemini le texte Oracle, le texte français et les règles officielles des cartes choisies : l'IA ne cherche rien sur Internet.
 
-Limites : joueurs connectés seulement, **20 questions par joueur et par jour** (remis à zéro à minuit, heure de Paris), 10 cartes au plus par question.
+Limites : joueurs connectés seulement, **20 questions par joueur et par jour** (remis à zéro à minuit, heure de Paris), 10 cartes au plus par question. Une question est rendue quand Gemini est en panne ou trop lent, pas quand il rejette la requête ou que sa limite de débit est atteinte.
 
 ---
 

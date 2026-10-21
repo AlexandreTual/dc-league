@@ -9,7 +9,8 @@ import type { GeminiContent } from './types'
 export const DEFAULT_GEMINI_MODEL = 'gemini-flash-latest'
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com'
 
-export type GeminiErrorKind = 'quota' | 'timeout' | 'refused' | 'unavailable'
+/** invalid : requête rejetée par Gemini (4xx hors 429) ; unavailable : panne côté Gemini ou réseau. */
+export type GeminiErrorKind = 'quota' | 'timeout' | 'refused' | 'invalid' | 'unavailable'
 
 export class GeminiError extends Error {
   constructor(readonly kind: GeminiErrorKind, detail: string) {
@@ -57,6 +58,7 @@ export function createGeminiClient(deps: {
           signal: controller.signal,
         })
         if (res.status === 429) throw new GeminiError('quota', 'HTTP 429')
+        if (res.status >= 400 && res.status < 500) throw new GeminiError('invalid', `HTTP ${res.status}`)
         if (!res.ok) throw new GeminiError('unavailable', `HTTP ${res.status}`)
         data = (await res.json()) as GeminiResponse
       } catch (e) {

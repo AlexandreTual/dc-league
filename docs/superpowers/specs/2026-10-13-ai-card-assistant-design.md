@@ -27,7 +27,7 @@ L'IA ne cherche rien sur Internet : le serveur lui envoie le **texte Oracle** et
 | Qui | joueurs connectés seulement (le quota est par compte) ; un visiteur ne voit pas le bouton |
 | Jour du quota | jour civil de Paris (`Europe/Paris`), remis à zéro à minuit |
 | Cartes par question | 1 à 10 cartes, uniquement des cartes déjà importées sur le site (comme la route des règles) |
-| Longueur | question : 1 000 caractères au plus ; historique renvoyé : les 10 derniers messages au plus |
+| Longueur | question : 1 000 caractères au plus ; historique renvoyé : les 10 derniers messages au plus, chaque réponse de l'IA à 8 000 caractères au plus et 24 000 en tout (le panneau coupe ou retire les plus anciens, le serveur refuse au-delà, #221) |
 | Conversation | gardée dans la page (pas en base) ; fermer le panneau la garde jusqu'au rechargement ; bouton « Nouvelle question » pour repartir de zéro |
 | Modèle | un modèle Gemini « Flash » de l'offre gratuite, nom dans `GEMINI_MODEL` (valeur par défaut choisie au moment du plan, les noms et quotas de Google changent) |
 | Sans clé | si `GEMINI_API_KEY` est absent, la fonction est désactivée : aucun bouton affiché, la route répond 503 « Assistant IA indisponible » |
@@ -60,7 +60,7 @@ Corps : `{ oracleIds: string[], messages: { role: 'user' | 'assistant', text: st
 
 1. Joueur connecté obligatoire (`apiRoute`), sinon 401.
 2. Validation : 1 à 10 `oracleIds` valides (`isOracleId`), dernier message `user`, longueurs ci-dessus ; sinon 400 avec message français.
-3. Quota : incrément atomique du compteur du jour **avant** l'appel à Gemini ; au-delà de 20 → 429 « Plus de questions pour aujourd'hui ». Une erreur de Gemini rend la question (décrément), pour ne pas pénaliser le joueur.
+3. Quota : incrément atomique du compteur du jour **avant** l'appel à Gemini ; au-delà de 20 → 429 « Plus de questions pour aujourd'hui ». Une panne de Gemini (délai dépassé, erreur 5xx, réseau) rend la question (décrément), pour ne pas pénaliser le joueur ; une requête rejetée (400, 429, refus) reste comptée, pour que le quota freine les abus (#221).
 4. Cartes : lecture en D1 (anglais + français) et règles via `loadRulings` (cache, Scryfall si besoin, ignorées si indisponibles). Carte inconnue du site → 404 « Carte introuvable ».
 5. Appel Gemini (`generateContent`, clé dans l'en-tête `x-goog-api-key`, jamais dans l'adresse), délai max 30 s.
 6. Réponse : `{ answer: string, remaining: number }`. Erreurs Gemini (quota Google atteint, délai, refus) → 503 « L'assistant IA ne répond pas, réessaie dans un moment » ; rien de la réponse brute de Google n'est renvoyé au navigateur.

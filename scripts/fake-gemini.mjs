@@ -23,6 +23,10 @@ export function startFakeGemini(port = FAKE_GEMINI_PORT) {
       const last = body.contents?.at(-1)?.parts?.[0]?.text ?? ''
       const question = last.split('\n').at(-1)
       res.setHeader('content-type', 'application/json')
+      if (question.includes('#panne')) {
+        res.statusCode = 503
+        return res.end(JSON.stringify({ error: { status: 'UNAVAILABLE' } }))
+      }
       if (question.includes('#quota')) {
         res.statusCode = 429
         return res.end(JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED' } }))
