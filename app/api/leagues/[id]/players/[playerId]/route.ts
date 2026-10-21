@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { upsertLeaguePlayer, removeLeaguePlayer, isLeagueMember } from '@/lib/db-leagues'
 import { getDeck } from '@/lib/db-decks'
-import { countMatches } from '@/lib/db'
+import { countMatches, STATUTS_LIGUE } from '@/lib/db'
 import { leagueFor, MANAGE_REFUSED } from '@/lib/leagues/route-access'
 import { LEAGUE_FINISHED } from '@/lib/leagues/join'
 
@@ -61,7 +61,7 @@ export function DELETE(req: NextRequest, { params }: Params) {
     }
 
     const { error } = await removeLeaguePlayer(db, id, playerId)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json({ ok: true })
   })
 }

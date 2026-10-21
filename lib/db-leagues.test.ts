@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
-import { listLeaguePlayers } from './db-leagues'
+import { enrollLeaguePlayer, listLeaguePlayers, removeLeaguePlayer } from './db-leagues'
+import { ERREURS_LIGUE } from './db'
 
 let db: D1Database
 
@@ -21,5 +22,39 @@ const flags = (players: { player_id: string; deck_has_cards: boolean }[]) =>
 describe('deck_has_cards', () => {
   it('listLeaguePlayers indique si le deck a une liste importée', async () => {
     expect(flags((await listLeaguePlayers(db, 'l1')).data!)).toEqual({ p1: true, p2: false, p3: false })
+  })
+})
+
+describe('inscriptions figées après la génération des matchs', () => {
+  const genere = () => db.prepare("INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) VALUES ('m1', 'p1', 'p2', 1, 'l1')").run()
+  const inscrits = async () => (await listLeaguePlayers(db, 'l1')).data!.map((p) => p.player_id).sort()
+
+  beforeEach(async () => {
+    await db.prepare("INSERT INTO players (id, name) VALUES ('p4', 'Damien')").run()
+  })
+
+  it('enrollLeaguePlayer inscrit avant la génération, refuse après', async () => {
+    expect((await enrollLeaguePlayer(db, 'l1', 'p4')).error).toBeNull()
+    await removeLeaguePlayer(db, 'l1', 'p4')
+    await genere()
+    expect(await enrollLeaguePlayer(db, 'l1', 'p4')).toEqual({ data: null, error: ERREURS_LIGUE.matchesExist })
+    expect(await inscrits()).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  it('enrollLeaguePlayer rend l’inscription existante d’un joueur déjà inscrit, même après la génération', async () => {
+    await genere()
+    expect((await enrollLeaguePlayer(db, 'l1', 'p1')).data).toMatchObject({ league_id: 'l1', player_id: 'p1' })
+  })
+
+  it('removeLeaguePlayer désinscrit avant la génération, refuse après', async () => {
+    expect((await removeLeaguePlayer(db, 'l1', 'p3')).error).toBeNull()
+    expect(await inscrits()).toEqual(['p1', 'p2'])
+    await genere()
+    expect(await removeLeaguePlayer(db, 'l1', 'p2')).toEqual({ data: null, error: ERREURS_LIGUE.matchesExist })
+    expect(await inscrits()).toEqual(['p1', 'p2'])
+  })
+
+  it('removeLeaguePlayer accepte un joueur déjà absent avant la génération', async () => {
+    expect((await removeLeaguePlayer(db, 'l1', 'p4')).error).toBeNull()
   })
 })
