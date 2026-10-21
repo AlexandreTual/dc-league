@@ -337,6 +337,19 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     return setCard(next, action.id, { x: clampPct(action.x ?? card.x), y: clampPct(action.y ?? card.y) })
   }
 
+  if (from.zone === 'battlefield' && to.zone === 'battlefield') {
+    // Règle 110.2a : changer de contrôleur ne change pas d'objet. Comme `giveControl`, la carte garde tout son état
+    // (engagée, marqueurs, force, loyauté, capacités, face cachée) ; seules sa zone et sa position changent.
+    let next = setZone(state, from, state.players[from.player].zones.battlefield.filter((id) => id !== action.id))
+    next = setZone(next, to, insertAt(next.players[to.player].zones.battlefield, action.id, action.position ?? 'bottom'))
+    const patch: Partial<CardInstance> = { x: clampPct(action.x ?? 50), y: clampPct(action.y ?? 50) }
+    // Règle 708.5 : le contrôleur d'une carte face cachée peut la regarder.
+    if (card.faceDown) patch.knownBy = [...new Set([...card.knownBy, to.player])]
+    next = setCard(next, action.id, patch)
+    const name = card.faceDown ? 'une carte' : cardName(state, action.id)
+    return log(next, action.actor, `${name} : ${zoneLabel(state, action.actor, from)} → ${zoneLabel(state, action.actor, to)}`)
+  }
+
   const willBeHidden = card.faceDown || !!action.faceDown || HIDDEN_ZONES.includes(to.zone)
   const name = willBeHidden ? 'une carte' : cardName(state, action.id)
   let next = setZone(state, from, state.players[from.player].zones[from.zone].filter((id) => id !== action.id))
