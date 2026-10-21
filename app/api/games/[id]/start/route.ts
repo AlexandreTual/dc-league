@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createScryfallClient } from '@/lib/cards/scryfall'
-import { gameStub } from '@/lib/games/binding'
+import { destroyGame, gameStub } from '@/lib/games/binding'
 import { gameWrite, resultResponse } from '@/lib/games/http'
 import { startTable, type GameInit } from '@/lib/games/start'
 
@@ -20,6 +20,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const firstPlayer = typeof body.firstPlayer === 'string' ? body.firstPlayer : undefined
     const scryfall = createScryfallClient({ fetch, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) })
-    return resultResponse(await startTable(db, init, id, user.playerId, firstPlayer, scryfall))
+    return resultResponse(await startTable(db, init, destroyGame(env), id, user.playerId, firstPlayer, scryfall))
   })
 }

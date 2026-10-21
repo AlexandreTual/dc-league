@@ -4,8 +4,9 @@ import { cardRow, seedCache } from '@/test/factories'
 import { commitDeckList } from '@/lib/cards/commit'
 import { lookupKey, parseDeckList } from '@/lib/cards/parse'
 import { createScryfallClient } from '@/lib/cards/scryfall'
-import { chooseDeck, createTable, getTable, joinTable } from '@/lib/db-games'
+import { chooseDeck, createTable, deleteTable, getTable, joinTable, leaveTable } from '@/lib/db-games'
 import type { GameSetup } from '@/lib/game/types'
+import type { DestroyGame } from './remove'
 import { startTable, type GameInit } from './start'
 
 // Scryfall factice : aucune carte, donc aucun jeton.
@@ -14,15 +15,22 @@ const noTokens = createScryfallClient({ fetch: (async () => new Response('{"data
 let db: D1Database
 let tableId: string
 let calls: { tableId: string; body: { setup: GameSetup; hostId: string; firstPlayer?: string } }[]
+let destroyed: string[]
 
 const okInit: GameInit = async (id, body) => {
   calls.push({ tableId: id, body })
   return { ok: true, status: 201 }
 }
 
+const okDestroy: DestroyGame = async (id) => {
+  destroyed.push(id)
+  return true
+}
+
 beforeEach(async () => {
   db = createTestDb()
   calls = []
+  destroyed = []
   const list = '1 Sol Ring\n2 Forest'
   await seedCache(db, parseDeckList(list).lines.map((l, i) => ({ key: lookupKey(l), en: cardRow({ id: `en-${i}`, name: l.name }) })))
   for (const [id, name] of [['p1', 'Alex'], ['p2', 'Bob']]) {
@@ -38,18 +46,18 @@ beforeEach(async () => {
 
 describe('startTable', () => {
   it('réservé à l’hôte', async () => {
-    expect((await startTable(db, okInit, tableId, 'p2')).error).toBe("Seul l'hôte peut faire ça")
+    expect((await startTable(db, okInit, okDestroy, tableId, 'p2')).error).toBe("Seul l'hôte peut faire ça")
     expect(calls).toEqual([])
   })
 
   it('refuse si un deck choisi a été supprimé', async () => {
     await db.prepare("DELETE FROM decks WHERE id = 'd-p2'").run()
-    expect((await startTable(db, okInit, tableId, 'p1')).error).toBe('Chaque joueur doit choisir un deck')
+    expect((await startTable(db, okInit, okDestroy, tableId, 'p1')).error).toBe('Chaque joueur doit choisir un deck')
     expect(calls).toEqual([])
   })
 
   it('construit la partie et passe la table en cours', async () => {
-    const res = await startTable(db, okInit, tableId, 'p1')
+    const res = await startTable(db, okInit, okDestroy, tableId, 'p1')
     expect(res.data?.status).toBe('playing')
     expect(calls).toHaveLength(1)
     const { setup, hostId } = calls[0].body
@@ -66,43 +74,43 @@ describe('startTable', () => {
       sleep: async () => {},
     })
     await db.prepare("UPDATE cards SET power = NULL, toughness = NULL WHERE id = 'en-1'").run()
-    await startTable(db, okInit, tableId, 'p1', undefined, stats)
+    await startTable(db, okInit, okDestroy, tableId, 'p1', undefined, stats)
     const forest = calls[0].body.setup.players[0].catalog.entries.find((e) => e.en.id === 'en-1')!
     expect([forest.en.power, forest.en.toughness]).toEqual([null, null])
   })
 
   it('premier joueur choisi par l’hôte : transmis au serveur de jeu', async () => {
-    await startTable(db, okInit, tableId, 'p1', 'p2')
+    await startTable(db, okInit, okDestroy, tableId, 'p1', 'p2')
     expect(calls[0].body.firstPlayer).toBe('p2')
   })
 
   it('sans choix de premier joueur : rien n’est transmis (tirage au sort)', async () => {
-    await startTable(db, okInit, tableId, 'p1')
+    await startTable(db, okInit, okDestroy, tableId, 'p1')
     expect(calls[0].body).not.toHaveProperty('firstPlayer')
   })
 
   it('refuse un premier joueur qui n’est pas à la table', async () => {
-    expect((await startTable(db, okInit, tableId, 'p1', 'p9')).error).toBe("Ce joueur n'est pas à cette table")
+    expect((await startTable(db, okInit, okDestroy, tableId, 'p1', 'p9')).error).toBe("Ce joueur n'est pas à cette table")
     expect(calls).toEqual([])
     expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
 
   it('table qui reste ouverte si le serveur de jeu échoue', async () => {
-    const res = await startTable(db, async () => ({ ok: false, status: 500 }), tableId, 'p1')
+    const res = await startTable(db, async () => ({ ok: false, status: 500 }), okDestroy, tableId, 'p1')
     expect(res.error).toBe('Erreur interne, réessaie plus tard')
     expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
 
   it('table rouverte si le serveur de jeu est injoignable (exception)', async () => {
     const throwing: GameInit = async () => { throw new Error('injoignable') }
-    await expect(startTable(db, throwing, tableId, 'p1')).rejects.toThrow('injoignable')
+    await expect(startTable(db, throwing, okDestroy, tableId, 'p1')).rejects.toThrow('injoignable')
     expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
 })
 
 describe('startTable concurrent', () => {
   it('deux démarrages simultanés : une seule partie créée', async () => {
-    const results = await Promise.all([startTable(db, okInit, tableId, 'p1'), startTable(db, okInit, tableId, 'p1')])
+    const results = await Promise.all([startTable(db, okInit, okDestroy, tableId, 'p1'), startTable(db, okInit, okDestroy, tableId, 'p1')])
     expect(results.filter((r) => r.data?.status === 'playing')).toHaveLength(1)
     expect(results.filter((r) => r.error === 'La partie a déjà commencé')).toHaveLength(1)
     expect(calls).toHaveLength(1)
@@ -115,9 +123,52 @@ describe('startTable concurrent', () => {
       joined = (await joinTable(db, tableId, 'p3')).error
       return okInit(id, body)
     }
-    const res = await startTable(db, slowInit, tableId, 'p1')
+    const res = await startTable(db, slowInit, okDestroy, tableId, 'p1')
     expect(joined).toBe('La partie a déjà commencé')
     expect(res.data!.players.map((p) => p.playerId)).toEqual(['p1', 'p2'])
     expect(calls[0].body.setup.players.map((p) => p.id)).toEqual(['p1', 'p2'])
+  })
+})
+
+describe('startTable : partie restée dans le serveur de jeu', () => {
+  it('table supprimée pendant la création : la partie est détruite', async () => {
+    const slowInit: GameInit = async (id, body) => {
+      await deleteTable(db, tableId)
+      return okInit(id, body)
+    }
+    const res = await startTable(db, slowInit, okDestroy, tableId, 'p1')
+    expect(res.error).toBe('Table introuvable')
+    expect(destroyed).toEqual([tableId])
+    expect((await getTable(db, tableId)).data).toBeNull()
+  })
+
+  it('partie déjà créée avec d’autres places (409) : recréée avec les places actuelles', async () => {
+    // Premier essai : partie créée, mais la table est rouverte ; p2 part ensuite et p3 arrive.
+    await db.prepare("INSERT INTO players (id, name) VALUES ('p3', 'Chloé')").run()
+    await db.prepare("INSERT INTO decks (id, player_id, name) VALUES ('d-p3', 'p3', 'Deck de Chloé')").run()
+    await commitDeckList(db, 'd-p3', '1 Sol Ring', noTokens)
+    await leaveTable(db, tableId, 'p2')
+    await joinTable(db, tableId, 'p3')
+    await chooseDeck(db, tableId, 'p3', 'd-p3')
+    let created = true
+    const init: GameInit = async (id, body) => {
+      if (created) return { ok: false, status: 409 }
+      return okInit(id, body)
+    }
+    const destroy: DestroyGame = async (id) => {
+      created = false
+      return okDestroy(id)
+    }
+    const res = await startTable(db, init, destroy, tableId, 'p1')
+    expect(destroyed).toEqual([tableId])
+    expect(calls).toHaveLength(1)
+    expect(calls[0].body.setup.players.map((p) => p.id)).toEqual(['p1', 'p3'])
+    expect(res.data?.status).toBe('playing')
+  })
+
+  it('409 et ancienne partie impossible à supprimer : la table ne passe pas en cours', async () => {
+    const res = await startTable(db, async () => ({ ok: false, status: 409 }), async () => false, tableId, 'p1')
+    expect(res.error).toBe('Erreur interne, réessaie plus tard')
+    expect((await getTable(db, tableId)).data!.status).toBe('open')
   })
 })
