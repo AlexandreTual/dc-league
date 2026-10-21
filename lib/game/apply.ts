@@ -309,6 +309,24 @@ function withoutOffer(state: GameState, player: string): GameState {
   return { ...state, ventureOffers: (state.ventureOffers ?? []).filter((p) => p !== player) }
 }
 
+/**
+ * Règles 724.4 et 725.4 : le monarque ou le détenteur de l'initiative qui quitte la partie les laisse au joueur actif
+ * (le suivant si c'était son tour : `passTurn` est déjà passé). Prendre l'initiative propose d'explorer Les Souterrains.
+ */
+function inheritFrom(state: GameState, gone: string): GameState {
+  const heir = state.players[state.activePlayer].eliminated ? null : state.activePlayer
+  let s = state
+  if (s.monarch === gone) {
+    s = { ...s, monarch: heir }
+    if (heir) s = log(s, null, `${s.players[heir].name} devient le monarque`)
+  }
+  if (s.initiative === gone) {
+    s = { ...(heir ? offerVenture(s, heir) : s), initiative: heir }
+    if (heir) s = log(s, null, `${s.players[heir].name} prend l’initiative`)
+  }
+  return s
+}
+
 /** Explore (règle 701.49) : entre dans la première salle d'un donjon, ou avance d'une salle ; dernière salle : donjon terminé. */
 function venture(state: GameState, action: Extract<GameAction, { type: 'venture' }>): GameState {
   const player = state.players[action.actor]
@@ -650,7 +668,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'eliminate': {
       let s = setPlayer(state, action.target, { eliminated: true })
       s = log(s, action.actor, `${state.players[action.target].name} est éliminé`)
-      return state.activePlayer === action.target ? passTurn(s, null, false, action.at) : s
+      if (state.activePlayer === action.target) s = passTurn(s, null, false, action.at)
+      return inheritFrom(withoutOffer(s, action.target), action.target)
     }
 
     case 'reveal': {
