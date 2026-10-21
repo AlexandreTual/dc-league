@@ -425,6 +425,10 @@ try {
   await bastien.page.getByRole('button', { name: 'Abandonner' }).click()
   await ana.page.locator(`[data-panel="${BASTIEN.id}"]`).getByText('éliminé').waitFor()
   check(true, 'Bastien abandonne')
+  await bastien.page.getByTestId('eliminated').getByText('Tu es éliminé, tu regardes la fin de la partie').waitFor()
+  const bar = bastien.page.getByTestId('top-bar')
+  const disabled = await Promise.all(['Jeton', 'Dés', 'Fin de tour'].map((name) => bar.getByRole('button', { name, exact: true }).isDisabled()))
+  check(disabled.every(Boolean), 'Bastien éliminé : bandeau affiché, Jeton, Dés et Fin de tour désactivés')
   await ana.page.getByRole('button', { name: 'Hôte' }).click()
   await ana.page.getByRole('menuitem', { name: `Éliminer ${CHLOE.name}` }).click()
   for (const who of [ana, bastien, chloe, damien]) {
