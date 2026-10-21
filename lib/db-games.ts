@@ -268,8 +268,16 @@ export async function claimStart(db: D1Database, id: string, hostId: string): Pr
 export const releaseStart = (db: D1Database, id: string) =>
   run(db, "UPDATE game_tables SET status = 'open' WHERE id = ? AND status = 'starting'", id)
 
-export const markPlaying = (db: D1Database, id: string) =>
-  run(db, "UPDATE game_tables SET status = 'playing', last_activity_at = datetime('now') WHERE id = ?", id)
+/** Passe la table en cours ; false si elle n'existe plus (supprimée pendant le démarrage). */
+export async function markPlaying(db: D1Database, id: string): Promise<Result<boolean>> {
+  return guard(async () => {
+    const { meta } = await db
+      .prepare("UPDATE game_tables SET status = 'playing', last_activity_at = datetime('now') WHERE id = ?")
+      .bind(id)
+      .run()
+    return ok(meta.changes > 0)
+  })
+}
 
 export const touchActivity = (db: D1Database, id: string, now: Date) =>
   run(db, 'UPDATE game_tables SET last_activity_at = ? WHERE id = ?', sqlTime(now), id)

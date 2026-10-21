@@ -18,12 +18,15 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
   const now = new Date()
   const idle = tables.filter((t) => idleFor(t.lastActivityAt, now) > IDLE_AFTER_MS)
 
-  /** Supprime les tables une à une ; renvoie le nombre supprimé (arrêt à la première erreur, déjà affichée). */
-  async function remove(ids: string[]): Promise<number> {
+  /**
+   * Supprime les tables une à une ; renvoie le nombre supprimé (arrêt à la première erreur, déjà affichée).
+   * `idleOnly` : le serveur refuse une table redevenue active depuis le chargement de la liste.
+   */
+  async function remove(ids: string[], idleOnly = false): Promise<number> {
     setBusy(true)
     let removed = 0
     for (const id of ids) {
-      const { ok } = await call(`/api/admin/games/${id}`, 'DELETE')
+      const { ok } = await call(`/api/admin/games/${id}${idleOnly ? '?inactive=1' : ''}`, 'DELETE')
       if (!ok) break
       removed++
       setTables((list) => list.filter((t) => t.id !== id))
@@ -38,9 +41,20 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
     if ((await remove([t.id])) === 1) onToast('Partie supprimée')
   }
 
+  /** Relit la liste avant de demander la confirmation : une partie reprise entre-temps n'est plus proposée. */
   async function removeIdle() {
-    if (!confirm(`Supprimer ${idle.length === 1 ? 'la partie inactive' : `les ${idle.length} parties inactives`} depuis plus de 24 h ?`)) return
-    const removed = await remove(idle.map((t) => t.id))
+    setBusy(true)
+    const { ok, data } = await call<GameTable[]>('/api/admin/games', 'GET')
+    setBusy(false)
+    if (!ok || !data) return
+    setTables(data)
+    const fresh = data.filter((t) => idleFor(t.lastActivityAt, new Date()) > IDLE_AFTER_MS)
+    if (fresh.length === 0) {
+      onToast('Aucune partie inactive depuis plus de 24 h')
+      return
+    }
+    if (!confirm(`Supprimer ${fresh.length === 1 ? 'la partie inactive' : `les ${fresh.length} parties inactives`} depuis plus de 24 h ?`)) return
+    const removed = await remove(fresh.map((t) => t.id), true)
     if (removed > 0) onToast(`${removed} partie${removed > 1 ? 's' : ''} supprimée${removed > 1 ? 's' : ''}`)
   }
 

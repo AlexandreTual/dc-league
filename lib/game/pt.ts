@@ -1,5 +1,6 @@
 // Force et endurance d'une carte en jeu : imprimée (ou 2/2 face cachée), plus marqueurs et modifications libres
 // (pour toujours, et jusqu'à la fin du tour).
+import { catalogEntry } from './catalog'
 import type { CardInstance, Catalog, PtMod } from './types'
 
 export const NO_PT: PtMod = { power: 0, toughness: 0 }
@@ -29,7 +30,7 @@ const pair = (power: string | null | undefined, toughness: string | null | undef
 export function basePT(catalog: Catalog | undefined, card: Pick<CardInstance, 'ref' | 'token' | 'flipped' | 'faceDown'>): Base | null {
   if (card.faceDown) return FACE_DOWN
   if (card.token) return pair(card.token.power, card.token.toughness)
-  const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
+  const entry = catalogEntry(catalog, card.ref)
   if (!entry) return null
   const faces = entry.en.faces
   if (card.flipped && faces && faces.length > 1) return pair(faces[1].power, faces[1].toughness)

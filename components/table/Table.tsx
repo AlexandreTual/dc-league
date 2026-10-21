@@ -14,7 +14,7 @@ import { closePileActions } from '@/lib/game/pile-order'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
 import type { ClientAction } from '@/lib/game/room'
-import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
+import type { Catalog, PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import DiceModal from './DiceModal'
@@ -55,6 +55,7 @@ import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
 import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers, type ZoneSelection } from './zones'
+import { createHoverStore, useHovered, type HoverStore } from './hover'
 import { cardPreview } from '@/lib/game/card-preview'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
@@ -99,6 +100,13 @@ const LINE_MS = 4000
 const MAX_LINES = 3
 
 const sameZone = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
+
+/** Aperçu de la carte survolée : seul composant redessiné quand la souris passe d'une carte à l'autre. */
+function HoverPreview({ hover, cards, catalogs, lang }: { hover: HoverStore; cards: Map<string, VisibleCard>; catalogs: Record<string, Catalog>; lang: Lang }) {
+  const hovered = useHovered(hover)
+  const card = hovered ? cards.get(hovered) ?? null : null
+  return <PreviewPane card={card} catalog={catalogs[card?.owner ?? '']} lang={lang} />
+}
 
 /**
  * La table de jeu, pour le mode test comme pour le jeu en ligne.
@@ -146,7 +154,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [bindings, setBindings] = useState<Bindings>(DEFAULT_BINDINGS)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [animationsOpen, setAnimationsOpen] = useState(false)
-  const [hovered, setHovered] = useState<string | null>(null)
+  // Carte survolée hors de l'état de la table : la survoler ne redessine que l'aperçu.
+  const [hover] = useState(createHoverStore)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
   const [arriving, setArriving] = useState<Map<string, Arrival>>(new Map())
@@ -309,10 +318,10 @@ export default function Table({ source, notice, boardWindow }: {
 
   // Au doigt, la carte « survolée » reste affichée (pas de mouseleave) : le toucher suivant masque l'aperçu.
   useEffect(() => {
-    const onDown = (e: PointerEvent) => { if (e.pointerType !== 'mouse') setHovered(null) }
+    const onDown = (e: PointerEvent) => { if (e.pointerType !== 'mouse') hover.set(null) }
     window.addEventListener('pointerdown', onDown, true)
     return () => window.removeEventListener('pointerdown', onDown, true)
-  }, [])
+  }, [hover])
 
   // Gestionnaire refait à chaque rendu (carte survolée, menus, fenêtres) ; un seul écouteur le lit.
   const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
@@ -346,6 +355,7 @@ export default function Table({ source, notice, boardWindow }: {
     // Ni pour un spectateur.
     if (!canAct) return
     if (isCardShortcut(shortcut)) {
+      const hovered = hover.get()
       // Carte sous la souris, avec les mêmes entrées que son menu clic droit (rien pour une carte cachée).
       const commandsFor = (id: string) => {
         const card = cards.get(id)
@@ -362,7 +372,7 @@ export default function Table({ source, notice, boardWindow }: {
       if (!commands) return
       e.preventDefault()
       // La carte quitte la souris : un second appui ne doit pas la déplacer encore depuis sa nouvelle zone.
-      if (movesCard(shortcut)) setHovered(null)
+      if (movesCard(shortcut)) hover.set(null)
       return run(commands)
     }
     e.preventDefault()
@@ -402,7 +412,7 @@ export default function Table({ source, notice, boardWindow }: {
       const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang) : null
       if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
-    onHover: (id) => setHovered(id),
+    onHover: hover.set,
     onPtEdit: canAct ? (id, zone, at) => {
       const card = cards.get(id)
       const entries = card ? statMenu(menuCtx, card) : []
@@ -742,7 +752,7 @@ export default function Table({ source, notice, boardWindow }: {
         {!boardWindow && <DiceTray rolls={playerFx.rolls} />}
         {logOpen && <LogPanel view={view} onClose={() => setLogOpen(false)} />}
       </div>
-      {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
+      {!dragging && <HoverPreview hover={hover} cards={cards} catalogs={catalogs} lang={lang} />}
 
       {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu), menuTarget(menu))} preview={menuImage(menu)} />}
       {pile && (
