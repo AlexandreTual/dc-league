@@ -318,9 +318,20 @@ try {
   check((await page.locator('[data-zone="command"]').innerText()).includes('Taxe +2'), 'retour en zone de commandement : taxe +2')
   await capture('taxe')
 
+  // Recherche fermée par Échap, case « Mélanger en fermant » laissée cochée : la bibliothèque est mélangée.
+  await library.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /Chercher une carte/ }).click()
+  await page.getByRole('dialog').waitFor()
+  check(await page.getByRole('dialog').getByRole('checkbox').isChecked(), 'recherche : « Mélanger en fermant » cochée par défaut')
+  await page.locator('[data-pile-card]').first().getByRole('button', { name: 'Main', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  check((await page.locator('[data-pile-card]').count()) === 0, 'recherche : Échap ferme la fenêtre')
+
   await page.getByRole('button', { name: /Journal/ }).click()
   const log = await page.getByTestId('log').innerText()
   check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1') && !log.includes('gratuit') && log.includes('remet les 3 cartes du dessus de sa bibliothèque dans l’ordre de son choix'), 'journal en français (dont le regard)')
+  check(log.includes('mélange sa bibliothèque'), 'journal : la recherche fermée par Échap mélange la bibliothèque')
   await capture('journal')
   await page.getByRole('button', { name: 'Fermer le journal' }).click()
 

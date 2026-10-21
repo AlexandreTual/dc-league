@@ -10,6 +10,7 @@ import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { arrivals, printedKeywordsOf, type Arrival } from '@/lib/game/card-effects'
 import { appliesPerCard, cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, selectionShortcutCommands, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
+import { closePileActions } from '@/lib/game/pile-order'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
 import type { ClientAction } from '@/lib/game/room'
@@ -286,19 +287,16 @@ export default function Table({ source, notice, boardWindow }: {
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
   const pileOrder = useRef<string[] | null>(null)
+  /** Case « Mélanger en fermant » de la fenêtre (null : pas encore touchée, cochée par défaut en recherche), lue aussi par Échap. */
+  const pileShuffle = useRef<boolean | null>(null)
 
   const closePile = useCallback((shuffle: boolean) => {
-    if (pile?.zone === 'library' && pile.mode !== 'browse') {
-      // Seules comptent les cartes encore regardées (une carte mise dessous ou jouée n'y est plus).
+    if (pile?.zone === 'library') {
       const seen = view.players[pile.player].zones.library.visible.map((v) => v.card.id)
-      const order = (pileOrder.current ?? []).filter((id) => seen.includes(id))
-      const current = seen.filter((id) => order.includes(id))
-      if (pile.mode === 'look' && !shuffle && order.some((id, i) => id !== current[i])) {
-        send({ type: 'reorderTop', target: pile.player, ids: order })
-      }
-      send({ type: 'endLook', target: pile.player, shuffle })
+      for (const action of closePileActions({ target: pile.player, mode: pile.mode, seen, order: pileOrder.current, shuffle })) send(action)
     }
     pileOrder.current = null
+    pileShuffle.current = null
     setPile(null)
   }, [pile, send, view])
 
@@ -322,7 +320,7 @@ export default function Table({ source, notice, boardWindow }: {
     if (!shortcut) return
     if (shortcut === 'close') {
       setMenu(null)
-      if (pile) closePile(false)
+      if (pile) closePile(pileShuffle.current ?? pile.mode === 'search')
       setTokenOpen(false)
       setDiceOpen(false)
       setStartDraw(false)
@@ -754,6 +752,7 @@ export default function Table({ source, notice, boardWindow }: {
             send(position ? { type: 'move', id: card.id, to, position } : { type: 'move', id: card.id, to })
           }}
           onReorder={pile.mode === 'look' ? (ids) => { pileOrder.current = ids } : undefined}
+          onShuffleChange={(shuffle) => { pileShuffle.current = shuffle }}
           onClose={closePile}
         />
       )}

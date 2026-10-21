@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { placeAt, shiftCard, syncOrder } from './pile-order'
+import { closePileActions, placeAt, shiftCard, syncOrder } from './pile-order'
 
 describe('ordre des cartes regardées', () => {
   it('shiftCard décale une carte d’un cran, sans sortir de la liste', () => {
@@ -21,5 +21,41 @@ describe('ordre des cartes regardées', () => {
     expect(syncOrder(['c', 'a', 'b'], ['a', 'b', 'c'])).toEqual(['c', 'a', 'b'])
     expect(syncOrder(['c', 'a', 'b'], ['a', 'c'])).toEqual(['c', 'a'])
     expect(syncOrder(['b', 'a'], ['a', 'b', 'd'])).toEqual(['b', 'a', 'd'])
+  })
+})
+
+describe('fermeture de la fenêtre de la bibliothèque', () => {
+  const seen = ['a', 'b', 'c']
+
+  it('recherche : ferme avec la case « Mélanger en fermant » (Échap compris)', () => {
+    expect(closePileActions({ target: 'p1', mode: 'search', seen, order: null, shuffle: true }))
+      .toEqual([{ type: 'endLook', target: 'p1', shuffle: true }])
+    expect(closePileActions({ target: 'p1', mode: 'search', seen, order: null, shuffle: false }))
+      .toEqual([{ type: 'endLook', target: 'p1', shuffle: false }])
+  })
+
+  it('regard : un ordre changé est appliqué avant la fin du regard, sans mélange', () => {
+    expect(closePileActions({ target: 'p1', mode: 'look', seen, order: ['c', 'a', 'b'], shuffle: false })).toEqual([
+      { type: 'reorderTop', target: 'p1', ids: ['c', 'a', 'b'] },
+      { type: 'endLook', target: 'p1', shuffle: false },
+    ])
+  })
+
+  it('regard : ordre inchangé, ou mélange demandé, pas de réordonnancement', () => {
+    expect(closePileActions({ target: 'p1', mode: 'look', seen, order: ['a', 'b', 'c'], shuffle: false }))
+      .toEqual([{ type: 'endLook', target: 'p1', shuffle: false }])
+    expect(closePileActions({ target: 'p1', mode: 'look', seen, order: ['c', 'a', 'b'], shuffle: true }))
+      .toEqual([{ type: 'endLook', target: 'p1', shuffle: true }])
+  })
+
+  it('regard : seules comptent les cartes encore regardées', () => {
+    expect(closePileActions({ target: 'p1', mode: 'look', seen: ['a', 'c'], order: ['c', 'b', 'a'], shuffle: false })).toEqual([
+      { type: 'reorderTop', target: 'p1', ids: ['c', 'a'] },
+      { type: 'endLook', target: 'p1', shuffle: false },
+    ])
+  })
+
+  it('consultation simple : aucune action', () => {
+    expect(closePileActions({ target: 'p1', mode: 'browse', seen, order: null, shuffle: true })).toEqual([])
   })
 })
