@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { generateRoundRobinMatches } from './leaderboard'
 import {
-  ERREURS_LIGUE, deleteAllPlayoffs, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
+  ERREURS_LIGUE, deleteAllPlayoffs, resetLeague, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
   statusForError, updateMatchScore, updatePlayoffScore,
 } from './db'
 
@@ -26,6 +26,57 @@ describe('insertMatches', () => {
     expect(error).toBeNull()
     expect(data).toHaveLength(105)
     expect((await listMatches(db, 'l1')).data).toHaveLength(105)
+  })
+})
+
+describe('génération et inscriptions simultanées', () => {
+  const inscrire = (ids: string[]) =>
+    db.batch(ids.map((id) => db.prepare("INSERT INTO league_players (league_id, player_id) VALUES ('l1', ?)").bind(id)))
+
+  it('insertMatches génère quand le nombre d’inscrits n’a pas changé', async () => {
+    await inscrire(players(4))
+    const { error } = await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1', 4)
+    expect(error).toBeNull()
+    expect((await listMatches(db, 'l1')).data).toHaveLength(6)
+  })
+
+  it('insertMatches ne crée aucun match si un joueur a quitté la ligue entre la lecture et l’écriture', async () => {
+    await inscrire(players(3))
+    const { error } = await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1', 4)
+    expect(error).toBe(ERREURS_LIGUE.playersChanged)
+    expect(statusForError(error!)).toBe(409)
+    expect((await listMatches(db, 'l1')).data).toHaveLength(0)
+  })
+
+  it('insertMatches ne crée aucun match si un joueur s’est inscrit entre la lecture et l’écriture', async () => {
+    await inscrire(players(5))
+    const { error } = await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1', 4)
+    expect(error).toBe(ERREURS_LIGUE.playersChanged)
+    expect((await listMatches(db, 'l1')).data).toHaveLength(0)
+  })
+})
+
+describe('resetLeague', () => {
+  async function ligueAvecPlayoffs() {
+    await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')
+    await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')
+  }
+  const compte = async (table: string) =>
+    Number((await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE league_id = 'l1'`).first<{ n: number }>())?.n)
+
+  it('supprime les matchs et les playoffs de la ligue', async () => {
+    await ligueAvecPlayoffs()
+    expect((await resetLeague(db, 'l1')).error).toBeNull()
+    expect(await compte('matches')).toBe(0)
+    expect(await compte('playoffs')).toBe(0)
+  })
+
+  it('ne supprime rien si une des suppressions échoue', async () => {
+    await ligueAvecPlayoffs()
+    await db.prepare("CREATE TRIGGER panne BEFORE DELETE ON playoffs BEGIN SELECT RAISE(ABORT, 'panne simulée'); END").run()
+    expect((await resetLeague(db, 'l1')).error).toMatch(/panne simulée/)
+    expect(await compte('matches')).toBe(6)
+    expect(await compte('playoffs')).toBe(2)
   })
 })
 
