@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ExternalLink, RotateCcw, Send, Sparkles, X } from 'lucide-react'
+import { trimHistory } from '@/lib/ai/history'
 import { AI_MAX_QUESTION_CHARS } from '@/lib/ai/limits'
 import { AI_DISCLAIMER, AI_QUOTA_REACHED } from '@/lib/ai/messages'
 import { answerBlocks, inlineParts } from './format'
@@ -55,7 +56,7 @@ export default function AiPanel({ state, dispatch }: { state: AiState; dispatch:
   async function send(text: string) {
     const question = text.trim()
     if (!question || !canSend) return
-    const history = [...state.messages.map((m) => ({ role: m.role, text: m.text })), { role: 'user' as const, text: question }]
+    const history = trimHistory([...state.messages.map((m) => ({ role: m.role, text: m.text })), { role: 'user' as const, text: question }])
     dispatch({ type: 'send', text: question })
     setDraft('')
     try {

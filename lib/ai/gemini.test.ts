@@ -62,7 +62,8 @@ describe('client Gemini', () => {
 
     expect(await kindOf(ask(() => json(429, { error: { status: 'RESOURCE_EXHAUSTED' } })))).toBe('quota')
     expect(await kindOf(ask(() => json(503, {})))).toBe('unavailable')
-    expect(await kindOf(ask(() => json(400, { error: { message: 'API key not valid' } })))).toBe('unavailable')
+    expect(await kindOf(ask(() => json(400, { error: { message: 'API key not valid' } })))).toBe('invalid')
+    expect(await kindOf(ask(() => json(500, {})))).toBe('unavailable')
     expect(await kindOf(ask(() => Promise.reject(new TypeError('réseau'))))).toBe('unavailable')
     expect(await kindOf(ask(() => json(200, { promptFeedback: { blockReason: 'SAFETY' } })))).toBe('refused')
     expect(await kindOf(ask(() => json(200, { candidates: [{ finishReason: 'SAFETY' }] })))).toBe('refused')
