@@ -1,4 +1,5 @@
 import { rollDice, rollText } from './dice'
+import { catalogEntry } from './catalog'
 import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
 import { abilitiesLog, abilityText, addAbilities, join, nextAbilities } from './abilities'
 import { printedKeywordsOf } from './card-effects'
@@ -82,7 +83,7 @@ export function cardInfo(
   lang: 'fr' | 'en',
 ): CardInfo {
   if (card.token) return { name: card.token.name, image: card.token.image, imageLarge: null, typeLine: card.token.typeLine, faces: null, hidden: false }
-  const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
+  const entry = catalogEntry(catalog, card.ref)
   const shown = (lang === 'fr' ? entry?.fr : null) ?? entry?.en
   if (!shown) return UNKNOWN
   const faces = shown.faces
