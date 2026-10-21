@@ -18,10 +18,13 @@ function plainName(name: string): string {
 
 const frontFace = (name: string) => name.split(' // ')[0]
 
+// Une carte double se demande aussi par sa face arrière ou sa partie aventure (« Insectile Aberration »).
 function sameName(card: ScryfallCard, name: string): boolean {
   const wanted = plainName(name)
   const full = plainName(card.name)
-  return full === wanted || frontFace(full) === frontFace(wanted)
+  if (full === wanted || frontFace(full) === frontFace(wanted)) return true
+  const faces = card.card_faces?.length ? card.card_faces.map((f) => f.name) : card.name.split(' // ')
+  return faces.some((f) => plainName(f) === wanted)
 }
 
 /** Entrée à (re)chercher : absente, ou négative et plus vieille que NEGATIVE_CACHE_MS. */
