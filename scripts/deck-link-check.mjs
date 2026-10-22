@@ -2,11 +2,10 @@
 // Les routes d'import sont simulées (pas d'appel réseau à Moxfield, Archidekt ni Scryfall).
 // Prérequis : site lancé (`wrangler pages dev --port 8788`), données de scripts/seed-online.mjs chargées.
 // Usage : node scripts/deck-link-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA] = PLAYERS
 
 function check(condition, message) {
@@ -18,7 +17,7 @@ const text = ['Commander', '1 Kenrith, the Returned King (eld) 303', '', 'Deck',
 const summary = { total: 32, commanders: 1, frenchCount: 31, notFound: [], ignored: 0, errors: [] }
 const slow = (json, status = 200) => (route) => setTimeout(() => route.fulfill({ status, json }), 300)
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(ANA.id), url: base }])
