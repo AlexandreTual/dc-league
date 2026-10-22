@@ -116,6 +116,36 @@ describe('searchFrenchPrints', () => {
   })
 })
 
+describe('searchFrenchNames', () => {
+  it('cherche les noms exacts en français, groupés dans une requête', async () => {
+    const { c, calls } = client([{ body: { object: 'list', has_more: false, data: [{ id: 'sol-fr', oracle_id: 'o-sol', lang: 'fr', name: 'Sol Ring', printed_name: 'Anneau solaire', set: 'c21', collector_number: '263' }] } }])
+    const cards = await c.searchFrenchNames(['Anneau solaire', 'Foudre', 'Anneau solaire'])
+    expect(calls).toHaveLength(1)
+    const url = new URL(calls[0].url)
+    expect(url.pathname).toBe('/cards/search')
+    expect(url.searchParams.get('q')).toBe('(!"Anneau solaire" or !"Foudre") lang:fr')
+    expect(cards.map((x) => x.id)).toEqual(['sol-fr'])
+  })
+
+  it('la requête reste sous les 1000 caractères : plusieurs appels si besoin', async () => {
+    const { c, calls } = client([])
+    await c.searchFrenchNames(Array.from({ length: 60 }, (_, i) => `Une carte au nom assez long numéro ${i}`))
+    expect(calls.length).toBeGreaterThan(1)
+    for (const call of calls) expect(new URL(call.url).searchParams.get('q')!.length).toBeLessThanOrEqual(1000)
+  })
+
+  it('ignore les noms contenant un guillemet et n’appelle pas Scryfall sans nom', async () => {
+    const { c, calls } = client([])
+    expect(await c.searchFrenchNames(['Kongming, "Dragon"', ''])).toEqual([])
+    expect(calls).toHaveLength(0)
+  })
+
+  it('renvoie [] sur un 404', async () => {
+    const { c } = client([{ status: 404, body: fixture('search-not-found.json') }])
+    expect(await c.searchFrenchNames(['Introuvable'])).toEqual([])
+  })
+})
+
 describe('erreurs et rythme', () => {
   it('429 : attend Retry-After puis réessaie une fois', async () => {
     const { c, calls, sleeps } = client([

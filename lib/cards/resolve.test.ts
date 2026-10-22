@@ -26,6 +26,8 @@ const EN = [
   sc('fire-ice', 'o-fire-ice', 'Fire // Ice', 'mh2', '290'),
   sc('delver', 'o-delver', 'Delver of Secrets // Insectile Aberration', 'isd', '51'),
   sc('borrower', 'o-borrower', 'Brazen Borrower // Petty Theft', 'eld', '39'),
+  sc('bolt-2xm', 'o-bolt', 'Lightning Bolt', '2xm', '129'),
+  sc('bolt-m10', 'o-bolt', 'Lightning Bolt', 'm10', '146'),
 ]
 const FR = [
   sc('sol-cmr-fr', 'o-sol', 'Sol Ring', 'cmr', '472', 'fr'),
@@ -33,10 +35,12 @@ const FR = [
   sc('signet-fr', 'o-signet', 'Arcane Signet', 'c21', '236', 'fr'),
   // Seule version française d'Academy Ruins : texte sans scan (image provisoire de Scryfall).
   { ...sc('ruins-fr', 'o-ruins', 'Academy Ruins', 'tsp', '269', 'fr'), image_status: 'placeholder' },
+  { ...sc('bolt-2xm-fr', 'o-bolt', 'Lightning Bolt', '2xm', '129', 'fr'), printed_name: 'Foudre' },
+  { ...sc('bolt-m10-fr', 'o-bolt', 'Lightning Bolt', 'm10', '146', 'fr'), printed_name: 'Foudre' },
 ]
 
 function fakeClient() {
-  const calls = { collection: 0, search: 0, names: [] as string[] }
+  const calls = { collection: 0, search: 0, frenchNames: 0, names: [] as string[] }
   const client: ImportClient = {
     async fetchCollection(ids: Identifier[]) {
       calls.collection++
@@ -62,6 +66,13 @@ function fakeClient() {
     async searchFrenchPrints(oracleIds: string[]) {
       calls.search++
       return FR.filter((c) => oracleIds.includes(c.oracle_id!))
+    },
+    // Comme Scryfall avec unique=cards : une impression française par carte dont le nom imprimé correspond.
+    async searchFrenchNames(names: string[]) {
+      calls.frenchNames++
+      const plain = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      const found = FR.filter((c) => names.some((n) => plain(n) === plain(c.printed_name ?? '')))
+      return found.filter((c, i) => found.findIndex((o) => o.oracle_id === c.oracle_id) === i)
     },
   }
   return { client, calls }
@@ -186,6 +197,40 @@ describe('resolveLines', () => {
     expect((await getLookups(db, ['petty theft||'])).data!['petty theft||'].en_card_id).toBe('borrower')
   })
 
+  it('nom français : la bonne carte anglaise et sa version française', async () => {
+    const { client, calls } = fakeClient()
+    const r = await resolveLines(db, client, [line('Foudre')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+    expect(calls.frenchNames).toBe(1)
+    const lookup = (await getLookups(db, ['foudre||'])).data!['foudre||']
+    expect(lookup).toMatchObject({ en_card_id: 'bolt-2xm', fr_card_id: 'bolt-2xm-fr' })
+    const cards = (await getCards(db, ['bolt-2xm', 'bolt-2xm-fr'])).data!
+    expect(cards['bolt-2xm'].name).toBe('Lightning Bolt')
+    expect(cards['bolt-2xm-fr'].printed_name).toBe('Foudre')
+  })
+
+  it('nom français avec édition et numéro : cette impression, en anglais et en français', async () => {
+    const { client } = fakeClient()
+    const r = await resolveLines(db, client, [line('Foudre', 'M10', '146')], now)
+    expect(r).toEqual({ resolved: 1, notFound: [] })
+    expect((await getLookups(db, ['foudre|m10|146'])).data!['foudre|m10|146']).toMatchObject({
+      en_card_id: 'bolt-m10', fr_card_id: 'bolt-m10-fr',
+    })
+  })
+
+  it('noms anglais tous trouvés : aucune recherche en français', async () => {
+    const { client, calls } = fakeClient()
+    await resolveLines(db, client, [line('Sol Ring'), line('Arcane Signet', null, null, 2)], now)
+    expect(calls.frenchNames).toBe(0)
+  })
+
+  it('nom introuvable même en français : signalé', async () => {
+    const { client, calls } = fakeClient()
+    const r = await resolveLines(db, client, [line('Fodure')], now)
+    expect(r).toEqual({ resolved: 0, notFound: ['Fodure'] })
+    expect(calls).toMatchObject({ collection: 1, frenchNames: 1 })
+  })
+
   it('compare les noms sans accents', async () => {
     const { client } = fakeClient()
     const r = await resolveLines(db, client, [line('Lim-Dul the Necromancer')], now)
@@ -220,6 +265,7 @@ describe('resolveLines', () => {
     const down: ImportClient = {
       fetchCollection: async () => { throw new ScryfallUnavailableError('HTTP 429') },
       searchFrenchPrints: async () => { throw new ScryfallUnavailableError('HTTP 429') },
+      searchFrenchNames: async () => { throw new ScryfallUnavailableError('HTTP 429') },
     }
     expect(await resolveLines(db, down, [line('Mystic Remora')], now)).toEqual({ resolved: 1, notFound: [] })
     // une carte jamais vue ne peut pas être servie : l'erreur remonte
