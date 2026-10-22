@@ -24,10 +24,14 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
     const lookup = lookups.data[lookupKey(line)]
     const enId = lookup?.en_card_id ?? null
     const frId = enId ? lookup?.fr_card_id ?? null : null
-    summary.total += line.quantity
-    if (line.section === 'commander') summary.commanders += line.quantity
+    // Les lignes introuvables sont listées à part, hors du total.
+    if (enId) {
+      summary.total += line.quantity
+      if (line.section === 'commander') summary.commanders += line.quantity
+    } else {
+      summary.notFound.push({ lineNumber: line.lineNumber, text: rawLines[line.lineNumber - 1].trim() })
+    }
     if (frId) summary.frenchCount += line.quantity
-    if (!enId) summary.notFound.push({ lineNumber: line.lineNumber, text: rawLines[line.lineNumber - 1].trim() })
     return {
       position: index + 1,
       quantity: line.quantity,

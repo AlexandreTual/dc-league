@@ -9,11 +9,10 @@ import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto'
 import { writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA] = PLAYERS
 const ANA_USER = `e2e-${ANA.name}`
 const OLD_PASSWORD = 'ancien-mot-de-passe'
@@ -80,7 +79,7 @@ async function login(page, username, password) {
   await page.getByRole('button', { name: 'Se connecter' }).click()
 }
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 try {
   const errors = []
   const phone = { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true }

@@ -2,11 +2,10 @@
 // « Taille de la main » (hauteur de la bande main + piles, mémorisé), vignettes des piles plafonnées à la souris
 // pour laisser la place à la main sur un écran étroit, tablette inchangée.
 // Usage : node scripts/hand-size-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {

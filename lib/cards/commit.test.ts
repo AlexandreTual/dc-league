@@ -72,10 +72,10 @@ describe('commitDeckList', () => {
     expect(await deckImage()).toBe('https://img/fr-0.jpg')
   })
 
-  it('une ligne absente du cache est introuvable', async () => {
+  it('une ligne absente du cache est introuvable, hors du total', async () => {
     const r = await commitDeckList(db, 'd1', `${fixture}\nDeck\n2 Carte Inconnue`, scryfall())
     expect(r.data?.notFound).toEqual([{ lineNumber: 50, text: '2 Carte Inconnue' }])
-    expect(r.data?.total).toBe(102)
+    expect(r.data?.total).toBe(100)
     expect((await listDeckCards(db, 'd1')).data!.at(-1)).toMatchObject({ requested_name: 'Carte Inconnue', en: null })
   })
 

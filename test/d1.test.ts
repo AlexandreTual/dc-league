@@ -1,11 +1,27 @@
 import { describe, it, expect } from 'vitest'
-import { createTestDb } from './d1'
+import { readdirSync } from 'node:fs'
+import path from 'node:path'
+import { createTestDb, MIGRATIONS } from './d1'
 
 describe('adaptateur D1 de test', () => {
   it('applique les migrations', async () => {
     const db = createTestDb()
     const row = await db.prepare("SELECT name FROM sqlite_master WHERE name = 'users'").first<{ name: string }>()
     expect(row?.name).toBe('users')
+  })
+
+  it('refuse de lier undefined, comme D1', async () => {
+    const db = createTestDb()
+    expect(() => db.prepare('SELECT * FROM users WHERE id = ?').bind(undefined)).toThrow(/D1_TYPE_ERROR/)
+    expect(await db.prepare('SELECT * FROM users WHERE id = ?').bind(null).first()).toBeNull()
+  })
+
+  it('MIGRATIONS liste tous les fichiers de migrations/, dans l\'ordre', () => {
+    const files = readdirSync(path.join(__dirname, '..', 'migrations')).filter((f) => f.endsWith('.sql')).sort()
+    expect(MIGRATIONS).toEqual(files)
+    const numbers = files.map((f) => Number(/^(\d{4})_/.exec(f)?.[1]))
+    expect(numbers.every(Number.isInteger)).toBe(true)
+    expect(numbers).toEqual(numbers.map((_, i) => i + 1))
   })
 
   it('first renvoie null si aucune ligne', async () => {

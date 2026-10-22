@@ -1,14 +1,13 @@
 // Qui commence (issue #100) dans de vrais navigateurs : premier joueur choisi par l'hôte, puis tirage au sort.
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs).
 // Usage : node scripts/first-player-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE] = PLAYERS
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { NextRequest } from 'next/server'
-import { config, middleware } from './middleware'
+import { config, CSP_REPORT_ONLY, middleware } from './middleware'
 
 const BASE = 'https://dc-league.example'
 
@@ -44,5 +44,45 @@ describe('middleware', () => {
     expect(matcher.test('/api/players')).toBe(false)
     expect(matcher.test('/_next/static/chunk.js')).toBe(false)
     expect(matcher.test('/favicon.ico')).toBe(false)
+  })
+
+  describe('en-têtes de sécurité', () => {
+    it.each([
+      ['page publique sans session', '/', undefined],
+      ['page publique avec session', '/stats', 'jeton'],
+      ['redirection vers /connexion', '/admin', undefined],
+      ['page protégée avec session', '/profil', 'jeton'],
+    ])('les pose sur une %s', (_cas, path, token) => {
+      const res = middleware(request(path, token))
+      expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+      expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
+      expect(res.headers.get('x-frame-options')).toBe('SAMEORIGIN')
+      const csp = res.headers.get('content-security-policy')
+      expect(csp).toContain("frame-ancestors 'self'")
+      expect(csp).toContain("object-src 'none'")
+      expect(csp).toContain("base-uri 'self'")
+      expect(res.headers.get('content-security-policy-report-only')).toBe(CSP_REPORT_ONLY)
+    })
+
+    it('la CSP imposée ne restreint ni scripts, ni styles, ni images, ni connexions', () => {
+      const csp = middleware(request('/')).headers.get('content-security-policy')!
+      for (const directive of ['default-src', 'script-src', 'style-src', 'img-src', 'connect-src']) {
+        expect(csp).not.toContain(directive)
+      }
+    })
+
+    it("la CSP en observation limite les images à Scryfall et Moxfield et les connexions au site (serveur de jeu compris)", () => {
+      const directives = Object.fromEntries(
+        CSP_REPORT_ONLY.split(';').map((d) => d.trim().split(/\s+/)).map(([name, ...values]) => [name, values]),
+      )
+      expect(directives['default-src']).toEqual(["'self'"])
+      expect(directives['img-src']).toEqual(
+        expect.arrayContaining(["'self'", 'https://*.scryfall.io', 'https://*.moxfield.com', 'https://*.moxfield.net']),
+      )
+      expect(directives['img-src']).not.toContain('https:')
+      expect(directives['connect-src']).toEqual(["'self'"])
+      expect(directives['object-src']).toEqual(["'none'"])
+      expect(directives['frame-ancestors']).toEqual(["'self'"])
+    })
   })
 })
