@@ -47,7 +47,7 @@ node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loy
 node scripts/card-effects-check.mjs http://localhost:8788 <dossier>        # légendaires (liseré, éclat d'arrivée), entrée du commandant, retour du cimetière et créatures volantes (mode test, fenêtre « Animations » : tout ou une à la fois, mouvement réduit, tablette, en ligne)
 node scripts/abilities-check.mjs http://localhost:8788 <dossier>           # « Donner une capacité… » (fenêtre, Protection/Parade, symboles/libellés, fin du tour, vol donné/perdu, tablette, en ligne)
 node scripts/phasing-check.mjs http://localhost:8788 <dossier>             # permanent hors phase (mode test, retour au début du tour, tablette, en ligne)
-node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
+node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur avec « À toi de jouer » et « Reprendre », admin ; u-e2e-1 admin, serveur de jeu lancé)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
 node scripts/ai-check.mjs http://localhost:8788 <dossier>                  # assistant IA avec un faux Gemini (deck, mode test, en ligne, admin, quota, téléphone)
 node scripts/shortcuts-check.mjs http://localhost:8788 <dossier>         # raccourcis clavier (carte focalisée : Entrée ouvre son menu, carte survolée, sélection, X jeton copie, touches choisies et mémorisées, en ligne)
