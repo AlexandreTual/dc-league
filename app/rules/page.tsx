@@ -57,7 +57,7 @@ export default function RulesPage() {
           Règles de la Ligue
         </h1>
         <p className="text-dc-muted text-sm max-w-md mx-auto">
-          La ligue se joue en phase de Round Robin (tout le monde affronte tout le monde),
+          La ligue se joue en phase de tous contre tous (chacun affronte tous les autres),
           suivie d&apos;un Top 4 entre les quatre meilleurs joueurs.
         </p>
       </div>

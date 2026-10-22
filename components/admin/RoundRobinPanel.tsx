@@ -91,8 +91,8 @@ export default function RoundRobinPanel({
             Générer la ligue
           </h2>
           <p className="text-dc-muted text-sm">
-            {enrolledCount} joueurs → {(enrolledCount * (enrolledCount - 1)) / 2} matchs Round Robin.
-            {enrolledCount % 2 !== 0 && ' (Nombre impair : 1 bye par round, ignoré au classement)'}
+            {enrolledCount} joueurs → {(enrolledCount * (enrolledCount - 1)) / 2} matchs tous contre tous.
+            {enrolledCount % 2 !== 0 && ' (Nombre impair : 1 joueur exempt par ronde, ignoré au classement)'}
           </p>
 
           {generateError && (
@@ -153,7 +153,7 @@ export default function RoundRobinPanel({
                           : 'bg-dc-surface border-dc-border text-dc-muted'
                       }`}
                     >
-                      Round {round}
+                      Ronde {round}
                     </div>
                     <div className="flex-1 h-px bg-dc-border/50" />
                   </div>

@@ -138,7 +138,7 @@ await ana.getByText('Damien inscrit').waitFor()
 check(true, 'organisatrice : inscrit Damien sans lien')
 await ana.getByRole('button', { name: 'Générer la ligue (3 joueurs)' }).click()
 await ana.getByRole('button', { name: 'Confirmer la génération' }).click()
-await ana.getByText(/Round 1/).first().waitFor({ timeout: 15000 })
+await ana.getByText(/Ronde 1/).first().waitFor({ timeout: 15000 })
 check(true, 'organisatrice : matchs générés')
 await ana.screenshot({ path: `${out}/5-matchs.png`, fullPage: true })
 
