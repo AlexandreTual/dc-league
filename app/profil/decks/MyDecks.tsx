@@ -52,7 +52,7 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel }: {
         <input className={inputClass} value={fields.name} onChange={set('name')} placeholder="Kenrith" />
       </div>
       <div>
-        <label className={labelClass}>Lien du deck (Moxfield ou Archidekt)</label>
+        <label className={labelClass}>Lien du deck (Moxfield ou Archidekt, facultatif)</label>
         <input className={inputClass} type="url" value={fields.moxfield_url} onChange={set('moxfield_url')} placeholder="https://moxfield.com/decks/…" />
       </div>
       {error && <p className={errorClass}>{error}</p>}
@@ -148,7 +148,9 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
     if (error) return error
     const deck = data as DbDeck
     setDecks((prev) => [...prev, deck])
+    // Sans lien : la zone pour coller la liste s'ouvre directement sous le nouveau deck.
     if (deck.moxfield_url) void startImport({ ...deck, moxfield_url: deck.moxfield_url })
+    else setPastingId(deck.id)
     return null
   }
 
@@ -225,7 +227,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
       <div className={cardClass}>
         <h2 className="font-fantasy text-lg text-dc-text flex items-center gap-2"><Plus className="w-4 h-4" /> Nouveau deck</h2>
         <DeckForm initial={emptyFields} submitLabel={(f) => (f.moxfield_url.trim() ? 'Créer et importer' : 'Créer le deck')} onSubmit={create} />
-        <p className="text-dc-muted text-xs">Colle le lien du deck : les cartes sont importées depuis Scryfall dès la création. Pour mettre à jour la liste ensuite : « Réimporter » sur la page du deck.</p>
+        <p className="text-dc-muted text-xs">Colle le lien du deck : les cartes sont importées depuis Scryfall dès la création. Pas de lien ? Laisse le champ vide : une zone pour coller la liste en texte s&apos;ouvre juste après. Pour mettre à jour la liste ensuite : « Réimporter » sur la page du deck.</p>
       </div>
     </div>
   )

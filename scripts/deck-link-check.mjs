@@ -86,6 +86,20 @@ try {
   await page.getByLabel('Liste du deck').fill(text)
   check(await page.getByText(/32 cartes · 1 commandant\(s\)/).isVisible(), 'la liste collée est lue : 32 cartes, 1 commandant')
 
+  // 5. Création sans lien : la zone de collage s'ouvre sous le nouveau deck, et l'import passe par la liste.
+  await page.goto(`${base}/profil/decks`)
+  await page.getByPlaceholder('Kenrith').last().fill('Kenrith à importer collé')
+  await page.getByRole('button', { name: 'Créer le deck' }).click()
+  const pasted = page.locator('li', { hasText: 'Kenrith à importer collé' })
+  await pasted.getByLabel('Liste du deck').waitFor()
+  check(true, 'création sans lien : la zone de collage s’ouvre sous le nouveau deck')
+  await pasted.getByLabel('Liste du deck').fill(text)
+  calls.length = 0
+  await pasted.getByRole('button', { name: 'Importer', exact: true }).click()
+  await pasted.getByTestId('import-done').getByText('32 cartes').waitFor()
+  check(!calls.includes('link') && calls.includes('commit'), `création sans lien : import de la liste collée, sans lien (${calls.join(', ')})`)
+  await page.screenshot({ path: `${outDir}/deck-create-paste.png`, fullPage: true })
+
   await page.goto(`${base}/profil/decks`)
   // Ménage : supprime le deck créé.
   while (await row.count()) {
