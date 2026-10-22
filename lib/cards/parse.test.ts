@@ -11,7 +11,6 @@ describe('parseDeckList : formats de ligne', () => {
     ['30 Forest', { quantity: 30, name: 'Forest', set: null, number: null }],
     ['1 Sol Ring (C21) 263', { quantity: 1, name: 'Sol Ring', set: 'C21', number: '263' }],
     ['1 Sol Ring (C21) 263 *F*', { quantity: 1, name: 'Sol Ring', set: 'C21', number: '263' }],
-    ['1 Kenrith, the Returned King (ELD) 303 *CMDR*', { quantity: 1, name: 'Kenrith, the Returned King', set: 'ELD', number: '303' }],
     ['1 Delver of Secrets // Insectile Aberration (ISD) 51', { quantity: 1, name: 'Delver of Secrets // Insectile Aberration', set: 'ISD', number: '51' }],
     ['1 Forest (SLD) 2024-1', { quantity: 1, name: 'Forest', set: 'SLD', number: '2024-1' }],
     ['1 Island (PLST) 123a', { quantity: 1, name: 'Island', set: 'PLST', number: '123a' }],
@@ -33,6 +32,12 @@ describe('parseDeckList : formats de ligne', () => {
 })
 
 describe('parseDeckList : sections', () => {
+  it('*CMDR* (export TappedOut) place la carte en section commandant', () => {
+    const r = parseDeckList('1 Kenrith, the Returned King (ELD) 303 *CMDR*\n1 Sol Ring *F*')
+    expect(r.lines[0]).toEqual({ lineNumber: 1, quantity: 1, name: 'Kenrith, the Returned King', set: 'ELD', number: '303', section: 'commander' })
+    expect(r.lines[1].section).toBe('main')
+  })
+
   it.each(['Commander', 'COMMANDER:', '// Commander'])('reconnaît l’en-tête %s', (header) => {
     const r = parseDeckList(`${header}\n1 Kenrith\n\nDeck\n1 Sol Ring`)
     expect(r.lines.map((l) => [l.name, l.section])).toEqual([

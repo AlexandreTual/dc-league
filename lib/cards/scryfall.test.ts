@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cardRow } from '@/test/factories'
@@ -184,15 +184,64 @@ describe('erreurs et rythme', () => {
     await expect(c.fetchCollection([{ name: 'Sol Ring' }])).rejects.toBeInstanceOf(ScryfallUnavailableError)
   })
 
-  it('attend 500 ms entre deux appels, y compris avant le premier', async () => {
+  it('attend 500 ms entre deux appels, sans attente avant le premier', async () => {
     const { c, sleeps } = client([])
     await c.fetchCollection([{ name: 'A' }])
+    expect(sleeps).toEqual([])
     await c.fetchCollection([{ name: 'B' }])
-    expect(sleeps).toHaveLength(2)
-    for (const ms of sleeps) {
-      expect(ms).toBeGreaterThan(400)
-      expect(ms).toBeLessThanOrEqual(500)
+    expect(sleeps).toHaveLength(1)
+    expect(sleeps[0]).toBeGreaterThan(400)
+    expect(sleeps[0]).toBeLessThanOrEqual(500)
+  })
+
+  describe('appels en parallèle (horloge simulée)', () => {
+    afterEach(() => { vi.useRealTimers() })
+
+    function timedClient(responses: FakeResponse[] = []) {
+      vi.useFakeTimers()
+      const sentAt: number[] = []
+      const f = fakeFetch(responses)
+      const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        sentAt.push(Date.now())
+        return f.fn(input, init)
+      }) as typeof fetch
+      const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+      const start = Date.now()
+      return { c: createScryfallClient({ fetch: fetchFn, sleep }), sentAt, start }
     }
+
+    it('deux fetchRulings simultanés : le premier part sans attente, le second 500 ms après', async () => {
+      const { c, sentAt, start } = timedClient()
+      const both = Promise.all([c.fetchRulings('a'), c.fetchRulings('b')])
+      await vi.advanceTimersByTimeAsync(0)
+      expect(sentAt).toEqual([start])
+      await vi.advanceTimersByTimeAsync(1000)
+      await both
+      expect(sentAt).toHaveLength(2)
+      expect(sentAt[1] - sentAt[0]).toBeGreaterThanOrEqual(500)
+    })
+
+    it('un appel en échec ne bloque pas les suivants', async () => {
+      const { c, sentAt } = timedClient([{ status: 503, body: { object: 'error' } }])
+      const first = c.fetchRulings('a')
+      const second = c.fetchRulings('b')
+      const firstDone = expect(first).rejects.toBeInstanceOf(ScryfallUnavailableError)
+      await vi.advanceTimersByTimeAsync(1000)
+      await firstDone
+      expect(await second).toEqual([])
+      expect(sentAt[1] - sentAt[0]).toBeGreaterThanOrEqual(500)
+    })
+
+    it('429 : les appels en attente patientent derrière la nouvelle tentative', async () => {
+      const { c, sentAt, start } = timedClient([{ status: 429, body: { object: 'error' }, headers: { 'Retry-After': '2' } }])
+      const both = Promise.all([c.fetchRulings('a'), c.fetchRulings('b')])
+      await vi.advanceTimersByTimeAsync(5000)
+      await both
+      // 429 à t0, nouvelle tentative à t0 + 2 s, puis le second appel au moins 500 ms après.
+      expect(sentAt).toHaveLength(3)
+      expect(sentAt[1] - start).toBeGreaterThanOrEqual(2000)
+      expect(sentAt[2] - sentAt[1]).toBeGreaterThanOrEqual(500)
+    })
   })
 })
 

@@ -28,7 +28,7 @@ const SECTION_HEADERS: Record<string, State> = {
 }
 
 // quantité optionnelle (« 1 », « 1x », « 1X », « 1 x »), nom, puis éventuellement "(SET)" suivi ou non du numéro,
-// puis des marques *F* ignorées
+// puis des marques (*F* ignorée, *CMDR* des exports TappedOut pour le commandant)
 const CARD_LINE = /^(?:(\d+)\s*(?:[xX]\s+|\s+))?(.+?)(?:\s+\(([A-Za-z0-9]+)\)(?:\s+(?!\*)(\S+))?)?((?:\s+\*[A-Za-z]+\*)*)$/
 // catégories Archidekt en fin de ligne : « [Ramp] », « [Commander{top}] », « [Ramp,Draw] »
 const CATEGORIES = /\s*\[([^\]]*)\]$/
@@ -111,7 +111,7 @@ export function parseDeckList(text: string): ParseResult {
       name,
       set: m[3] ?? null,
       number: m[4] ?? null,
-      section: categories.commander ? 'commander' : section,
+      section: categories.commander || /\*CMDR\*/i.test(m[5] ?? '') ? 'commander' : section,
     })
   })
 

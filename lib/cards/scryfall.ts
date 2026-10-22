@@ -100,11 +100,19 @@ function retryAfterMs(res: Response): number {
 
 export function createScryfallClient(deps: ScryfallDeps) {
   const timeout = deps.timeout ?? ((ms: number) => AbortSignal.timeout(ms))
-  // L'appel précédent peut venir de la requête d'import précédente : on compte l'intervalle dès la création.
-  let lastCall = Date.now()
+  // Appels du client à la file : l'intervalle vaut aussi pour les appels lancés en parallèle (Promise.all).
+  // Il ne s'applique qu'entre deux appels de ce client (une requête du site) : le premier part sans attendre.
+  let queue: Promise<unknown> = Promise.resolve()
+  let lastCall: number | null = null
+
+  function enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = queue.then(task, task)
+    queue = run.catch(() => {})
+    return run
+  }
 
   async function send(url: string, init: RequestInit): Promise<Response> {
-    const wait = MIN_INTERVAL_MS - (Date.now() - lastCall)
+    const wait = lastCall === null ? 0 : MIN_INTERVAL_MS - (Date.now() - lastCall)
     if (wait > 0) await deps.sleep(wait)
     try {
       return await deps.fetch(url, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) }, signal: timeout(TIMEOUT_MS) })
@@ -116,11 +124,13 @@ export function createScryfallClient(deps: ScryfallDeps) {
   }
 
   async function call<B = ListResponse>(url: string, init: RequestInit = {}): Promise<{ status: number; body: B }> {
-    let res = await send(url, init)
-    if (res.status === 429) {
-      await deps.sleep(retryAfterMs(res))
-      res = await send(url, init)
-    }
+    // La nouvelle tentative après un 429 garde sa place : les appels suivants attendent derrière elle.
+    const res = await enqueue(async () => {
+      const first = await send(url, init)
+      if (first.status !== 429) return first
+      await deps.sleep(retryAfterMs(first))
+      return send(url, init)
+    })
     // 404 = recherche sans résultat ; tout autre code d'erreur est traité comme une indisponibilité.
     if (!res.ok && res.status !== 404) throw new ScryfallUnavailableError(`HTTP ${res.status}`)
     try {
