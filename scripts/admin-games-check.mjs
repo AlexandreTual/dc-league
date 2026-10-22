@@ -4,12 +4,11 @@
 // Usage : node scripts/admin-games-check.mjs <url-de-base> <dossier-captures>
 import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', out = '/tmp/admin-games-check'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
-const executablePath = process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE] = PLAYERS
 
 function check(condition, message) {
@@ -22,7 +21,7 @@ function sql(command) {
 }
 
 sql(`DELETE FROM game_seats; DELETE FROM game_tables; UPDATE users SET is_admin = 1 WHERE id = 'u-${ANA.id}'`)
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 async function openAs(player, viewport = { width: 1280, height: 900 }) {

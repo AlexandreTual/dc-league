@@ -26,7 +26,7 @@ export type ScryfallDeps = {
   /** Signal d'annulation après `ms` (injectable pour les tests). */
   timeout?: (ms: number) => AbortSignal
 }
-export type Identifier = { set: string; collector_number: string } | { name: string } | { id: string }
+export type Identifier = { set: string; collector_number: string } | { name: string; set?: string } | { id: string }
 
 /** Carte liée (jeton, emblème, pièce de combo…) listée dans `all_parts`. */
 export type RelatedCard = { id: string; component: string; name: string; type_line?: string }
