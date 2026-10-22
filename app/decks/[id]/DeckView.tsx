@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, BotMessageSquare, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, X } from 'lucide-react'
+import { BookOpen, BotMessageSquare, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, Undo2, X } from 'lucide-react'
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards, type Lang } from '@/lib/cards/groups'
@@ -62,8 +62,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     saveDeckView(next)
   }
 
-  async function makeCommander(card: DeckCardView) {
-    const { error } = await sendJson(`/api/decks/${deck.id}/commander`, 'PATCH', { position: card.position })
+  async function makeCommander(card: DeckCardView, commander = true) {
+    const { error } = await sendJson(`/api/decks/${deck.id}/commander`, 'PATCH', { position: card.position, commander })
     if (error) return setError(error)
     setSelected(null)
     router.refresh()
@@ -347,6 +347,13 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
                 <div className="text-center mt-4">
                   <button onClick={() => makeCommander(selected)} className="inline-flex items-center gap-2 text-sm px-4 py-2 bg-dc-gold/20 border border-dc-gold/40 text-dc-gold rounded-xl hover:bg-dc-gold/30">
                     <Crown className="w-4 h-4" /> Définir comme commandant
+                  </button>
+                </div>
+              )}
+              {canEdit && selected.section === 'commander' && (
+                <div className="text-center mt-4">
+                  <button onClick={() => makeCommander(selected, false)} className="inline-flex items-center gap-2 text-sm px-4 py-2 border border-dc-border bg-dc-surface text-dc-muted rounded-xl hover:text-dc-gold">
+                    <Undo2 className="w-4 h-4" /> Remettre dans le deck
                   </button>
                 </div>
               )}
