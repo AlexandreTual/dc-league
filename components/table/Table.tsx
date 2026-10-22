@@ -42,6 +42,8 @@ import AnimationsModal from './AnimationsModal'
 import DiceTray from './DiceTray'
 import HolderFlights from './HolderFlights'
 import VictoryScreen from './VictoryScreen'
+import RematchBar, { rematchLabel } from '@/components/online/RematchBar'
+import { useRematch } from '@/components/online/rematch'
 import { usePlayerFx } from './usePlayerFx'
 import ManaPool from './ManaPool'
 import { cardLabel, dragAnnouncements, dragInstructions } from './a11y'
@@ -166,6 +168,9 @@ export default function Table({ source, notice, boardWindow }: {
   const highlightTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const finished = source.online?.finished ?? false
+  // Revanche : joueurs assis seulement, pas dans la fenêtre à part d'un plateau.
+  const canRematch = !!source.online && !!me && !boardWindow
+  const rematch = useRematch(source.online?.tableId ?? '', me, finished && canRematch)
   const status = source.online?.status ?? 'open'
   // Ni spectateur, ni éliminé, ni partie finie, ni reconnexion : sinon lecture seule.
   const canAct = acceptsGestures(source)
@@ -637,8 +642,9 @@ export default function Table({ source, notice, boardWindow }: {
         <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="eliminated">Tu es éliminé, tu regardes la fin de la partie</div>
       )}
       {finished && (
-        <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30" data-testid="finished">
-          {source.online?.winner ? `Victoire de ${view.players[source.online.winner]?.name ?? '?'}` : 'Partie close'}
+        <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30 flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="finished">
+          <span>{source.online?.winner ? `Victoire de ${view.players[source.online.winner]?.name ?? '?'}` : 'Partie close'}</span>
+          {canRematch && <RematchBar offer={rematch.offer} busy={rematch.busy} error={rematch.error} onGo={rematch.go} />}
         </div>
       )}
 
@@ -829,7 +835,8 @@ export default function Table({ source, notice, boardWindow }: {
         onShortcuts={() => { setSettingsOpen(false); setShortcutsOpen(true) }}
         onAnimations={() => { setSettingsOpen(false); setAnimationsOpen(true) }} />}
       <HolderFlights flights={playerFx.flights} />
-      {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory} />}
+      {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory}
+        rematch={canRematch ? { label: rematchLabel(rematch.offer), busy: rematch.busy, onGo: rematch.go } : undefined} />}
       {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
       {animationsOpen && <AnimationsModal effects={settings.cardEffects} onChange={(cardEffects) => changeSettings({ ...settings, cardEffects })}
         onClose={() => setAnimationsOpen(false)} />}

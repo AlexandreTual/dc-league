@@ -30,6 +30,7 @@ export const MIGRATIONS = [
   '0018_card_keywords.sql',
   '0019_game_archive.sql',
   '0020_error_log.sql',
+  '0021_game_rematch.sql',
 ]
 
 /** D1 refuse une requête qui lie plus de 100 paramètres. */

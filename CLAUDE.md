@@ -37,6 +37,7 @@ node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mod
 node scripts/playtest-tablet-check.mjs http://localhost:8788 <deckId> <dossier>  # mode test sur tablette (1180×820 et 1024×768, tactile, puis portrait)
 node scripts/hand-size-check.mjs http://localhost:8788 <dossier>                 # taille de la main (réglage, piles plafonnées sur écran étroit, mémorisé, tablette)
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
+node scripts/rematch-check.mjs http://localhost:8788 <dossier>             # revanche (écran de victoire, bandeau de fin, proposition aux autres, decks repris, refus d'un joueur extérieur)
 node scripts/board-window-check.mjs http://localhost:8788 <dossier>        # plateau d'un adversaire en fenêtre à part
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
 node scripts/mail-check.mjs http://localhost:8788 <dossier>                # mails (MAIL_TEST=1 dans .dev.vars)

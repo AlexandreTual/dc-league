@@ -20,6 +20,8 @@ export type GameTable = {
   durationSeconds: number | null
   /** Partie finie dont l'état du serveur de jeu a été effacé : il ne reste que l'historique en D1. */
   gameArchived: boolean
+  /** Table de la revanche proposée après cette partie finie ; null sans revanche (ou base pas encore migrée). */
+  rematchTableId: string | null
   createdAt: string
   lastActivityAt: string
   players: GameTablePlayer[]
@@ -37,6 +39,7 @@ const ERR = {
   tooFew: 'Il faut au moins 2 joueurs',
   duel: 'En Duel, il faut exactement 2 joueurs',
   decks: 'Chaque joueur doit choisir un deck',
+  notFinished: 'La partie n’est pas terminée',
 }
 
 const ok = <T>(data: T): Result<T> => ({ data, error: null })
@@ -92,6 +95,7 @@ function normalize(row: Record<string, unknown>, players: GameTablePlayer[]): Ga
     winnerPlayerId: (row.winner_player_id as string) ?? null,
     durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
     gameArchived: row.game_archived_at != null,
+    rematchTableId: (row.rematch_table_id as string) ?? null,
     createdAt: row.created_at as string,
     lastActivityAt: row.last_activity_at as string,
     players,
@@ -138,6 +142,66 @@ export async function createTable(
       db.prepare('INSERT INTO game_seats (table_id, player_id, seat) VALUES (?, ?, 1)').bind(id, input.hostPlayerId),
     ])
     return reload(db, id)
+  })
+}
+
+/** Revanche encore existante d'une partie finie, ou null. */
+async function liveRematch(db: D1Database, oldId: string): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT r.id FROM game_tables t JOIN game_tables r ON r.id = t.rematch_table_id WHERE t.id = ?')
+    .bind(oldId)
+    .first<{ id: string }>()
+  return row?.id ?? null
+}
+
+/**
+ * Revanche d'une partie finie, réservée à ses joueurs. La première demande crée une table de même format,
+ * mêmes places et même option des éliminés, avec le demandeur pour hôte ; les suivantes la rejoignent.
+ * Chacun y reprend le deck de la partie finie (modifiable ensuite dans la salle d'attente).
+ */
+export async function createRematch(db: D1Database, oldId: string, playerId: string): Promise<Result<GameTable>> {
+  return guard(async () => {
+    const { data: old, error } = await getTable(db, oldId)
+    if (error !== null) return fail(error)
+    if (!old) return fail(ERR.notFound)
+    if (old.status !== 'finished') return fail(ERR.notFinished)
+    const mine = old.players.find((p) => p.playerId === playerId)
+    if (!mine) return fail(ERR.notSeated)
+
+    let rematchId = await liveRematch(db, oldId)
+    if (!rematchId) {
+      const id = crypto.randomUUID()
+      // Réservation et création d'un seul bloc : deux demandes simultanées ne créent qu'une revanche.
+      const [claim] = await db.batch([
+        db
+          .prepare(
+            `UPDATE game_tables SET rematch_table_id = ? WHERE id = ? AND status = 'finished'
+               AND (rematch_table_id IS NULL OR NOT EXISTS (SELECT 1 FROM game_tables r WHERE r.id = game_tables.rematch_table_id))`,
+          )
+          .bind(id, oldId),
+        db
+          .prepare(
+            `INSERT INTO game_tables (id, host_player_id, format, seats, eliminated_see_all)
+             SELECT ?, ?, format, seats, eliminated_see_all FROM game_tables WHERE id = ? AND rematch_table_id = ?`,
+          )
+          .bind(id, playerId, oldId, id),
+        db
+          .prepare('INSERT INTO game_seats (table_id, player_id, deck_id, seat) SELECT id, ?, ?, 1 FROM game_tables WHERE id = ?')
+          .bind(playerId, mine.deckId, id),
+      ])
+      if (claim.meta.changes > 0) return reload(db, id)
+      rematchId = await liveRematch(db, oldId)
+      if (!rematchId) return fail(INTERNAL_ERROR)
+    }
+
+    const joined = await joinTable(db, rematchId, playerId)
+    if (joined.error !== null) return joined
+    const seat = joined.data.players.find((p) => p.playerId === playerId)
+    if (seat && seat.deckId === null && mine.deckId) {
+      const withDeck = await chooseDeck(db, rematchId, playerId, mine.deckId)
+      if (withDeck.error === null) return withDeck
+    }
+    return joined
   })
 }
 
