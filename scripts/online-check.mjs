@@ -3,14 +3,13 @@
 // données de scripts/seed-online.mjs chargées dans la base locale.
 // Usage : node scripts/online-check.mjs <url-de-base> <dossier-captures>
 import { execFileSync } from 'node:child_process'
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE, DAMIEN] = PLAYERS
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {
