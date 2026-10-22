@@ -4,13 +4,13 @@
 // Prérequis : seed-online.mjs appliqué, u-e2e-1 admin et une saison active avec au moins un match joué.
 // Avec « inscriptions » : saison active sans match, au moins un joueur inscrit (section Participants) ;
 // seule cette section est vérifiée, avec un texte agrandi comme sur un téléphone réglé en grande police.
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { mkdirSync } from 'node:fs'
 
 const [base = 'http://localhost:8788', out = '/tmp/mobile-check', mode = 'tout'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await launch()
 const WIDTH = 375
 const context = await browser.newContext({ viewport: { width: WIDTH, height: 812 }, hasTouch: true, isMobile: true })
 await context.addCookies([{ name: 'dc_session', value: 'jeton-de-test-e2e-1', url: base }])

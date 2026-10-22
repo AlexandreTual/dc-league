@@ -1,7 +1,7 @@
 // Vérifie les ligues créées par les joueurs : ligue privée, lien d'invitation, droits, gestion, inscription depuis un lien de ligue, anciennes adresses.
 // Usage : node scripts/leagues-check.mjs http://localhost:8788 <dossier-captures>
 // Prérequis : seed-online.mjs appliqué (joueurs e2e-1…e2e-5, ligue publique « Saison e2e »).
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
@@ -11,7 +11,7 @@ import { join } from 'node:path'
 const [base = 'http://localhost:8788', out = '/tmp/leagues-check'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await launch()
 let failures = 0
 function check(ok, label) {
   console.log(`${ok ? '✓' : '✗'} ${label}`)

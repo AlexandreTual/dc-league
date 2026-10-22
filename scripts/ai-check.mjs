@@ -4,12 +4,11 @@
 // Le script remet à zéro le compteur de questions et l'interrupteur admin, et rend e2e-1 admin.
 // Usage : node scripts/ai-check.mjs <url-de-base> <dossier-captures>
 import { execFileSync } from 'node:child_process'
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 import { startFakeGemini } from './fake-gemini.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROME ?? process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE] = PLAYERS
 const AI = 'Ajouter à la question IA'
 
@@ -24,7 +23,7 @@ function sql(command) {
 
 sql(`DELETE FROM ai_usage; DELETE FROM site_settings; UPDATE users SET is_admin = 1 WHERE id = 'u-${ANA.id}'`)
 const gemini = await startFakeGemini()
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 const browserRequests = []
 
