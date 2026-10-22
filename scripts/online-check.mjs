@@ -422,6 +422,7 @@ try {
 
   // ── Fin de partie ──
   await bastien.page.getByRole('button', { name: 'Abandonner' }).click()
+  await bastien.page.getByTestId('confirm-ok').click()
   await ana.page.locator(`[data-panel="${BASTIEN.id}"]`).getByText('éliminé').waitFor()
   check(true, 'Bastien abandonne')
   await bastien.page.getByTestId('eliminated').getByText('Tu es éliminé, tu regardes la fin de la partie').waitFor()
@@ -430,6 +431,7 @@ try {
   check(disabled.every(Boolean), 'Bastien éliminé : bandeau affiché, Jeton, Dés et Fin de tour désactivés')
   await ana.page.getByRole('button', { name: 'Hôte' }).click()
   await ana.page.getByRole('menuitem', { name: `Éliminer ${CHLOE.name}` }).click()
+  await ana.page.getByTestId('confirm-ok').click()
   for (const who of [ana, bastien, chloe, damien]) {
     await who.page.getByTestId('finished').getByText(`Victoire de ${ANA.name}`).waitFor()
   }

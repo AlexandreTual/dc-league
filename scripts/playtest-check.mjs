@@ -585,8 +585,9 @@ try {
   await artSize('Moyenne')
 
   // ── « Nouvelle partie » en cours de jeu : la table repart du tour 1 avec une main neuve ──
-  page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: /Nouvelle partie/ }).click()
+  check(await page.getByTestId('confirm').isVisible(), 'nouvelle partie : confirmation affichée dans la table (visible en plein écran)')
+  await page.getByTestId('confirm-ok').click()
   await page.waitForTimeout(300)
   check((await page.getByTestId('turn').innerText()) === 'Tour 1' && (await battlefieldCount()) === 0 && (await handCount()) === 7
     && await page.locator('[data-testid="mulligan-banner"]').isVisible(), 'nouvelle partie : tour 1, champ de bataille vide, 7 cartes, mulligan proposé')

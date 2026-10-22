@@ -251,6 +251,7 @@ try {
 
   // Bastien abandonne : fissures chez lui, victoire d'Ana chez les deux.
   await bastien.page.getByRole('button', { name: 'Abandonner' }).click()
+  await bastien.page.getByTestId('confirm-ok').click()
   await ana.page.locator(`[data-panel="${BASTIEN.id}"] [data-fx-crack="opening"]`).first().waitFor()
   check(true, 'Ana voit les fissures s’ouvrir sur le portrait de Bastien')
   await ana.page.getByTestId('victory').waitFor({ timeout: 10_000 })

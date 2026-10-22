@@ -18,6 +18,7 @@ import type { ClientAction } from '@/lib/game/room'
 import type { Catalog, PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
+import ConfirmModal from './ConfirmModal'
 import DiceModal from './DiceModal'
 import DungeonHost from './DungeonHost'
 import GameCard, { CardBack, type Lang } from './GameCard'
@@ -154,6 +155,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [bindings, setBindings] = useState<Bindings>(DEFAULT_BINDINGS)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [animationsOpen, setAnimationsOpen] = useState(false)
+  /** Confirmation ouverte (nouvelle partie, abandon, commandes de l'hôte). */
+  const [confirming, setConfirming] = useState<{ message: string; label: string; onConfirm: () => void } | null>(null)
   // Carte survolée hors de l'état de la table : la survoler ne redessine que l'aperçu.
   const [hover] = useState(createHoverStore)
   const shiftDown = useRef(false)
@@ -333,6 +336,7 @@ export default function Table({ source, notice, boardWindow }: {
       if (pile) closePile(pileShuffle.current ?? pile.mode === 'search')
       setTokenOpen(false)
       setDiceOpen(false)
+      setConfirming(null)
       setStartDraw(false)
       setOracle(null)
       setAbilitiesFor(null)
@@ -346,7 +350,7 @@ export default function Table({ source, notice, boardWindow }: {
       return
     }
     // Pas de raccourci de jeu tant qu'une fenêtre est ouverte.
-    if (pile || tokenOpen || diceOpen || startDraw || oracle || abilitiesFor || effectFor || menu || ordering || shortcutsOpen || animationsOpen) return
+    if (pile || tokenOpen || diceOpen || confirming || startDraw || oracle || abilitiesFor || effectFor || menu || ordering || shortcutsOpen || animationsOpen) return
     if (shortcut === 'help') {
       e.preventDefault()
       setSettingsOpen(false)
@@ -519,9 +523,9 @@ export default function Table({ source, notice, boardWindow }: {
       items.push({ kind: 'action', label: `Passer le tour de ${name(view.activePlayer)}`, onSelect: () => host.passTurn(view.activePlayer) })
     }
     for (const p of opponents.filter((p) => !view.players[p].eliminated)) {
-      items.push({ kind: 'action', label: `Éliminer ${name(p)}`, onSelect: () => confirm(`Éliminer ${name(p)} ?`) && host.eliminate(p) })
+      items.push({ kind: 'action', label: `Éliminer ${name(p)}`, onSelect: () => setConfirming({ message: `Éliminer ${name(p)} ?`, label: 'Éliminer', onConfirm: () => host.eliminate(p) }) })
     }
-    items.push({ kind: 'separator' }, { kind: 'action', label: 'Clore la partie', onSelect: () => confirm('Clore la partie sans vainqueur ?') && host.close() })
+    items.push({ kind: 'separator' }, { kind: 'action', label: 'Clore la partie', onSelect: () => setConfirming({ message: 'Clore la partie sans vainqueur ?', label: 'Clore', onConfirm: () => host.close() }) })
     return items
   }
 
@@ -594,7 +598,7 @@ export default function Table({ source, notice, boardWindow }: {
         onDice={() => setDiceOpen(true)}
         onLog={() => setLogOpen((open) => !open)}
         onSettings={() => setSettingsOpen((open) => !open)}
-        onNewGame={source.local ? () => confirm('Commencer une nouvelle partie ?') && source.local?.newGame() : undefined}
+        onNewGame={source.local ? () => setConfirming({ message: 'Commencer une nouvelle partie ?', label: 'Nouvelle partie', onConfirm: () => source.local?.newGame() }) : undefined}
         extra={source.online && me && (
           <>
             {source.online.visio && !visio.inCall && (
@@ -613,7 +617,7 @@ export default function Table({ source, notice, boardWindow }: {
               </button>
             )}
             {!mine?.eliminated && (
-              <button className={barButton} onClick={() => confirm('Abandonner la partie ?') && source.online?.concede()}>
+              <button className={barButton} onClick={() => setConfirming({ message: 'Abandonner la partie ?', label: 'Abandonner', onConfirm: () => source.online?.concede() })}>
                 <Flag className="w-3.5 h-3.5" /> Abandonner
               </button>
             )}
@@ -814,6 +818,7 @@ export default function Table({ source, notice, boardWindow }: {
           onClose={() => setEffectFor(null)}
         />
       )}
+      {confirming && <ConfirmModal {...confirming} onClose={() => setConfirming(null)} />}
       {diceOpen && (
         <DiceModal count={diceCount} onCount={setDiceCount} onRoll={(sides, count) => send({ type: 'roll', sides, count })} onClose={() => setDiceOpen(false)} />
       )}
