@@ -4,6 +4,8 @@ import { lookupKey, parseDeckList } from './parse'
 import type { ScryfallClient } from './scryfall'
 import { refreshDeckTokens } from './tokens'
 import { playerVisual } from './visual'
+import { displayName } from './groups'
+import { deckWarnings, warningText } from './warnings'
 import type { ImportSummary } from './types'
 
 /**
@@ -19,7 +21,7 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
   if (lookups.error !== null) return { data: null, error: lookups.error }
 
   const rawLines = text.replace(/\r\n?/g, '\n').split('\n')
-  const summary: ImportSummary = { total: 0, commanders: 0, frenchCount: 0, notFound: [], ignored: parsed.ignored, errors: parsed.errors }
+  const summary: ImportSummary = { total: 0, commanders: 0, frenchCount: 0, notFound: [], ignored: parsed.ignored, errors: parsed.errors, warnings: [] }
   const rows: DeckCardInsert[] = parsed.lines.map((line, index) => {
     const lookup = lookups.data[lookupKey(line)]
     const enId = lookup?.en_card_id ?? null
@@ -47,12 +49,16 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
   const replaced = await replaceDeckCards(db, deckId, rows)
   if (replaced.error !== null) return { data: null, error: replaced.error }
 
+  // Une seule lecture des cartes : avertissements du format Commander, puis image du commandant.
+  const cards = await getCards(db, rows.flatMap((r) => [r.en_card_id, r.fr_card_id]).filter((id): id is string => !!id))
+  if (cards.error !== null) return { data: null, error: cards.error }
+  const views = rows.map((r) => ({ ...r, en: cards.data[r.en_card_id ?? ''] ?? null, fr: cards.data[r.fr_card_id ?? ''] ?? null }))
+  summary.warnings = deckWarnings(views).map((w) => warningText(w, (c) => displayName(c, 'fr')))
+
   // Sans commandant trouvé dans la nouvelle liste, l'image de l'ancien commandant est effacée.
   let image: string | null = null
   const commander = rows.find((r) => r.section === 'commander' && r.en_card_id)
   if (commander) {
-    const cards = await getCards(db, [commander.en_card_id!, ...(commander.fr_card_id ? [commander.fr_card_id] : [])])
-    if (cards.error !== null) return { data: null, error: cards.error }
     const en = cards.data[commander.en_card_id!] ?? null
     const fr = playerVisual(cards.data[commander.fr_card_id ?? ''] ?? null, en, { set: commander.requested_set, number: commander.requested_number })
     image = fr?.image_normal ?? en?.image_normal ?? null
