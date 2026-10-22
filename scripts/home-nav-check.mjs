@@ -1,13 +1,13 @@
 // Vérifie la page d'accueil et la navigation sur ordinateur : visiteur, joueur, admin.
 // Usage : node scripts/home-nav-check.mjs http://localhost:8788 <dossier-captures>
 // Prérequis : seed-online.mjs appliqué, u-e2e-1 admin (e2e-2 reste simple joueur).
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { mkdirSync } from 'node:fs'
 
 const [base = 'http://localhost:8788', out = '/tmp/home-nav-check'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await launch()
 let failures = 0
 function check(ok, label) {
   console.log(`${ok ? '✓' : '✗'} ${label}`)

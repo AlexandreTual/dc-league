@@ -5,16 +5,15 @@
 // Usage : node scripts/dungeon-check.mjs <url-de-base> <dossier-captures> [--ancien-serveur]
 // --ancien-serveur : serveur de jeu sans donjons (`npm run game:dev` lancé depuis un worktree de main) ; vérifie
 // seulement qu'une partie en ligne s'affiche sans jeton, sans rubrique « Donjon » et sans erreur.
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const args = process.argv.slice(2)
 const oldServer = args.includes('--ancien-serveur')
 const [base = 'http://localhost:8788', outDir = '.'] = args.filter((a) => !a.startsWith('--'))
-const executablePath = process.env.CHROME ?? process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN] = PLAYERS
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {

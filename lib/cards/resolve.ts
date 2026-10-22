@@ -35,18 +35,19 @@ function isStale(lookup: StoredCardLookup | undefined, now: Date): boolean {
   return !Number.isFinite(fetched) || now.getTime() - fetched > NEGATIVE_CACHE_MS
 }
 
-// Une édition et un numéro qui désignent une autre carte (faute de frappe, numérotation d'un autre site)
+// Une édition (et un numéro) qui désignent une autre carte (faute de frappe, numérotation d'un autre site)
 // ne la remplacent pas : la ligne repart dans la recherche par nom.
 function matches(card: ScryfallCard, w: Wanted, byName: boolean): boolean {
-  if (!byName && w.set && w.number && (card.set !== w.set.toLowerCase() || card.collector_number !== w.number)) return false
+  if (!byName && w.set && (card.set !== w.set.toLowerCase() || (w.number && card.collector_number !== w.number))) return false
   return sameName(card, w.name)
 }
 
 // Scryfall ne trouve pas une carte double par son nom complet « A // B », seulement par sa face avant.
+// Une édition sans numéro (« 1 Sol Ring (C21) ») se cherche par nom plus édition.
 function identifier(w: Wanted, byName: boolean): Identifier {
-  return !byName && w.set && w.number
-    ? { set: w.set.toLowerCase(), collector_number: w.number }
-    : { name: frontFace(w.name).trim() }
+  const name = frontFace(w.name).trim()
+  if (byName || !w.set) return { name }
+  return w.number ? { set: w.set.toLowerCase(), collector_number: w.number } : { name, set: w.set.toLowerCase() }
 }
 
 /** Version française sans vraie image : nom et texte français, image de la version anglaise. */
@@ -66,14 +67,14 @@ export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenc
 
 /** Données anglaises puis impressions françaises des cartes à (re)chercher. */
 async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
-  // 1. Données anglaises : par édition et numéro si fournis, puis par nom pour ce qui manque.
+  // 1. Données anglaises : par édition (et numéro) si fournis, puis par nom pour ce qui manque.
   const english = new Map<string, ScryfallCard>()
   const first = await client.fetchCollection(missing.map((w) => identifier(w, false)))
   for (const w of missing) {
     const card = first.cards.find((c) => matches(c, w, false))
     if (card) english.set(w.key, card)
   }
-  const retry = missing.filter((w) => !english.has(w.key) && w.set && w.number)
+  const retry = missing.filter((w) => !english.has(w.key) && w.set)
   if (retry.length > 0) {
     const second = await client.fetchCollection(retry.map((w) => identifier(w, true)))
     for (const w of retry) {
