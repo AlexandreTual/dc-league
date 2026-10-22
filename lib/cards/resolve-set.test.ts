@@ -32,6 +32,9 @@ function fakeClient() {
     async searchFrenchPrints() {
       return []
     },
+    async searchFrenchNames() {
+      return []
+    },
   }
   return { client, asked }
 }
