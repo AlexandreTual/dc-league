@@ -6,9 +6,11 @@ interface Props {
   match: Match & { player1: Player; player2: Player }
   onEdit?: () => void
   isAdmin?: boolean
+  /** Match du joueur connecté : liseré doré. */
+  mine?: boolean
 }
 
-export default function MatchCard({ match, onEdit, isAdmin }: Props) {
+export default function MatchCard({ match, onEdit, isAdmin, mine }: Props) {
   const completed = match.is_completed
   const s1 = match.score_p1 ?? 0
   const s2 = match.score_p2 ?? 0
@@ -19,10 +21,11 @@ export default function MatchCard({ match, onEdit, isAdmin }: Props) {
 
   return (
     <div
+      data-testid={mine ? 'my-match' : undefined}
       className={`match-card rounded-xl border p-4 relative ${
-        completed
-          ? 'bg-dc-surface border-dc-border/60'
-          : 'bg-dc-surface/50 border-dc-border border-dashed'
+        completed ? 'bg-dc-surface' : 'bg-dc-surface/50 border-dashed'
+      } ${
+        mine ? 'border-dc-gold ring-1 ring-dc-gold/40' : completed ? 'border-dc-border/60' : 'border-dc-border'
       } ${isAdmin && !completed ? 'cursor-pointer hover:border-dc-gold/40' : ''}`}
       onClick={isAdmin && !completed ? onEdit : undefined}
     >
