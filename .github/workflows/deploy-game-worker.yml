@@ -6,11 +6,17 @@ name: Déployer le Worker de jeu
 on:
   push:
     branches: [main]
+    # Tout fichier importé par workers/game/index.ts doit figurer ici
+    # (vérifié par workers/game/deploy-paths.test.ts).
     paths:
       - 'workers/**'
       - 'lib/game/**'
+      - 'lib/games/**'
       - 'lib/db-games.ts'
+      - 'lib/db-chunks.ts'
+      - 'lib/db-errors.ts'
       - 'lib/db.ts'
+      - 'lib/cards/types.ts'
       - 'migrations/**'
       - '.github/workflows/deploy-game-worker.yml'
   workflow_dispatch:
