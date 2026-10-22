@@ -15,6 +15,8 @@ import ImportPanel, { ImportProgressBar } from '@/components/decks/ImportPanel'
 import { importDeckFromLink, type ImportProgress } from '@/components/decks/importDeck'
 import type { ImportSummary } from '@/lib/cards/types'
 import { deckSiteName } from '@/lib/cards/deck-link'
+import { deckWarnings, warningText } from '@/lib/cards/warnings'
+import FormatWarnings from '@/components/decks/FormatWarnings'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import { longPressClass, menuGesture, touchTarget } from '@/components/table/touch'
@@ -105,6 +107,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
 
   const total = cards.reduce((n, c) => n + c.quantity, 0)
   const groups = groupDeckCards(cards, lang)
+  const warnings = deckWarnings(cards).map((w) => warningText(w, (c) => displayName(c, lang)))
   const selectedShown = selected ? displayCard(selected, lang) : null
   const hoverShown = hover ? displayCard(hover.card, lang) : null
   const hoverImage = hoverShown?.image_normal ?? null
@@ -162,6 +165,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
         </div>
       </div>
 
+      <FormatWarnings items={warnings} />
       {error && <p className="text-dc-red-light text-sm">{error}</p>}
       {importProgress && <ImportProgressBar progress={importProgress} />}
       {importFailed && !pasting && (

@@ -15,7 +15,7 @@ function check(condition, message) {
 }
 
 const text = ['Commander', '1 Kenrith, the Returned King (eld) 303', '', 'Deck', '1 Sol Ring (c21) 263', '30 Forest (eld) 266'].join('\n')
-const summary = { total: 32, commanders: 1, frenchCount: 31, notFound: [], ignored: 0, errors: [] }
+const summary = { total: 32, commanders: 1, frenchCount: 31, notFound: [], ignored: 0, errors: [], warnings: ['Le deck compte 32 cartes au lieu de 100.'] }
 const slow = (json, status = 200) => (route) => setTimeout(() => route.fulfill({ status, json }), 300)
 
 const browser = await chromium.launch({ executablePath })
@@ -44,10 +44,11 @@ try {
   await row.getByTestId('import-progress').waitFor()
   check(true, 'la progression s’affiche sous le deck')
   await page.screenshot({ path: `${outDir}/deck-import-progress.png` })
-  await row.getByTestId('import-done').getByText('32 cartes').waitFor()
+  await row.getByTestId('import-done').getByText('32 cartes', { exact: true }).waitFor()
   check(calls.join(',') === 'link,resolve,commit', `lien → Scryfall → enregistrement, sans autre clic (${calls.join(', ')})`)
   check(await row.getByText('97 % en français').isVisible(), 'résumé : 97 % en français')
   check(await row.getByRole('link', { name: 'Voir le deck →' }).isVisible(), 'lien « Voir le deck »')
+  check(await row.getByTestId('deck-warnings').getByText('Le deck compte 32 cartes au lieu de 100.').isVisible(), 'résumé : avertissement du format Commander (non bloquant)')
   await page.screenshot({ path: `${outDir}/deck-import-done.png`, fullPage: true })
   console.log(`📸 ${outDir}/deck-import-done.png`)
 
