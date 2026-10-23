@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Crown, Link as LinkIcon } from 'lucide-react'
+import Link from 'next/link'
 import { startCheck, type GameTable } from '@/lib/db-games'
+import { tableShareText } from '@/lib/share'
+import ShareButton from '@/components/ShareButton'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
 const REFRESH_MS = 3000
@@ -33,11 +36,12 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
     return () => clearInterval(timer)
   }, [table.id, onChange, router])
 
-  const seat = table.players.find((p) => p.playerId === me)
+  const players = table.players ?? []
+  const seat = players.find((p) => p.playerId === me)
   const isHost = table.hostPlayerId === me
   const blocker = startCheck(table)
   // Un joueur choisi qui quitte la table : retour au tirage au sort.
-  const firstPlayer = table.players.some((p) => p.playerId === first) ? first : ''
+  const firstPlayer = players.some((p) => p.playerId === first) ? first : ''
 
   async function post(path: string, body?: unknown): Promise<GameTable | null> {
     setBusy(true)
@@ -67,13 +71,25 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
     }
   }
 
+  function shareData() {
+    const host = players.find((p) => p.playerId === table.hostPlayerId)
+    return {
+      title: 'Commander League',
+      text: tableShareText({ format: table.format, seats: table.seats, hostName: host?.name }),
+      url: window.location.href,
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-fantasy text-2xl font-bold text-dc-gold flex-1">{FORMAT_LABELS[table.format]}</h1>
-        <button className={smallButton} onClick={copyLink}>
-          <LinkIcon className="inline w-4 h-4 mr-1" />{copied ? 'Lien copié' : 'Copier le lien'}
-        </button>
+        <div className="flex gap-2">
+          <ShareButton className={`${smallButton} whitespace-nowrap`} getData={shareData} />
+          <button className={`${smallButton} whitespace-nowrap`} onClick={copyLink}>
+            <LinkIcon className="inline w-4 h-4 mr-1" />{copied ? 'Lien copié' : 'Copier le lien'}
+          </button>
+        </div>
       </div>
       {error && <p className={errorClass}>{error}</p>}
 
@@ -106,7 +122,7 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
               {myDecks.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
-          {myDecks.length === 0 && <p className="text-dc-muted text-sm">Importe d&apos;abord la liste d&apos;un de tes decks (Profil → Mes decks).</p>}
+          {myDecks.length === 0 && <p className="text-dc-muted text-sm">Importe d&apos;abord la liste d&apos;un de tes decks dans <Link href="/profil/decks" className="text-dc-gold underline">Mes decks</Link>.</p>}
           {isHost && (
             <>
               <label>
