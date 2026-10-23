@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
-export default function InvitationForm({ token, kind }: { token: string; kind: 'signup' | 'reset' }) {
+export default function InvitationForm({ token, kind, target }: { token: string; kind: 'signup' | 'reset'; target: string }) {
   const router = useRouter()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -26,7 +26,7 @@ export default function InvitationForm({ token, kind }: { token: string; kind: '
       setLoading(false)
       return setError(error)
     }
-    router.push('/profil')
+    router.push(target)
     router.refresh()
   }
 

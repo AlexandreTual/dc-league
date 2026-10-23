@@ -1,13 +1,22 @@
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { KeyRound } from 'lucide-react'
 import { hashToken } from '@/lib/auth/crypto'
+import { afterInvitationPath } from '@/lib/auth/validation'
 import { getValidInvitation } from '@/lib/db-auth'
+import { isLeagueInvitePath } from '@/lib/leagues/join'
 import InvitationForm from './InvitationForm'
 
 export const runtime = 'edge'
 
-export default async function InvitationPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function InvitationPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>
+  searchParams: Promise<{ from?: string }>
+}) {
   const { token } = await params
+  const target = afterInvitationPath((await searchParams).from)
   const { env } = getRequestContext<CloudflareEnv>()
   const { data: invitation } = await getValidInvitation(env.DB, await hashToken(token), new Date())
 
@@ -24,6 +33,11 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
               <p className="text-dc-muted text-sm">
                 {invitation.kind === 'signup' ? 'Choisis ton pseudo et ton mot de passe' : 'Choisis ton nouveau mot de passe'}
               </p>
+              {isLeagueInvitePath(target) && (
+                <p className="text-dc-text text-sm bg-dc-gold/10 border border-dc-gold/30 rounded-lg px-3 py-2">
+                  Une fois ton compte créé, tu arriveras sur la page pour rejoindre la ligue.
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -32,7 +46,7 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
             </>
           )}
         </div>
-        {invitation && <InvitationForm token={token} kind={invitation.kind} />}
+        {invitation && <InvitationForm token={token} kind={invitation.kind} target={target} />}
       </div>
     </div>
   )

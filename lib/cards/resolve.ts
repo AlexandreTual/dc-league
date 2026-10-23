@@ -27,6 +27,15 @@ function sameName(card: ScryfallCard, name: string): boolean {
   return faces.some((f) => plainName(f) === wanted)
 }
 
+const oracleOf = (card: ScryfallCard) => card.oracle_id ?? card.card_faces?.[0]?.oracle_id
+
+// Nom imprimé d'une impression française : nom complet, face avant ou l'une des faces.
+function samePrintedName(card: ScryfallCard, name: string): boolean {
+  const wanted = plainName(name)
+  const printed = [card.printed_name, ...(card.card_faces ?? []).map((f) => f.printed_name)].filter((n): n is string => !!n)
+  return printed.some((p) => plainName(p) === wanted || frontFace(plainName(p)) === frontFace(wanted))
+}
+
 /** Entrée à (re)chercher : absente, ou négative et plus vieille que NEGATIVE_CACHE_MS. */
 function isStale(lookup: StoredCardLookup | undefined, now: Date): boolean {
   if (!lookup) return true
@@ -35,18 +44,19 @@ function isStale(lookup: StoredCardLookup | undefined, now: Date): boolean {
   return !Number.isFinite(fetched) || now.getTime() - fetched > NEGATIVE_CACHE_MS
 }
 
-// Une édition et un numéro qui désignent une autre carte (faute de frappe, numérotation d'un autre site)
+// Une édition (et un numéro) qui désignent une autre carte (faute de frappe, numérotation d'un autre site)
 // ne la remplacent pas : la ligne repart dans la recherche par nom.
 function matches(card: ScryfallCard, w: Wanted, byName: boolean): boolean {
-  if (!byName && w.set && w.number && (card.set !== w.set.toLowerCase() || card.collector_number !== w.number)) return false
+  if (!byName && w.set && (card.set !== w.set.toLowerCase() || (w.number && card.collector_number !== w.number))) return false
   return sameName(card, w.name)
 }
 
 // Scryfall ne trouve pas une carte double par son nom complet « A // B », seulement par sa face avant.
+// Une édition sans numéro (« 1 Sol Ring (C21) ») se cherche par nom plus édition.
 function identifier(w: Wanted, byName: boolean): Identifier {
-  return !byName && w.set && w.number
-    ? { set: w.set.toLowerCase(), collector_number: w.number }
-    : { name: frontFace(w.name).trim() }
+  const name = frontFace(w.name).trim()
+  if (byName || !w.set) return { name }
+  return w.number ? { set: w.set.toLowerCase(), collector_number: w.number } : { name, set: w.set.toLowerCase() }
 }
 
 /** Version française sans vraie image : nom et texte français, image de la version anglaise. */
@@ -62,18 +72,44 @@ function withEnglishImages(fr: FrenchPrint, en: CardRow): CardRow {
 }
 
 /** Ce que l'import utilise du client Scryfall. */
-export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenchPrints'>
+export type ImportClient = Pick<ScryfallClient, 'fetchCollection' | 'searchFrenchPrints' | 'searchFrenchNames'>
+
+/**
+ * Lignes écrites avec le nom français : `/cards/collection` ne connaît que les noms anglais. On cherche
+ * ces noms parmi les impressions françaises, puis la carte anglaise de même oracle_id (celle de l'édition
+ * et du numéro demandés s'ils correspondent, sinon celle du nom anglais).
+ */
+async function fetchByFrenchName(client: ImportClient, unresolved: Wanted[], english: Map<string, ScryfallCard>) {
+  const frenchCards = await client.searchFrenchNames([...new Set(unresolved.map((w) => frontFace(w.name).trim()))])
+  const found = unresolved.flatMap((w) => {
+    const fr = frenchCards.find((c) => samePrintedName(c, w.name))
+    return fr ? [{ w, fr }] : []
+  })
+  if (found.length === 0) return
+  const identifiers = new Map<string, Identifier>()
+  for (const { w, fr } of found) {
+    const ids: Identifier[] = [{ name: frontFace(fr.name).trim() }]
+    if (w.set && w.number) ids.push({ set: w.set.toLowerCase(), collector_number: w.number })
+    for (const id of ids) identifiers.set(JSON.stringify(id), id)
+  }
+  const { cards } = await client.fetchCollection([...identifiers.values()])
+  for (const { w, fr } of found) {
+    const same = cards.filter((c) => oracleOf(c) === oracleOf(fr))
+    const card = same.find((c) => !!w.set && c.set === w.set.toLowerCase() && c.collector_number === w.number) ?? same[0]
+    if (card) english.set(w.key, card)
+  }
+}
 
 /** Données anglaises puis impressions françaises des cartes à (re)chercher. */
 async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
-  // 1. Données anglaises : par édition et numéro si fournis, puis par nom pour ce qui manque.
+  // 1. Données anglaises : par édition (et numéro) si fournis, puis par nom pour ce qui manque.
   const english = new Map<string, ScryfallCard>()
   const first = await client.fetchCollection(missing.map((w) => identifier(w, false)))
   for (const w of missing) {
     const card = first.cards.find((c) => matches(c, w, false))
     if (card) english.set(w.key, card)
   }
-  const retry = missing.filter((w) => !english.has(w.key) && w.set && w.number)
+  const retry = missing.filter((w) => !english.has(w.key) && w.set)
   if (retry.length > 0) {
     const second = await client.fetchCollection(retry.map((w) => identifier(w, true)))
     for (const w of retry) {
@@ -81,6 +117,9 @@ async function fetchFromScryfall(client: ImportClient, missing: Wanted[]) {
       if (card) english.set(w.key, card)
     }
   }
+
+  const unresolved = missing.filter((w) => !english.has(w.key))
+  if (unresolved.length > 0) await fetchByFrenchName(client, unresolved, english)
 
   // 2. Impressions françaises, recherchées par oracle_id en une fois.
   const englishRows = new Map([...english].map(([key, card]) => [key, toCardRow(card)]))

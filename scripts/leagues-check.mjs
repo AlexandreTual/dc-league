@@ -1,13 +1,17 @@
-// Vérifie les ligues créées par les joueurs : ligue privée, lien d'invitation, droits, gestion, anciennes adresses.
+// Vérifie les ligues créées par les joueurs : ligue privée, lien d'invitation, droits, gestion, inscription depuis un lien de ligue, anciennes adresses.
 // Usage : node scripts/leagues-check.mjs http://localhost:8788 <dossier-captures>
 // Prérequis : seed-online.mjs appliqué (joueurs e2e-1…e2e-5, ligue publique « Saison e2e »).
-import { chromium } from 'playwright-core'
-import { mkdirSync } from 'node:fs'
+import { launch } from './browser.mjs'
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const [base = 'http://localhost:8788', out = '/tmp/leagues-check'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await launch()
 let failures = 0
 function check(ok, label) {
   console.log(`${ok ? '✓' : '✗'} ${label}`)
@@ -73,6 +77,59 @@ await visitor.goto(invite)
 await visitor.waitForURL('**/connexion?**')
 check(await visitor.getByText("Pas encore de compte ? Demande une invitation à l'administrateur.", { exact: false }).isVisible(), 'visiteur : connexion avec le message pour la ligue')
 await visitor.screenshot({ path: `${out}/4-visiteur.png` })
+
+// 4 bis. Un ami sans compte : l'invitation garde le lien de ligue (`from`), mais refuse un autre site.
+function sql(statements) {
+  const file = join(mkdtempSync(join(tmpdir(), 'leagues-check-')), 'prep.sql')
+  writeFileSync(file, statements.join('\n'))
+  execFileSync('npx', ['wrangler', 'd1', 'execute', 'dc-league', '--local', '--file', file], { stdio: 'ignore' })
+}
+const newcomers = [
+  { id: 'e2e-inv-1', name: 'Fanny Invitée', token: `jeton-invitation-1-${Date.now()}` },
+  { id: 'e2e-inv-2', name: 'Gaspard Invité', token: `jeton-invitation-2-${Date.now()}` },
+]
+sql(
+  newcomers.flatMap((n) => [
+    `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE player_id = '${n.id}' OR username = '${n.id}');`,
+    `DELETE FROM users WHERE player_id = '${n.id}' OR username = '${n.id}';`,
+    `DELETE FROM invitations WHERE player_id = '${n.id}';`,
+    `INSERT INTO players (id, name) VALUES ('${n.id}', '${n.name}') ON CONFLICT(id) DO UPDATE SET name = excluded.name;`,
+    `INSERT INTO invitations (id, player_id, kind, expires_at) VALUES ('${createHash('sha256').update(n.token).digest('hex')}', '${n.id}', 'signup', '2099-01-01T00:00:00.000Z');`,
+  ]),
+)
+async function signUp(page, newcomer, from) {
+  await page.goto(`${base}/invitation/${newcomer.token}?from=${encodeURIComponent(from)}`)
+  await page.getByLabel('Pseudo de connexion').fill(newcomer.id)
+  await page.getByLabel('Mot de passe', { exact: true }).fill('mot-de-passe-e2e')
+  await page.getByLabel('Confirmation').fill('mot-de-passe-e2e')
+}
+const invitePath = new URL(invite).pathname
+const fanny = await pageAs(null, { width: 390, height: 844 })
+await signUp(fanny, newcomers[0], invitePath)
+check(await fanny.getByText('Une fois ton compte créé, tu arriveras sur la page pour rejoindre la ligue.').isVisible(), 'nouvel ami : l’invitation annonce la ligue')
+const overflowInvitation = await fanny.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+check(overflowInvitation <= 0, `téléphone : pas de défilement horizontal sur l'invitation (${overflowInvitation} px)`)
+await fanny.screenshot({ path: `${out}/4b-invitation-telephone.png`, fullPage: true })
+await fanny.getByRole('button', { name: 'Créer mon compte' }).click()
+await fanny.waitForURL((url) => url.pathname === invitePath)
+check(await fanny.getByRole('heading', { name }).isVisible(), 'nouvel ami : arrive sur le lien de ligue après l’inscription')
+await fanny.screenshot({ path: `${out}/4c-apres-inscription-telephone.png`, fullPage: true })
+await fanny.context().close()
+const gaspard = await pageAs(null, { width: 390, height: 844 })
+await signUp(gaspard, newcomers[1], 'https://exemple.invalid/ligues/rejoindre/x')
+check((await gaspard.getByText('tu arriveras sur la page pour rejoindre la ligue', { exact: false }).count()) === 0, 'from externe : aucune annonce de ligue')
+await gaspard.getByRole('button', { name: 'Créer mon compte' }).click()
+await gaspard.waitForURL((url) => url.origin === base && url.pathname === '/profil')
+check(true, 'from externe : refusé, arrivée sur le profil')
+await gaspard.context().close()
+sql(
+  newcomers.flatMap((n) => [
+    `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE player_id = '${n.id}');`,
+    `DELETE FROM users WHERE player_id = '${n.id}';`,
+    `DELETE FROM invitations WHERE player_id = '${n.id}';`,
+    `DELETE FROM players WHERE id = '${n.id}';`,
+  ]),
+)
 
 // 5. Ana inscrit Damien directement, génère les matchs et saisit un score.
 await ana.reload()

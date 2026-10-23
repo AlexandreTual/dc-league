@@ -12,6 +12,7 @@ const TIMEOUT_MS = 10_000
 const COLLECTION_MAX = 75
 // La requête `q` est tronquée par Scryfall à 1000 caractères : 20 « oracleid:… » (49 caractères chacun) au plus.
 const SEARCH_GROUP = 20
+const QUERY_MAX = 1000
 
 export class ScryfallUnavailableError extends Error {
   constructor(reason: string) {
@@ -26,7 +27,7 @@ export type ScryfallDeps = {
   /** Signal d'annulation après `ms` (injectable pour les tests). */
   timeout?: (ms: number) => AbortSignal
 }
-export type Identifier = { set: string; collector_number: string } | { name: string } | { id: string }
+export type Identifier = { set: string; collector_number: string } | { name: string; set?: string } | { id: string }
 
 /** Carte liée (jeton, emblème, pièce de combo…) listée dans `all_parts`. */
 export type RelatedCard = { id: string; component: string; name: string; type_line?: string }
@@ -189,6 +190,29 @@ export function createScryfallClient(deps: ScryfallDeps) {
     return cards
   }
 
+  /**
+   * Cartes dont le nom imprimé en français est exactement l'un de ceux demandés (une impression par carte),
+   * pour les listes écrites en français que `/cards/collection` ne connaît pas. Les noms sont groupés en
+   * requêtes de 1000 caractères au plus ; une page (175 cartes) suffit à chaque groupe.
+   */
+  async function searchFrenchNames(names: string[]): Promise<ScryfallCard[]> {
+    // Un guillemet casserait la requête `!"…"` : ces rares noms restent introuvables.
+    const terms = [...new Set(names.map((n) => n.trim()).filter((n) => n && !n.includes('"')))].map((n) => `!"${n}"`)
+    const query = (group: string[]) => `(${group.join(' or ')}) lang:fr`
+    const groups: string[][] = []
+    for (const term of terms) {
+      const last = groups[groups.length - 1]
+      if (last && query([...last, term]).length <= QUERY_MAX) last.push(term)
+      else groups.push([term])
+    }
+    const cards: ScryfallCard[] = []
+    for (const group of groups) {
+      const { status, body } = await call(`${API}/cards/search?${new URLSearchParams({ q: query(group) })}`)
+      if (status !== 404) cards.push(...(body.data ?? []))
+    }
+    return cards
+  }
+
   /** Règles d'une carte (identiques pour toutes ses impressions), de la plus ancienne à la plus récente. */
   async function fetchRulings(cardId: string): Promise<Ruling[]> {
     const { status, body } = await call<{ data?: ScryfallRuling[] }>(`${API}/cards/${encodeURIComponent(cardId)}/rulings`)
@@ -200,7 +224,7 @@ export function createScryfallClient(deps: ScryfallDeps) {
     }))
   }
 
-  return { fetchCollection, searchFrenchPrints, fetchRulings }
+  return { fetchCollection, searchFrenchPrints, searchFrenchNames, fetchRulings }
 }
 
 export type ScryfallClient = ReturnType<typeof createScryfallClient>
