@@ -46,7 +46,7 @@ describe('seasonProgress', () => {
 
 const table = (id: string, status: GameTable['status'], playerIds: string[], extra: Partial<GameTable> = {}): GameTable => ({
   id, status, hostPlayerId: playerIds[0], format: 'commander', seats: 4, eliminatedSeeAll: false, winnerPlayerId: null,
-  durationSeconds: null, gameArchived: false, createdAt: '', lastActivityAt: '',
+  durationSeconds: null, gameArchived: false, rematchTableId: null, createdAt: '', lastActivityAt: '',
   players: playerIds.map((playerId, seat) => ({ playerId, name: playerId.toUpperCase(), deckId: null, deckName: null, seat })),
   ...extra,
 })
