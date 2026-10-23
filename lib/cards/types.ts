@@ -94,6 +94,8 @@ export type ImportSummary = {
   notFound: { lineNumber: number; text: string }[]
   ignored: number
   errors: { lineNumber: number; text: string }[]
+  /** Écarts au format Commander, déjà rédigés (#239) ; n'empêchent pas l'import. */
+  warnings: string[]
 }
 
 /** Règle officielle (« ruling ») d'une carte, en anglais. */

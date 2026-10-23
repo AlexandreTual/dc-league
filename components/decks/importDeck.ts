@@ -57,6 +57,13 @@ export async function importDeckFromLink(deckId: string, link: string, deps: Imp
   return importDeckText(deckId, (data as { text: string }).text, 0, deps)
 }
 
+/** Import à lancer à la création d'un deck : la liste collée passe avant le lien. */
+export function creationImport(fields: { list: string; moxfield_url: string }): { kind: 'text'; text: string } | { kind: 'link'; url: string } | null {
+  if (fields.list.trim()) return { kind: 'text', text: fields.list }
+  const url = fields.moxfield_url.trim()
+  return url ? { kind: 'link', url } : null
+}
+
 /** Texte court de la progression, affiché pendant l'import. */
 export function progressLabel(progress: ImportProgress): string {
   if (progress.step === 'link') return 'Récupération de la liste…'
