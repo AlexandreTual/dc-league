@@ -61,7 +61,7 @@ export default async function ClassementPage({ params }: { params: Promise<{ id:
         />
       )}
       <div className="text-center space-y-3">
-        <p className="text-dc-muted text-sm">Duel Commander · Round Robin · Top 4</p>
+        <p className="text-dc-muted text-sm">Duel Commander · Tous contre tous · Top 4</p>
 
         {(totalMatchCount ?? 0) > 0 && (
           <div className="inline-flex items-center gap-2 bg-dc-surface border border-dc-border rounded-full px-4 py-1.5 text-sm">

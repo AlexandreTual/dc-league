@@ -148,7 +148,7 @@ export default async function CalendarPage({
                         : 'bg-dc-surface border-dc-border text-dc-muted'
                     }`}
                   >
-                    Round {round}
+                    Ronde {round}
                   </div>
                   <div className="flex-1 h-px bg-dc-border/50" />
                 </div>

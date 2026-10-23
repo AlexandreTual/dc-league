@@ -18,7 +18,7 @@ Stack : **Next.js 15** (App Router, runtime edge) sur **Cloudflare Pages** via `
 | `workers/game/` | Worker + Durable Object des parties en ligne |
 | `migrations/` | Migrations D1 numérotées (`000N_nom.sql`) |
 | `scripts/` | Correctifs `postinstall`, données de test, vérifications navigateur |
-| `docs/` | Déploiement du jeu en ligne, specs et plans (`docs/superpowers/`), feuille de route |
+| `docs/` | Déploiement du jeu en ligne, mails, assistant IA, visio, journaux, specs et plans (`docs/superpowers/`), feuille de route |
 
 ---
 
@@ -31,7 +31,15 @@ npm install                 # applique aussi les correctifs de scripts/patch-nex
 npm run db:migrate:local    # crée la base D1 locale
 ```
 
-Variables locales dans `.dev.vars` (non versionné) : `ADMIN_PASSWORD`, mot de passe de démarrage utilisé tant qu'aucun compte admin n'existe ; `MAIL_TEST=1` pour lire les mails dans la boîte de test (voir « Comptes joueurs »).
+Variables locales dans `.dev.vars` (non versionné) :
+
+- `ADMIN_PASSWORD` : mot de passe de démarrage, utilisé tant qu'aucun compte admin n'existe ;
+- `MAIL_TEST=1` : les mails sont lisibles dans la boîte de test au lieu de partir (voir « Comptes joueurs ») ;
+- `GEMINI_API_KEY` (et `GEMINI_MODEL` facultatif) : assistant IA ; pour la vérification navigateur avec le faux Gemini, `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790`. Guide de la vraie clé : [docs/assistant-ia.md](docs/assistant-ia.md) ;
+- `TURN_KEY_ID` et `TURN_KEY_API_TOKEN` (facultatifs) : relais TURN de Cloudflare pour la visio, voir [docs/visio.md](docs/visio.md) ;
+- envoi réel des mails : voir [docs/mails.md](docs/mails.md).
+
+Erreurs de production et où lire les journaux : [docs/journaux.md](docs/journaux.md).
 
 Lancer le site comme en production (build Cloudflare puis serveur local) :
 
@@ -43,7 +51,7 @@ npx wrangler pages dev --port 8788      # site (relancer après chaque build)
 
 `npm run dev` (Next seul) fonctionne aussi pour l'interface, avec les liaisons Cloudflare simulées.
 
-Données de test (joueurs `e2e-1`…`e2e-4`, cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`) :
+Données de test (`scripts/seed-online.mjs`) : joueurs `e2e-1` à `e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>`, ligue publique `league-e2e` (« Saison e2e », `e2e-1`…`e2e-4` inscrits) :
 
 ```bash
 node scripts/seed-online.mjs > /tmp/seed.sql && npx wrangler d1 execute dc-league --local --file /tmp/seed.sql

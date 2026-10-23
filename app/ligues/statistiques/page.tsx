@@ -54,7 +54,7 @@ function GlobalLeaderboard({ players }: { players: PlayerRecord[] }) {
     <section className="space-y-4">
       <div className="flex items-center gap-3">
         <Trophy className="w-5 h-5 text-dc-gold" />
-        <h2 className="font-fantasy text-xl font-bold text-dc-gold">Palmarès Global</h2>
+        <h2 className="font-fantasy text-xl font-bold text-dc-gold">Palmarès global</h2>
         <span className="text-dc-muted text-sm">toutes saisons confondues</span>
       </div>
 
