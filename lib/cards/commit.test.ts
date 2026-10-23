@@ -37,7 +37,8 @@ beforeEach(async () => {
   await seedCache(
     db,
     lines.map((l, i) => {
-      const en = cardRow({ id: `en-${i}`, name: l.name, image_normal: `https://img/en-${i}.jpg` })
+      const basic = ['Forest', 'Plains', 'Island', 'Swamp'].includes(l.name)
+      const en = cardRow({ id: `en-${i}`, name: l.name, image_normal: `https://img/en-${i}.jpg`, ...(basic ? { type_line: `Basic Land — ${l.name}` } : {}) })
       const fr = ['Kenrith, the Returned King', 'Sol Ring'].includes(l.name)
         ? cardRow({ id: `fr-${i}`, lang: 'fr', name: l.name, image_normal: `https://img/fr-${i}.jpg` })
         : null
@@ -49,10 +50,19 @@ beforeEach(async () => {
 describe('commitDeckList', () => {
   it('enregistre un export complet et renvoie le résumé', async () => {
     const r = await commitDeckList(db, 'd1', fixture, scryfall())
-    expect(r.data).toEqual({ total: 100, commanders: 1, frenchCount: 2, notFound: [], ignored: 2, errors: [] })
+    expect(r.data).toEqual({ total: 100, commanders: 1, frenchCount: 2, notFound: [], ignored: 2, errors: [], warnings: [] })
     const cards = (await listDeckCards(db, 'd1')).data!
     expect(cards).toHaveLength(40)
     expect(cards[0]).toMatchObject({ section: 'commander', requested_name: 'Kenrith, the Returned King' })
+  })
+
+  it('résumé : avertissements du format Commander (#239)', async () => {
+    const text = 'Commander\n1 Kenrith, the Returned King (ELD) 303\n\nDeck\n1 Sol Ring (C21) 263\n1 Sol Ring (C21) 263\n16 Forest (ELD) 266'
+    const r = await commitDeckList(db, 'd1', text, scryfall())
+    expect(r.data?.warnings).toEqual([
+      'Le deck compte 19 cartes au lieu de 100.',
+      "Plusieurs exemplaires d'une carte hors terrains de base : Sol Ring (×2).",
+    ])
   })
 
   it('commandant d’une impression sans version française : image de l’impression demandée (#158)', async () => {

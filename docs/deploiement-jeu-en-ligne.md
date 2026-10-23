@@ -2,7 +2,7 @@
 
 Le jeu en ligne a besoin d'un second programme à côté du site : le **Worker de jeu** (`workers/game`), qui garde les parties en cours. Le site, lui, continue de se déployer comme avant.
 
-Le Worker se déploie tout seul grâce à une GitHub Action (`.github/workflows/deploy-game-worker.yml`), à chaque fusion sur `main` qui le concerne. Elle applique aussi les migrations de la base (dont `0004_game_tables.sql`).
+Le Worker se déploie tout seul grâce à une GitHub Action (`.github/workflows/deploy-game-worker.yml`), à chaque fusion sur `main` qui le concerne. Elle applique aussi les migrations de la base (dont `0004_game_tables.sql`) : d'abord un job **migrations** (sans relancer les tests, déjà passés sur la pull request), puis un job **deploy** qui déploie le Worker seulement si les migrations ont réussi.
 
 Il faut seulement lui donner, **une fois**, deux secrets. Tout se fait depuis le navigateur du téléphone.
 
@@ -41,6 +41,31 @@ Menu de gauche → **Workers & Pages** : l'**Account ID** est affiché sur la dr
 - Le lien **Salon** apparaît dans le menu quand tu es connecté.
 - Crée une table, fais-la rejoindre par un ami (ou un second compte dans une fenêtre privée), choisissez vos decks, démarre : la partie s'affiche chez les deux et une pioche de l'un se voit chez l'autre.
 - En cas de souci : onglet **Actions** de GitHub (journal du déploiement), ou Cloudflare → **Workers & Pages** → **dc-league-game** → **Logs**.
+
+---
+
+## Revenir en arrière sur la base (D1 Time Travel)
+
+Si une migration a abîmé des données, D1 sait remettre la base dans l'état d'un instant passé (jusqu'à 30 jours). Ces commandes agissent toujours sur la base en ligne (pas d'option `--remote`) et se lancent depuis un ordinateur connecté à Cloudflare (`npx wrangler login`), à la racine du dépôt.
+
+1. **Retrouver le marque-page d'avant la migration.** Onglet **Actions** de GitHub → l'exécution concernée → job **migrations** → étape **« Marque-page Time Travel avant migration »** : elle affiche le marque-page (*bookmark*) de la base juste avant la migration. Si l'étape a échoué, on peut en obtenir un à partir de l'heure de l'exécution :
+
+   ```bash
+   npx wrangler d1 time-travel info dc-league                                  # marque-page actuel
+   npx wrangler d1 time-travel info dc-league --timestamp=2026-10-22T07:00:00Z # marque-page à cet instant (heure UTC)
+   ```
+
+2. **Restaurer** (tout ce qui a été écrit après ce point est perdu : parties, résultats, comptes créés entre-temps) :
+
+   ```bash
+   npx wrangler d1 time-travel restore dc-league --bookmark=<marque-page>
+   ```
+
+   Wrangler indique aussi le marque-page d'avant la restauration : le noter permet d'annuler la restauration de la même façon.
+
+3. **Corriger la migration** : la restauration efface aussi sa trace dans la table `d1_migrations`, elle serait donc rejouée à la prochaine exécution de l'Action. La corriger (ou la retirer) dans une pull request avant toute autre fusion.
+
+Documentation Cloudflare : [developers.cloudflare.com/d1/reference/time-travel](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 ---
 
