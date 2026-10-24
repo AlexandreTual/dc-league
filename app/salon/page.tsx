@@ -20,7 +20,7 @@ export default async function SalonPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Salon</h1>
-      <Lobby me={user.playerId} initialTables={tables ?? []} />
+      <Lobby me={user.playerId} initialTables={tables ?? []} now={Date.now()} />
     </div>
   )
 }
