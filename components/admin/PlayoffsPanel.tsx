@@ -9,13 +9,7 @@ import ScoreModal from '@/components/ScoreModal'
 import { sendJson } from '@/components/formStyles'
 import PlayoffMatch from './PlayoffMatch'
 import type { AdminApi } from './useAdminApi'
-
-const STAGE_LABELS: Record<string, string> = {
-  semi1: 'Demi-finale 1 · 1er vs 4ème',
-  semi2: 'Demi-finale 2 · 2ème vs 3ème',
-  final: 'Grande Finale',
-  third_place: 'Petite Finale · 3ème place',
-}
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Top 4 : génération des demi-finales, puis matchs de playoffs et leurs scores. */
 export default function PlayoffsPanel({
@@ -31,6 +25,7 @@ export default function PlayoffsPanel({
 }) {
   const router = useRouter()
   const { showToast, call } = api
+  const t = useT().admin.playoffs
 
   const [playoffLoading, setPlayoffLoading] = useState(false)
   const [playoffError, setPlayoffError] = useState('')
@@ -46,7 +41,7 @@ export default function PlayoffsPanel({
         setPlayoffError(error)
       } else {
         setPlayoffs(data as DbPlayoff[])
-        showToast('Demi-finales générées !')
+        showToast(t.generated)
         router.refresh()
       }
     } finally {
@@ -59,7 +54,7 @@ export default function PlayoffsPanel({
     const { ok } = await call(`/api/leagues/${leagueId}/playoffs`, 'DELETE')
     if (!ok) return
     setPlayoffs([])
-    showToast('Playoffs réinitialisés')
+    showToast(t.reset)
     router.refresh()
   }
 
@@ -79,14 +74,14 @@ export default function PlayoffsPanel({
         return updated
       })
       setSelectedPlayoff(null)
-      showToast(generated && generated.length > 0 ? '✓ Score enregistré · Finale et petite finale à jour !' : 'Score enregistré !')
+      showToast(generated && generated.length > 0 ? t.scoreSavedFinals : t.scoreSaved)
       router.refresh()
     },
-    [call, router, setPlayoffs, showToast]
+    [call, router, setPlayoffs, showToast, t]
   )
 
   async function handleResetPlayoffScore(id: string) {
-    if (!confirm('Réinitialiser ce score ?')) return
+    if (!confirm(t.confirmResetScore)) return
     const { ok, data } = await call<DbPlayoff>(`/api/playoffs/${id}`, 'DELETE')
     if (!ok) return
     const updated = data as DbPlayoff
@@ -97,7 +92,7 @@ export default function PlayoffsPanel({
         .filter((p) => !semi || (p.stage !== 'final' && p.stage !== 'third_place'))
         .map((p) => (p.id === id ? updated : p))
     )
-    showToast(semi ? 'Score réinitialisé · Finale et petite finale retirées' : 'Score réinitialisé')
+    showToast(semi ? t.scoreResetSemi : t.scoreReset)
     router.refresh()
   }
 
@@ -115,8 +110,8 @@ export default function PlayoffsPanel({
   const finals = withPlayers(['final', 'third_place'])
 
   const groups: { key: string; title: string; matches: typeof semis }[] = [
-    { key: 'semis', title: 'Demi-finales', matches: semis },
-    { key: 'finals', title: 'Finales', matches: finals },
+    { key: 'semis', title: t.semis, matches: semis },
+    { key: 'finals', title: t.finals, matches: finals },
   ]
 
   return (
@@ -125,14 +120,14 @@ export default function PlayoffsPanel({
         <div className="flex items-center justify-between">
           <h2 className="font-fantasy font-bold text-dc-gold text-lg flex items-center gap-2">
             <Trophy className="w-5 h-5" />
-            Playoffs — Top 4
+            {t.title}
           </h2>
           {playoffs.length > 0 && (
             confirmResetPlayoffs ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-dc-red-light text-xs">Effacer les playoffs ?</span>
-                <button onClick={handleResetPlayoffs} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">Oui</button>
-                <button onClick={() => setConfirmResetPlayoffs(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">Non</button>
+                <span className="text-dc-red-light text-xs">{t.confirmReset}</span>
+                <button onClick={handleResetPlayoffs} className="text-xs px-3 py-1.5 bg-dc-red/20 border border-dc-red/40 text-dc-red-light rounded-lg hover:bg-dc-red/30 transition-all">{t.yes}</button>
+                <button onClick={() => setConfirmResetPlayoffs(false)} className="text-xs px-3 py-1.5 border border-dc-border/50 text-dc-muted rounded-lg hover:text-dc-text transition-all">{t.no}</button>
               </div>
             ) : (
             <button
@@ -140,7 +135,7 @@ export default function PlayoffsPanel({
               className="flex items-center gap-1.5 text-dc-muted hover:text-dc-red-light text-xs px-3 py-1.5 border border-dc-border/50 rounded-lg transition-all hover:border-dc-red-light/30"
             >
               <RefreshCcw className="w-3.5 h-3.5" />
-              Reset playoffs
+              {t.resetButton}
             </button>
             )
           )}
@@ -151,12 +146,12 @@ export default function PlayoffsPanel({
           <div className="bg-dc-surface border border-dc-gold/20 rounded-2xl p-5 space-y-3">
             {enrolledCount < 4 ? (
               <p className="text-dc-muted text-sm">
-                Il faut au moins 4 joueurs inscrits pour générer le Top 4 ({enrolledCount} inscrits). La saison peut être clôturée directement.
+                {t.notEnough(enrolledCount)}
               </p>
             ) : (
               <>
                 <p className="text-dc-muted text-sm">
-                  Tous les matchs de ligue sont joués. Génère les demi-finales pour commencer le Top 4.
+                  {t.ready}
                 </p>
                 {playoffError && (
                   <div className="flex items-start gap-2 text-dc-red-light text-sm bg-dc-red/20 border border-dc-red/30 rounded-lg px-3 py-2">
@@ -170,7 +165,7 @@ export default function PlayoffsPanel({
                   className="flex items-center gap-2 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold font-fantasy font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed w-full justify-center"
                 >
                   <Trophy className="w-5 h-5" />
-                  {playoffLoading ? 'Génération…' : 'Générer le Top 4'}
+                  {playoffLoading ? t.generating : t.generate}
                 </button>
               </>
             )}
@@ -190,7 +185,7 @@ export default function PlayoffsPanel({
                       playoff={playoff}
                       player1={p1}
                       player2={p2}
-                      label={STAGE_LABELS[playoff.stage]}
+                      label={t.stages[playoff.stage]}
                       onEdit={() => setSelectedPlayoff(playoff)}
                       onReset={() => handleResetPlayoffScore(playoff.id)}
                     />

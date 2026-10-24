@@ -10,6 +10,7 @@ import { parseDeckList } from '@/lib/cards/parse'
 import type { ImportSummary } from '@/lib/cards/types'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import type { DbDeck } from '@/lib/db-decks'
+import { useT } from '@/components/i18n/I18nProvider'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
 // L'image du commandant vient de l'import de la liste (carte en section commandant).
@@ -34,6 +35,8 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }
   onCancel?: () => void
   withList?: boolean
 }) {
+  const t = useT()
+  const m = t.decks.myDecks
   const [fields, setFields] = useState(initial)
   const [list, setList] = useState('')
   const [error, setError] = useState('')
@@ -57,16 +60,16 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className={labelClass}>Nom du deck (ou du commandant)</label>
+        <label className={labelClass}>{m.nameLabel}</label>
         <input className={inputClass} value={fields.name} onChange={set('name')} placeholder="Kenrith" />
       </div>
       <div>
-        <label className={labelClass}>Lien du deck (Moxfield ou Archidekt)</label>
+        <label className={labelClass}>{m.linkLabel}</label>
         <input className={inputClass} type="url" value={fields.moxfield_url} onChange={set('moxfield_url')} placeholder="https://moxfield.com/decks/…" />
       </div>
       {withList && (
         <div>
-          <label className={labelClass} htmlFor="new-deck-list">Ou colle la liste</label>
+          <label className={labelClass} htmlFor="new-deck-list">{m.orPaste}</label>
           <textarea
             id="new-deck-list"
             className={inputClass + ' font-mono text-xs'}
@@ -77,11 +80,11 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }
           />
           {list.trim() && (
             <p className="text-dc-muted text-xs mt-1">
-              {cardCount} cartes · {parsed.lines.filter((l) => l.section === 'commander').length} commandant(s) · {parsed.errors.length} illisible(s)
-              {fields.moxfield_url.trim() ? ' · la liste collée passe avant le lien' : ''}
+              {m.listSummary(cardCount, parsed.lines.filter((l) => l.section === 'commander').length, parsed.errors.length)}
+              {fields.moxfield_url.trim() ? m.listOverridesLink : ''}
             </p>
           )}
-          {parsed.tooLong && <p className={errorClass}>La liste dépasse 250 lignes</p>}
+          {parsed.tooLong && <p className={errorClass}>{t.decks.import.tooLong}</p>}
         </div>
       )}
       {error && <p className={errorClass}>{error}</p>}
@@ -105,6 +108,7 @@ function ImportStatus({ deck, state, onRetry, onResume, onPaste }: {
   onResume: (id: string, text: string, from: number) => void
   onPaste: () => void
 }) {
+  const m = useT().decks.myDecks
   if (!state) return null
   return (
     <div className="mt-4 pt-4 border-t border-dc-border space-y-2">
@@ -118,10 +122,10 @@ function ImportStatus({ deck, state, onRetry, onResume, onPaste }: {
               onClick={() => (state.resumeFrom !== undefined ? onResume(deck.id, state.text, state.resumeFrom) : onRetry())}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-gold/40 rounded-lg text-dc-gold hover:bg-dc-gold/10"
             >
-              <RotateCw className="w-3.5 h-3.5" /> {state.resumeFrom !== undefined ? 'Reprendre l\'import' : 'Réessayer'}
+              <RotateCw className="w-3.5 h-3.5" /> {state.resumeFrom !== undefined ? m.resume : m.retry}
             </button>
             <button onClick={onPaste} className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-dc-border/60 rounded-lg text-dc-muted hover:text-dc-text">
-              <ClipboardPaste className="w-3.5 h-3.5" /> Coller la liste à la place
+              <ClipboardPaste className="w-3.5 h-3.5" /> {m.pasteInstead}
             </button>
           </div>
         </>
@@ -136,6 +140,8 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
   cardCounts: Record<string, number>
 }) {
   const router = useRouter()
+  const t = useT()
+  const m = t.decks.myDecks
   const [decks, setDecks] = useState(initialDecks)
   const [cardCounts, setCardCounts] = useState(initialCounts)
   const [imports, setImports] = useState<Record<string, ImportState>>({})
@@ -163,20 +169,20 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
   async function startImport(deck: DbDeck & { moxfield_url: string }) {
     setPastingId(null)
     const onProgress = (progress: ImportProgress) => setImport(deck.id, { step: 'running', progress })
-    await finish(deck.id, await importDeckFromLink(deck.id, deck.moxfield_url, { onProgress }))
+    await finish(deck.id, await importDeckFromLink(deck.id, deck.moxfield_url, { t, onProgress }))
   }
 
   /** Reprend au paquet Scryfall raté, avec la liste déjà récupérée. */
   async function resumeImport(id: string, text: string, from: number) {
     const onProgress = (progress: ImportProgress) => setImport(id, { step: 'running', progress })
-    await finish(id, await importDeckText(id, text, from, { onProgress }))
+    await finish(id, await importDeckText(id, text, from, { t, onProgress }))
   }
 
   /** Importe une liste collée, avec la même progression que l'import par lien. */
   async function startTextImport(id: string, text: string) {
     setPastingId(null)
     const onProgress = (progress: ImportProgress) => setImport(id, { step: 'running', progress })
-    await finish(id, await importDeckText(id, text, 0, { onProgress }))
+    await finish(id, await importDeckText(id, text, 0, { t, onProgress }))
   }
 
   async function create(fields: DeckFields, list: string) {
@@ -207,7 +213,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
   }
 
   async function remove(deck: DbDeck) {
-    if (!confirm(`Supprimer le deck « ${deck.name} » ?`)) return
+    if (!confirm(m.confirmDelete(deck.name))) return
     const { error } = await sendJson(`/api/decks/${deck.id}`, 'DELETE')
     setListError(error ?? '')
     if (!error) setDecks((prev) => prev.filter((d) => d.id !== deck.id))
@@ -217,13 +223,13 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
     <div className="space-y-6">
       {listError && <p className={errorClass}>{listError}</p>}
 
-      {decks.length === 0 && <p className="text-dc-muted text-sm">Tu n&apos;as encore aucun deck.</p>}
+      {decks.length === 0 && <p className="text-dc-muted text-sm">{m.empty}</p>}
 
       <ul className="space-y-3">
         {decks.map((deck) => (
           <li key={deck.id} className="bg-dc-surface border border-dc-border rounded-2xl p-4">
             {editingId === deck.id ? (
-              <DeckForm initial={fieldsOf(deck)} submitLabel={() => 'Enregistrer'} onSubmit={(f) => update(deck.id, f)} onCancel={() => setEditingId(null)} />
+              <DeckForm initial={fieldsOf(deck)} submitLabel={() => m.save} onSubmit={(f) => update(deck.id, f)} onCancel={() => setEditingId(null)} />
             ) : (
               <div className="flex items-center gap-4">
                 {deck.commander_image_url ? (
@@ -233,18 +239,18 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                   <div className="w-12 h-16 rounded bg-dc-bg border border-dc-border" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <Link href={`/decks/${deck.id}`} className="text-dc-text font-semibold truncate block hover:text-dc-gold">{deck.name}</Link>
-                  {cardCounts[deck.id] ? <p className="text-dc-muted text-xs">{cardCounts[deck.id]} cartes</p> : null}
+                  <Link href={`/decks/${deck.id}`} className="text-dc-text font-semibold truncate block hover:text-dc-gold" data-user-content>{deck.name}</Link>
+                  {cardCounts[deck.id] ? <p className="text-dc-muted text-xs">{t.decks.cardCount(cardCounts[deck.id])}</p> : null}
                   {deck.moxfield_url && (
                     <a href={deck.moxfield_url} target="_blank" rel="noreferrer" className="text-dc-gold text-xs inline-flex items-center gap-1 hover:underline">
-                      {deckSiteName(deck.moxfield_url) ?? 'Lien du deck'} <ExternalLink className="w-3 h-3" />
+                      {deckSiteName(deck.moxfield_url) ?? t.decks.deckLink} <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
-                <button onClick={() => setEditingId(deck.id)} className="p-2 text-dc-muted hover:text-dc-text" aria-label={`Modifier ${deck.name}`}>
+                <button onClick={() => setEditingId(deck.id)} className="p-2 text-dc-muted hover:text-dc-text" aria-label={m.edit(deck.name)}>
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => remove(deck)} className="p-2 text-dc-muted hover:text-dc-red-light" aria-label={`Supprimer ${deck.name}`}>
+                <button onClick={() => remove(deck)} className="p-2 text-dc-muted hover:text-dc-red-light" aria-label={m.remove(deck.name)}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -268,9 +274,9 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
       </ul>
 
       <div className={cardClass}>
-        <h2 className="font-fantasy text-lg text-dc-text flex items-center gap-2"><Plus className="w-4 h-4" /> Nouveau deck</h2>
-        <DeckForm withList initial={emptyFields} submitLabel={(f, list) => (creationImport({ list, moxfield_url: f.moxfield_url }) ? 'Créer et importer' : 'Créer le deck')} onSubmit={create} />
-        <p className="text-dc-muted text-xs">Colle le lien du deck ou sa liste en texte (Moxfield : Export → Copier) : les cartes sont importées depuis Scryfall dès la création. Pour mettre à jour la liste ensuite : « Réimporter » sur la page du deck.</p>
+        <h2 className="font-fantasy text-lg text-dc-text flex items-center gap-2"><Plus className="w-4 h-4" /> {m.newDeck}</h2>
+        <DeckForm withList initial={emptyFields} submitLabel={(f, list) => (creationImport({ list, moxfield_url: f.moxfield_url }) ? m.createAndImport : m.create)} onSubmit={create} />
+        <p className="text-dc-muted text-xs">{m.help}</p>
       </div>
     </div>
   )

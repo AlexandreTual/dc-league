@@ -1,5 +1,6 @@
 // Raccourcis clavier de la table : touches par défaut (façon Moxfield), touches choisies par le joueur
 // (mémorisées sur l'appareil) et commandes d'une carte survolée, reprises de son menu clic droit.
+import type { Messages } from '@/lib/i18n/messages'
 import type { MenuCommand, MenuEntry } from './menus'
 import type { PlayerView, VisibleCard, ZoneRef } from './types'
 
@@ -12,30 +13,31 @@ export type Shortcut = TableShortcut | CardShortcut
 /** Touche normalisée : « ctrl+x », « shift+l », « t », « + », « space »… ; null : pas de touche. */
 export type Bindings = Record<Shortcut, string | null>
 
-export const SHORTCUTS: { id: Shortcut; label: string; group: 'table' | 'card'; key: string | null }[] = [
-  { id: 'draw', label: 'Piocher une carte', group: 'table', key: 'd' },
-  { id: 'untapAll', label: 'Tout dégager', group: 'table', key: 'u' },
-  { id: 'nextTurn', label: 'Tour suivant', group: 'table', key: 'n' },
-  { id: 'shuffle', label: 'Mélanger la bibliothèque', group: 'table', key: 's' },
-  { id: 'mulligan', label: 'Mulligan', group: 'table', key: 'm' },
-  { id: 'undo', label: 'Annuler', group: 'table', key: 'ctrl+z' },
-  { id: 'help', label: 'Afficher les raccourcis', group: 'table', key: '?' },
-  { id: 'tap', label: 'Engager / dégager', group: 'card', key: 't' },
-  { id: 'flip', label: 'Retourner (double face)', group: 'card', key: 'f' },
-  { id: 'faceDown', label: 'Face cachée / visible', group: 'card', key: 'shift+f' },
-  { id: 'copy', label: 'Créer un jeton copie', group: 'card', key: 'x' },
-  { id: 'plusCounter', label: 'Ajouter un marqueur +1/+1', group: 'card', key: '+' },
-  { id: 'minusCounter', label: 'Retirer un marqueur +1/+1', group: 'card', key: '-' },
-  { id: 'reveal', label: 'Révéler à tous (main)', group: 'card', key: 'r' },
-  { id: 'oracle', label: 'Oracle et règles', group: 'card', key: 'o' },
-  { id: 'abilities', label: 'Donner une capacité…', group: 'card', key: 'a' },
-  { id: 'toHand', label: 'Envoyer dans la main', group: 'card', key: 'h' },
-  { id: 'toBattlefield', label: 'Mettre sur le champ de bataille', group: 'card', key: 'b' },
-  { id: 'toGraveyard', label: 'Envoyer au cimetière', group: 'card', key: 'g' },
-  { id: 'toExile', label: 'Exiler', group: 'card', key: 'e' },
-  { id: 'toCommand', label: 'Envoyer en zone de commandement', group: 'card', key: 'c' },
-  { id: 'toLibraryTop', label: 'Dessus de la bibliothèque', group: 'card', key: 'l' },
-  { id: 'toLibraryBottom', label: 'Dessous de la bibliothèque', group: 'card', key: 'shift+l' },
+/** Raccourcis, dans l'ordre de la fenêtre ; leur description est dans le dictionnaire (`shortcutLabel`). */
+export const SHORTCUTS: { id: Shortcut; group: 'table' | 'card'; key: string | null }[] = [
+  { id: 'draw', group: 'table', key: 'd' },
+  { id: 'untapAll', group: 'table', key: 'u' },
+  { id: 'nextTurn', group: 'table', key: 'n' },
+  { id: 'shuffle', group: 'table', key: 's' },
+  { id: 'mulligan', group: 'table', key: 'm' },
+  { id: 'undo', group: 'table', key: 'ctrl+z' },
+  { id: 'help', group: 'table', key: '?' },
+  { id: 'tap', group: 'card', key: 't' },
+  { id: 'flip', group: 'card', key: 'f' },
+  { id: 'faceDown', group: 'card', key: 'shift+f' },
+  { id: 'copy', group: 'card', key: 'x' },
+  { id: 'plusCounter', group: 'card', key: '+' },
+  { id: 'minusCounter', group: 'card', key: '-' },
+  { id: 'reveal', group: 'card', key: 'r' },
+  { id: 'oracle', group: 'card', key: 'o' },
+  { id: 'abilities', group: 'card', key: 'a' },
+  { id: 'toHand', group: 'card', key: 'h' },
+  { id: 'toBattlefield', group: 'card', key: 'b' },
+  { id: 'toGraveyard', group: 'card', key: 'g' },
+  { id: 'toExile', group: 'card', key: 'e' },
+  { id: 'toCommand', group: 'card', key: 'c' },
+  { id: 'toLibraryTop', group: 'card', key: 'l' },
+  { id: 'toLibraryBottom', group: 'card', key: 'shift+l' },
 ]
 
 export const DEFAULT_BINDINGS = Object.fromEntries(SHORTCUTS.map((s) => [s.id, s.key])) as Bindings
@@ -61,9 +63,12 @@ export function comboOf(e: Omit<KeyEvent, 'target'>): string | null {
   return [e.ctrlKey || e.metaKey ? 'ctrl' : '', e.altKey ? 'alt' : '', e.shiftKey && shiftMatters ? 'shift' : '', key].filter(Boolean).join('+')
 }
 
-/** Touche lisible : « Ctrl+X », « Maj+L », « Espace ». */
-export function keyLabel(combo: string): string {
-  const names: Record<string, string> = { ctrl: 'Ctrl', alt: 'Alt', shift: 'Maj', space: 'Espace', arrowup: '↑', arrowdown: '↓', arrowleft: '←', arrowright: '→', delete: 'Suppr', backspace: 'Retour arrière' }
+/** Description d'un raccourci dans la langue de `t` (« Piocher une carte »). */
+export const shortcutLabel = (id: Shortcut, t: Messages): string => t.table.shortcuts.labels[id]
+
+/** Touche lisible dans la langue de `t` : « Ctrl+X », « Maj+L », « Espace » (« Shift+L », « Space »). */
+export function keyLabel(combo: string, t: Messages): string {
+  const names: Record<string, string> = { ctrl: 'Ctrl', alt: 'Alt', arrowup: '↑', arrowdown: '↓', arrowleft: '←', arrowright: '→', ...t.table.shortcuts.keys }
   return combo.split(/\+(?=.)/).map((part) => names[part] ?? (part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1))).join('+')
 }
 
@@ -110,6 +115,9 @@ export function parseBindings(raw: string | null): Bindings {
   }
   return bindings
 }
+
+/** Stockage du navigateur, déclaré ici : ce fichier entre aussi (par les types du dictionnaire) dans le Worker de jeu, sans DOM. */
+declare const localStorage: { getItem(key: string): string | null; setItem(key: string, value: string): void }
 
 export function loadBindings(): Bindings {
   try {
@@ -186,9 +194,9 @@ const TABLE_ACTIONS: [TableShortcut, (a: Extract<MenuCommand, { kind: 'action' }
  * Touche à afficher en grisé à droite de chaque entrée d'un menu (null : aucune), comme dans Moxfield.
  * `target` : la carte du menu, pour les raccourcis de carte ; l'entrée est celle que la touche déclencherait.
  */
-export function menuHints(entries: MenuEntry[], bindings: Bindings, target?: { card: VisibleCard; zone: ZoneRef }): (string | null)[] {
+export function menuHints(entries: MenuEntry[], bindings: Bindings, t: Messages, target?: { card: VisibleCard; zone: ZoneRef }): (string | null)[] {
   const hints: (string | null)[] = entries.map(() => null)
-  const label = (id: Shortcut) => (bindings[id] ? keyLabel(bindings[id]!) : null)
+  const label = (id: Shortcut) => (bindings[id] ? keyLabel(bindings[id]!, t) : null)
   entries.forEach((e, i) => {
     if (e.kind !== 'item' || e.commands.length !== 1) return
     const c = e.commands[0]

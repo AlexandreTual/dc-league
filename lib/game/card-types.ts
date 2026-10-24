@@ -5,16 +5,16 @@ import type { Catalog, VisibleCard } from './types'
 
 export type CardType = 'creature' | 'land' | 'artifact' | 'enchantment' | 'instant' | 'sorcery' | 'planeswalker' | 'battle'
 
-/** Dans l'ordre des boutons de filtre. */
-export const CARD_TYPES: { type: CardType; label: string; word: string }[] = [
-  { type: 'creature', label: 'Créature', word: 'Creature' },
-  { type: 'land', label: 'Terrain', word: 'Land' },
-  { type: 'artifact', label: 'Artefact', word: 'Artifact' },
-  { type: 'enchantment', label: 'Enchantement', word: 'Enchantment' },
-  { type: 'instant', label: 'Éphémère', word: 'Instant' },
-  { type: 'sorcery', label: 'Rituel', word: 'Sorcery' },
-  { type: 'planeswalker', label: 'Planeswalker', word: 'Planeswalker' },
-  { type: 'battle', label: 'Bataille', word: 'Battle' },
+/** Dans l'ordre des boutons de filtre ; leur libellé est dans le dictionnaire (`t.table.pile.types`). */
+export const CARD_TYPES: { type: CardType; word: string }[] = [
+  { type: 'creature', word: 'Creature' },
+  { type: 'land', word: 'Land' },
+  { type: 'artifact', word: 'Artifact' },
+  { type: 'enchantment', word: 'Enchantment' },
+  { type: 'instant', word: 'Instant' },
+  { type: 'sorcery', word: 'Sorcery' },
+  { type: 'planeswalker', word: 'Planeswalker' },
+  { type: 'battle', word: 'Battle' },
 ]
 
 /** Tous les types d'une ligne de type anglaise ; pour une carte double face, seulement la première face. */
@@ -26,10 +26,10 @@ export function cardTypes(info: Pick<CardInfo, 'typeLine'>): CardType[] {
 const typesOf = (card: VisibleCard, catalogs: Record<string, Catalog>) => cardTypes(cardInfo(catalogs[card.owner], card, 'en'))
 
 /** Nombre de cartes par type présent dans la pile (une carte compte pour chacun de ses types). */
-export function countByType(cards: VisibleCard[], catalogs: Record<string, Catalog>): { type: CardType; label: string; count: number }[] {
+export function countByType(cards: VisibleCard[], catalogs: Record<string, Catalog>): { type: CardType; count: number }[] {
   const counts = new Map<CardType, number>()
   for (const card of cards) for (const t of typesOf(card, catalogs)) counts.set(t, (counts.get(t) ?? 0) + 1)
-  return CARD_TYPES.filter((t) => counts.has(t.type)).map((t) => ({ type: t.type, label: t.label, count: counts.get(t.type)! }))
+  return CARD_TYPES.filter((t) => counts.has(t.type)).map((t) => ({ type: t.type, count: counts.get(t.type)! }))
 }
 
 /** Filtres d'une pile : le texte (nom FR ou EN, sans casse ni accents) **et** au moins un des types cochés (aucun type coché = tous). */

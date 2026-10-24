@@ -25,12 +25,20 @@ describe('readLang', () => {
     expect(readLang()).toBe('fr')
   })
 
+  it('jamais choisie : suit la langue de l’interface ; choisie : ne la suit plus', () => {
+    fakeStorage()
+    expect(readLang('en')).toBe('en')
+    fakeStorage({ [LANG_KEY]: 'fr' })
+    expect(readLang('en')).toBe('fr')
+  })
+
   it('stockage indisponible : « fr » sans erreur', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => { throw new Error('stockage bloqué') },
       setItem: () => { throw new Error('stockage bloqué') },
     })
     expect(readLang()).toBe('fr')
+    expect(readLang('en')).toBe('en')
     expect(() => saveLang('en')).not.toThrow()
   })
 })

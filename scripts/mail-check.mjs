@@ -85,7 +85,7 @@ try {
   const phone = { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true }
 
   // 1. Ana ajoute son adresse dans son profil (sur téléphone).
-  const anaContext = await browser.newContext(phone)
+  const anaContext = await browser.newContext({ locale: 'fr-FR', ...phone })
   await anaContext.addCookies([{ name: 'dc_session', value: tokenOf(ANA.id), url: base }])
   const ana = await anaContext.newPage()
   ana.on('pageerror', (e) => errors.push(e.message))
@@ -113,7 +113,7 @@ try {
   await anaContext.close()
 
   // 2. « Mot de passe oublié ? » par adresse, sans être connecté.
-  const visitor = await browser.newContext(phone)
+  const visitor = await browser.newContext({ locale: 'fr-FR', ...phone })
   const page = await visitor.newPage()
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto(`${base}/connexion`)
@@ -175,7 +175,7 @@ try {
   await visitor.close()
 
   // 5. Émile crée son compte depuis le mail et retrouve son adresse.
-  const emileContext = await browser.newContext(phone)
+  const emileContext = await browser.newContext({ locale: 'fr-FR', ...phone })
   const emile = await emileContext.newPage()
   emile.on('pageerror', (e) => errors.push(e.message))
   const invitation = await waitMail(emile.request, 'emile@example.test', 1)

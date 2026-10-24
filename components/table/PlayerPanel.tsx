@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { Castle, Crown, Flag, Heart, Minus, Plus, Radiation, Skull, Star, Swords, Tag, Ticket, Zap, type LucideIcon } from 'lucide-react'
 import { cardInfo } from '@/lib/game/apply'
 import type { ClientAction } from '@/lib/game/room'
-import { MARKER_NAME_MAX, markerRows, newMarkerError, PRESET_MARKERS, sameMarker, type MarkerRow } from '@/lib/game/player-markers'
+import { MARKER_NAME_MAX, markerLabel, markerRows, newMarkerError, PRESET_MARKERS, sameMarker, type MarkerRow } from '@/lib/game/player-markers'
 import type { Catalog, PlayerView, VisibleCard } from '@/lib/game/types'
 import type { Lang } from './GameCard'
 import { hasDungeons, openDungeon, venture } from './dungeon'
 import { touchTarget } from './touch'
+import { useT } from '@/components/i18n/I18nProvider'
 
 const stepBtn = `p-0.5 rounded hover:bg-dc-border disabled:opacity-30 disabled:hover:bg-transparent ${touchTarget}`
 
@@ -21,12 +22,14 @@ export function Stepper({ label, value, alert = false, disabled, onChange, testI
   testId?: string
 }) {
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
+  const pl = useT().table.player
+  const what = typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? pl.commanderDamageWord : pl.lifeWord
   return (
     <span className={`inline-flex items-center gap-0.5 ${alert ? 'text-dc-red-light font-semibold' : ''}`}>
       {label}
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label={`moins : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Minus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(-step(e))} aria-label={pl.minus(what)}><Minus className="w-3 h-3" /></button>
       <span className="min-w-[1.75rem] text-center" data-testid={testId}>{value}</span>
-      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={`plus : ${typeof label === 'string' ? label : testId?.startsWith('commander-damage') ? 'blessures de commandant' : 'points de vie'}`}><Plus className="w-3 h-3" /></button>
+      <button className={stepBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={pl.plus(what)}><Plus className="w-3 h-3" /></button>
     </span>
   )
 }
@@ -68,16 +71,17 @@ function MarkerLine({ row, icon, label, title, disabled, onChange }: {
   onChange: (delta: number) => void
 }) {
   const step = (e: React.MouseEvent) => (e.shiftKey ? 5 : 1)
+  const pl = useT().table.player
   const alert = row.kind !== 'counter' && row.alert
-  const name = row.kind === 'commander' ? `blessures de ${label}` : label
+  const name = row.kind === 'commander' ? pl.damageFrom(label) : label
   return (
     <li className={`flex items-center gap-2 py-1 ${alert ? 'text-dc-red-light font-semibold' : ''}`} data-marker={row.key} title={title}>
       {icon}
       <span className="flex-1 min-w-0 truncate">{label}</span>
       <span className={`min-w-[1.75rem] text-center text-sm tabular-nums ${row.value === 0 ? 'text-dc-muted' : ''}`}
         data-testid={row.kind === 'commander' ? `commander-damage-${row.owner}` : `marker-${row.key}`}>{row.value}</span>
-      <button className={rowBtn} disabled={disabled || row.value === 0} onClick={(e) => onChange(-step(e))} aria-label={`moins : ${name}`}><Minus className={rowIcon} /></button>
-      <button className={rowBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={`plus : ${name}`}><Plus className={rowIcon} /></button>
+      <button className={rowBtn} disabled={disabled || row.value === 0} onClick={(e) => onChange(-step(e))} aria-label={pl.minus(name)}><Minus className={rowIcon} /></button>
+      <button className={rowBtn} disabled={disabled} onClick={(e) => onChange(step(e))} aria-label={pl.plus(name)}><Plus className={rowIcon} /></button>
     </li>
   )
 }
@@ -112,6 +116,8 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
   send: (action: ClientAction) => void
   onTitleClick?: () => void
 }) {
+  const t = useT()
+  const pl = t.table.player
   const p = view.players[player]
   const active = view.activePlayer === player
   const commanders = view.format === 'commander' ? opposingCommanders(view, player) : []
@@ -121,13 +127,13 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
   const [draftError, setDraftError] = useState<string | null>(null)
   const commanderCard = (id: string) => commanders.find((c) => c.id === id)
   const rowLabel = (row: MarkerRow) => {
-    if (row.kind === 'poison') return 'Poison'
-    if (row.kind === 'counter') return row.name
+    if (row.kind === 'poison') return t.table.markers.poison
+    if (row.kind === 'counter') return markerLabel(row.name, t)
     const c = commanderCard(row.commander)
-    return c ? cardInfo(catalogs[c.owner], c, lang).name : 'Commandant'
+    return c ? cardInfo(catalogs[c.owner], c, lang).name : pl.commander
   }
   const rowTitle = (row: MarkerRow) =>
-    row.kind === 'commander' ? `Blessures infligées par le commandant de ${view.players[row.owner]?.name ?? '?'}` : undefined
+    row.kind === 'commander' ? pl.commanderDamageTitle(view.players[row.owner]?.name ?? '?') : undefined
 
   return (
     <div
@@ -135,13 +141,13 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
       className={`rounded-xl border px-2 py-1.5 text-xs text-dc-text space-y-1 ${active ? 'border-dc-gold/70 bg-dc-gold/10' : 'border-dc-border bg-dc-surface/70'} ${p.eliminated ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-1.5">
-        {online && <span className={`w-2 h-2 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? 'en ligne' : 'hors ligne'} />}
+        {online && <span className={`w-2 h-2 rounded-full ${online.includes(player) ? 'bg-dc-green-light' : 'bg-dc-muted/40'}`} title={online.includes(player) ? pl.online : pl.offline} />}
         <button className="font-semibold text-sm hover:text-dc-gold truncate" onClick={onTitleClick} disabled={!onTitleClick} data-testid="player-name">{p.name}</button>
-        {host === player && <Crown className="w-3.5 h-3.5 text-dc-gold" aria-label="hôte" />}
-        {view.monarch === player && <span title="Monarque">👑</span>}
-        {view.initiative === player && <Flag className="w-3.5 h-3.5 text-dc-gold" aria-label="initiative" />}
-        {p.eliminated && <span className="text-dc-red-light flex items-center gap-0.5"><Skull className="w-3 h-3" /> éliminé</span>}
-        {!p.kept && !p.eliminated && <span className="text-dc-muted italic">choisit sa main…</span>}
+        {host === player && <Crown className="w-3.5 h-3.5 text-dc-gold" aria-label={pl.host} />}
+        {view.monarch === player && <span title={t.table.markers.monarch}>👑</span>}
+        {view.initiative === player && <Flag className="w-3.5 h-3.5 text-dc-gold" aria-label={pl.initiativeAria} />}
+        {p.eliminated && <span className="text-dc-red-light flex items-center gap-0.5"><Skull className="w-3 h-3" /> {pl.eliminated}</span>}
+        {!p.kept && !p.eliminated && <span className="text-dc-muted italic">{pl.choosingHand}</span>}
         <span className="ml-auto flex items-center gap-2 text-sm">
           <Stepper
             label={<Heart className="w-3.5 h-3.5 text-dc-red-light" />}
@@ -162,38 +168,38 @@ export default function PlayerPanel({ view, player, catalogs, lang, host, online
                   : { type: 'playerCounter', target: player, name: row.name, delta },
             )} />
         ))}
-        <Toggle icon={<Crown className="w-4 h-4 text-dc-gold" />} label="Monarque" on={view.monarch === player} disabled={disabled}
+        <Toggle icon={<Crown className="w-4 h-4 text-dc-gold" />} label={t.table.markers.monarch} on={view.monarch === player} disabled={disabled}
           onToggle={() => send({ type: 'setMonarch', to: view.monarch === player ? null : player })} />
-        <Toggle icon={<Flag className="w-4 h-4 text-dc-gold" />} label="Initiative" on={view.initiative === player} disabled={disabled}
+        <Toggle icon={<Flag className="w-4 h-4 text-dc-gold" />} label={t.table.markers.initiative} on={view.initiative === player} disabled={disabled}
           onToggle={() => send({ type: 'setInitiative', to: view.initiative === player ? null : player })} />
         {hasDungeons(view) && (player === view.me && canAct || p.dungeon) && (
           <li className="flex flex-wrap items-center gap-1.5 py-1" data-testid="dungeon-row">
             <Castle className="w-4 h-4 shrink-0 text-dc-gold" />
-            <span className="flex-1">Donjon</span>
+            <span className="flex-1">{t.table.dungeons.row}</span>
             {player === view.me && canAct && <>
-              <button className={dungeonBtn} onClick={() => venture(view, 'dungeon', send)} data-testid="venture-dungeon">Explorer le donjon</button>
+              <button className={dungeonBtn} onClick={() => venture(view, 'dungeon', send)} data-testid="venture-dungeon">{t.table.dungeons.venture}</button>
               {view.initiative === player && (
-                <button className={dungeonBtn} onClick={() => venture(view, 'undercity', send)} data-testid="venture-undercity">Explorer Les Souterrains</button>
+                <button className={dungeonBtn} onClick={() => venture(view, 'undercity', send)} data-testid="venture-undercity">{t.table.dungeons.ventureUndercity}</button>
               )}
             </>}
-            <button className={dungeonBtn} onClick={() => openDungeon({ player, ...(p.dungeon ? { dungeon: p.dungeon.id } : {}) })} data-testid="dungeon-plan-open">Plan</button>
+            <button className={dungeonBtn} onClick={() => openDungeon({ player, ...(p.dungeon ? { dungeon: p.dungeon.id } : {}) })} data-testid="dungeon-plan-open">{t.table.dungeons.plan}</button>
           </li>
         )}
       </ul>
       {canAct && (
         <form className="pt-1 space-y-1" onSubmit={(e) => {
           e.preventDefault()
-          const error = newMarkerError(p, draft)
+          const error = newMarkerError(p, draft, t)
           setDraftError(error || null)
           if (error !== null) return
           send({ type: 'playerCounter', target: player, name: draft.trim(), delta: 1 })
           setDraft('')
         }}>
           <div className="flex items-center gap-1">
-            <input value={draft} maxLength={MARKER_NAME_MAX} placeholder="Nouveau marqueur…" aria-label="Nouveau marqueur"
+            <input value={draft} maxLength={MARKER_NAME_MAX} placeholder={pl.newMarkerPlaceholder} aria-label={pl.newMarker}
               onChange={(e) => { setDraft(e.target.value); setDraftError(null) }}
               className="flex-1 min-w-0 h-7 tablet:h-11 px-2 rounded-md bg-dc-bg border border-dc-border text-dc-text placeholder:text-dc-muted focus:outline-none focus:border-dc-gold/60" />
-            <button type="submit" className={rowBtn} aria-label="Ajouter le marqueur"><Plus className={rowIcon} /></button>
+            <button type="submit" className={rowBtn} aria-label={pl.addMarker}><Plus className={rowIcon} /></button>
           </div>
           {draftError && <p className="text-dc-red-light" role="alert" data-testid="marker-error">{draftError}</p>}
         </form>

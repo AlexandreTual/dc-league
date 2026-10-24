@@ -3,6 +3,7 @@ import { KeyRound } from 'lucide-react'
 import { hashToken } from '@/lib/auth/crypto'
 import { afterInvitationPath } from '@/lib/auth/validation'
 import { getValidInvitation } from '@/lib/db-auth'
+import { getMessages } from '@/lib/i18n/server'
 import { isLeagueInvitePath } from '@/lib/leagues/join'
 import InvitationForm from './InvitationForm'
 
@@ -18,7 +19,8 @@ export default async function InvitationPage({
   const { token } = await params
   const target = afterInvitationPath((await searchParams).from)
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data: invitation } = await getValidInvitation(env.DB, await hashToken(token), new Date())
+  const [{ data: invitation }, t] = await Promise.all([getValidInvitation(env.DB, await hashToken(token), new Date()), getMessages()])
+  const m = t.account.invitation
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -29,20 +31,20 @@ export default async function InvitationPage({
           </div>
           {invitation ? (
             <>
-              <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Bienvenue {invitation.player_name}</h1>
+              <h1 className="font-fantasy text-2xl font-bold text-dc-gold">{m.welcome(invitation.player_name)}</h1>
               <p className="text-dc-muted text-sm">
-                {invitation.kind === 'signup' ? 'Choisis ton pseudo et ton mot de passe' : 'Choisis ton nouveau mot de passe'}
+                {invitation.kind === 'signup' ? m.signupIntro : m.resetIntro}
               </p>
               {isLeagueInvitePath(target) && (
                 <p className="text-dc-text text-sm bg-dc-gold/10 border border-dc-gold/30 rounded-lg px-3 py-2">
-                  Une fois ton compte créé, tu arriveras sur la page pour rejoindre la ligue.
+                  {m.leagueAfter}
                 </p>
               )}
             </>
           ) : (
             <>
-              <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Lien invalide</h1>
-              <p className="text-dc-muted text-sm">Ce lien n&apos;est plus valide, demande un nouveau lien à l&apos;admin.</p>
+              <h1 className="font-fantasy text-2xl font-bold text-dc-gold">{m.invalidTitle}</h1>
+              <p className="text-dc-muted text-sm">{m.invalidText}</p>
             </>
           )}
         </div>

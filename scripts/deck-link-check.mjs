@@ -19,7 +19,7 @@ const slow = (json, status = 200) => (route) => setTimeout(() => route.fulfill({
 
 const browser = await launch()
 try {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: 390, height: 844 }, hasTouch: true })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(ANA.id), url: base }])
   const page = await context.newPage()
   const errors = []

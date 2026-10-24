@@ -1,3 +1,4 @@
+import { en, fr } from '@/lib/i18n/messages'
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuContext, type MenuEntry } from './menus'
@@ -15,7 +16,7 @@ function setup() {
   return s
 }
 const ctx = (s: GameState, me: string | null = 'p1', readOnly = false): MenuContext =>
-  ({ me, view: viewFor(s, me ?? ''), catalogs: s.catalogs, lang: 'fr', readOnly })
+  ({ me, view: viewFor(s, me ?? ''), catalogs: s.catalogs, lang: 'fr', t: fr, readOnly })
 const visible = (s: GameState, id: string) => {
   const c = s.cards[id]
   return { hidden: false, id, owner: c.owner, ref: c.ref, token: c.token, isCommander: c.isCommander, tapped: c.tapped, flipped: c.flipped,
@@ -471,5 +472,85 @@ describe('Ajouter à la question IA', () => {
     const soldier = { name: 'Soldat', typeLine: 'Token Creature — Soldier', power: '1', toughness: '1', colors: ['W'], image: null }
     const t = run(setupFor('commander', 2), start(1), { type: 'createToken', actor: 'p1', token: soldier, x: 10, y: 10 })
     expect(labels(cardMenu(withAi(t), visible(t, 't1'), at('p1', 'battlefield')))).not.toContain(AI)
+  })
+})
+
+describe('menus en anglais (t = en ; ctx.lang reste la langue des cartes)', () => {
+  const ctxEn = (s: GameState, me: string | null = 'p1'): MenuContext => ({ ...ctx(s, me), t: en })
+
+  it('ma carte sur mon champ de bataille', () => {
+    const s = setup()
+    const entries = cardMenu(ctxEn(s), visible(s, card('p1', 4)), at('p1', 'battlefield'))
+    expect(entries[0]).toEqual({ kind: 'title', label: 'Delver of Secrets // Insectile Aberration' })
+    expect(labels(entries)).toEqual([
+      'Oracle and rulings',
+      'Tap', 'Phase out', 'Transform', 'Turn face down', 'Rotate 180°', 'Bring to front', 'Send to back', '+1/+1', '-1/-1', 'Counter', 'Power', 'Toughness', 'Power this turn', 'Toughness this turn', 'Give an ability…', 'Effect on all my creatures…', 'Create a token copy', 'Create token copies…',
+      'Give control to Bob', 'Give control to Chloé',
+      'Hand', 'Graveyard', 'Exile', 'Command zone', 'Top of library', 'Bottom of library',
+    ])
+    expect(entries).toContainEqual({ kind: 'title', label: 'Send to' })
+    expect(item(entries, 'Give control to Bob')).toEqual([{ kind: 'action', action: { type: 'giveControl', id: card('p1', 4), to: 'p2' } }])
+    expect(item(entries, 'Top of library')).toEqual([{ kind: 'action', action: { type: 'move', id: card('p1', 4), to: at('p1', 'library'), position: 'top' } }])
+    expect(item(entries, 'Effect on all my creatures…')[0]).toMatchObject({ kind: 'effect', title: 'all my creatures' })
+    expect(item(entries, 'Create token copies…')[0]).toMatchObject({ kind: 'ask', question: 'How many tokens?' })
+  })
+
+  it('carte engagée, hors phase, face cachée : libellés inverses', () => {
+    const s = setup()
+    const shown = { ...visible(s, card('p1', 4)), tapped: true, phasedOut: true, faceDown: true } as VisibleCard
+    expect(labels(cardMenu(ctxEn(s), shown, at('p1', 'battlefield')))).toEqual(expect.arrayContaining(['Untap', 'Phase in', 'Turn face up']))
+  })
+
+  it('carte d’un adversaire, en jeu puis au cimetière', () => {
+    const s = setup()
+    expect(labels(cardMenu(ctxEn(s), visible(s, card('p2', 2)), at('p2', 'battlefield'))).slice(-4))
+      .toEqual(['Gain control', 'To its owner’s hand', 'To its owner’s graveyard', 'To its owner’s exile'])
+    expect(labels(cardMenu(ctxEn(s), visible(s, card('p2', 4)), at('p2', 'graveyard'))))
+      .toEqual(['Oracle and rulings', 'Onto my battlefield', 'To its owner’s hand', 'To its owner’s exile'])
+  })
+
+  it('carte face cachée chez un autre : titre traduit', () => {
+    const s = setup()
+    const hidden = { ...visible(s, card('p2', 2)), faceDown: true } as VisibleCard
+    expect(cardMenu(ctxEn(s), hidden, at('p2', 'battlefield'))[0]).toEqual({ kind: 'title', label: 'Face-down card' })
+  })
+
+  it('carte de ma main, puis mon commandant : révéler, taxe de commandant', () => {
+    const s = setup()
+    const inHand = s.players.p1.zones.hand[0]
+    expect(labels(cardMenu(ctxEn(s), visible(s, inHand), at('p1', 'hand'))))
+      .toEqual(expect.arrayContaining(['Reveal to everyone', 'Reveal to Bob', 'Reveal to Chloé', 'Battlefield']))
+    const commander = s.players.p1.zones.command[0]
+    const entries = cardMenu(ctxEn(s), visible(s, commander), at('p1', 'command'))
+    expect(labels(entries)).toContain('Commander tax')
+    expect(labels(entries)).not.toContain('Command zone')
+  })
+
+  it('ma bibliothèque', () => {
+    const s = setup()
+    const entries = libraryMenu(ctxEn(s), 'p1')
+    expect(entries[0]).toEqual({ kind: 'title', label: `Library (${s.players.p1.zones.library.length})` })
+    expect(labels(entries)).toEqual(['Draw 1', 'Draw N…', 'Shuffle', 'Look at the top X…', 'Search for a card…',
+      'Reveal top card', 'Play with the top card revealed', 'Look at the top card (only me)'])
+    expect(item(entries, 'Draw N…')[0]).toMatchObject({ kind: 'ask', question: 'How many cards to draw?' })
+    expect(item(entries, 'Search for a card…')[1]).toMatchObject({ kind: 'openPile', title: 'Search the library' })
+  })
+
+  it('bibliothèque d’un adversaire : regarder les X du dessus', () => {
+    const s = setup()
+    const entries = libraryMenu(ctxEn(s), 'p2')
+    expect(entries[0]).toEqual({ kind: 'title', label: 'Bob’s library' })
+    const [ask] = item(entries, 'Look at the top X…')
+    if (ask.kind !== 'ask') throw new Error('ask attendu')
+    expect(ask.question).toBe('How many cards to look at?')
+    expect(ask.then(3)[1]).toEqual({ kind: 'openPile', player: 'p2', zone: 'library', mode: 'look', title: 'Top 3 cards' })
+    expect(ask.then(1)[1]).toMatchObject({ title: 'Top card' })
+  })
+
+  it('ma main et l’encart force/endurance', () => {
+    const s = setup()
+    expect(handMenu(ctxEn(s)).slice(0, 2)).toEqual([{ kind: 'title', label: 'My hand' }, expect.objectContaining({ label: 'Reveal my hand to everyone' })])
+    expect(labels(handMenu(ctxEn(s)))).toContain(`Reveal my hand to ${s.players.p2.name}`)
+    expect(labels(statMenu(ctxEn(s, 'p2'), visible(s, card('p1', 4))))).toEqual(['Power', 'Toughness', 'Power this turn', 'Toughness this turn'])
   })
 })

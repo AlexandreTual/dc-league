@@ -7,9 +7,11 @@ import { ChevronDown, LogOut, Shield, User } from 'lucide-react'
 import type { CurrentUser } from '@/lib/auth/types'
 import { accountLinks } from '@/lib/nav'
 import { sendJson } from './formStyles'
+import { useT } from './i18n/I18nProvider'
 
 export default function UserMenu({ user }: { user: CurrentUser }) {
   const router = useRouter()
+  const t = useT()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -25,7 +27,7 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
 
   async function logout() {
     const { error } = await sendJson('/api/auth/logout', 'POST')
-    if (error) return setError(`Déconnexion impossible : ${error}`)
+    if (error) return setError(t.nav.logoutFailed(error))
     setError('')
     setOpen(false)
     router.push('/')
@@ -40,7 +42,7 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-dc-border/50 transition-colors"
         aria-expanded={open}
-        aria-label={`Menu du compte de ${user.playerName}`}
+        aria-label={t.nav.accountMenu(user.playerName)}
       >
         {user.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -56,7 +58,7 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
 
       {open && (
         <div className="absolute right-0 mt-2 w-48 bg-dc-surface border border-dc-border rounded-xl shadow-card p-1 z-50">
-          {accountLinks(user).map(({ href, label }) => {
+          {accountLinks(user, t).map(({ href, label }) => {
             const Icon = href === '/admin' ? Shield : User
             return (
               <Link key={href} href={href} className={itemClass} onClick={() => setOpen(false)}>
@@ -65,7 +67,7 @@ export default function UserMenu({ user }: { user: CurrentUser }) {
             )
           })}
           <button onClick={logout} className={itemClass}>
-            <LogOut className="w-4 h-4" /> Déconnexion
+            <LogOut className="w-4 h-4" /> {t.nav.logout}
           </button>
           {error && <p role="alert" className="px-3 py-2 text-xs text-dc-red-light">{error}</p>}
         </div>

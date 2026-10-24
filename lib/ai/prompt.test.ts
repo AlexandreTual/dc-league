@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { cardRow } from '@/test/factories'
-import { buildContents, cardsBlock, SYSTEM_INSTRUCTION } from './prompt'
+import { buildContents, cardsBlock, systemInstruction } from './prompt'
 import type { AiCard, ChatMessage } from './types'
 
 const sol: AiCard = {
@@ -26,6 +26,8 @@ const delver: AiCard = {
 }
 
 describe('consigne', () => {
+  const SYSTEM_INSTRUCTION = systemInstruction('fr')
+
   it('demande un arbitre Commander qui répond en français à partir des textes fournis', () => {
     expect(SYSTEM_INSTRUCTION).toMatch(/arbitre/i)
     expect(SYSTEM_INSTRUCTION).toMatch(/Commander/)
@@ -34,6 +36,22 @@ describe('consigne', () => {
     expect(SYSTEM_INSTRUCTION).toMatch(/texte Oracle/)
     expect(SYSTEM_INSTRUCTION).toMatch(/ne suffisent pas/)
     expect(SYSTEM_INSTRUCTION).toMatch(/autres sujets/)
+  })
+
+  it('en anglais : répond en anglais, texte Oracle qui fait foi, sans noms français', () => {
+    const en = systemInstruction('en')
+    expect(en).toMatch(/Answer in English/)
+    expect(en).toMatch(/judge/)
+    expect(en).toMatch(/Commander/)
+    expect(en).toMatch(/Oracle text \(it is authoritative\)/)
+    expect(en).not.toMatch(/French/)
+    expect(en).not.toMatch(/[àâçéèêîôûù]/)
+  })
+
+  it('en anglais avec les cartes en français : noms français entre parenthèses', () => {
+    const en = systemInstruction('en', true)
+    expect(en).toMatch(/Answer in English/)
+    expect(en).toMatch(/French name/)
   })
 })
 
@@ -64,6 +82,23 @@ describe('bloc des cartes', () => {
     expect(block).toContain('Flying')
   })
 
+  it('en anglais sans noms français : libellés anglais, ni nom ni texte français', () => {
+    const block = cardsBlock([sol], { lang: 'en', frenchNames: false })
+    expect(block).toContain('Cards in question:')
+    expect(block).toContain('### Card 1: Sol Ring')
+    expect(block).toContain('Oracle text (authoritative):')
+    expect(block).toContain('{T}: Add {C}{C}.')
+    expect(block).toContain('- 2021-04-23: Sol Ring is colorless.')
+    expect(block).not.toContain('Anneau solaire')
+    expect(block).not.toContain('Ajoutez')
+  })
+
+  it('en anglais avec les cartes en français : nom et texte français donnés', () => {
+    const block = cardsBlock([sol], { lang: 'en', frenchNames: true })
+    expect(block).toContain('Sol Ring (French name: Anneau solaire)')
+    expect(block).toContain('{T} : Ajoutez {C}{C}.')
+  })
+
   it('numérote les cartes', () => {
     const block = cardsBlock([sol, bolt])
     expect(block.indexOf('Carte 1')).toBeLessThan(block.indexOf('Carte 2'))
@@ -85,6 +120,12 @@ describe('contenu envoyé', () => {
     expect(follow.map((c) => c.role)).toEqual(['user', 'model', 'user'])
     expect(follow[1].parts[0].text).toBe('message 1')
     expect(follow[2].parts[0].text).toBe('Et ensuite ?')
+  })
+
+  it('en anglais, la question reste la dernière ligne (le faux Gemini la lit là)', () => {
+    const contents = buildContents([sol], [{ role: 'user', text: 'Explain this card' }], { lang: 'en', frenchNames: false })
+    expect(contents[0].parts[0].text).toContain('Question:\nExplain this card')
+    expect(contents[0].parts[0].text.split('\n').at(-1)).toBe('Explain this card')
   })
 
   it('garde les 10 derniers messages, en commençant par une question, cartes toujours en tête', () => {

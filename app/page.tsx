@@ -8,6 +8,8 @@ import { loadStandings } from '@/lib/standings'
 import { viewerOf, type Viewer } from '@/lib/leagues/access'
 import { listTables, type GameTable } from '@/lib/db-games'
 import { features, myLeagueRank, myPendingMatches, myTables, seasonProgress, type Feature } from '@/lib/home'
+import { getMessages } from '@/lib/i18n/server'
+import type { Messages } from '@/lib/i18n/messages'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -79,32 +81,30 @@ async function loadMyPlay(db: D1Database, viewer: NonNullable<Viewer>, tables: {
   }
 }
 
-const ordinal = (n: number) => `${n}${n === 1 ? 'ᵉʳ' : 'ᵉ'}`
-
 type MyPlay = Awaited<ReturnType<typeof loadMyPlay>>
 
 /** Bloc du joueur en haut de l'accueil ; rien quand il n'a ni table, ni ligue en cours. */
-function MyPlayBlock({ play }: { play: MyPlay }) {
+function MyPlayBlock({ play, t: m, formats }: { play: MyPlay; t: Messages['site']['home']['myPlay']; formats: Messages['online']['formats'] }) {
   if (play.state === 'ok' && !play.tables.length && !play.leagues.length && !play.matches.length) return null
   return (
     <section aria-labelledby="a-toi" className="bg-dc-surface border border-dc-gold/40 rounded-2xl p-5 md:p-6 shadow-card space-y-5">
-      <h2 id="a-toi" className="font-fantasy text-xl font-bold text-dc-gold">À toi de jouer</h2>
+      <h2 id="a-toi" className="font-fantasy text-xl font-bold text-dc-gold">{m.title}</h2>
       {play.state === 'failed' ? (
-        <p className="text-dc-muted text-sm">Tes parties et tes ligues n&apos;ont pas pu être chargées. Réessaie dans un instant.</p>
+        <p className="text-dc-muted text-sm">{m.failed}</p>
       ) : (
         <>
           {play.tables.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-dc-text">Mes tables</h3>
+              <h3 className="text-sm font-semibold text-dc-text">{m.tables}</h3>
               <ul className="space-y-2" data-testid="my-tables">
                 {play.tables.map((t) => (
                   <li key={t.id} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5">
                     <div className="flex-1 min-w-0 text-sm">
-                      <p className="text-dc-text">{t.format} · {t.seated}/{t.seats} joueurs</p>
-                      <p className="text-dc-muted truncate">{t.others.length ? `Avec ${t.others.join(', ')}` : 'En attente de joueurs'}</p>
+                      <p className="text-dc-text">{formats[t.format]} · {m.seated(t.seated, t.seats)}</p>
+                      <p className="text-dc-muted truncate">{t.others.length ? m.with(t.others.join(', ')) : m.waiting}</p>
                     </div>
-                    <Link href={`/tables/${t.id}`} className={`${buttonClass(t.action === 'Reprendre')} shrink-0 !px-3 !py-1.5`}>
-                      {t.action}
+                    <Link href={`/tables/${t.id}`} className={`${buttonClass(t.action === 'resume')} shrink-0 !px-3 !py-1.5`}>
+                      {m[t.action]}
                     </Link>
                   </li>
                 ))}
@@ -114,7 +114,7 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
 
           {play.leagues.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-dc-text">Mes ligues en cours</h3>
+              <h3 className="text-sm font-semibold text-dc-text">{m.leagues}</h3>
               <ul className="space-y-2" data-testid="my-leagues">
                 {play.leagues.map((l) => (
                   <li key={l.id}>
@@ -122,8 +122,8 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
                       <Trophy className="w-4 h-4 shrink-0 text-dc-gold" aria-hidden />
                       <span className="flex-1 min-w-0 truncate text-dc-text">{l.name}</span>
                       <span className="text-sm text-dc-muted whitespace-nowrap">
-                        {!l.place ? 'Organisateur' : l.played === 0 ? 'Aucun match joué' : (
-                          <><span className="text-dc-gold font-semibold">{ordinal(l.place.rank)}</span> sur {l.place.of} · {l.place.points} pts</>
+                        {!l.place ? m.organizer : l.played === 0 ? m.noMatch : (
+                          <><span className="text-dc-gold font-semibold">{m.rank(l.place.rank)}</span>{m.ofPoints(l.place.of, l.place.points)}</>
                         )}
                       </span>
                     </Link>
@@ -135,15 +135,15 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
 
           {play.matches.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-dc-text">Mes matchs à jouer</h3>
+              <h3 className="text-sm font-semibold text-dc-text">{m.matches}</h3>
               <ul className="space-y-2" data-testid="my-matches">
-                {play.matches.map((m) => (
-                  <li key={m.id}>
-                    <Link href={`/ligues/${m.leagueId}/calendrier`} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5 hover:border-dc-gold/40 transition-colors">
+                {play.matches.map((match) => (
+                  <li key={match.id}>
+                    <Link href={`/ligues/${match.leagueId}/calendrier`} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5 hover:border-dc-gold/40 transition-colors">
                       <Swords className="w-4 h-4 shrink-0 text-dc-gold" aria-hidden />
                       <span className="flex-1 min-w-0 sm:flex sm:items-baseline sm:gap-3">
-                        <span className="block truncate text-dc-text">contre {m.opponent}</span>
-                        <span className="block truncate text-sm text-dc-muted">{m.leagueName} · journée {m.round}</span>
+                        <span className="block truncate text-dc-text">{m.against(match.opponent ?? m.unknownPlayer)}</span>
+                        <span className="block truncate text-sm text-dc-muted">{m.round(match.leagueName, match.round)}</span>
                       </span>
                     </Link>
                   </li>
@@ -159,7 +159,8 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
 
 export default async function HomePage() {
   const db = getRequestContext<CloudflareEnv>().env.DB
-  const user = await getCurrentUser()
+  const [user, t] = await Promise.all([getCurrentUser(), getMessages()])
+  const h = t.site.home
   const isPlayer = !!user && !user.isBootstrap
 
   const viewer = viewerOf(user)
@@ -173,7 +174,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-12">
       {/* À toi de jouer : en haut pour un joueur, la présentation passe en dessous */}
-      {play && <MyPlayBlock play={play} />}
+      {play && <MyPlayBlock play={play} t={h.myPlay} formats={t.online.formats} />}
 
       {/* Présentation */}
       <section className="text-center space-y-4 pt-4">
@@ -183,30 +184,27 @@ export default async function HomePage() {
           <div className="gold-divider w-16" />
         </div>
         <h1 className="font-fantasy text-4xl md:text-5xl font-bold text-dc-gold">Commander League</h1>
-        <p className="text-dc-text max-w-xl mx-auto">
-          La ligue de Magic entre amis. On s&apos;affronte en Duel Commander tout au long de la saison, et on se
-          retrouve aussi en ligne pour des parties de Commander de 2 à 5 joueurs.
-        </p>
-        {user && <p className="text-dc-muted text-sm">Content de te revoir, {user.playerName}.</p>}
+        <p className="text-dc-text max-w-xl mx-auto">{h.intro}</p>
+        {user && <p className="text-dc-muted text-sm">{h.welcomeBack(user.playerName)}</p>}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           {isPlayer ? (
             <>
               <Link href="/salon" className={buttonClass(true)}>
-                <Users className="w-4 h-4" /> Jouer en ligne
+                <Users className="w-4 h-4" /> {h.playOnline}
               </Link>
               <Link href="/profil/decks" className={buttonClass(false)}>
-                <Layers className="w-4 h-4" /> Mes decks
+                <Layers className="w-4 h-4" /> {h.myDecks}
               </Link>
             </>
           ) : (
             <>
               {!user && (
                 <Link href="/connexion" className={buttonClass(true)}>
-                  <LogIn className="w-4 h-4" /> Se connecter
+                  <LogIn className="w-4 h-4" /> {h.login}
                 </Link>
               )}
               <Link href="/ligues" className={buttonClass(!!user)}>
-                <Trophy className="w-4 h-4" /> Voir les ligues
+                <Trophy className="w-4 h-4" /> {h.seeLeagues}
               </Link>
             </>
           )}
@@ -214,7 +212,7 @@ export default async function HomePage() {
         {isPlayer && openTables > 0 && (
           <p className="text-sm text-dc-muted">
             <span className="text-dc-gold font-semibold">{openTables}</span>{' '}
-            {openTables > 1 ? 'tables attendent' : 'table attend'} des joueurs au salon.
+            {h.tablesWaiting(openTables)}
           </p>
         )}
       </section>
@@ -223,20 +221,20 @@ export default async function HomePage() {
       <section aria-labelledby="saison" className="bg-dc-surface border border-dc-border rounded-2xl p-5 md:p-6 shadow-card space-y-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="saison" className="font-fantasy text-xl font-bold text-dc-gold">
-            {season.state === 'ok' ? season.league.name : 'Ligues en cours'}
+            {season.state === 'ok' ? <span data-user-content>{season.league.name}</span> : h.ongoingLeagues}
           </h2>
-          <Link href="/ligues" className="text-dc-gold text-xs hover:underline">Toutes les ligues →</Link>
+          <Link href="/ligues" className="text-dc-gold text-xs hover:underline">{h.allLeagues}</Link>
         </div>
 
         {season.state === 'failed' ? (
-          <p className="text-dc-muted text-sm">La saison n&apos;a pas pu être chargée. Réessaie dans un instant.</p>
+          <p className="text-dc-muted text-sm">{h.seasonFailed}</p>
         ) : season.state === 'none' ? (
           <p className="text-dc-muted text-sm">
-            Pas de ligue en cours pour le moment.{' '}
+            {h.noLeague}{' '}
             {isPlayer ? (
-              <Link href="/ligues/nouvelle" className="text-dc-gold hover:underline">Crée la tienne</Link>
+              <Link href="/ligues/nouvelle" className="text-dc-gold hover:underline">{h.createYours}</Link>
             ) : (
-              <Link href="/ligues" className="text-dc-gold hover:underline">Voir les ligues terminées</Link>
+              <Link href="/ligues" className="text-dc-gold hover:underline">{h.seeFinished}</Link>
             )}
             .
           </p>
@@ -245,7 +243,7 @@ export default async function HomePage() {
             {season.hasPlayoffs && (
               <Link href={`/ligues/${season.league.id}/playoffs`} className="flex items-center gap-2 rounded-xl border border-dc-gold/40 bg-dc-gold/10 px-4 py-3 text-sm text-dc-gold hover:bg-dc-gold/15">
                 <Trophy className="w-4 h-4 shrink-0" />
-                <span>La phase finale est lancée : voir le tableau du Top 4 →</span>
+                <span>{h.playoffsStarted}</span>
               </Link>
             )}
 
@@ -253,18 +251,18 @@ export default async function HomePage() {
               <div className="flex justify-between text-sm">
                 <span className="text-dc-muted">
                   {season.total ? (
-                    <><span className="text-dc-text font-semibold">{season.played}</span> / {season.total} matchs joués</>
+                    <><span className="text-dc-text font-semibold">{season.played}</span> {h.ofMatchesPlayed(season.total)}</>
                   ) : (
-                    'Les matchs ne sont pas encore générés.'
+                    h.notGenerated
                   )}
                 </span>
-                <span className="text-dc-muted">{season.playerCount} joueur{season.playerCount > 1 ? 's' : ''}</span>
+                <span className="text-dc-muted">{h.players(season.playerCount)}</span>
               </div>
               {!!season.total && (
                 <div
                   className="h-2 rounded-full bg-dc-border overflow-hidden"
                   role="progressbar"
-                  aria-label="Avancement de la saison"
+                  aria-label={h.progress}
                   aria-valuenow={seasonProgress(season.played, season.total)}
                   aria-valuemin={0}
                   aria-valuemax={100}
@@ -275,12 +273,12 @@ export default async function HomePage() {
             </div>
 
             {season.played > 0 && season.podium.length > 0 && (
-              <ol className="grid gap-2 sm:grid-cols-3" aria-label="Podium provisoire">
+              <ol className="grid gap-2 sm:grid-cols-3" aria-label={h.podium}>
                 {season.podium.map((p, i) => (
                   <li key={p.id} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5 min-w-0">
-                    <Trophy className={`w-5 h-5 shrink-0 ${podiumColors[i]}`} aria-label={`${i + 1}ᵉ`} />
+                    <Trophy className={`w-5 h-5 shrink-0 ${podiumColors[i]}`} aria-label={h.rank(i + 1)} />
                     <span className="flex-1 min-w-0 truncate text-dc-text">{p.name}</span>
-                    <span className="text-dc-gold font-semibold text-sm whitespace-nowrap">{p.points} pts</span>
+                    <span className="text-dc-gold font-semibold text-sm whitespace-nowrap">{h.points(p.points)}</span>
                   </li>
                 ))}
               </ol>
@@ -288,10 +286,10 @@ export default async function HomePage() {
 
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
               <Link href={`/ligues/${season.league.id}/classement`} className="inline-flex items-center gap-1.5 text-dc-gold hover:underline">
-                <Trophy className="w-4 h-4" /> Classement complet
+                <Trophy className="w-4 h-4" /> {h.fullStandings}
               </Link>
               <Link href={`/ligues/${season.league.id}/calendrier`} className="inline-flex items-center gap-1.5 text-dc-gold hover:underline">
-                <Calendar className="w-4 h-4" /> Calendrier des matchs
+                <Calendar className="w-4 h-4" /> {h.schedule}
               </Link>
             </div>
           </>
@@ -300,9 +298,9 @@ export default async function HomePage() {
 
       {/* Ce qu'on trouve sur le site */}
       <section aria-labelledby="rubriques" className="space-y-5">
-        <h2 id="rubriques" className="font-fantasy text-xl font-bold text-dc-gold text-center">Sur le site</h2>
+        <h2 id="rubriques" className="font-fantasy text-xl font-bold text-dc-gold text-center">{h.onSite}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features(user).map((f) => {
+          {features(user, t).map((f) => {
             const Icon = featureIcons[f.key]
             return (
               <Link
@@ -319,7 +317,7 @@ export default async function HomePage() {
                 <p className="text-sm text-dc-muted flex-1">{f.text}</p>
                 <span className="inline-flex items-center gap-1.5 text-sm text-dc-gold">
                   {f.locked && <Lock className="w-3.5 h-3.5" aria-hidden />}
-                  {f.locked ? 'Se connecter pour y accéder' : `${f.cta} →`}
+                  {f.locked ? h.loginToAccess : `${f.cta} →`}
                 </span>
               </Link>
             )
@@ -330,11 +328,8 @@ export default async function HomePage() {
       {/* Rejoindre */}
       {!user && (
         <section className="text-center space-y-2 border-t border-dc-border pt-8">
-          <h2 className="font-fantasy text-lg font-semibold text-dc-gold">Rejoindre la ligue</h2>
-          <p className="text-sm text-dc-muted max-w-md mx-auto">
-            Les comptes se créent sur invitation : demande ton lien à l&apos;admin du site, puis importe ton deck
-            et rejoins une ligue.
-          </p>
+          <h2 className="font-fantasy text-lg font-semibold text-dc-gold">{h.joinTitle}</h2>
+          <p className="text-sm text-dc-muted max-w-md mx-auto">{h.joinText}</p>
         </section>
       )}
     </div>

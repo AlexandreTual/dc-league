@@ -1,5 +1,6 @@
 // État du panneau de l'assistant IA (pur, testé) : cartes choisies, conversation, compteur.
 import { AI_MAX_CARDS } from '@/lib/ai/limits'
+import type { Messages } from '@/lib/i18n/messages'
 
 export type AiCardRef = { oracleId: string; name: string; gathererUrl: string }
 
@@ -14,7 +15,8 @@ export type AiState = {
   messages: AiMessage[]
   pending: boolean
   error: string | null
-  notice: string | null
+  /** Avis affiché sous les cartes, traduit par le panneau ('maxCards' : AI_MAX_CARDS cartes au plus). */
+  notice: 'maxCards' | null
   remaining: number | null
 }
 
@@ -33,7 +35,7 @@ export const initialAiState: AiState = { open: false, cards: [], messages: [], p
 
 function addCard(state: AiState, card: AiCardRef): AiState {
   if (state.cards.some((c) => c.oracleId === card.oracleId)) return state
-  if (state.cards.length >= AI_MAX_CARDS) return { ...state, notice: `${AI_MAX_CARDS} cartes au plus` }
+  if (state.cards.length >= AI_MAX_CARDS) return { ...state, notice: 'maxCards' }
   return { ...state, cards: [...state.cards, card], notice: null }
 }
 
@@ -71,7 +73,7 @@ export function aiReducer(state: AiState, action: AiAction): AiState {
 }
 
 /** Question proposée selon le nombre de cartes choisies. */
-export function suggestions(cardCount: number): string[] {
+export function suggestions(cardCount: number, t: Messages): string[] {
   if (cardCount === 0) return []
-  return cardCount === 1 ? ['Explique cette carte'] : ['Comment ces cartes interagissent-elles ?']
+  return cardCount === 1 ? [t.ai.suggestions.one] : [t.ai.suggestions.several]
 }

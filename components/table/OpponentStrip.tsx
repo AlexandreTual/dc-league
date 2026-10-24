@@ -8,8 +8,9 @@ import GameCard, { CardBack, type Lang } from './GameCard'
 import { longPressClass, menuGesture } from './touch'
 import { ptEdit, type CardHandlers } from './zones'
 import type { AbilityStyle, CardEffects } from '@/lib/table-settings'
+import { useT } from '@/components/i18n/I18nProvider'
 
-const ROWS = [['creatures', 'Créatures'], ['others', 'Autres'], ['lands', 'Terrains']] as const
+const ROWS = ['creatures', 'others', 'lands'] as const
 
 /**
  * Bandeau d'un adversaire (vue « Tous ») : sa colonne compacte à gauche (ligne portrait, cases chiffrées,
@@ -35,6 +36,7 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
   /** Capacités données ou perdues : symboles ou libellés (réglage de la table). */
   abilityStyle?: AbilityStyle
 }) {
+  const t = useT()
   const zones = view.players[player].zones
   const rows = groupBattlefield(zones.battlefield, catalogs)
   const battlefield = { player, zone: 'battlefield' as const }
@@ -65,9 +67,9 @@ export default function OpponentStrip({ view, player, catalogs, lang, handlers, 
       {header}
       <div className="relative flex-1 min-w-0 min-h-0 flex">
       <div className={`flex-1 min-w-0 min-h-0 gap-2 overflow-y-auto ${stacked ? 'flex flex-col' : 'grid grid-cols-[2fr_1fr_1fr]'}`} data-zone="battlefield" data-player={player}>
-        {ROWS.map(([key, label]) => (
+        {ROWS.map((key) => (
           <div key={key} className="min-w-0 flex flex-col gap-0.5" data-row={key}>
-            <span className="text-[10px] text-dc-muted">{label}</span>
+            <span className="text-[10px] text-dc-muted">{t.table.zones.rows[key]}</span>
             <div className="flex flex-wrap content-start items-center gap-1.5">
               {rows[key].map((stack: Stack) => mini(stack.cards[0], stack.count))}
               {key === 'others' && rows.hidden > 0 && Array.from({ length: rows.hidden }, (_, i) => <CardBack key={`x${i}`} className={cardHeight} />)}

@@ -17,6 +17,9 @@ on:
       - 'lib/db-errors.ts'
       - 'lib/db.ts'
       - 'lib/cards/types.ts'
+      - 'lib/i18n/**'
+      - 'lib/table-settings.ts'
+      - 'lib/text.ts'
       - 'migrations/**'
       - '.github/workflows/deploy-game-worker.yml'
   workflow_dispatch:

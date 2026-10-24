@@ -4,6 +4,7 @@ import { cardInfo, taxOf } from './apply'
 import { printedKeywordsOf } from './card-effects'
 import { baseLoyalty, clampLoyalty, hasLoyalty, loyaltyStats } from './loyalty'
 import { basePT, MAX_PT_MOD, NO_PT, ptStats, signed } from './pt'
+import type { Messages } from '@/lib/i18n/messages'
 import type { ClientAction } from './room'
 import type { OrderRequest } from './selection'
 import { type Catalog, type PlayerView, type PlayerZone, type Position, type TokenData, type VisibleCard, type ZoneRef } from './types'
@@ -39,21 +40,24 @@ export type MenuContext = {
   me: string | null
   view: PlayerView
   catalogs: Record<string, Catalog>
+  /** Langue des cartes (nom affiché en titre, jeton copie). */
   lang: 'fr' | 'en'
+  /** Textes de l'interface, dans sa langue. */
+  t: Messages
   /** Partie terminée : plus aucune action. */
   readOnly: boolean
   /** Assistant IA disponible pour ce joueur (facultatif : absent = pas d'entrée). */
   ai?: boolean
 }
 
-const DESTINATIONS: { label: string; zone: PlayerZone; position?: Position }[] = [
-  { label: 'Main', zone: 'hand' },
-  { label: 'Champ de bataille', zone: 'battlefield' },
-  { label: 'Cimetière', zone: 'graveyard' },
-  { label: 'Exil', zone: 'exile' },
-  { label: 'Zone de commandement', zone: 'command' },
-  { label: 'Dessus de la bibliothèque', zone: 'library', position: 'top' },
-  { label: 'Dessous de la bibliothèque', zone: 'library', position: 'bottom' },
+const DESTINATIONS: { label: keyof Messages['menus']['zones']; zone: PlayerZone; position?: Position }[] = [
+  { label: 'hand', zone: 'hand' },
+  { label: 'battlefield', zone: 'battlefield' },
+  { label: 'graveyard', zone: 'graveyard' },
+  { label: 'exile', zone: 'exile' },
+  { label: 'command', zone: 'command' },
+  { label: 'libraryTop', zone: 'library', position: 'top' },
+  { label: 'libraryBottom', zone: 'library', position: 'bottom' },
 ]
 
 const act = (action: ClientAction): MenuCommand => ({ kind: 'action', action })
@@ -91,8 +95,8 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
       act({ type: 'createToken', token, x: clampPct(x + 3 * k), y: clampPct(y + 3 * k), copy: true }))
   return [
     { kind: 'separator' },
-    item('Créer un jeton copie', ...copies(1)),
-    item('Créer des jetons copies…', { kind: 'ask', question: 'Combien de jetons ?', fallback: 2, then: copies }),
+    item(ctx.t.menus.copy.one, ...copies(1)),
+    item(ctx.t.menus.copy.many, { kind: 'ask', question: ctx.t.menus.copy.howMany, fallback: 2, then: copies }),
   ]
 }
 
@@ -105,8 +109,8 @@ function copyEntries(ctx: MenuContext, card: VisibleCard, zone: ZoneRef, me: str
 function oracleEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (card.faceDown || card.token || card.ref === null) return []
   if (!ctx.catalogs[card.owner]?.entries.some((e) => e.ref === card.ref)) return []
-  const entries: MenuEntry[] = [item('Oracle et règles', { kind: 'oracle', owner: card.owner, ref: card.ref })]
-  if (ctx.ai) entries.push(item('Ajouter à la question IA', { kind: 'askAi', owner: card.owner, ref: card.ref }))
+  const entries: MenuEntry[] = [item(ctx.t.menus.oracle, { kind: 'oracle', owner: card.owner, ref: card.ref })]
+  if (ctx.ai) entries.push(item(ctx.t.menus.askAi, { kind: 'askAi', owner: card.owner, ref: card.ref }))
   return [...entries, { kind: 'separator' }]
 }
 
@@ -145,12 +149,13 @@ function ptEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
     }
   }
   const mod = card.ptMod ?? NO_PT
-  const entries = [stepper('Force', 'power'), stepper('Endurance', 'toughness'), turnStepper('Force ce tour', 'power'), turnStepper('Endurance ce tour', 'toughness')]
+  const t = ctx.t.menus.pt
+  const entries = [stepper(t.power, 'power'), stepper(t.toughness, 'toughness'), turnStepper(t.powerTurn, 'power'), turnStepper(t.toughnessTurn, 'toughness')]
   const reset: MenuCommand[] = [
     ...(mod.power !== 0 || mod.toughness !== 0 ? [act({ type: 'pt', id, power: -mod.power || 0, toughness: -mod.toughness || 0 })] : []),
     ...(turn.power !== 0 || turn.toughness !== 0 ? [act({ type: 'ptTurn', id, power: -turn.power || 0, toughness: -turn.toughness || 0 })] : []),
   ]
-  if (reset.length > 0) entries.push(item('Réinitialiser force/endurance', ...reset))
+  if (reset.length > 0) entries.push(item(t.reset, ...reset))
   return entries
 }
 
@@ -177,7 +182,7 @@ function loyaltyEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   const current = shown ? (shown.value ?? shown.delta) : 0
   const change = (delta: number) => act({ type: 'loyalty', id, delta })
   const entries: MenuEntry[] = [{
-    kind: 'stepper', label: 'Loyauté', value: shown?.text ?? '+0', signed: shown?.value == null, minus: change(-1), plus: change(1),
+    kind: 'stepper', label: ctx.t.menus.loyalty.label, value: shown?.text ?? '+0', signed: shown?.value == null, minus: change(-1), plus: change(1),
     set: (n) => {
       if (!Number.isFinite(n)) return []
       // L'écart visé, borné comme le fera le moteur (jamais sous 0 marqueur).
@@ -185,7 +190,7 @@ function loyaltyEntries(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
       return delta === 0 ? [] : [change(delta)]
     },
   }]
-  if (mod !== 0) entries.push(item('Réinitialiser la loyauté', change(-mod)))
+  if (mod !== 0) entries.push(item(ctx.t.menus.loyalty.reset, change(-mod)))
   return entries
 }
 
@@ -197,7 +202,7 @@ export function statMenu(ctx: MenuContext, card: VisibleCard): MenuEntry[] {
   if (!ctx.me || ctx.readOnly) return []
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
   const entries = loyaltyStats(ctx.catalogs[card.owner], card) ? loyaltyEntries(ctx, card) : ptEntries(ctx, card)
-  return [{ kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }, ...entries]
+  return [{ kind: 'title', label: info.hidden ? ctx.t.menus.faceDownCard : info.name }, ...entries]
 }
 
 function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: boolean, controller: boolean): MenuEntry[] {
@@ -213,22 +218,23 @@ function battlefieldEntries(ctx: MenuContext, card: VisibleCard, flippable: bool
       return delta === 0 ? [] : [act({ type: 'counter', id, kind, delta })]
     },
   })
-  const entries: MenuEntry[] = [item(card.tapped ? 'Dégager' : 'Engager', act({ type: 'tap', id })),
-    item(card.phasedOut ? 'Revenir en phase' : 'Passer hors phase', act({ type: 'phase', id }))]
-  if (controller && flippable) entries.push(item('Retourner', act({ type: 'flip', id })))
+  const t = ctx.t.menus.battlefield
+  const entries: MenuEntry[] = [item(card.tapped ? t.untap : t.tap, act({ type: 'tap', id })),
+    item(card.phasedOut ? t.phaseIn : t.phaseOut, act({ type: 'phase', id }))]
+  if (controller && flippable) entries.push(item(t.transform, act({ type: 'flip', id })))
   if (controller) {
-    entries.push(item(card.faceDown ? 'Face visible' : 'Face cachée', act({ type: 'faceDown', id })),
-      item('Pivoter à 180°', act({ type: 'rotate', id })),
+    entries.push(item(card.faceDown ? t.faceUp : t.faceDown, act({ type: 'faceDown', id })),
+      item(t.rotate, act({ type: 'rotate', id })),
       // Dans l'ordre du champ de bataille, le dessous (fin de liste) est affiché devant.
-      item('Mettre devant', act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'bottom' })),
-      item('Mettre derrière', act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'top' })))
+      item(t.toFront, act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'bottom' })),
+      item(t.toBack, act({ type: 'move', id, to: { player: ctx.me!, zone: 'battlefield' }, position: 'top' })))
   }
   entries.push({ kind: 'separator' },
-    counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter('Compteur', 'other', card.counters.other),
+    counter('+1/+1', 'plus', card.counters.plus), counter('-1/-1', 'minus', card.counters.minus), counter(t.counter, 'other', card.counters.other),
     ...loyaltyEntries(ctx, card), ...ptEntries(ctx, card),
-    item('Donner une capacité…', { kind: 'abilities', id }))
+    item(t.abilities, { kind: 'abilities', id }))
   const creatures = controller ? myCreatures(ctx) : []
-  if (creatures.length > 0) entries.push(item('Effet sur toutes mes créatures…', { kind: 'effect', ids: creatures, title: 'toutes mes créatures' }))
+  if (creatures.length > 0) entries.push(item(t.effectAll, { kind: 'effect', ids: creatures, title: t.effectAllTitle }))
   return entries
 }
 
@@ -248,7 +254,8 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
   const id = card.id
   const info = cardInfo(ctx.catalogs[card.owner], card, ctx.lang)
   const flippable = !card.token && (info.faces?.length ?? 0) > 1
-  const title: MenuEntry = { kind: 'title', label: info.hidden ? 'Carte face cachée' : info.name }
+  const t = ctx.t.menus
+  const title: MenuEntry = { kind: 'title', label: info.hidden ? t.faceDownCard : info.name }
   const head = [title, ...oracleEntries(ctx, card)]
   const name = (p: string) => ctx.view.players[p]?.name ?? '?'
 
@@ -257,13 +264,13 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
     const toOwner = (label: string, z: PlayerZone) => item(label, act({ type: 'move', id, to: { player: card.owner, zone: z } }))
     if (zone.zone === 'battlefield') {
       return [...head, ...battlefieldEntries(ctx, card, flippable, false), ...copyEntries(ctx, card, zone, me), { kind: 'separator' },
-        item('Prendre le contrôle', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
-        toOwner('Dans sa main', 'hand'), toOwner('Dans son cimetière', 'graveyard'), toOwner('Dans son exil', 'exile')]
+        item(t.battlefield.gainControl, act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
+        toOwner(t.theirs.hand, 'hand'), toOwner(t.theirs.graveyard, 'graveyard'), toOwner(t.theirs.exile, 'exile')]
     }
     if (zone.zone === 'graveyard' || zone.zone === 'exile') {
-      return [...head, item('Sur mon champ de bataille', act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
-        toOwner('Dans sa main', 'hand'),
-        ...(zone.zone === 'graveyard' ? [toOwner('Dans son exil', 'exile')] : [toOwner('Dans son cimetière', 'graveyard')])]
+      return [...head, item(t.theirs.toMyBattlefield, act({ type: 'move', id, to: { player: me, zone: 'battlefield' } })),
+        toOwner(t.theirs.hand, 'hand'),
+        ...(zone.zone === 'graveyard' ? [toOwner(t.theirs.exile, 'exile')] : [toOwner(t.theirs.graveyard, 'graveyard')])]
     }
     return []
   }
@@ -271,30 +278,30 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
   const entries: MenuEntry[] = [title]
   // Mulligan en cours : mettre la carte au-dessous sans Maj + glisser (impossible sur téléphone), avant tout le reste.
   if (zone.zone === 'hand' && inMulligan(ctx.view.players[me])) {
-    entries.push(item('Mettre au-dessous', act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
+    entries.push(item(t.hand.toBottom, act({ type: 'move', id, to: { player: me, zone: 'library' }, position: 'bottom' })), { kind: 'separator' })
   }
   entries.push(...oracleEntries(ctx, card))
   if (zone.zone === 'hand') {
-    entries.push(item('Révéler à tous', act({ type: 'reveal', ids: [id], to: 'all' })))
-    for (const p of others(ctx, me)) entries.push(item(`Révéler à ${name(p)}`, act({ type: 'reveal', ids: [id], to: [p] })))
+    entries.push(item(t.hand.revealAll, act({ type: 'reveal', ids: [id], to: 'all' })))
+    for (const p of others(ctx, me)) entries.push(item(t.hand.revealTo(name(p)), act({ type: 'reveal', ids: [id], to: [p] })))
   }
   if (zone.zone === 'battlefield') {
     entries.push(...battlefieldEntries(ctx, card, flippable, true), ...copyEntries(ctx, card, zone, me))
     entries.push({ kind: 'separator' })
-    for (const p of others(ctx, me)) entries.push(item(`Donner le contrôle à ${name(p)}`, act({ type: 'giveControl', id, to: p })))
+    for (const p of others(ctx, me)) entries.push(item(t.battlefield.giveControl(name(p)), act({ type: 'giveControl', id, to: p })))
   }
   if (card.isCommander && card.owner === me) {
-    entries.push({ kind: 'stepper', label: 'Taxe', value: `+${taxOf(ctx.view, id)}`,
+    entries.push({ kind: 'stepper', label: t.commanderTax, value: `+${taxOf(ctx.view, id)}`,
       minus: act({ type: 'commanderTax', id, delta: -1 }), plus: act({ type: 'commanderTax', id, delta: 1 }) })
   }
-  entries.push({ kind: 'separator' }, { kind: 'title', label: 'Envoyer vers' })
+  entries.push({ kind: 'separator' }, { kind: 'title', label: t.sendTo })
   for (const dest of DESTINATIONS) {
     if (dest.zone === zone.zone && dest.zone !== 'library') continue
     // Hors du champ de bataille, une carte va toujours chez son propriétaire.
     const player = dest.zone === 'battlefield' ? me : card.owner
     const action: ClientAction = { type: 'move', id, to: { player, zone: dest.zone } }
     if (dest.position) action.position = dest.position
-    entries.push(item(dest.label, act(action)))
+    entries.push(item(t.zones[dest.label], act(action)))
   }
   return entries
 }
@@ -303,26 +310,27 @@ export function cardMenu(ctx: MenuContext, card: VisibleCard, zone: ZoneRef): Me
 export function libraryMenu(ctx: MenuContext, player: string): MenuEntry[] {
   const me = ctx.me
   if (!me || ctx.readOnly) return []
-  const look: MenuEntry = item('Regarder les X du dessus…', {
-    kind: 'ask', question: 'Combien de cartes regarder ?', fallback: 3,
+  const t = ctx.t.menus.library
+  const look: MenuEntry = item(t.look, {
+    kind: 'ask', question: t.lookHowMany, fallback: 3,
     then: (n) => [act({ type: 'look', target: player, count: n }),
-      { kind: 'openPile', player, zone: 'library', mode: 'look', title: `Les ${n} cartes du dessus` }],
+      { kind: 'openPile', player, zone: 'library', mode: 'look', title: t.lookTitle(n) }],
   })
-  const search: MenuEntry = item('Chercher une carte…', act({ type: 'search', target: player }),
-    { kind: 'openPile', player, zone: 'library', mode: 'search', title: 'Chercher dans la bibliothèque' })
-  if (player !== me) return [{ kind: 'title', label: `Bibliothèque de ${ctx.view.players[player]?.name ?? '?'}` }, look, search]
+  const search: MenuEntry = item(t.search, act({ type: 'search', target: player }),
+    { kind: 'openPile', player, zone: 'library', mode: 'search', title: t.searchTitle })
+  if (player !== me) return [{ kind: 'title', label: t.of(ctx.view.players[player]?.name ?? '?') }, look, search]
 
   const mine = ctx.view.players[me]
   return [
-    { kind: 'title', label: `Bibliothèque (${mine.zones.library.count})` },
-    item('Piocher 1', act({ type: 'draw', count: 1 })),
-    item('Piocher N…', { kind: 'ask', question: 'Combien de cartes piocher ?', fallback: 2, then: (n) => [act({ type: 'draw', count: n })] }),
-    item('Mélanger', act({ type: 'shuffle' })),
+    { kind: 'title', label: t.mine(mine.zones.library.count) },
+    item(t.draw1, act({ type: 'draw', count: 1 })),
+    item(t.drawN, { kind: 'ask', question: t.drawHowMany, fallback: 2, then: (n) => [act({ type: 'draw', count: n })] }),
+    item(t.shuffle, act({ type: 'shuffle' })),
     look,
     search,
-    item('Révéler la carte du dessus', act({ type: 'revealTop' })),
-    item(mine.topRevealed ? 'Cacher la carte du dessus' : 'Jouer avec la carte du dessus révélée', act({ type: 'toggleTopRevealed' })),
-    item(mine.peekTop ? 'Ne plus voir la carte du dessus' : 'Voir la carte du dessus (pour moi seul)', act({ type: 'togglePeekTop' })),
+    item(t.revealTop, act({ type: 'revealTop' })),
+    item(mine.topRevealed ? t.hideTop : t.playRevealed, act({ type: 'toggleTopRevealed' })),
+    item(mine.peekTop ? t.stopPeekTop : t.peekTop, act({ type: 'togglePeekTop' })),
   ]
 }
 
@@ -330,9 +338,10 @@ export function libraryMenu(ctx: MenuContext, player: string): MenuEntry[] {
 export function handMenu(ctx: MenuContext): MenuEntry[] {
   const me = ctx.me
   if (!me || ctx.readOnly) return []
+  const t = ctx.t.menus.hand
   return [
-    { kind: 'title', label: 'Ma main' },
-    item('Révéler ma main à tous', act({ type: 'reveal', ids: 'hand', to: 'all' })),
-    ...others(ctx, me).map((p) => item(`Révéler ma main à ${ctx.view.players[p].name}`, act({ type: 'reveal', ids: 'hand', to: [p] }))),
+    { kind: 'title', label: t.title },
+    item(t.revealHand, act({ type: 'reveal', ids: 'hand', to: 'all' })),
+    ...others(ctx, me).map((p) => item(t.revealHandTo(ctx.view.players[p].name), act({ type: 'reveal', ids: 'hand', to: [p] }))),
   ]
 }

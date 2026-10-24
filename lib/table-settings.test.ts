@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { en, fr } from '@/lib/i18n/messages'
 import { ALL_EFFECTS, battlefieldStyle, CARD_EFFECTS, cardSize, DEFAULT_TABLE_SETTINGS, GRAVEYARD_ARTS, HAND_SCALES, handRowStyle, NO_EFFECTS, parseTableSettings } from './table-settings'
 
 describe('parseTableSettings', () => {
@@ -47,10 +48,12 @@ describe('parseTableSettings', () => {
   })
 
   it('fenêtre « Animations » : cartes (légendaires, entrée du commandant, vol), puis joueurs et partie', () => {
-    expect(CARD_EFFECTS.filter((e) => e.group === 'cards').map((e) => e.label)).toEqual(['Légendaires', 'Entrée du commandant', 'Retour du cimetière', 'Vol'])
+    expect(CARD_EFFECTS.filter((e) => e.group === 'cards').map((e) => fr.table.animations.effects[e.id].label)).toEqual(['Légendaires', 'Entrée du commandant', 'Retour du cimetière', 'Vol'])
     expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => e.id)).toEqual(['life', 'crowns', 'dungeon', 'elimination', 'dice'])
-    expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => e.label))
+    expect(CARD_EFFECTS.filter((e) => e.group === 'players').map((e) => fr.table.animations.effects[e.id].label))
       .toEqual(['Vie, poison et blessures', 'Monarque et initiative', 'Donjon', 'Élimination et victoire', 'Dés'])
+    expect(CARD_EFFECTS.map((e) => en.table.animations.effects[e.id].label))
+      .toEqual(['Legendaries', 'Commander entrance', 'Back from the graveyard', 'Flying', 'Life, poison and damage', 'Monarch and initiative', 'Dungeon', 'Elimination and victory', 'Dice'])
   })
 
   it('capacités sur les cartes : symboles par défaut (absent, sauvegarde d’avant, ou illisible), libellés gardés', () => {

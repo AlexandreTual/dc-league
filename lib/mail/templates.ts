@@ -1,56 +1,52 @@
 import type { Mail } from './index'
+import { isLang, type Lang } from '@/lib/i18n/lang'
+import { messages, type Messages } from '@/lib/i18n/messages'
 
-type MailContent = Omit<Mail, 'to'>
-type MailInput = { name: string; url: string }
+export type MailContent = Omit<Mail, 'to'>
+export type MailInput = { name: string; url: string }
+
+type Paragraphs = Messages['mail']['invitation']
+
+/** Langue d'un mail demandée par le client : absente → français, inconnue → null (requête invalide). */
+export function mailLang(value: unknown): Lang | null {
+  if (value === undefined || value === null) return 'fr'
+  return isLang(value) ? value : null
+}
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
-/** Mail simple : fond sombre, bouton doré, texte brut équivalent. */
-function build(subject: string, paragraphs: { intro: string; button: string; outro: string }, { name, url }: MailInput): MailContent {
-  const text = [`Bonjour ${name}, ${paragraphs.intro} : ${url}`, paragraphs.outro].join('\n\n')
+/** Mail simple : fond sombre, bouton doré, texte brut équivalent, dans la langue demandée. */
+function build(lang: Lang, pick: (t: Messages['mail']) => Paragraphs, { name, url }: MailInput): MailContent {
+  const t = messages(lang).mail
+  const p = pick(t)
+  const text = [`${t.hello(name)}, ${p.intro}${t.linkSeparator}${url}`, p.outro].join('\n\n')
   const html = `<!doctype html>
-<html lang="fr"><body style="margin:0;padding:24px;background:#0f172a;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0">
+<html lang="${lang}"><body style="margin:0;padding:24px;background:#0f172a;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0">
 <div style="max-width:480px;margin:0 auto;background:#1e293b;border-radius:12px;padding:24px">
 <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#fbbf24">Commander League</p>
-<p style="margin:0 0 16px;line-height:1.5">Bonjour ${escapeHtml(name)}, ${escapeHtml(paragraphs.intro)}.</p>
-<p style="margin:0 0 16px;text-align:center"><a href="${escapeHtml(url)}" style="display:inline-block;background:#fbbf24;color:#0f172a;font-weight:bold;text-decoration:none;padding:12px 20px;border-radius:8px">${escapeHtml(paragraphs.button)}</a></p>
-<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#94a3b8;word-break:break-all">Si le bouton ne marche pas, copie ce lien : ${escapeHtml(url)}</p>
-<p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8">${escapeHtml(paragraphs.outro)}</p>
+<p style="margin:0 0 16px;line-height:1.5">${escapeHtml(t.hello(name))}, ${escapeHtml(p.intro)}.</p>
+<p style="margin:0 0 16px;text-align:center"><a href="${escapeHtml(url)}" style="display:inline-block;background:#fbbf24;color:#0f172a;font-weight:bold;text-decoration:none;padding:12px 20px;border-radius:8px">${escapeHtml(p.button)}</a></p>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#94a3b8;word-break:break-all">${escapeHtml(t.buttonFallback)}${escapeHtml(url)}</p>
+<p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8">${escapeHtml(p.outro)}</p>
 </div></body></html>`
-  return { subject, text, html }
+  return { subject: p.subject, text, html }
 }
 
-export function invitationMail(input: MailInput): MailContent {
-  return build('Commander League — ton invitation', {
-    intro: 'tu es invité à rejoindre la Commander League. Voici ton lien pour créer ton compte (valable 7 jours)',
-    button: 'Créer mon compte',
-    outro: "Si tu ne t'attendais pas à cette invitation, ignore ce mail.",
-  }, input)
+export function invitationMail(input: MailInput, lang: Lang): MailContent {
+  return build(lang, (t) => t.invitation, input)
 }
 
-export function adminResetMail(input: MailInput): MailContent {
-  return build('Commander League — nouveau mot de passe', {
-    intro: "l'admin t'a envoyé un lien pour choisir un nouveau mot de passe (valable 7 jours)",
-    button: 'Choisir mon mot de passe',
-    outro: "Si tu n'as rien demandé, ignore ce mail.",
-  }, input)
+export function adminResetMail(input: MailInput, lang: Lang): MailContent {
+  return build(lang, (t) => t.adminReset, input)
 }
 
-export function forgotMail(input: MailInput): MailContent {
-  return build('Commander League — nouveau mot de passe', {
-    intro: 'voici ton lien pour choisir un nouveau mot de passe (valable 1 heure)',
-    button: 'Choisir mon mot de passe',
-    outro: "Si tu n'as rien demandé, ignore ce mail.",
-  }, input)
+export function forgotMail(input: MailInput, lang: Lang): MailContent {
+  return build(lang, (t) => t.forgot, input)
 }
 
 /** Prévient l'ancienne adresse d'un compte ; ne cite jamais la nouvelle. */
-export function emailChangedMail(input: MailInput): MailContent {
-  return build('Commander League — adresse mail modifiée', {
-    intro: "l'adresse mail de ton compte vient d'être modifiée ou effacée depuis ton profil. Pour te connecter",
-    button: 'Me connecter',
-    outro: "Si ce n'est pas toi, connecte-toi et change ton mot de passe tout de suite, puis remets ton adresse dans ton profil.",
-  }, input)
+export function emailChangedMail(input: MailInput, lang: Lang): MailContent {
+  return build(lang, (t) => t.emailChanged, input)
 }

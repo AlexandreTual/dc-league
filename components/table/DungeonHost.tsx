@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Flag } from 'lucide-react'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView } from '@/lib/game/types'
+import { useT } from '@/components/i18n/I18nProvider'
 import DungeonMap from './DungeonMap'
 import { onDungeonRequest, venture, type DungeonRequest } from './dungeon'
 
@@ -21,6 +22,7 @@ export default function DungeonHost({ view, canAct, animate, offers, send }: {
   offers: boolean
   send: (action: ClientAction) => void
 }) {
+  const d = useT().table.dungeons
   const [request, setRequest] = useState<DungeonRequest | null>(null)
   useEffect(() => onDungeonRequest((r) => setRequest(r)), [])
   const me = view.players[view.me]
@@ -32,9 +34,9 @@ export default function DungeonHost({ view, canAct, animate, offers, send }: {
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center justify-center gap-2 px-3 py-2 rounded-xl bg-dc-surface/95 border border-dc-gold shadow-card max-w-[90%]"
           role="status" data-testid="venture-offer">
           <Flag className="w-4 h-4 text-dc-gold shrink-0" />
-          <span className="text-sm text-dc-text">Initiative : explorer Les Souterrains ?</span>
-          <button className={`${button} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={() => venture(view, 'undercity', send)} data-testid="venture-offer-go">Explorer</button>
-          <button className={`${button} border-dc-border text-dc-muted hover:text-dc-text`} onClick={() => send({ type: 'skipVenture' })} data-testid="venture-offer-skip">Plus tard</button>
+          <span className="text-sm text-dc-text">{d.offer}</span>
+          <button className={`${button} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={() => venture(view, 'undercity', send)} data-testid="venture-offer-go">{d.offerGo}</button>
+          <button className={`${button} border-dc-border text-dc-muted hover:text-dc-text`} onClick={() => send({ type: 'skipVenture' })} data-testid="venture-offer-skip">{d.offerLater}</button>
         </div>
       )}
       {request && <DungeonMap key={JSON.stringify(request)} view={view} request={request} canAct={canAct} animate={animate} send={send} onClose={() => setRequest(null)} />}

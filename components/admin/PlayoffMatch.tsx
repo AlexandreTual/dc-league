@@ -4,6 +4,7 @@ import { RefreshCcw } from 'lucide-react'
 import type { Player } from '@/lib/leaderboard'
 import type { DbPlayoff } from '@/lib/db'
 import MatchCard from '@/components/MatchCard'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Un match de playoffs (demi-finale, finale ou petite finale) avec son libellé sous la carte. */
 export default function PlayoffMatch({ playoff, player1, player2, label, onEdit, onReset }: {
@@ -14,6 +15,7 @@ export default function PlayoffMatch({ playoff, player1, player2, label, onEdit,
   onEdit: () => void
   onReset: () => void
 }) {
+  const t = useT().admin.playoffs
   return (
     <div className="relative group">
       <MatchCard
@@ -35,8 +37,8 @@ export default function PlayoffMatch({ playoff, player1, player2, label, onEdit,
         <button
           onClick={onReset}
           className="absolute top-3 left-3 transition-opacity text-dc-muted hover:text-dc-red-light p-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
-          title="Réinitialiser le score"
-          aria-label="Réinitialiser le score"
+          title={t.resetScore}
+          aria-label={t.resetScore}
         >
           <RefreshCcw className="w-3.5 h-3.5" />
         </button>

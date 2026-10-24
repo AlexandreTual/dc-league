@@ -24,6 +24,7 @@ import {
 import { getPlayer } from '@/lib/db'
 import type { Mailer, MailResult } from '@/lib/mail'
 import { adminResetMail, emailChangedMail, forgotMail, invitationMail } from '@/lib/mail/templates'
+import type { Lang } from '@/lib/i18n/lang'
 import { generateToken, hashPassword, hashToken, verifyDummyPassword, verifyPassword } from './crypto'
 import { SESSION_TTL_MS } from './resolve'
 import type { CurrentUser, ServiceResult } from './types'
@@ -39,7 +40,8 @@ const MAX_FORGOT_MAILS_PER_DAY = 30
 export const FORGOT_TTL_MS = 3600 * 1000
 
 /** Envoi des mails : service choisi par la configuration et origine du site (liens). */
-export type MailContext = { mailer: Mailer; baseUrl: string }
+/** lang : langue du mail (français si absente). */
+export type MailContext = { mailer: Mailer; baseUrl: string; lang?: Lang }
 
 /** Clés du compteur de tentatives : par pseudo (tronqué) et par IP (`CF-Connecting-IP`). */
 const attemptKey = {
@@ -206,7 +208,7 @@ export async function issueInvitation(
   const url = invitationUrl(ctx.baseUrl, token)
   let mail: MailResult | 'none' = 'none'
   if (email) {
-    const content = (input.kind === 'signup' ? invitationMail : adminResetMail)({ name: player.data.name, url })
+    const content = (input.kind === 'signup' ? invitationMail : adminResetMail)({ name: player.data.name, url }, ctx.lang ?? 'fr')
     mail = await sendSafely(ctx.mailer, { to: email, ...content })
   }
   return { ok: true, value: { url, expiresAt: r.data.expiresAt, mail } }
@@ -270,7 +272,7 @@ export async function requestPasswordReset(
     })
     if (r.error !== null) throw new Error(r.error)
 
-    const content = forgotMail({ name: player.data?.name ?? user.username, url: invitationUrl(ctx.baseUrl, token) })
+    const content = forgotMail({ name: player.data?.name ?? user.username, url: invitationUrl(ctx.baseUrl, token) }, ctx.lang ?? 'fr')
     const result = await sendSafely(ctx.mailer, { to: user.email, ...content })
     if (result !== 'sent') console.error('[forgot] mail non envoyé :', result)
   } catch (e) {
@@ -305,7 +307,7 @@ export async function updateEmail(
 
   const previous = account.email
   if (previous && previous.toLowerCase() !== email?.toLowerCase()) {
-    const content = emailChangedMail({ name: user.playerName, url: `${ctx.baseUrl}/connexion` })
+    const content = emailChangedMail({ name: user.playerName, url: `${ctx.baseUrl}/connexion` }, ctx.lang ?? 'fr')
     const sent = await sendSafely(ctx.mailer, { to: previous, ...content })
     if (sent !== 'sent' && sent !== 'disabled') console.error('[email] ancienne adresse non prévenue :', sent)
   }

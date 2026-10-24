@@ -3,13 +3,14 @@
 import { useRef, useState } from 'react'
 import { useDndMonitor, useDroppable, type DragMoveEvent } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { CARD_TYPES, countByType, filterPile, type CardType } from '@/lib/game/card-types'
+import { countByType, filterPile, type CardType } from '@/lib/game/card-types'
 import { placeAt, shiftCard, syncOrder } from '@/lib/game/pile-order'
 import type { Catalog, PlayerZone, Position, VisibleCard } from '@/lib/game/types'
 import { cardLabel } from './a11y'
 import Draggable from './Draggable'
 import GameCard, { type Lang } from './GameCard'
 import { touchTarget } from './touch'
+import { useT } from '@/components/i18n/I18nProvider'
 import { pileKey } from './zones'
 
 /** Cible de dépôt d'une carte de la fenêtre (regard : réordonner), suivie de son identifiant. */
@@ -40,16 +41,15 @@ function PileCard({ card, slot, children }: { card: VisibleCard; slot: boolean; 
   )
 }
 
-const TARGETS: { label: string; to: PlayerZone; position?: Position }[] = [
-  { label: 'Main', to: 'hand' },
-  { label: 'Champ', to: 'battlefield' },
-  { label: 'Cimetière', to: 'graveyard' },
-  { label: 'Exil', to: 'exile' },
-  { label: 'Dessus', to: 'library', position: 'top' },
-  { label: 'Dessous', to: 'library', position: 'bottom' },
+/** Destinations d'une carte ; `key` : son libellé (`t.table.pile.targets`). */
+const TARGETS: { key: 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'top' | 'bottom'; to: PlayerZone; position?: Position }[] = [
+  { key: 'hand', to: 'hand' },
+  { key: 'battlefield', to: 'battlefield' },
+  { key: 'graveyard', to: 'graveyard' },
+  { key: 'exile', to: 'exile' },
+  { key: 'top', to: 'library', position: 'top' },
+  { key: 'bottom', to: 'library', position: 'bottom' },
 ]
-
-const TYPE_LABEL = Object.fromEntries(CARD_TYPES.map((t) => [t.type, t.label])) as Record<CardType, string>
 
 /**
  * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination ; chaque carte se glisse aussi
@@ -77,6 +77,8 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
   onShuffleChange?: (shuffle: boolean) => void
   onClose: (shuffle: boolean) => void
 }) {
+  const t = useT()
+  const pl = t.table.pile
   const [filter, setFilter] = useState('')
   const [types, setTypes] = useState<CardType[]>([])
   const [shuffle, setShuffle] = useState(shuffleDefault ?? false)
@@ -119,8 +121,8 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
   const visible = filterPile(remaining, { text: filter, types }, catalogs)
   // Types présents dans la pile, plus ceux encore cochés dont la dernière carte vient de partir.
   const counts = countByType(remaining, catalogs)
-  const typeButtons = [...counts, ...types.filter((t) => !counts.some((c) => c.type === t)).map((t) => ({ type: t, label: TYPE_LABEL[t], count: 0 }))]
-  const toggle = (t: CardType) => setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+  const typeButtons = [...counts, ...types.filter((ty) => !counts.some((c) => c.type === ty)).map((ty) => ({ type: ty, count: 0 }))]
+  const toggle = (ty: CardType) => setTypes((prev) => (prev.includes(ty) ? prev.filter((x) => x !== ty) : [...prev, ty]))
   const chip = (active: boolean) =>
     `text-xs px-2 py-1 rounded-full border ${active ? 'border-dc-gold bg-dc-gold/15 text-dc-gold' : 'border-dc-border text-dc-text hover:border-dc-gold/50'}`
 
@@ -133,51 +135,51 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-dc-border">
           <h2 className="font-fantasy text-dc-gold">{title}</h2>
           {searchable && (
-            <input autoFocus className="flex-1 min-w-[10rem] bg-dc-bg border border-dc-border rounded-lg px-3 py-1.5 text-sm text-dc-text" placeholder="Filtrer par nom (FR ou EN)…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <input autoFocus className="flex-1 min-w-[10rem] bg-dc-bg border border-dc-border rounded-lg px-3 py-1.5 text-sm text-dc-text" placeholder={pl.filter} value={filter} onChange={(e) => setFilter(e.target.value)} />
           )}
           {shuffleDefault !== null && (
             <label className="flex items-center gap-1.5 text-xs text-dc-muted ml-auto">
-              <input type="checkbox" checked={shuffle} onChange={(e) => { setShuffle(e.target.checked); onShuffleChange?.(e.target.checked) }} /> Mélanger en fermant
+              <input type="checkbox" checked={shuffle} onChange={(e) => { setShuffle(e.target.checked); onShuffleChange?.(e.target.checked) }} /> {pl.shuffleOnClose}
             </label>
           )}
-          <button onClick={() => onClose(shuffle)} className="text-dc-muted hover:text-dc-text" aria-label="Fermer"><X className="w-5 h-5" /></button>
+          <button onClick={() => onClose(shuffle)} className="text-dc-muted hover:text-dc-text" aria-label={t.common.close}><X className="w-5 h-5" /></button>
         </div>
         {searchable && typeButtons.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-4 py-2 border-b border-dc-border" role="group" aria-label="Filtrer par type">
-            <button className={chip(types.length === 0)} aria-pressed={types.length === 0} onClick={() => setTypes([])}>Tous</button>
-            {typeButtons.map((t) => (
-              <button key={t.type} className={chip(types.includes(t.type))} aria-pressed={types.includes(t.type)} onClick={() => toggle(t.type)}>
-                {t.label} ({t.count})
+          <div className="flex flex-wrap gap-1.5 px-4 py-2 border-b border-dc-border" role="group" aria-label={pl.filterByType}>
+            <button className={chip(types.length === 0)} aria-pressed={types.length === 0} onClick={() => setTypes([])}>{pl.allTypes}</button>
+            {typeButtons.map((b) => (
+              <button key={b.type} className={chip(types.includes(b.type))} aria-pressed={types.includes(b.type)} onClick={() => toggle(b.type)}>
+                {pl.types[b.type]} ({b.count})
               </button>
             ))}
           </div>
         )}
         <div className="min-h-0 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-4">
-          {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">Aucune carte</p>}
+          {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">{pl.noCards}</p>}
           {visible.map((card, index) => (
             <PileCard key={card.id} card={card} slot={inPanel}>
-              <Draggable id={card.id} dragKey={pileKey(card.id)} label={cardLabel(catalogs[card.owner], card, lang)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
+              <Draggable id={card.id} dragKey={pileKey(card.id)} label={cardLabel(catalogs[card.owner], card, lang, t)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
                 <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
                 {ordered && index === 0 && (
-                  <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold" data-pile-top>Dessus</span>
+                  <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold" data-pile-top>{pl.top}</span>
                 )}
               </Draggable>
               {ordered && !readOnly && (
                 <div className="flex justify-between">
-                  <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label="Vers le dessus"
+                  <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label={pl.towardTop}
                     disabled={index === 0} onClick={() => reorder(shiftCard(ordered, card.id, -1))}><ChevronLeft className="w-4 h-4" /></button>
-                  <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label="Vers le dessous"
+                  <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label={pl.towardBottom}
                     disabled={index === ordered.length - 1} onClick={() => reorder(shiftCard(ordered, card.id, 1))}><ChevronRight className="w-4 h-4" /></button>
                 </div>
               )}
               {!readOnly && <div className="grid grid-cols-3 gap-1">
-                {TARGETS.filter((t) => !(t.to === zone && t.to !== 'library')).map((t) => (
+                {TARGETS.filter((d) => !(d.to === zone && d.to !== 'library')).map((d) => (
                   <button
-                    key={t.label}
+                    key={d.key}
                     className="text-[10px] px-1 py-0.5 [@media(pointer:coarse)]:min-h-8 rounded border border-dc-border text-dc-text hover:border-dc-gold/50"
-                    onClick={() => onMove(card, t.to, t.position)}
+                    onClick={() => onMove(card, d.to, d.position)}
                   >
-                    {t.label}
+                    {pl.targets[d.key]}
                   </button>
                 ))}
               </div>}

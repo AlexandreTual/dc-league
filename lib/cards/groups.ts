@@ -1,3 +1,4 @@
+import type { Messages } from '@/lib/i18n/messages'
 import type { CardRow, DeckCardView } from './types'
 
 export type CardGroup =
@@ -6,21 +7,11 @@ export type CardGroup =
 
 export type Lang = 'fr' | 'en'
 
-export const GROUP_LABELS: Record<CardGroup, string> = {
-  commander: 'Commandant',
-  creature: 'Créatures',
-  planeswalker: 'Planeswalkers',
-  battle: 'Batailles',
-  sorcery: 'Rituels',
-  instant: 'Éphémères',
-  artifact: 'Artefacts',
-  enchantment: 'Enchantements',
-  land: 'Terrains',
-  other: 'Autres',
-  notFound: 'Introuvables',
-}
-
-const GROUP_ORDER = Object.keys(GROUP_LABELS) as CardGroup[]
+/** Ordre des groupes sur la page d'un deck ; leurs titres sont dans le dictionnaire (`decks.groups`). */
+const GROUP_ORDER: CardGroup[] = [
+  'commander', 'creature', 'planeswalker', 'battle', 'sorcery', 'instant',
+  'artifact', 'enchantment', 'land', 'other', 'notFound',
+]
 
 // Priorité des types, lue sur la face avant : un terrain-créature est un terrain, une créature-artefact une créature.
 const TYPE_PRIORITY: [string, CardGroup][] = [
@@ -58,7 +49,8 @@ function groupOf(card: DeckCardView): CardGroup {
   return TYPE_PRIORITY.find(([type]) => front.includes(type))?.[1] ?? 'other'
 }
 
-export function groupDeckCards(cards: DeckCardView[], lang: Lang) {
+/** Cartes groupées par type ; `lang` : langue des cartes (tri par nom affiché), `t` : langue de l'interface (titres). */
+export function groupDeckCards(cards: DeckCardView[], lang: Lang, t: Messages) {
   const byGroup = new Map<CardGroup, DeckCardView[]>()
   for (const card of cards) {
     const group = groupOf(card)
@@ -68,6 +60,6 @@ export function groupDeckCards(cards: DeckCardView[], lang: Lang) {
     const list = [...byGroup.get(group)!].sort(
       (a, b) => (a.en?.cmc ?? 0) - (b.en?.cmc ?? 0) || displayName(a, lang).localeCompare(displayName(b, lang), 'fr'),
     )
-    return { group, label: GROUP_LABELS[group], count: list.reduce((n, c) => n + c.quantity, 0), cards: list }
+    return { group, label: t.decks.groups[group], count: list.reduce((n, c) => n + c.quantity, 0), cards: list }
   })
 }

@@ -5,7 +5,8 @@ import { Trophy, UserPlus } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
 import { countMatches } from '@/lib/db'
 import { getLeagueByInviteToken, isLeagueMember, listLeaguePlayers } from '@/lib/db-leagues'
-import { INVITE_INVALID, joinRefusal } from '@/lib/leagues/join'
+import { joinBlock } from '@/lib/leagues/join'
+import { getMessages } from '@/lib/i18n/server'
 import { loadFailed } from '@/lib/load'
 import LoadError from '@/components/LoadError'
 import { organizerLabel } from '@/components/leagues/format'
@@ -26,52 +27,53 @@ function Box({ children }: { children: React.ReactNode }) {
 /** Rejoindre une ligue par son lien d'invitation (il faut déjà un compte). */
 export default async function JoinLeaguePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  const user = await getCurrentUser()
+  const [user, t] = await Promise.all([getCurrentUser(), getMessages()])
+  const j = t.leagues.join
   if (!user) redirect(`/connexion?from=${encodeURIComponent(`/ligues/rejoindre/${token}`)}`)
   if (user.isBootstrap) {
-    return <Box><p className="text-dc-muted text-sm">Crée ton compte joueur avant de rejoindre une ligue.</p></Box>
+    return <Box><p className="text-dc-muted text-sm">{j.createPlayerFirst}</p></Box>
   }
 
   const db = getRequestContext<CloudflareEnv>().env.DB
   const found = await getLeagueByInviteToken(db, token)
-  if (found.error !== null) return <LoadError what="cette invitation" />
+  if (found.error !== null) return <LoadError what={j.loadWhat} />
   const league = found.data
   if (!league) {
     return (
       <Box>
-        <p className="text-dc-text">{INVITE_INVALID}</p>
-        <Link href="/ligues" className="text-dc-gold text-sm hover:underline">Voir les ligues</Link>
+        <p className="text-dc-text">{j.inviteInvalid}</p>
+        <Link href="/ligues" className="text-dc-gold text-sm hover:underline">{j.seeLeagues}</Link>
       </Box>
     )
   }
 
   const results = await Promise.all([isLeagueMember(db, league.id, user.playerId), countMatches(db, league.id), listLeaguePlayers(db, league.id)])
-  if (loadFailed(...results)) return <LoadError what="cette invitation" />
+  if (loadFailed(...results)) return <LoadError what={j.loadWhat} />
   const [member, matches, players] = results
-  const refusal = joinRefusal(league, matches.data ?? 0)
+  const block = joinBlock(league, matches.data ?? 0)
   const count = players.data?.length ?? 0
 
   return (
     <Box>
       <div className="space-y-1">
-        <p className="text-dc-muted text-sm">Invitation à la ligue</p>
-        <h1 className="font-fantasy text-2xl font-bold text-dc-gold">{league.name}</h1>
+        <p className="text-dc-muted text-sm">{j.invitation}</p>
+        <h1 data-user-content className="font-fantasy text-2xl font-bold text-dc-gold">{league.name}</h1>
         <p className="text-dc-muted text-sm">
-          {organizerLabel(league)} · {count} joueur{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''}
+          {organizerLabel(league, t)} · {t.leagues.enrolled(count)}
         </p>
       </div>
       {member.data ? (
         <>
-          <p className="text-dc-text text-sm">Tu es déjà inscrit dans cette ligue.</p>
+          <p className="text-dc-text text-sm">{j.alreadyIn}</p>
           <Link href={`/ligues/${league.id}/classement`} className="inline-flex items-center gap-1.5 text-dc-gold hover:underline text-sm">
-            Voir la ligue →
+            {j.seeLeague}
           </Link>
         </>
-      ) : refusal ? (
-        <p className="text-dc-text text-sm">{refusal}</p>
+      ) : block ? (
+        <p className="text-dc-text text-sm">{j[block]}</p>
       ) : (
         <JoinButton token={token}>
-          <UserPlus className="w-4 h-4" /> Rejoindre la ligue
+          <UserPlus className="w-4 h-4" /> {j.join}
         </JoinButton>
       )}
     </Box>

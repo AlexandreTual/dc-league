@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { canShare, leagueShareText, shareOrCopy, tableShareText } from './share'
+import { en } from './i18n/messages'
 
 describe('tableShareText', () => {
   it('donne le format, le nombre de places et l’hôte', () => {
@@ -61,5 +62,14 @@ describe('shareOrCopy', () => {
     expect(await shareOrCopy({ clipboard: { writeText: async () => { throw new Error('non') } } }, data)).toBe('failed')
     expect(await shareOrCopy({}, data)).toBe('failed')
     expect(await shareOrCopy(undefined, data)).toBe('failed')
+  })
+})
+
+describe('textes de partage en anglais', () => {
+  it('table et ligue dans la langue du dictionnaire', () => {
+    expect(tableShareText({ format: 'duel', seats: 2, hostName: 'Ana' }, en)).toBe('Duel Commander table for 2 hosted by Ana, join me')
+    expect(tableShareText({}, en)).toBe('Commander table, join me')
+    expect(leagueShareText('Saison e2e', en)).toBe('Join the league Saison e2e')
+    expect(leagueShareText(null, en)).toBe('Join my Commander league')
   })
 })

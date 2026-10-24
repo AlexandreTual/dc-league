@@ -6,6 +6,7 @@ import { placeAt, shiftCard } from '@/lib/game/pile-order'
 import type { Catalog, VisibleCard } from '@/lib/game/types'
 import GameCard, { type Lang } from './GameCard'
 import { touchTarget } from './touch'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Ordre de cartes sélectionnées avant de les poser sur une pile (bibliothèque, cimetière) : la première finit
@@ -20,6 +21,8 @@ export default function OrderModal({ title, cards, catalogs, lang, onConfirm, on
   onRandom: () => void
   onClose: () => void
 }) {
+  const t = useT()
+  const pl = t.table.pile
   const [order, setOrder] = useState<string[]>(() => cards.map((c) => c.id))
   const [dragged, setDragged] = useState<string | null>(null)
   // Une carte partie entre-temps (jouée par un autre geste) disparaît de la liste.
@@ -33,8 +36,8 @@ export default function OrderModal({ title, cards, catalogs, lang, onConfirm, on
         role="dialog" aria-label={title} data-testid="order-modal">
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-dc-border">
           <h2 className="font-fantasy text-dc-gold">{title}</h2>
-          <p className="text-xs text-dc-muted">La première carte finira au-dessus des autres.</p>
-          <button onClick={onClose} className="ml-auto text-dc-muted hover:text-dc-text" aria-label="Fermer"><X className="w-5 h-5" /></button>
+          <p className="text-xs text-dc-muted">{pl.orderHelp}</p>
+          <button onClick={onClose} className="ml-auto text-dc-muted hover:text-dc-text" aria-label={t.common.close}><X className="w-5 h-5" /></button>
         </div>
         <div className="min-h-0 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-4">
           {ordered.map((card, index) => (
@@ -55,13 +58,13 @@ export default function OrderModal({ title, cards, catalogs, lang, onConfirm, on
               <div className="relative">
                 <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
                 {index === 0 && (
-                  <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold">Dessus</span>
+                  <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold">{pl.top}</span>
                 )}
               </div>
               <div className="flex justify-between">
-                <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label="Vers le dessus"
+                <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label={pl.towardTop}
                   disabled={index === 0} onClick={() => setOrder(shiftCard(ids, card.id, -1))}><ChevronLeft className="w-4 h-4" /></button>
-                <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label="Vers le dessous"
+                <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label={pl.towardBottom}
                   disabled={index === ordered.length - 1} onClick={() => setOrder(shiftCard(ids, card.id, 1))}><ChevronRight className="w-4 h-4" /></button>
               </div>
             </div>
@@ -69,10 +72,10 @@ export default function OrderModal({ title, cards, catalogs, lang, onConfirm, on
         </div>
         <div className="flex flex-wrap justify-end gap-2 px-4 py-3 border-t border-dc-border">
           <button className={`${button} border-dc-border text-dc-text hover:border-dc-gold/50`} onClick={onRandom}>
-            <Shuffle className="w-4 h-4" /> Ordre aléatoire
+            <Shuffle className="w-4 h-4" /> {pl.random}
           </button>
           <button className={`${button} border-dc-gold/40 bg-dc-gold/20 text-dc-gold`} onClick={() => onConfirm(ids)} disabled={ids.length === 0}>
-            Valider cet ordre
+            {pl.confirmOrder}
           </button>
         </div>
       </div>

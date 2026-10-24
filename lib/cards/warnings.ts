@@ -1,4 +1,5 @@
 import type { CardRow, DeckCardView } from './types'
+import { fr, type Messages } from '@/lib/i18n/messages'
 
 /** Ce que les avertissements lisent d'une ligne du deck. */
 export type WarningCard = Pick<DeckCardView, 'quantity' | 'section'> & { en: CardRow | null }
@@ -53,13 +54,18 @@ export function deckWarnings<C extends WarningCard>(cards: C[]): DeckWarning<C>[
 }
 
 /** Texte d'un avertissement, avec le nom de chaque carte donné par `nameOf` (langue choisie). */
-export function warningText<C extends WarningCard>(warning: DeckWarning<C>, nameOf: (card: C) => string): string {
+export function warningText<C extends WarningCard>(
+  warning: DeckWarning<C>,
+  nameOf: (card: C) => string,
+  t: Messages = fr,
+): string {
+  const w = t.decks.warnings
   switch (warning.kind) {
     case 'total':
-      return `Le deck compte ${warning.total} carte${warning.total > 1 ? 's' : ''} au lieu de ${COMMANDER_DECK_SIZE}.`
+      return w.total(warning.total, COMMANDER_DECK_SIZE)
     case 'duplicates':
-      return `Plusieurs exemplaires d'une carte hors terrains de base : ${warning.cards.map((d) => `${nameOf(d.card)} (×${d.quantity})`).join(', ')}.`
+      return w.duplicates(warning.cards.map((d) => `${nameOf(d.card)} (×${d.quantity})`).join(', '))
     case 'identity':
-      return `Hors de l'identité couleur ${warning.commanders > 1 ? 'des commandants' : 'du commandant'} : ${warning.cards.map(nameOf).join(', ')}.`
+      return w.identity(warning.commanders > 1, warning.cards.map(nameOf).join(', '))
   }
 }

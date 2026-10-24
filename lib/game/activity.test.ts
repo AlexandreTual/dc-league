@@ -23,6 +23,8 @@ describe('diffViews', () => {
     expect(diff.changed).toEqual([id])
     expect(diff.lines).toHaveLength(1)
     expect(diff.lines[0].actor).toBe('p2')
+    // La ligne structurée suit, pour être traduite par la table.
+    expect(diff.lines[0].msg).toMatchObject({ key: 'move', params: { from: { zone: 'hand' }, to: { zone: 'battlefield' } } })
   })
 
   it('engagement, marqueur et retournement sont des changements', () => {

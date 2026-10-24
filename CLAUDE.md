@@ -1,7 +1,7 @@
 # Commander League — guide pour les agents
 
 Site de ligue Magic (Commander) entre amis : classement, ligues, decks importés, mode test solo et parties en ligne à 2–5 joueurs.
-Le propriétaire travaille surtout depuis son téléphone : **réponses, commits, docs et interface en français**.
+Le propriétaire travaille surtout depuis son téléphone : **réponses, commits et docs en français**. L'interface existe en français et en anglais (voir « Règles à respecter »).
 
 ## Avant de commencer une issue
 
@@ -58,6 +58,7 @@ node scripts/visio-check.mjs http://localhost:8788 <dossier>              # visi
 node scripts/effect-check.mjs http://localhost:8788 <dossier>             # force/endurance « ce tour » et fenêtre « Effet » (toutes mes créatures, sélection, fin du tour ; tablette, en ligne)
 node scripts/player-fx-check.mjs http://localhost:8788 <dossier>          # animations des joueurs (vie, poison, blessures, monarque/initiative en vol, dés, cases coupées, mouvement réduit, tablette ; en ligne : abandon, fissures, victoire)
 node scripts/dungeon-check.mjs http://localhost:8788 <dossier>            # donjons : explorer, choix du chemin, donjon terminé, initiative proposée, animation (coupée, mouvement réduit), tablette, en ligne ; --ancien-serveur avec le Worker de main
+node scripts/i18n-check.mjs http://localhost:8788 <dossier>               # site en anglais (langue du navigateur, interface et cartes séparées, pages, table, en ligne à deux langues, admin)
 ```
 
 Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.
@@ -77,11 +78,13 @@ Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `C
 - `lib/game/` : moteur de partie pur (`applyAction`, `canApply`, `viewFor` sans fuite d'information cachée), menus, rangées ; donjons et leurs salles en dur dans `dungeons.ts`.
 - `workers/game/` : Worker + Durable Object des parties en ligne (déployé par `.github/workflows/deploy-game-worker.yml`).
 - `components/table/` : la table de jeu, commune au mode test (source locale) et au jeu en ligne (source distante).
+- `lib/i18n/` et `components/i18n/` : langue de l'interface (cookie `dc_lang`, sinon langue du navigateur), langue des cartes (`localStorage`), dictionnaires, sélecteur `LanguageMenu`. Le journal de partie est structuré (`LogEntry.msg`) et traduit à l'affichage (`lib/game/log-format.ts`).
 
 ## Règles à respecter
 
 - Aucune donnée d'une carte cachée ne doit atteindre le navigateur d'un joueur qui ne la voit pas.
-- Les messages d'erreur affichés sont en français.
+- Tout texte affiché passe par les dictionnaires `lib/i18n/messages/{fr,en}/` (`useT()` côté client, `getMessages()` côté serveur, dictionnaire `t` passé aux fonctions pures) : français **et** anglais, vocabulaire officiel de Magic en anglais (spec `2026-10-19-english-interface-design`). Le français reste la référence ; les scripts navigateur ouvrent le site avec `locale: 'fr-FR'`.
+- Les messages d'erreur affichés sont dans la langue de l'interface : les routes traduisent à la sortie (`lib/i18n/errors.ts`), le navigateur traduit ceux du moteur et du serveur de jeu (`lib/i18n/game-errors.ts`). Un nouveau message d'erreur français doit avoir sa traduction (les tests le vérifient).
 - Les migrations sont numérotées (`000N_nom.sql`) et ajoutées à `MIGRATIONS` dans `test/d1.ts`. Elles sont appliquées en production **automatiquement** à la fusion sur `main`, par `.github/workflows/deploy-game-worker.yml` (avant le déploiement du Worker de jeu) : l'utilisateur n'a rien à lancer. Le signaler quand même dans la PR, avec deux précautions :
   - le site (Cloudflare Pages) se déploie en parallèle et peut tourner une à deux minutes sur l'ancienne base : le nouveau code doit tolérer ce court décalage (au pire une erreur propre, jamais une donnée perdue) ;
   - si l'Action échoue, la migration n'est pas appliquée : l'utilisateur la relance depuis l'onglet Actions, ou lance `npm run db:migrate:remote`.

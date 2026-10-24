@@ -1,7 +1,10 @@
-import { DbPlayoff, DbPlayer } from '@/lib/db'
+'use client'
+
+import type { DbPlayoff, DbPlayer } from '@/lib/db'
 import { CheckCircle, Clock, ExternalLink, Trophy, Award } from 'lucide-react'
 import Image from 'next/image'
 import { deckSiteName } from '@/lib/cards/deck-link'
+import { useT } from '@/components/i18n/I18nProvider'
 import { playoffChampion, semisPlayed } from '@/lib/leagues/playoffs'
 
 type DeckInfo = {
@@ -33,6 +36,7 @@ function PlayerSlot({
   isLoser: boolean
   label?: string
 }) {
+  const t = useT().leagues.playoffs
   const player = playerId ? playerMap[playerId] : null
   const deck = playerId ? deckMap[playerId] : null
 
@@ -56,7 +60,7 @@ function PlayerSlot({
             !player ? 'text-dc-muted italic' : isWinner ? 'text-dc-gold' : 'text-dc-text'
           }`}
         >
-          {player ? player.name : label ?? 'À déterminer'}
+          {player ? player.name : label ?? t.tbd}
         </span>
         {deck?.deck_name && (
           <div className="flex items-center gap-1 mt-0.5">
@@ -67,7 +71,7 @@ function PlayerSlot({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
-                title={`Voir sur ${deckSiteName(deck.moxfield_url) ?? 'le site du deck'}`}
+                title={t.viewOn(deckSiteName(deck.moxfield_url) ?? t.deckSite)}
               >
                 <ExternalLink className="w-3 h-3" />
               </a>
@@ -105,6 +109,7 @@ function MatchSlot({
   icon: React.ElementType
   accent?: string
 }) {
+  const t = useT().leagues.playoffs
   const completed = playoff?.is_completed ?? false
   const s1 = playoff?.score_p1 ?? null
   const s2 = playoff?.score_p2 ?? null
@@ -138,7 +143,7 @@ function MatchSlot({
         score={s1}
         isWinner={p1Won}
         isLoser={p2Won}
-        label="Qualifié DF1"
+        label={t.qualified1}
       />
 
       <div className="text-center text-dc-muted/40 text-xs font-bold">vs</div>
@@ -150,21 +155,20 @@ function MatchSlot({
         score={s2}
         isWinner={p2Won}
         isLoser={p1Won}
-        label="Qualifié DF2"
+        label={t.qualified2}
       />
     </div>
   )
 }
 
 export default function PlayoffBracket({ playoffs, playerMap, deckMap }: Props) {
+  const t = useT().leagues.playoffs
   if (playoffs.length === 0) {
     return (
       <div className="text-center py-20 space-y-4">
         <Trophy className="w-16 h-16 text-dc-muted mx-auto opacity-20" />
-        <p className="text-dc-muted text-lg font-fantasy">Les playoffs n&apos;ont pas encore commencé</p>
-        <p className="text-dc-muted text-sm">
-          Les phases finales débuteront une fois tous les matchs de la ligue joués.
-        </p>
+        <p className="text-dc-muted text-lg font-fantasy">{t.notStarted}</p>
+        <p className="text-dc-muted text-sm">{t.notStartedText}</p>
       </div>
     )
   }
@@ -187,23 +191,23 @@ export default function PlayoffBracket({ playoffs, playerMap, deckMap }: Props) 
         {/* Demi-finales */}
         <div className="space-y-4 lg:col-span-1">
           <h2 className="text-dc-muted text-xs font-bold uppercase tracking-widest text-center">
-            Demi-finales
+            {t.semis}
           </h2>
-          <MatchSlot playoff={semi1} playerMap={playerMap} deckMap={deckMap} title="Demi-finale 1 · 1er vs 4ème" icon={Trophy} />
-          <MatchSlot playoff={semi2} playerMap={playerMap} deckMap={deckMap} title="Demi-finale 2 · 2ème vs 3ème" icon={Trophy} />
+          <MatchSlot playoff={semi1} playerMap={playerMap} deckMap={deckMap} title={t.semi1} icon={Trophy} />
+          <MatchSlot playoff={semi2} playerMap={playerMap} deckMap={deckMap} title={t.semi2} icon={Trophy} />
         </div>
 
         {/* Finale */}
         <div className="space-y-4 lg:col-span-1 flex flex-col justify-center">
           <h2 className="text-dc-muted text-xs font-bold uppercase tracking-widest text-center">
-            Grande Finale
+            {t.grandFinal}
           </h2>
           {bothSemisDone ? (
-            <MatchSlot playoff={final} playerMap={playerMap} deckMap={deckMap} title="Finale" icon={Trophy} accent="border-dc-gold/30 shadow-gold" />
+            <MatchSlot playoff={final} playerMap={playerMap} deckMap={deckMap} title={t.final} icon={Trophy} accent="border-dc-gold/30 shadow-gold" />
           ) : (
             <div className="rounded-2xl border border-dc-border/30 border-dashed p-8 text-center text-dc-muted text-sm">
               <Trophy className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              En attente des demi-finales
+              {t.waitingSemis}
             </div>
           )}
         </div>
@@ -211,14 +215,14 @@ export default function PlayoffBracket({ playoffs, playerMap, deckMap }: Props) 
         {/* Petite finale */}
         <div className="space-y-4 lg:col-span-1 flex flex-col justify-center">
           <h2 className="text-dc-muted text-xs font-bold uppercase tracking-widest text-center">
-            3ème Place
+            {t.thirdPlace}
           </h2>
           {bothSemisDone ? (
-            <MatchSlot playoff={thirdPlace} playerMap={playerMap} deckMap={deckMap} title="Petite Finale" icon={Award} />
+            <MatchSlot playoff={thirdPlace} playerMap={playerMap} deckMap={deckMap} title={t.smallFinal} icon={Award} />
           ) : (
             <div className="rounded-2xl border border-dc-border/30 border-dashed p-8 text-center text-dc-muted text-sm">
               <Award className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              En attente des demi-finales
+              {t.waitingSemis}
             </div>
           )}
         </div>
@@ -243,7 +247,7 @@ export default function PlayoffBracket({ playoffs, playerMap, deckMap }: Props) 
             <div className="text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
                 <Trophy className="w-5 h-5 text-dc-gold" />
-                <p className="text-dc-muted text-sm">Champion de la ligue</p>
+                <p className="text-dc-muted text-sm">{t.champion}</p>
               </div>
               <p className="font-fantasy text-3xl font-bold text-dc-gold">{winner.name}</p>
               {winnerDeck?.deck_name && (

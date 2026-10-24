@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { localized } from '@/lib/auth/api'
 import { INTERNAL_ERROR, loadEditableDeck } from '@/lib/cards/deck-access'
 import { setCommander, setDeckCommanderImage, unsetCommander } from '@/lib/db-cards'
 
 export const runtime = 'edge'
 
 /** Corps : `{ position, commander? }`. `commander: false` remet la carte dans le deck ; absent ou `true`, elle devient commandant. */
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = localized(async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await loadEditableDeck(req, params)
   if (ctx instanceof NextResponse) return ctx
 
@@ -32,4 +33,4 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (card.image_normal) await setDeckCommanderImage(ctx.db, ctx.deck.id, card.image_normal)
   return NextResponse.json({ ok: true })
-}
+})

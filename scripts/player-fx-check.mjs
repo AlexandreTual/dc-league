@@ -19,7 +19,7 @@ function check(condition, message) {
 }
 
 async function openAs(player, { viewport = { width: 1280, height: 900 }, reducedMotion = 'no-preference' } = {}) {
-  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 1200, reducedMotion })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport, hasTouch: viewport.width < 1200, reducedMotion })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
   page.on('pageerror', (e) => errors.push(`${player.name} : ${e.message}`))

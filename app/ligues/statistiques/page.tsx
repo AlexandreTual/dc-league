@@ -5,6 +5,10 @@ import Image from 'next/image'
 import { listMatchStats, computeAllStats, type PlayerRecord, type H2HEntry } from '@/lib/db-stats'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import LoadError from '@/components/LoadError'
+import { getMessages } from '@/lib/i18n/server'
+import type { Messages } from '@/lib/i18n/messages'
+
+type T = Messages['leagues']['stats']
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -32,13 +36,13 @@ function StatBadge({ label, value, color = 'text-dc-text' }: { label: string; va
   )
 }
 
-function CommanderThumb({ url, name }: { url: string | null; name: string | null }) {
+function CommanderThumb({ url, name, t }: { url: string | null; name: string | null; t: T }) {
   if (!url) return null
   return (
     <div className="relative w-10 h-10 rounded-full overflow-hidden border border-dc-border shrink-0">
       <Image
         src={url}
-        alt={name ?? 'Commander'}
+        alt={name ?? t.commander}
         fill
         className="object-cover object-top"
         unoptimized
@@ -49,13 +53,13 @@ function CommanderThumb({ url, name }: { url: string | null; name: string | null
 
 // ── Global leaderboard section ────────────────────────────────────────────────
 
-function GlobalLeaderboard({ players }: { players: PlayerRecord[] }) {
+function GlobalLeaderboard({ players, t }: { players: PlayerRecord[]; t: T }) {
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
         <Trophy className="w-5 h-5 text-dc-gold" />
-        <h2 className="font-fantasy text-xl font-bold text-dc-gold">Palmarès global</h2>
-        <span className="text-dc-muted text-sm">toutes saisons confondues</span>
+        <h2 className="font-fantasy text-xl font-bold text-dc-gold">{t.global}</h2>
+        <span className="text-dc-muted text-sm">{t.globalSub}</span>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-dc-border">
@@ -63,14 +67,14 @@ function GlobalLeaderboard({ players }: { players: PlayerRecord[] }) {
           <thead>
             <tr className="border-b border-dc-border bg-dc-surface/60">
               <th className="text-left px-4 py-3 text-dc-muted font-medium">#</th>
-              <th className="text-left px-4 py-3 text-dc-muted font-medium">Joueur</th>
-              <th className="text-center px-3 py-3 text-dc-muted font-medium">MJ</th>
-              <th className="text-center px-3 py-3 text-dc-green-light font-medium">V</th>
-              <th className="text-center px-3 py-3 text-dc-muted font-medium">N</th>
-              <th className="text-center px-3 py-3 text-dc-red-light font-medium">D</th>
-              <th className="text-center px-3 py-3 text-dc-muted font-medium">Diff</th>
-              <th className="text-center px-3 py-3 text-dc-muted font-medium">%V</th>
-              <th className="text-center px-3 py-3 text-dc-gold font-medium">Pts</th>
+              <th className="text-left px-4 py-3 text-dc-muted font-medium">{t.player}</th>
+              <th className="text-center px-3 py-3 text-dc-muted font-medium">{t.played}</th>
+              <th className="text-center px-3 py-3 text-dc-green-light font-medium">{t.wins}</th>
+              <th className="text-center px-3 py-3 text-dc-muted font-medium">{t.draws}</th>
+              <th className="text-center px-3 py-3 text-dc-red-light font-medium">{t.losses}</th>
+              <th className="text-center px-3 py-3 text-dc-muted font-medium">{t.diff}</th>
+              <th className="text-center px-3 py-3 text-dc-muted font-medium">{t.winRate}</th>
+              <th className="text-center px-3 py-3 text-dc-gold font-medium">{t.points}</th>
             </tr>
           </thead>
           <tbody>
@@ -110,7 +114,7 @@ function GlobalLeaderboard({ players }: { players: PlayerRecord[] }) {
         </table>
       </div>
       <p className="text-dc-muted text-xs text-center">
-        Tri : Points · Différence GW−GL · Victoires · V=3pts N=1pt D=0pt
+        {t.globalFooter}
       </p>
     </section>
   )
@@ -118,13 +122,13 @@ function GlobalLeaderboard({ players }: { players: PlayerRecord[] }) {
 
 // ── Per-deck stats section ────────────────────────────────────────────────────
 
-function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
+function DeckStatsSection({ players, t }: { players: PlayerRecord[]; t: T }) {
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
         <TrendingUp className="w-5 h-5 text-dc-gold" />
-        <h2 className="font-fantasy text-xl font-bold text-dc-gold">Stats par Deck</h2>
-        <span className="text-dc-muted text-sm">performances par commandant</span>
+        <h2 className="font-fantasy text-xl font-bold text-dc-gold">{t.byDeck}</h2>
+        <span className="text-dc-muted text-sm">{t.byDeckSub}</span>
       </div>
 
       <div className="space-y-4">
@@ -134,11 +138,11 @@ function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
             <div className="flex items-center justify-between px-5 py-3 border-b border-dc-border bg-dc-bg/40">
               <span className="font-fantasy font-bold text-dc-text">{player.player_name}</span>
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-dc-muted">{player.played} matchs</span>
-                <span className="text-dc-green-light font-bold">{player.wins}V</span>
-                <span className="text-dc-muted">{player.draws}N</span>
-                <span className="text-dc-red-light">{player.losses}D</span>
-                <span className="font-fantasy font-bold text-dc-gold">{player.points} pts</span>
+                <span className="text-dc-muted">{t.matches(player.played)}</span>
+                <span className="text-dc-green-light font-bold">{t.winsN(player.wins)}</span>
+                <span className="text-dc-muted">{t.drawsN(player.draws)}</span>
+                <span className="text-dc-red-light">{t.lossesN(player.losses)}</span>
+                <span className="font-fantasy font-bold text-dc-gold">{t.pts(player.points)}</span>
               </div>
             </div>
 
@@ -147,11 +151,11 @@ function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
               {player.decks.map((deck, di) => {
                 const d = deck.gw - deck.gl
                 const wr = deck.played > 0 ? Math.round((deck.wins / deck.played) * 100) : 0
-                const deckLabel = deck.deck_name ?? 'Deck inconnu'
+                const deckLabel = deck.deck_name ?? t.unknownDeck
 
                 return (
                   <div key={deck.deck_id ?? `none-${di}`} className="flex items-center gap-4 px-5 py-3 hover:bg-dc-border/10 transition-colors">
-                    <CommanderThumb url={deck.commander_image_url} name={deck.deck_name} />
+                    <CommanderThumb url={deck.commander_image_url} name={deck.deck_name} t={t} />
 
                     {/* Name + leagues */}
                     <div className="flex-1 min-w-0">
@@ -163,7 +167,7 @@ function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-dc-muted hover:text-dc-gold transition-colors shrink-0"
-                            title={`Voir sur ${deckSiteName(deck.moxfield_url) ?? 'le site du deck'}`}
+                            title={t.viewOn(deckSiteName(deck.moxfield_url) ?? t.deckSite)}
                           >
                             <ExternalLink className="w-3 h-3" />
                           </a>
@@ -178,24 +182,24 @@ function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
 
                     {/* Stats */}
                     <div className="flex items-center gap-5 shrink-0">
-                      <StatBadge label="MJ" value={deck.played} />
-                      <StatBadge label="V" value={deck.wins} color="text-dc-green-light" />
-                      <StatBadge label="N" value={deck.draws} />
-                      <StatBadge label="D" value={deck.losses} color="text-dc-red-light" />
+                      <StatBadge label={t.played} value={deck.played} />
+                      <StatBadge label={t.wins} value={deck.wins} color="text-dc-green-light" />
+                      <StatBadge label={t.draws} value={deck.draws} />
+                      <StatBadge label={t.losses} value={deck.losses} color="text-dc-red-light" />
                       <StatBadge
-                        label="Diff"
+                        label={t.diff}
                         value={diff(deck.gw, deck.gl)}
                         color={d >= 0 ? 'text-dc-green-light' : 'text-dc-red-light'}
                       />
-                      <StatBadge label="%V" value={`${wr}%`} />
-                      <StatBadge label="Pts" value={deck.points} color="text-dc-gold" />
+                      <StatBadge label={t.winRate} value={`${wr}%`} />
+                      <StatBadge label={t.points} value={deck.points} color="text-dc-gold" />
                     </div>
                   </div>
                 )
               })}
 
               {player.decks.length === 0 && (
-                <p className="px-5 py-4 text-dc-muted text-sm italic">Aucun deck enregistré.</p>
+                <p className="px-5 py-4 text-dc-muted text-sm italic">{t.noDeck}</p>
               )}
             </div>
           </div>
@@ -207,7 +211,7 @@ function DeckStatsSection({ players }: { players: PlayerRecord[] }) {
 
 // ── Head-to-head section ──────────────────────────────────────────────────────
 
-function H2HSection({ entries, players }: { entries: H2HEntry[]; players: PlayerRecord[] }) {
+function H2HSection({ entries, players, t }: { entries: H2HEntry[]; players: PlayerRecord[]; t: T }) {
   // Sort by most contested (most matches) then by name
   const sorted = [...entries].sort((a, b) => (b.a_wins + b.b_wins + b.draws) - (a.a_wins + a.b_wins + a.draws))
 
@@ -220,8 +224,8 @@ function H2HSection({ entries, players }: { entries: H2HEntry[]; players: Player
     <section className="space-y-4">
       <div className="flex items-center gap-3">
         <Swords className="w-5 h-5 text-dc-gold" />
-        <h2 className="font-fantasy text-xl font-bold text-dc-gold">Confrontations Directes</h2>
-        <span className="text-dc-muted text-sm">tête-à-tête entre joueurs</span>
+        <h2 className="font-fantasy text-xl font-bold text-dc-gold">{t.h2h}</h2>
+        <span className="text-dc-muted text-sm">{t.h2hSub}</span>
       </div>
 
       {/* Mobile / compact: list view */}
@@ -245,7 +249,7 @@ function H2HSection({ entries, players }: { entries: H2HEntry[]; players: Player
                   {' – '}
                   <span className={bLeads ? 'text-dc-green-light' : 'text-dc-red-light'}>{e.b_wins}</span>
                 </div>
-                <div className="text-dc-muted text-xs">{total} match{total > 1 ? 's' : ''}</div>
+                <div className="text-dc-muted text-xs">{t.matchCount(total)}</div>
               </div>
               <div className="flex-1 text-left">
                 <span className={`font-fantasy font-semibold text-sm ${bLeads ? 'text-dc-text' : 'text-dc-muted'}`}>
@@ -313,7 +317,7 @@ function H2HSection({ entries, players }: { entries: H2HEntry[]; players: Player
             </tbody>
           </table>
           <p className="text-dc-muted text-xs px-4 py-2 border-t border-dc-border/40">
-            Lecture : V–N–D du point de vue du joueur en ligne. Ex : 2-0-1 = 2 victoires, 0 nuls, 1 défaite.
+            {t.h2hHelp}
           </p>
         </div>
       )}
@@ -325,8 +329,9 @@ function H2HSection({ entries, players }: { entries: H2HEntry[]; players: Player
 
 export default async function StatsPage() {
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data: rows, error } = await listMatchStats(env.DB)
-  if (error) return <LoadError what="les statistiques" />
+  const [{ data: rows, error }, messages] = await Promise.all([listMatchStats(env.DB), getMessages()])
+  const t = messages.leagues.stats
+  if (error) return <LoadError what={t.loadWhat} />
 
   const { players, h2h, totalMatches } = computeAllStats(rows ?? [])
 
@@ -335,7 +340,7 @@ export default async function StatsPage() {
   return (
     <div className="space-y-12">
       <Link href="/ligues" className="inline-flex items-center gap-1 text-xs text-dc-muted hover:text-dc-gold">
-        <ChevronLeft className="w-3.5 h-3.5" /> Toutes les ligues
+        <ChevronLeft className="w-3.5 h-3.5" /> {messages.leagues.allLeagues}
       </Link>
       {/* Header */}
       <div className="text-center space-y-3">
@@ -344,25 +349,25 @@ export default async function StatsPage() {
           <BarChart2 className="w-6 h-6 text-dc-gold" />
           <div className="gold-divider w-16" />
         </div>
-        <h1 className="font-fantasy text-3xl md:text-4xl font-bold text-dc-gold">Statistiques</h1>
+        <h1 className="font-fantasy text-3xl md:text-4xl font-bold text-dc-gold">{t.title}</h1>
         <p className="text-dc-muted text-sm">
           {totalMatches > 0
-            ? `${totalMatches} match${totalMatches > 1 ? 's' : ''} joué${totalMatches > 1 ? 's' : ''} · ${players.length} joueur${players.length > 1 ? 's' : ''}`
-            : 'Aucun match joué pour le moment'}
+            ? t.summary(totalMatches, players.length)
+            : t.noMatch}
         </p>
-        <p className="text-dc-muted text-xs">Toutes les ligues publiques confondues.</p>
+        <p className="text-dc-muted text-xs">{t.allPublic}</p>
       </div>
 
       {!hasData ? (
         <div className="text-center py-20 text-dc-muted">
           <BarChart2 className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p>Les statistiques apparaîtront une fois les premiers matchs joués.</p>
+          <p>{t.empty}</p>
         </div>
       ) : (
         <>
-          <GlobalLeaderboard players={players} />
-          <DeckStatsSection players={players} />
-          {h2h.length > 0 && <H2HSection entries={h2h} players={players} />}
+          <GlobalLeaderboard players={players} t={t} />
+          <DeckStatsSection players={players} t={t} />
+          {h2h.length > 0 && <H2HSection entries={h2h} players={players} t={t} />}
         </>
       )}
     </div>
