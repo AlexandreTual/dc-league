@@ -1,8 +1,11 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth/session'
 import NewLeagueForm from './NewLeagueForm'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Nouvelle ligue' }
 
 /** Création d'une ligue : réservée aux joueurs connectés. */
 export default async function NewLeaguePage() {

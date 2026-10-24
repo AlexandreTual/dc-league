@@ -1,3 +1,5 @@
+import type { Metadata } from 'next'
+import { tableMetadata } from '@/lib/page-titles'
 import { notFound, redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -8,6 +10,13 @@ import TableView from '@/components/online/TableView'
 import AiProvider from '@/components/ai/AiProvider'
 
 export const runtime = 'edge'
+
+const pageDb = () => getRequestContext<CloudflareEnv>().env.DB
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  return tableMetadata(pageDb(), id, await getCurrentUser())
+}
 
 export default async function TablePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

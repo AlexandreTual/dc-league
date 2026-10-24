@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
@@ -12,6 +13,8 @@ import { organizerLabel } from '@/components/leagues/format'
 import JoinButton from './JoinButton'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Rejoindre une ligue' }
 export const revalidate = 0
 
 function Box({ children }: { children: React.ReactNode }) {

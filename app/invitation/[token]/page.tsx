@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { KeyRound } from 'lucide-react'
 import { hashToken } from '@/lib/auth/crypto'
@@ -7,6 +8,8 @@ import { isLeagueInvitePath } from '@/lib/leagues/join'
 import InvitationForm from './InvitationForm'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Créer mon compte' }
 
 export default async function InvitationPage({
   params,

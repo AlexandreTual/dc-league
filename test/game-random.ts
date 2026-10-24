@@ -1,5 +1,5 @@
 import { VENTURE_DUNGEONS } from '@/lib/game/dungeons'
-import { MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type PlayerZone } from '@/lib/game/types'
+import { MANA_COLORS, MOVE_ALL_FILTERS, PLAYER_ZONES, type GameAction, type GameState, type PlayerZone } from '@/lib/game/types'
 
 /** Générateur d'actions aléatoires couvrant tout le moteur (y compris moveMany, giveControl, mulligan, élimination). */
 export function randomActions(rng: () => number) {
@@ -12,12 +12,20 @@ export function randomActions(rng: () => number) {
     const anyCard = () => pick(allCards)
     const zoneCards = (p: string, z: PlayerZone) => s.players[p].zones[z]
     switch (pick([
-      'mulligan', 'keep', 'draw', 'shuffle', 'endTurn', 'endTurn', 'move', 'move', 'move', 'moveTop', 'moveMany', 'moveMany',
+      'moveAll', 'moveAll', 'mill', 'mulligan', 'keep', 'draw', 'shuffle', 'endTurn', 'endTurn', 'move', 'move', 'move', 'moveTop', 'moveMany', 'moveMany',
       'giveControl', 'tap', 'untapAll', 'flip', 'rotate', 'faceDown', 'phase', 'counter', 'pt', 'ptTurn', 'effect', 'loyalty',
       'abilities', 'createToken', 'life', 'poison', 'playerCounter', 'commanderDamage', 'commanderTax', 'setMonarch',
       'setInitiative', 'venture', 'skipVenture', 'eliminate', 'reveal', 'revealTop', 'toggleTopRevealed', 'togglePeekTop',
       'mana', 'clearMana', 'toggleKeepMana', 'look', 'search', 'reorderTop', 'endLook', 'roll',
     ] as const)) {
+      case 'moveAll': {
+        const shuffle = rng() < 0.2
+        return {
+          type: 'moveAll', actor, from: { player: rng() < 0.9 ? actor : pick(ids), zone: pick(PLAYER_ZONES) }, to: { player: actor, zone: shuffle ? 'library' : pick(PLAYER_ZONES) },
+          position: pick(['top', 'bottom'] as const), filter: rng() < 0.5 ? pick(MOVE_ALL_FILTERS) : undefined, shuffle, seed: shuffle ? seed() : undefined,
+        }
+      }
+      case 'mill': return { type: 'mill', actor, count: 1 + Math.floor(rng() * 3) }
       case 'mulligan': return { type: 'mulligan', actor, seed: seed() }
       case 'keep': return { type: 'keep', actor }
       case 'draw': return { type: 'draw', actor, count: 1 + Math.floor(rng() * 2) }
@@ -81,7 +89,7 @@ export function randomActions(rng: () => number) {
       case 'mana': return { type: 'mana', actor, color: pick(MANA_COLORS), delta: pick([1, 3, -2]) }
       case 'clearMana': return { type: 'clearMana', actor }
       case 'toggleKeepMana': return { type: 'toggleKeepMana', actor }
-      case 'look': return { type: 'look', actor, target: pick(ids), count: 1 + Math.floor(rng() * 3) }
+      case 'look': return { type: 'look', actor, target: pick(ids), count: 1 + Math.floor(rng() * 3), ...(rng() < 0.3 ? { bottom: true as const } : {}) }
       case 'search': return { type: 'search', actor, target: pick(ids) }
       case 'reorderTop': {
         const target = pick(s.lookingAt[actor]?.length ? s.lookingAt[actor] : ids)

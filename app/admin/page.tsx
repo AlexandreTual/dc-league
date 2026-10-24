@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayers } from '@/lib/db'
 import { Player } from '@/lib/leaderboard'
@@ -13,6 +14,8 @@ import { unfinishedTables } from '@/lib/db-games'
 import { listErrors } from '@/lib/db-errors'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Administration' }
 export const revalidate = 0
 
 export default async function AdminPage() {

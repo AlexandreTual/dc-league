@@ -15,3 +15,15 @@ export function idleLabel(ms: number): string {
   if (hours < 24) return `il y a ${hours} h`
   return `il y a ${Math.floor(hours / 24)} j`
 }
+
+/**
+ * Salon : parties en cours, actives d'abord, puis celles sans activité depuis plus de 24 h (laissées en plan),
+ * chacune avec son temps d'inactivité. L'ordre reçu est gardé dans chaque groupe.
+ */
+export function splitByActivity<T extends { lastActivityAt: string }>(tables: T[], now: Date): {
+  active: (T & { idleMs: number })[]
+  idle: (T & { idleMs: number })[]
+} {
+  const withIdle = tables.map((t) => ({ ...t, idleMs: idleFor(t.lastActivityAt, now) }))
+  return { active: withIdle.filter((t) => t.idleMs <= IDLE_AFTER_MS), idle: withIdle.filter((t) => t.idleMs > IDLE_AFTER_MS) }
+}

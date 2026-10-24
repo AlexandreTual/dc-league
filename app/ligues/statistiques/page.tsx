@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import Link from 'next/link'
 import { BarChart2, ChevronLeft, ExternalLink, Swords, Trophy, TrendingUp } from 'lucide-react'
@@ -7,6 +8,8 @@ import { deckSiteName } from '@/lib/cards/deck-link'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Statistiques' }
 export const revalidate = 0
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

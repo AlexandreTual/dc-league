@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -6,6 +7,8 @@ import BoardWindow from '@/components/online/BoardWindow'
 import AiProvider from '@/components/ai/AiProvider'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Plateau' }
 
 /** Plateau d'un adversaire dans une fenêtre à part (partie en ligne, plusieurs écrans). */
 export default async function BoardWindowPage({ params }: { params: Promise<{ id: string; joueur: string }> }) {

@@ -33,6 +33,15 @@ describe('actions', () => {
     expect(state(r).players.p2.mulligans).toBe(0)
   })
 
+  it('tout remettre dans la bibliothèque puis mélanger : graine du serveur, pas d’annulation', () => {
+    const r = room()
+    const forged = { type: 'moveAll', from: { player: 'p1', zone: 'hand' }, to: { player: 'p1', zone: 'library' }, shuffle: true, seed: 1 } as unknown as ClientAction
+    expect(act(r, 'p1', forged, ctx(77)).error).toBeNull()
+    expect(r.history.actions.at(-1)).toMatchObject({ type: 'moveAll', actor: 'p1', shuffle: true, seed: 77 })
+    expect(state(r).players.p1.zones.hand).toEqual([])
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
+  })
+
   it('un mulligan ne s’annule pas : pas de nouvelle main à volonté', () => {
     const r = room()
     act(r, 'p1', { type: 'mulligan' }, ctx(77))

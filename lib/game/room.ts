@@ -147,6 +147,7 @@ function serverAction(raw: unknown, actor: string, seed: () => Seed): GameAction
   if (full.type === 'endLook') return { ...full, seed: seed(), keep: true }
   if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'roll') return { ...full, seed: seed() } as GameAction
   if (full.type === 'moveMany' && full.random) return { ...full, seed: seed() }
+  if (full.type === 'moveAll' && full.shuffle) return { ...full, seed: seed() }
   return full
 }
 

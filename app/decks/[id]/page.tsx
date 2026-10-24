@@ -1,3 +1,5 @@
+import type { Metadata } from 'next'
+import { deckMetadata } from '@/lib/page-titles'
 import { notFound } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -10,6 +12,13 @@ import AiProvider from '@/components/ai/AiProvider'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+const pageDb = () => getRequestContext<CloudflareEnv>().env.DB
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  return deckMetadata(pageDb(), id)
+}
 
 export default async function DeckPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

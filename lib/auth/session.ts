@@ -58,10 +58,11 @@ export async function requirePlayer(): Promise<CurrentUser | NextResponse> {
   return user
 }
 
+/** Admin, ou session de démarrage : elle doit pouvoir générer l'invitation du premier admin (spec des comptes, « Démarrage »). */
 export async function requireAdmin(): Promise<CurrentUser | NextResponse> {
   const user = await requireUser()
   if (user instanceof NextResponse) return user
-  if (!user.isAdmin) return NextResponse.json({ error: 'Accès réservé aux admins' }, { status: 403 })
+  if (!user.isAdmin && !user.isBootstrap) return NextResponse.json({ error: 'Accès réservé aux admins' }, { status: 403 })
   return user
 }
 

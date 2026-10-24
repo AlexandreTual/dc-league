@@ -110,11 +110,14 @@ export class RoomRuntime {
 
   async connect(socket: Socket, info: SocketInfo): Promise<void> {
     await this.load()
-    if (!this.room) return socket.close(1011, 'Partie introuvable')
-    const outcome = handleConnect(this.room, info.playerId, this.clock())
+    const room = this.room
+    if (!room) return socket.close(1011, 'Partie introuvable')
+    const outcome = handleConnect(room, info.playerId, this.clock())
     if (outcome.changed) await this.savePresence()
-    if (this.meta?.finishPending) await this.reportFinish()
-    await this.afterEvents(outcome)
+    if (this.room === room && this.meta?.finishPending) await this.reportFinish()
+    if (this.room === room) await this.afterEvents(outcome)
+    // Table supprimée pendant une attente (D1, stockage) : la socket a été fermée par destroy.
+    if (this.room !== room) return
     if (outcome.changed) this.broadcast()
     else this.sendView(socket, info)
   }
@@ -157,13 +160,23 @@ export class RoomRuntime {
         return this.send(socket, { type: 'rejected', error: RETRY })
       }
     }
+    // Table supprimée pendant l'écriture : plus rien à envoyer.
+    if (this.room !== room) return
     if (outcome.error !== null) this.send(socket, { type: 'rejected', error: outcome.error })
     if (!outcome.changed) return
     await this.afterEvents(outcome)
+    if (this.room !== room) return
     this.broadcast()
   }
 
+  /**
+   * Oublie la partie avant de vider le stockage : une action ou une connexion en attente (D1, stockage) voit alors
+   * qu'il n'y a plus de partie et n'écrit plus rien, sans quoi une clé renaîtrait après le vidage.
+   */
   async destroy(): Promise<void> {
+    this.room = null
+    this.meta = null
+    this.loaded = true
     await this.storage.deleteAll()
     for (const { socket } of this.sockets()) {
       try {
@@ -172,8 +185,6 @@ export class RoomRuntime {
         // déjà fermée
       }
     }
-    this.room = null
-    this.meta = null
   }
 
   // ── Interne ──────────────────────────────────────────────────────────────
@@ -198,13 +209,23 @@ export class RoomRuntime {
     return s
   }
 
-  /** Écrit les actions ajoutées ou retirées depuis `before`, puis les métadonnées si elles ont changé. */
+  /**
+   * Écrit les actions ajoutées ou retirées depuis `before`, puis les métadonnées si elles ont changé.
+   * S'arrête si la table est supprimée entre deux écritures : aucune clé ne doit renaître après destroy.
+   */
   private async persist(before: number): Promise<void> {
     const room = this.room!
-    const after = room.history.actions.length
-    for (let i = before; i < after; i++) await this.storage.put(actionKey(i), room.history.actions[i])
-    for (let i = after; i < before; i++) await this.storage.delete(actionKey(i))
     const meta = this.meta!
+    const after = room.history.actions.length
+    for (let i = before; i < after; i++) {
+      if (this.room !== room) return
+      await this.storage.put(actionKey(i), room.history.actions[i])
+    }
+    for (let i = after; i < before; i++) {
+      if (this.room !== room) return
+      await this.storage.delete(actionKey(i))
+    }
+    if (this.room !== room) return
     if (meta.hostId !== room.hostId || meta.finished !== room.finished || meta.winner !== room.winner || meta.finishedAt !== room.finishedAt) {
       const next: Meta = { ...meta, hostId: room.hostId, finished: room.finished, winner: room.winner }
       if (room.finishedAt !== undefined) next.finishedAt = room.finishedAt
@@ -231,7 +252,9 @@ export class RoomRuntime {
     } catch {
       pending = true
     }
-    const meta = this.meta!
+    // Table supprimée pendant l'enregistrement en D1 : ne rien réécrire dans le stockage vidé.
+    if (this.room !== room || !this.meta) return
+    const meta = this.meta
     if ((meta.finishPending ?? false) === pending) return
     const next = { ...meta, finishPending: pending }
     try {
@@ -252,9 +275,10 @@ export class RoomRuntime {
         await touchActivity(this.db, room.tableId, new Date(now))
       }
       for (const event of outcome.events) {
+        if (this.room !== room) return
         if (event.type === 'hostChanged') {
           await setHost(this.db, room.tableId, event.hostId)
-          if (this.meta && this.meta.hostId !== event.hostId) {
+          if (this.room === room && this.meta && this.meta.hostId !== event.hostId) {
             this.meta = { ...this.meta, hostId: event.hostId }
             await this.storage.put('meta', this.meta)
           }

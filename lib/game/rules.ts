@@ -1,5 +1,6 @@
 import { isDiceRoll } from './dice'
 import { roomOf, ventureStep } from './dungeons'
+import { moveAllIds } from './move-all'
 import { EVERYONE, FORMAT_RULES, HIDDEN_ZONES, MANA_COLORS, PLAYER_ZONES, type GameAction, type GameState, type ZoneRef } from './types'
 
 // ── Lecture ───────────────────────────────────────────────────────────────────
@@ -71,6 +72,11 @@ const MSG = {
   chooseRoom: 'Choisis la salle suivante',
   badRoom: "Cette salle n'est pas accessible d'ici",
   noVenture: 'Aucune exploration proposée',
+  notMyZone: 'Tu ne peux tout déplacer que depuis tes propres zones',
+  sameZone: 'Les cartes sont déjà dans cette zone',
+  nothingToMove: 'Aucune carte à déplacer',
+  hiddenFilter: 'Un filtre par type entre deux zones cachées révélerait ce que tu as en main ou dans ta bibliothèque',
+  shuffleLibraryOnly: 'Seule la bibliothèque se mélange',
 }
 
 const sameRef = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
@@ -159,6 +165,19 @@ export function canApply(state: GameState, action: GameAction): string | null {
       if (action.places && (action.zone !== 'battlefield' || action.places.length !== action.ids.length)) return MSG.badPlaces
       return null
     }
+
+    case 'moveAll': {
+      if (action.from.player !== action.actor) return MSG.notMyZone
+      if (action.to.player !== action.actor || !PLAYER_ZONES.includes(action.to.zone)) return MSG.badDestination
+      if (action.from.zone === action.to.zone) return MSG.sameZone
+      if (action.shuffle && action.to.zone !== 'library') return MSG.shuffleLibraryOnly
+      if (action.filter && HIDDEN_ZONES.includes(action.from.zone) && HIDDEN_ZONES.includes(action.to.zone)) return MSG.hiddenFilter
+      return moveAllIds(state, action).length > 0 ? null : MSG.nothingToMove
+    }
+
+    case 'mill':
+      if (!Number.isInteger(action.count) || action.count <= 0) return MSG.badCount
+      return actor.zones.library.length > 0 ? null : MSG.emptyLibrary
 
     case 'moveTop': {
       const top = actor.zones.library[0]
