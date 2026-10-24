@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
+import { randomActions } from '@/test/game-random'
 import { createRng } from './random'
 import { applyAction } from './apply'
 import { canApply, isVisibleTo } from './rules'
@@ -145,4 +146,29 @@ describe('anti-fuite', () => {
     }
     expect(applied).toBeGreaterThan(100)
   })
+
+  for (const eliminatedSeeAll of [false, true]) {
+    it(`toutes les actions du moteur (moveMany, giveControl, élimination…)${eliminatedSeeAll ? ', éliminés qui voient tout' : ''} : aucune fuite`, () => {
+      const rng = createRng(eliminatedSeeAll ? 8 : 7)
+      const next = randomActions(rng)
+      const ids = ['p1', 'p2', 'p3', 'p4']
+      let s = game(4, eliminatedSeeAll)
+      const types = new Set<string>()
+      for (let i = 0; i < 500; i++) {
+        const action = next(s)
+        if (canApply(s, action) !== null) continue
+        s = applyAction(s, action)
+        types.add(action.type)
+        for (const viewer of ids) {
+          const json = JSON.stringify(viewFor(s, viewer))
+          for (const id of Object.keys(s.cards)) {
+            if (s.cards[id].isCommander || isVisibleTo(s, id, viewer)) continue
+            expect(json.includes(`"${id}"`), `${id} visible par ${viewer} après ${JSON.stringify(action)}`).toBe(false)
+          }
+        }
+        if (ids.every((p) => s.players[p].eliminated)) break
+      }
+      for (const t of ['moveMany', 'giveControl', 'mulligan', 'reveal', 'look']) expect(types, `${t} jamais joué`).toContain(t)
+    })
+  }
 })
