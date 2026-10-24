@@ -35,6 +35,7 @@ function withActorAndSeed(action: ClientAction): GameAction {
   if (full.type === 'endLook') return { ...full, seed: randomSeed(), keep: true }
   if (full.type === 'mulligan' || full.type === 'shuffle' || full.type === 'roll') return { ...full, seed: randomSeed() } as GameAction
   if (full.type === 'moveMany' && full.random) return { ...full, seed: randomSeed() }
+  if (full.type === 'moveAll' && full.shuffle) return { ...full, seed: randomSeed() }
   return full
 }
 

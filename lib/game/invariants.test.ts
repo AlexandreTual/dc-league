@@ -57,7 +57,7 @@ function brokenInvariant(s: GameState): string | null {
 describe('invariants du moteur sous actions aléatoires', () => {
   const playedTypes = new Set<string>()
   for (const [format, players, eliminatedSeeAll, rngSeed] of [
-    ['commander', 4, false, 1], ['commander', 3, true, 2], ['duel', 2, false, 3], ['commander', 5, true, 4], ['commander', 4, true, 5], ['duel', 2, true, 6],
+    ['commander', 4, false, 1], ['commander', 3, true, 2], ['duel', 2, false, 3], ['commander', 5, true, 4], ['commander', 4, true, 5], ['duel', 2, true, 17],
   ] as const) {
     it(`${format} à ${players}${eliminatedSeeAll ? ', éliminés qui voient tout' : ''} : 600 essais, état cohérent, annulation exacte`, () => {
       const rng = createRng(rngSeed)
@@ -99,7 +99,7 @@ describe('invariants du moteur sous actions aléatoires', () => {
   }
 
   it('les parties ci-dessus ont joué toutes les sortes d’actions', () => {
-    for (const t of ['moveMany', 'giveControl', 'move', 'moveTop', 'endTurn', 'createToken', 'mulligan', 'effect', 'eliminate', 'venture', 'endLook', 'reorderTop', 'commanderDamage', 'setMonarch']) {
+    for (const t of ['moveMany', 'giveControl', 'move', 'moveTop', 'endTurn', 'createToken', 'mulligan', 'effect', 'eliminate', 'venture', 'endLook', 'reorderTop', 'commanderDamage', 'setMonarch', 'moveAll', 'mill']) {
       expect(playedTypes, `${t} jamais joué`).toContain(t)
     }
   })

@@ -3,7 +3,7 @@ import type { ClientAction } from './room'
 import { isKeyword, isValidParam, KEYWORDS, takesParam } from './abilities'
 import { DICE_SIDES, MAX_DICE } from './dice'
 import { DUNGEON_IDS } from './dungeons'
-import { MANA_COLORS, PLAYER_ZONES } from './types'
+import { MANA_COLORS, MOVE_ALL_FILTERS, PLAYER_ZONES } from './types'
 
 /** Plus grand écart accepté pour un compteur, des points de vie, du mana… */
 export const MAX_DELTA = 1000
@@ -103,6 +103,8 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
     places: optional(listOf(object({ x: finite, y: finite }), MAX_CARDS)),
     random: optional(bool),
   },
+  moveAll: { from: zoneRef, to: zoneRef, position: optional(oneOf(['top', 'bottom'])), filter: optional(oneOf(MOVE_ALL_FILTERS)), shuffle: optional(bool) },
+  mill: { count },
   giveControl: { id, to: player },
   tap: { id },
   untapAll: {},
@@ -134,7 +136,7 @@ const SHAPES: Record<ClientAction['type'], Shape> = {
   mana: { color: oneOf(MANA_COLORS), delta },
   clearMana: {},
   toggleKeepMana: {},
-  look: { target: player, count },
+  look: { target: player, count, bottom: optional(when((v) => v === true)) },
   search: { target: player },
   reorderTop: { target: player, ids: listOf(id, MAX_CARDS) },
   endLook: { target: player, shuffle: bool },
