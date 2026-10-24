@@ -1,4 +1,5 @@
 import { rollDice, rollText } from './dice'
+import { catalogEntry } from './catalog'
 import { baseLoyalty, clampLoyalty, loyaltyStats } from './loyalty'
 import { abilitiesLog, abilityText, addAbilities, join, nextAbilities, type Abilities } from './abilities'
 import { printedKeywordsOf } from './card-effects'
@@ -29,7 +30,7 @@ import {
   type ZoneRef,
 } from './types'
 
-const ZONE_LABELS: Record<PlayerZone, string> = {
+export const ZONE_LABELS: Record<PlayerZone, string> = {
   library: 'bibliothèque',
   hand: 'main',
   battlefield: 'champ de bataille',
@@ -86,7 +87,7 @@ export function cardInfo(
   lang: 'fr' | 'en',
 ): CardInfo {
   if (card.token) return { name: card.token.name, image: card.token.image, imageLarge: null, typeLine: card.token.typeLine, faces: null, hidden: false }
-  const entry = card.ref === null ? undefined : catalog?.entries.find((e) => e.ref === card.ref)
+  const entry = catalogEntry(catalog, card.ref)
   const shown = (lang === 'fr' ? entry?.fr : null) ?? entry?.en
   if (!shown) return UNKNOWN
   const faces = shown.faces
@@ -371,6 +372,24 @@ function withoutOffer(state: GameState, player: string): GameState {
   return { ...state, ventureOffers: (state.ventureOffers ?? []).filter((p) => p !== player) }
 }
 
+/**
+ * Règles 724.4 et 725.4 : le monarque ou le détenteur de l'initiative qui quitte la partie les laisse au joueur actif
+ * (le suivant si c'était son tour : `passTurn` est déjà passé). Prendre l'initiative propose d'explorer Les Souterrains.
+ */
+function inheritFrom(state: GameState, gone: string): GameState {
+  const heir = state.players[state.activePlayer].eliminated ? null : state.activePlayer
+  let s = state
+  if (s.monarch === gone) {
+    s = { ...s, monarch: heir }
+    if (heir) s = log(s, null, `${s.players[heir].name} devient le monarque`, msgOf('monarch', { p: { player: heir } }))
+  }
+  if (s.initiative === gone) {
+    s = { ...(heir ? offerVenture(s, heir) : s), initiative: heir }
+    if (heir) s = log(s, null, `${s.players[heir].name} prend l’initiative`, msgOf('initiative', { p: { player: heir } }))
+  }
+  return s
+}
+
 /** Explore (règle 701.49) : entre dans la première salle d'un donjon, ou avance d'une salle ; dernière salle : donjon terminé. */
 function venture(state: GameState, action: Extract<GameAction, { type: 'venture' }>): GameState {
   const player = state.players[action.actor]
@@ -399,6 +418,20 @@ function move(state: GameState, action: Extract<GameAction, { type: 'move' }>): 
     const others = state.players[from.player].zones.battlefield.filter((id) => id !== action.id)
     const next = setZone(state, from, insertAt(others, action.id, action.position ?? 'bottom'))
     return setCard(next, action.id, { x: clampPct(action.x ?? card.x), y: clampPct(action.y ?? card.y) })
+  }
+
+  if (from.zone === 'battlefield' && to.zone === 'battlefield') {
+    // Règle 110.2a : changer de contrôleur ne change pas d'objet. Comme `giveControl`, la carte garde tout son état
+    // (engagée, marqueurs, force, loyauté, capacités, face cachée) ; seules sa zone et sa position changent.
+    let next = setZone(state, from, state.players[from.player].zones.battlefield.filter((id) => id !== action.id))
+    next = setZone(next, to, insertAt(next.players[to.player].zones.battlefield, action.id, action.position ?? 'bottom'))
+    const patch: Partial<CardInstance> = { x: clampPct(action.x ?? 50), y: clampPct(action.y ?? 50) }
+    // Règle 708.5 : le contrôleur d'une carte face cachée peut la regarder.
+    if (card.faceDown) patch.knownBy = [...new Set([...card.knownBy, to.player])]
+    next = setCard(next, action.id, patch)
+    const name = card.faceDown ? 'une carte' : cardName(state, action.id)
+    return log(next, action.actor, `${name} : ${zoneLabel(state, action.actor, from)} → ${zoneLabel(state, action.actor, to)}`,
+      msgOf('move', { c: card.faceDown ? undefined : cardParam(state, action.id), from: zoneParam(action.actor, from), to: zoneParam(action.actor, to) }))
   }
 
   const willBeHidden = card.faceDown || !!action.faceDown || HIDDEN_ZONES.includes(to.zone)
@@ -695,7 +728,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
     case 'playerCounter': {
       const target = state.players[action.target]
-      const value = Math.max(0, (target.counters[action.name] ?? 0) + action.delta)
+      const current = Object.hasOwn(target.counters, action.name) ? target.counters[action.name] : 0
+      const value = Math.max(0, current + action.delta)
       const s = setPlayer(state, action.target, { counters: { ...target.counters, [action.name]: value } })
       return log(s, action.actor, `${target.name} : ${action.name} ${value}`,
         msgOf('playerCounter', { p: { player: action.target }, name: action.name, n: value }))
@@ -732,7 +766,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'eliminate': {
       let s = setPlayer(state, action.target, { eliminated: true })
       s = log(s, action.actor, `${state.players[action.target].name} est éliminé`, msgOf('eliminated', { p: { player: action.target } }))
-      return state.activePlayer === action.target ? passTurn(s, null, false, action.at) : s
+      if (state.activePlayer === action.target) s = passTurn(s, null, false, action.at)
+      return inheritFrom(withoutOffer(s, action.target), action.target)
     }
 
     case 'reveal': {

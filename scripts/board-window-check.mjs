@@ -1,14 +1,13 @@
 // Plateau d'un adversaire dans une fenêtre à part (#82), dans de vrais navigateurs (Chromium piloté par playwright-core).
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de scripts/seed-online.mjs).
 // Usage : node scripts/board-window-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE] = PLAYERS
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {
@@ -105,6 +104,15 @@ try {
     await who.page.getByTestId('start-draw').waitFor({ timeout: 10_000 })
     await who.page.keyboard.press('Escape')
     await who.page.getByTestId('start-draw').waitFor({ state: 'detached' })
+    if (who === ana) {
+      // Tour 1, main pas encore gardée : la fenêtre à part ne rejoue pas « Qui commence ? » (#217).
+      const early = await detach(ana, strip(ana.page, CHLOE.id).getByTestId('detach'))
+      await early.popup.locator(`[data-board="${CHLOE.id}"]`).waitFor()
+      await early.popup.waitForTimeout(500)
+      check((await early.popup.getByTestId('start-draw').count()) === 0, 'fenêtre à part ouverte au tour 1 : pas de « Qui commence ? »')
+      await early.popup.close({ runBeforeUnload: true })
+      await strip(ana.page, CHLOE.id).waitFor({ timeout: 6000 })
+    }
     await who.page.getByRole('button', { name: 'Garder' }).click()
     await who.page.getByRole('button', { name: 'Garder' }).waitFor({ state: 'detached' })
   }

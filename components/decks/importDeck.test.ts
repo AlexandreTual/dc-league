@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { en, fr } from '@/lib/i18n/messages'
-import { importDeckFromLink, importDeckText, progressLabel, type ImportProgress } from './importDeck'
+import { creationImport, importDeckFromLink, importDeckText, progressLabel, type ImportProgress } from './importDeck'
 
 const summary = { total: 32, commanders: 1, frenchCount: 30, notFound: [], ignored: 0, errors: [] }
 const text = ['Commander', '1 Kenrith, the Returned King (eld) 303', '', 'Deck', '1 Sol Ring (c21) 263', '30 Forest (eld) 266'].join('\n')
@@ -84,5 +84,19 @@ describe('progressLabel', () => {
     expect(progressLabel({ step: 'link' }, en)).toBe('Fetching the list…')
     expect(progressLabel({ step: 'resolving', done: 3, total: 3, lines: 45 }, en)).toBe('Looking up cards on Scryfall… 45/45')
     expect(progressLabel({ step: 'committing' }, en)).toBe('Saving…')
+  })
+})
+
+describe('creationImport', () => {
+  it('importe la liste collée en priorité sur le lien', () => {
+    expect(creationImport({ list: text, moxfield_url: 'https://archidekt.com/decks/42/kenrith' })).toEqual({ kind: 'text', text })
+  })
+
+  it('importe par le lien sans liste collée', () => {
+    expect(creationImport({ list: '  \n ', moxfield_url: ' https://moxfield.com/decks/abc ' })).toEqual({ kind: 'link', url: 'https://moxfield.com/decks/abc' })
+  })
+
+  it("n'importe rien sans liste ni lien", () => {
+    expect(creationImport({ list: '', moxfield_url: '' })).toBeNull()
   })
 })

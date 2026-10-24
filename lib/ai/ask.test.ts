@@ -63,6 +63,25 @@ describe('parseAskBody', () => {
     const messages = [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'y'.repeat(5000) }, { role: 'user', text: 'b' }]
     expect(parseAskBody({ oracleIds: ['oracle-sol'], messages }).ok).toBe(true)
   })
+
+  it('refuse une réponse de l’IA trop longue ou un historique trop gros', () => {
+    const tooLong = 'Conversation trop longue, recommence-la'
+    const ids = ['oracle-sol']
+    const big = [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'x'.repeat(8001) }, { role: 'user', text: 'b' }]
+    expect(parseAskBody({ oracleIds: ids, messages: big })).toEqual({ ok: false, error: tooLong })
+    const heavy = [
+      ...Array.from({ length: 4 }, () => [{ role: 'user', text: 'q' }, { role: 'assistant', text: 'y'.repeat(7000) }]).flat(),
+      { role: 'user', text: 'b' },
+    ]
+    expect(parseAskBody({ oracleIds: ids, messages: heavy })).toEqual({ ok: false, error: tooLong })
+  })
+
+  it('ne borne que les derniers messages, ceux envoyés à Gemini', () => {
+    const old = [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'x'.repeat(20_000) }]
+    const recent = Array.from({ length: 5 }, (_, i) => [{ role: 'user', text: `q${i}` }, { role: 'assistant', text: 'r' }]).flat()
+    const parsed = parseAskBody({ oracleIds: ['oracle-sol'], messages: [...old, ...recent.slice(0, -1)] })
+    expect(parsed.ok && parsed.messages).toEqual(recent.slice(0, -1))
+  })
 })
 
 describe('askAi', () => {
@@ -133,10 +152,22 @@ describe('askAi', () => {
     expect(sent).toHaveLength(0)
   })
 
-  it('Gemini en échec : 503 et question rendue', async () => {
-    const gemini = { ask: async () => Promise.reject(new GeminiError('quota', 'HTTP 429')) }
-    expect(await askAi(deps({ gemini }), 'u1', ['oracle-sol'], messages)).toEqual({ status: 503, error: AI_NO_ANSWER, remaining: 20 })
-    expect((await getAiUsage(db, 'u1', day)).data).toBe(0)
+  it('Gemini en panne ou trop lent : 503 et question rendue', async () => {
+    for (const kind of ['unavailable', 'timeout'] as const) {
+      const gemini = { ask: async () => Promise.reject(new GeminiError(kind, 'HTTP 503')) }
+      expect(await askAi(deps({ gemini }), 'u1', ['oracle-sol'], messages)).toEqual({ status: 503, error: AI_NO_ANSWER, remaining: 20 })
+      expect((await getAiUsage(db, 'u1', day)).data).toBe(0)
+    }
+  })
+
+  it('requête rejetée par Gemini (400, 429, refus) : 503, question comptée', async () => {
+    let used = 0
+    for (const kind of ['invalid', 'quota', 'refused'] as const) {
+      const gemini = { ask: async () => Promise.reject(new GeminiError(kind, 'HTTP 400')) }
+      used++
+      expect(await askAi(deps({ gemini }), 'u1', ['oracle-sol'], messages)).toEqual({ status: 503, error: AI_NO_ANSWER, remaining: 20 - used })
+      expect((await getAiUsage(db, 'u1', day)).data).toBe(used)
+    }
   })
 
   it('règles indisponibles : la question part quand même', async () => {

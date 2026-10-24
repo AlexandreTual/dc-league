@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { generateRoundRobinMatches } from './leaderboard'
 import {
-  ERREURS_LIGUE, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
+  ERREURS_LIGUE, deleteAllPlayoffs, resetLeague, generateSemifinals, insertMatches, listMatches, listPlayoffs, resetMatchScore, resetPlayoffScore,
   statusForError, updateMatchScore, updatePlayoffScore,
 } from './db'
 
@@ -26,6 +26,57 @@ describe('insertMatches', () => {
     expect(error).toBeNull()
     expect(data).toHaveLength(105)
     expect((await listMatches(db, 'l1')).data).toHaveLength(105)
+  })
+})
+
+describe('génération et inscriptions simultanées', () => {
+  const inscrire = (ids: string[]) =>
+    db.batch(ids.map((id) => db.prepare("INSERT INTO league_players (league_id, player_id) VALUES ('l1', ?)").bind(id)))
+
+  it('insertMatches génère quand le nombre d’inscrits n’a pas changé', async () => {
+    await inscrire(players(4))
+    const { error } = await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1', 4)
+    expect(error).toBeNull()
+    expect((await listMatches(db, 'l1')).data).toHaveLength(6)
+  })
+
+  it('insertMatches ne crée aucun match si un joueur a quitté la ligue entre la lecture et l’écriture', async () => {
+    await inscrire(players(3))
+    const { error } = await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1', 4)
+    expect(error).toBe(ERREURS_LIGUE.playersChanged)
+    expect(statusForError(error!)).toBe(409)
+    expect((await listMatches(db, 'l1')).data).toHaveLength(0)
+  })
+
+  it('insertMatches ne crée aucun match si un joueur s’est inscrit entre la lecture et l’écriture', async () => {
+    await inscrire(players(5))
+    const { error } = await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1', 4)
+    expect(error).toBe(ERREURS_LIGUE.playersChanged)
+    expect((await listMatches(db, 'l1')).data).toHaveLength(0)
+  })
+})
+
+describe('resetLeague', () => {
+  async function ligueAvecPlayoffs() {
+    await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')
+    await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')
+  }
+  const compte = async (table: string) =>
+    Number((await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE league_id = 'l1'`).first<{ n: number }>())?.n)
+
+  it('supprime les matchs et les playoffs de la ligue', async () => {
+    await ligueAvecPlayoffs()
+    expect((await resetLeague(db, 'l1')).error).toBeNull()
+    expect(await compte('matches')).toBe(0)
+    expect(await compte('playoffs')).toBe(0)
+  })
+
+  it('ne supprime rien si une des suppressions échoue', async () => {
+    await ligueAvecPlayoffs()
+    await db.prepare("CREATE TRIGGER panne BEFORE DELETE ON playoffs BEGIN SELECT RAISE(ABORT, 'panne simulée'); END").run()
+    expect((await resetLeague(db, 'l1')).error).toMatch(/panne simulée/)
+    expect(await compte('matches')).toBe(6)
+    expect(await compte('playoffs')).toBe(2)
   })
 })
 
@@ -58,8 +109,8 @@ describe('doubles clics', () => {
 describe('ligue close et match inconnu', () => {
   async function ligueClose() {
     const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
-    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
     await updateMatchScore(db, m.id, 2, 0)
+    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
     await updatePlayoffScore(db, semis[0].id, 2, 0)
     await db.prepare("UPDATE leagues SET is_active = 0, ended_at = datetime('now') WHERE id = 'l1'").run()
     return { m, semi: semis[0] }
@@ -92,6 +143,7 @@ describe('ligue close et match inconnu', () => {
     expect(statusForError(ERREURS_LIGUE.leagueClosed)).toBe(409)
     expect(statusForError(ERREURS_LIGUE.finalScored)).toBe(409)
     expect(statusForError(ERREURS_LIGUE.matchesExist)).toBe(409)
+    expect(statusForError(ERREURS_LIGUE.playoffsStarted)).toBe(409)
     expect(statusForError('SQLITE_BUSY')).toBe(500)
   })
 
@@ -99,6 +151,37 @@ describe('ligue close et match inconnu', () => {
     const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
     expect((await updateMatchScore(db, m.id, 2, 1)).data).toMatchObject({ score_p1: 2, score_p2: 1, is_completed: true })
     expect((await resetMatchScore(db, m.id)).data).toMatchObject({ score_p1: null, is_completed: false })
+  })
+})
+
+describe('match de ligue après le tirage des playoffs', () => {
+  async function playoffsTires() {
+    const [m] = (await insertMatches(db, generateRoundRobinMatches(players(5)), 'l1')).data!
+    await updateMatchScore(db, m.id, 2, 0)
+    await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')
+    return m
+  }
+  const scoreDe = async (id: string) => (await listMatches(db, 'l1')).data!.find((x) => x.id === id)
+
+  it('refuse de modifier ou réinitialiser un score tant que les playoffs existent', async () => {
+    const m = await playoffsTires()
+    expect((await updateMatchScore(db, m.id, 0, 2)).error).toBe(ERREURS_LIGUE.playoffsStarted)
+    expect((await resetMatchScore(db, m.id)).error).toBe(ERREURS_LIGUE.playoffsStarted)
+    expect(await scoreDe(m.id)).toMatchObject({ score_p1: 2, score_p2: 0, is_completed: true })
+  })
+
+  it('accepte de nouveau la correction une fois les playoffs supprimés', async () => {
+    const m = await playoffsTires()
+    await deleteAllPlayoffs(db, 'l1')
+    expect((await updateMatchScore(db, m.id, 0, 2)).data).toMatchObject({ score_p1: 0, score_p2: 2 })
+    expect((await resetMatchScore(db, m.id)).data).toMatchObject({ score_p1: null, is_completed: false })
+  })
+
+  it('les playoffs d’une autre ligue ne bloquent rien', async () => {
+    await db.prepare("INSERT INTO leagues (id, name) VALUES ('l2', 'Saison 2')").run()
+    await generateSemifinals(db, 'l2', 'p1', 'p2', 'p3', 'p4')
+    const [m] = (await insertMatches(db, generateRoundRobinMatches(players(4)), 'l1')).data!
+    expect((await updateMatchScore(db, m.id, 2, 1)).error).toBeNull()
   })
 })
 
@@ -160,5 +243,73 @@ describe('correction d’une demi-finale', () => {
     await updatePlayoffScore(db, (await stage('third_place')).id, 2, 0)
     expect((await updatePlayoffScore(db, s2.id, 0, 2)).error).toBe(ERREURS_LIGUE.finalScored)
     expect(await stage('semi2')).toMatchObject({ score_p1: 2, score_p2: 1 })
+  })
+})
+
+describe('demi-finale effacée', () => {
+  // semi1 : p1 contre p4, semi2 : p2 contre p3.
+  async function demiFinalesJouees() {
+    const semis = (await generateSemifinals(db, 'l1', 'p1', 'p2', 'p3', 'p4')).data!
+    const s1 = semis.find((p) => p.stage === 'semi1')!
+    const s2 = semis.find((p) => p.stage === 'semi2')!
+    await updatePlayoffScore(db, s1.id, 2, 0)
+    await updatePlayoffScore(db, s2.id, 2, 1)
+    return { s1, s2 }
+  }
+  const stages = async () => (await listPlayoffs(db, 'l1')).data!.map((p) => p.stage)
+  const stage = async (s: string) => (await listPlayoffs(db, 'l1')).data!.find((p) => p.stage === s)
+
+  it('retire la finale et la petite finale sans score', async () => {
+    const { s1 } = await demiFinalesJouees()
+    const { data, error } = await resetPlayoffScore(db, s1.id)
+    expect(error).toBeNull()
+    expect(data).toMatchObject({ id: s1.id, score_p1: null, is_completed: false })
+    expect(await stages()).toEqual(['semi1', 'semi2'])
+  })
+
+  it('refuse ensuite un score de finale ou de petite finale', async () => {
+    const { s1 } = await demiFinalesJouees()
+    const final = (await stage('final'))!
+    const third = (await stage('third_place'))!
+    // Retirées par l'effacement : on les remet comme si un ancien serveur les avait laissées.
+    await resetPlayoffScore(db, s1.id)
+    await db.batch([final, third].map((p) =>
+      db.prepare("INSERT INTO playoffs (id, league_id, stage, player1_id, player2_id) VALUES (?, 'l1', ?, ?, ?)")
+        .bind(p.id, p.stage, p.player1_id, p.player2_id)))
+    expect((await updatePlayoffScore(db, final.id, 2, 1)).error).toBe(ERREURS_LIGUE.semisPending)
+    expect((await updatePlayoffScore(db, third.id, 2, 1)).error).toBe(ERREURS_LIGUE.semisPending)
+    expect(await stage('final')).toMatchObject({ is_completed: false, score_p1: null })
+  })
+
+  it('la finale se recrée quand la demi-finale est de nouveau saisie', async () => {
+    const { s1 } = await demiFinalesJouees()
+    await resetPlayoffScore(db, s1.id)
+    await updatePlayoffScore(db, s1.id, 0, 2)
+    expect(await stage('final')).toMatchObject({ player1_id: 'p4', player2_id: 'p2' })
+    expect(await stage('third_place')).toMatchObject({ player1_id: 'p1', player2_id: 'p3' })
+  })
+
+  it('refuse l’effacement si la finale ou la petite finale a un score', async () => {
+    for (const scored of ['final', 'third_place']) {
+      await deleteAllPlayoffs(db, 'l1')
+      const { s1 } = await demiFinalesJouees()
+      await updatePlayoffScore(db, (await stage(scored))!.id, 2, 0)
+      expect((await resetPlayoffScore(db, s1.id)).error).toBe(ERREURS_LIGUE.finalScoredReset)
+      expect(await stage('semi1')).toMatchObject({ score_p1: 2, score_p2: 0, is_completed: true })
+      expect(await stages()).toEqual(['semi1', 'semi2', 'final', 'third_place'])
+    }
+  })
+
+  it('effacer le score de la finale reste possible', async () => {
+    await demiFinalesJouees()
+    const final = (await stage('final'))!
+    await updatePlayoffScore(db, final.id, 2, 0)
+    expect((await resetPlayoffScore(db, final.id)).data).toMatchObject({ is_completed: false })
+    expect(await stages()).toEqual(['semi1', 'semi2', 'final', 'third_place'])
+  })
+
+  it('associe un statut 409 aux nouveaux refus', () => {
+    expect(statusForError(ERREURS_LIGUE.semisPending)).toBe(409)
+    expect(statusForError(ERREURS_LIGUE.finalScoredReset)).toBe(409)
   })
 })

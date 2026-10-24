@@ -49,3 +49,14 @@ export function catalogsFrom(cards: CardDataMap): Record<string, Catalog> {
 }
 
 export const ERROR_VISIBLE_MS = 4000
+
+/**
+ * La table accepte mes gestes : joueur assis et encore en jeu, partie en cours, connexion ouverte.
+ * Un éliminé (ou un spectateur) regarde en lecture seule : le moteur refuserait tout de lui.
+ * `eliminated` absent (serveur de jeu plus ancien) : le joueur est traité comme en jeu.
+ */
+export function canAct(source: Pick<GameSource, 'me' | 'view'> & { online?: Pick<NonNullable<GameSource['online']>, 'status' | 'finished'> }): boolean {
+  const { me, view, online } = source
+  if (me === null || online?.finished || (online && online.status !== 'open')) return false
+  return !view.players[me]?.eliminated
+}

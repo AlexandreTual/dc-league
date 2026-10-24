@@ -22,6 +22,7 @@ export default function ProfileForms({ initialName, initialAvatarUrl, initialEma
 
   const [email, setEmail] = useState(initialEmail)
   const [savedEmail, setSavedEmail] = useState(initialEmail)
+  const [emailPassword, setEmailPassword] = useState('')
   const [emailStatus, setEmailStatus] = useState<Status>(idle)
 
   const [currentPassword, setCurrentPassword] = useState('')
@@ -42,9 +43,10 @@ export default function ProfileForms({ initialName, initialAvatarUrl, initialEma
   async function saveEmail(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error, data } = await sendJson('/api/me/email', 'PATCH', { email: email.trim() || null })
+    const { error, data } = await sendJson('/api/me/email', 'PATCH', { email: email.trim() || null, currentPassword: emailPassword })
     setLoading(false)
     if (error) return setEmailStatus({ error, success: '' })
+    setEmailPassword('')
     const saved = (data as { email: string | null }).email ?? ''
     setEmail(saved)
     setSavedEmail(saved)
@@ -108,9 +110,22 @@ export default function ProfileForms({ initialName, initialAvatarUrl, initialEma
           />
           <p className="text-dc-muted text-xs mt-1.5">{m.emailHelp}</p>
         </div>
+        {email.trim() !== savedEmail && (
+          <div>
+            <label className={labelClass} htmlFor="email-password">Mot de passe actuel</label>
+            <input
+              id="email-password"
+              type="password"
+              className={inputClass}
+              value={emailPassword}
+              onChange={(e) => setEmailPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+        )}
         {emailStatus.error && <p className={errorClass}>{emailStatus.error}</p>}
         {emailStatus.success && <p className={successClass}>{emailStatus.success}</p>}
-        <button type="submit" disabled={loading || email.trim() === savedEmail} className={primaryButtonClass}>{m.save}</button>
+        <button type="submit" disabled={loading || email.trim() === savedEmail || !emailPassword} className={primaryButtonClass}>{m.save}</button>
       </form>
 
       {/* Replié par défaut : les champs n'apparaissent que si on veut changer de mot de passe. */}

@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import { setupFor } from '@/test/game-fixtures'
-import { createTable, getTable, joinTable, markPlaying } from '../../lib/db-games'
+import { createTable, finishTable, getTable, joinTable, markPlaying } from '../../lib/db-games'
 import { replay } from '../../lib/game/replay'
 import type { ServerMessage } from '../../lib/game/room'
 import { RoomRuntime, type KvStorage, type Socket, type SocketInfo } from './runtime'
 import { cleanupStale } from './cleanup'
+import { listErrors } from '../../lib/db-errors'
 
 /** Stockage en mémoire qui note l'ordre des écritures et peut échouer à la demande. */
 class MemoryStorage implements KvStorage {
@@ -100,6 +101,24 @@ describe('actions et persistance', () => {
     expect(s2.last()).toMatchObject({ type: 'view' })
   })
 
+  it('réveil avec une action que le moteur refuse désormais : rien n’est sauté ni écrasé', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const start = storage.data.get('a:000000')
+    const other = replay(setup, [start as never]).turnOrder[1]
+    const refused = { type: 'endTurn', actor: other }
+    const kept = { type: 'draw', actor: 'p1', count: 1 }
+    storage.data.set('a:000001', refused)
+    storage.data.set('a:000002', kept)
+    const back = runtime()
+    const s1 = await open(back, 'p1')
+    expect(back.state()!.history.actions).toHaveLength(3)
+    await send(back, s1, { type: 'action', action: { type: 'draw', count: 1 } })
+    expect(storage.data.get('a:000001')).toEqual(refused)
+    expect(storage.data.get('a:000002')).toEqual(kept)
+    expect(storage.data.get('a:000003')).toEqual({ type: 'draw', actor: 'p1', count: 1 })
+  })
+
   it('refus du moteur : seul l’auteur est prévenu', async () => {
     const rt = runtime()
     await rt.init({ tableId, setup, hostId: 'p1' })
@@ -166,6 +185,33 @@ describe('réveil', () => {
     await send(awake, s1, { type: 'action', action: { type: 'draw', count: 1 } })
     const cards = (s1.last() as Extract<ServerMessage, { type: 'view' }>).cards
     expect(Object.keys(cards.p1).length).toBeGreaterThan(1)
+  })
+  it('identifiant hérité (« toString »…) refusé : rien d’enregistré, la partie se recharge', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const s2 = await open(rt, 'p2')
+    await send(rt, s1, { type: 'action', action: { type: 'keep' } })
+    await send(rt, s2, { type: 'action', action: { type: 'keep' } })
+    const actions = rt.state()!.history.actions.length
+    for (const target of ['toString', '__proto__', 'constructor']) {
+      await send(rt, s2, { type: 'action', action: { type: 'life', target, delta: 1 } })
+      expect(s2.last()).toEqual({ type: 'rejected', error: 'Joueur inconnu' })
+      await send(rt, s1, { type: 'host', op: 'eliminate', target })
+      expect(s1.last()).toMatchObject({ type: 'rejected' })
+    }
+    await send(rt, s2, { type: 'action', action: { type: 'playerCounter', target: 'p2', name: '__proto__', delta: 1 } })
+    expect(rt.state()!.history.actions).toHaveLength(actions + 1)
+
+    const awake = runtime()
+    await awake.load()
+    expect(Object.keys(awake.state()!.history.state.players)).toEqual(['p1', 'p2'])
+    expect(awake.state()!.history.state.players.p2.counters).toEqual(rt.state()!.history.state.players.p2.counters)
+    expect(Object.hasOwn(awake.state()!.history.state.players.p2.counters, '__proto__')).toBe(true)
+    const again = new FakeSocket(journal, 'p1 bis')
+    sockets.push({ socket: again, info: { playerId: 'p1' } })
+    await awake.connect(again, { playerId: 'p1' })
+    expect(again.last()).toMatchObject({ type: 'view' })
   })
 })
 
@@ -324,6 +370,56 @@ describe('destroy et nettoyage', () => {
     expect((await getTable(db, tableId)).data).not.toBeNull()
     expect((await getTable(db, other)).data).not.toBeNull()
     expect((await getTable(db, third)).data).toBeNull()
+    const { data: logged } = await listErrors(db)
+    expect(logged).toHaveLength(1)
+    expect(logged![0]).toMatchObject({ source: 'nettoyage' })
+    expect(logged![0].message).toMatch(/^\d+ échec\(s\) : /)
+    expect(logged![0].message).toContain('objet injoignable')
+  })
+
+  it("cleanupStale n'écrit rien au journal des erreurs quand tout réussit", async () => {
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async () => new Response(null) }),
+    } as unknown as DurableObjectNamespace
+    await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))
+    expect((await listErrors(db)).data).toEqual([])
+  })
+
+  it('cleanupStale garde en D1 une partie finie depuis 30 jours, efface son Durable Object une seule fois', async () => {
+    await finishTable(db, tableId, 'p1', { duration: 1200, playTime: { p1: 600, p2: 600 } })
+    const abandoned = (await createTable(db, { hostPlayerId: 'p2', format: 'duel', seats: 2, eliminatedSeeAll: false })).data!.id
+    await markPlaying(db, abandoned)
+    await db.prepare("UPDATE game_tables SET last_activity_at = '2026-09-04 00:00:00'").run()
+    const calls: string[] = []
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: (id: string) => ({ fetch: async (_url: string, init?: RequestInit) => { calls.push(`${init?.method} ${id}`); return new Response(null) } }),
+    } as unknown as DurableObjectNamespace
+    expect(await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))).toBe(1)
+    expect(calls).toEqual([`POST ${abandoned}`, `DELETE ${abandoned}`, `DELETE ${tableId}`])
+    expect((await getTable(db, abandoned)).data).toBeNull()
+    expect((await getTable(db, tableId)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p1', durationSeconds: 1200, gameArchived: true })
+    expect((await getTable(db, tableId)).data!.players.map((p) => p.playerId)).toEqual(['p1', 'p2'])
+
+    calls.length = 0
+    expect(await cleanupStale({ DB: db, GAME }, new Date('2026-10-05T00:00:00Z'))).toBe(0)
+    expect(calls).toEqual([])
+  })
+
+  it('cleanupStale : partie finie dont le Durable Object résiste, réessayée au passage suivant', async () => {
+    await finishTable(db, tableId, 'p1')
+    await db.prepare("UPDATE game_tables SET last_activity_at = '2026-09-04 00:00:00'").run()
+    let fail = true
+    const GAME = {
+      idFromName: (name: string) => name,
+      get: () => ({ fetch: async () => new Response(null, { status: fail ? 500 : 204 }) }),
+    } as unknown as DurableObjectNamespace
+    await cleanupStale({ DB: db, GAME }, new Date('2026-10-04T00:00:00Z'))
+    expect((await getTable(db, tableId)).data!.gameArchived).toBe(false)
+    fail = false
+    await cleanupStale({ DB: db, GAME }, new Date('2026-10-05T00:00:00Z'))
+    expect((await getTable(db, tableId)).data!.gameArchived).toBe(true)
   })
 })
 

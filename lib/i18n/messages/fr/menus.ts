@@ -49,7 +49,8 @@ export const menus = {
   },
   hand: {
     title: 'Ma main',
-    revealHand: 'Révéler ma main',
+    revealHand: 'Révéler ma main à tous',
+    revealHandTo: (name: string) => `Révéler ma main à ${name}`,
     revealAll: 'Révéler à tous',
     revealTo: (name: string) => `Révéler à ${name}`,
     /** Mulligan en cours : mettre la carte sous la bibliothèque. */

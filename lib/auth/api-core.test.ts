@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { NextResponse } from 'next/server'
 import { handleApi, dbFailure, resultError, INTERNAL_ERROR, type ApiDeps } from './api-core'
 import type { CurrentUser } from './types'
+import { createTestDb } from '@/test/d1'
+import { listErrors } from '@/lib/db-errors'
 import { ERREURS_LIGUE, STATUTS_LIGUE } from '@/lib/db'
 
 const URL_API = 'https://league.example.com/api/players'
@@ -134,6 +136,7 @@ describe('resultError', () => {
       [ERREURS_LIGUE.matchNotFound, 404], [ERREURS_LIGUE.playoffNotFound, 404],
       [ERREURS_LIGUE.matchesExist, 409], [ERREURS_LIGUE.playoffsExist, 409],
       [ERREURS_LIGUE.leagueClosed, 409], [ERREURS_LIGUE.finalScored, 409],
+      [ERREURS_LIGUE.finalScoredReset, 409], [ERREURS_LIGUE.semisPending, 409],
     ]
     for (const [error, status] of expected) {
       const res = resultError(error, STATUTS_LIGUE)
@@ -150,6 +153,46 @@ describe('dbFailure', () => {
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ error: INTERNAL_ERROR })
     expect(log).toHaveBeenCalledWith('[api]', 'D1_ERROR: UNIQUE constraint failed: players.name')
+    log.mockRestore()
+  })
+})
+
+describe('journal des erreurs', () => {
+  const withDb = (database: D1Database, current: CurrentUser | null = null): ApiDeps => ({
+    getUser: async () => current,
+    getEnv: () => ({ DB: database }) as unknown as CloudflareEnv,
+  })
+
+  it('enregistre une 500 avec la route et le compte, sans rien de plus pour le client', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const database = createTestDb()
+    const res = await handleApi(req('POST', '{}'), 'user', async () => resultError('D1_ERROR: no such table: x'), withDb(database, user()))
+    expect(await res.json()).toEqual({ error: INTERNAL_ERROR })
+    const { data } = await listErrors(database)
+    expect(data).toMatchObject([{ source: 'serveur', message: 'D1_ERROR: no such table: x', path: 'POST /api/players', userId: 'u1' }])
+    log.mockRestore()
+  })
+
+  it('enregistre une exception de la route', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const database = createTestDb()
+    await handleApi(req('GET'), 'public', async () => { throw new Error('plantage') }, withDb(database))
+    expect((await listErrors(database)).data).toMatchObject([{ message: 'plantage', path: 'GET /api/players', userId: null }])
+    log.mockRestore()
+  })
+
+  it("n'enregistre ni les réponses normales ni les erreurs métier", async () => {
+    const database = createTestDb()
+    await handleApi(req('GET'), 'public', echo, withDb(database))
+    await handleApi(req('POST', '{}'), 'admin', echo, withDb(database))
+    await handleApi(req('GET'), 'public', async () => resultError('Ligue introuvable', { 'Ligue introuvable': 404 }), withDb(database))
+    expect((await listErrors(database)).data).toEqual([])
+  })
+
+  it('renvoie quand même la 500 si le journal manque (base pas encore migrée)', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const res = await handleApi(req('GET'), 'public', async () => dbFailure('x'), withDb(createTestDb(['0001_schema.sql'])))
+    expect(res.status).toBe(500)
     log.mockRestore()
   })
 })

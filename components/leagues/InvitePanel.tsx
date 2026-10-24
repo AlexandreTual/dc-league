@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import { Copy, Link2, RefreshCcw } from 'lucide-react'
 import { inviteUrl } from '@/lib/leagues/join'
+import { leagueShareText } from '@/lib/share'
 import type { AdminApi } from '@/components/admin/useAdminApi'
 import { useT } from '@/components/i18n/I18nProvider'
+import ShareButton from '@/components/ShareButton'
 
 /** Lien d'invitation de la ligue : créer, copier, renouveler (l'ancien cesse de marcher). */
-export default function InvitePanel({ leagueId, initialToken, api }: { leagueId: string; initialToken: string | null; api: AdminApi }) {
+export default function InvitePanel({ leagueId, leagueName, initialToken, api }: { leagueId: string; leagueName?: string; initialToken: string | null; api: AdminApi }) {
   const { call, showToast } = api
   const t = useT().leagues.invite
   const [token, setToken] = useState(initialToken)
@@ -59,6 +61,11 @@ export default function InvitePanel({ leagueId, initialToken, api }: { leagueId:
             <button onClick={copy} disabled={!url} className="inline-flex items-center gap-1.5 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
               <Copy className="w-4 h-4" /> {t.copy}
             </button>
+            <ShareButton
+              disabled={!url}
+              getData={() => ({ title: 'Commander League', text: leagueShareText(leagueName), url })}
+              className="inline-flex items-center bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
+            />
             {confirmRenew ? (
               <span className="inline-flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="text-dc-red-light">{t.oldWillStop}</span>

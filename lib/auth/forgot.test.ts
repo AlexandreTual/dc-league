@@ -77,6 +77,56 @@ describe('requestPasswordReset', () => {
     expect(await reset(tokenIn(mailer.sent[2]), minutes(31))).toEqual({ ok: true, value: { userId: 'u1' } })
   })
 
+  it('10 demandes simultanées : exactement 3 mails', async () => {
+    const mailer = fakeMailer()
+    await Promise.all(Array.from({ length: 10 }, () => requestPasswordReset(db, 'ana', now, ctxOf(mailer))))
+    expect(mailer.sent).toHaveLength(3)
+  })
+
+  it('même IP bloquée au-delà de 10 demandes en 15 minutes, quel que soit le pseudo', async () => {
+    await db.batch([
+      db.prepare("INSERT INTO players (id, name) VALUES ('p3', 'Chloé')"),
+      db.prepare("INSERT INTO users (id, player_id, username, password_hash, email) VALUES ('u3', 'p3', 'chloe', 'x', 'chloe@gmail.com')"),
+    ])
+    const mailer = fakeMailer()
+    const ip = '1.2.3.4'
+    // 8 demandes pour des comptes inconnus, puis Ana (2 mails), puis Chloé : bloquée.
+    for (let i = 0; i < 8; i++) await requestPasswordReset(db, `inconnu${i}`, now, ctxOf(mailer), ip)
+    await requestPasswordReset(db, 'ana', now, ctxOf(mailer), ip)
+    await requestPasswordReset(db, 'ana', minutes(1), ctxOf(mailer), ip)
+    expect(mailer.sent).toHaveLength(2)
+    await requestPasswordReset(db, 'chloe', minutes(2), ctxOf(mailer), ip)
+    expect(mailer.sent).toHaveLength(2)
+    // Une autre IP passe, et la même IP de nouveau après 15 minutes.
+    await requestPasswordReset(db, 'chloe', minutes(3), ctxOf(mailer), '5.6.7.8')
+    expect(mailer.sent.map((m) => m.to)).toEqual(['ana@gmail.com', 'ana@gmail.com', 'chloe@gmail.com'])
+    await requestPasswordReset(db, 'chloe', minutes(20), ctxOf(mailer), ip)
+    expect(mailer.sent).toHaveLength(4)
+  })
+
+  it('demandes simultanées depuis une même IP : au plus 10 comptées', async () => {
+    const mailer = fakeMailer()
+    await Promise.all(Array.from({ length: 30 }, (_, i) => requestPasswordReset(db, `inconnu${i}`, now, ctxOf(mailer), '1.2.3.4')))
+    await requestPasswordReset(db, 'ana', now, ctxOf(mailer), '1.2.3.4')
+    expect(mailer.sent).toHaveLength(0)
+  })
+
+  it('plafond global de 30 mails par 24 heures, tous comptes confondus', async () => {
+    const stmts = [db.prepare("INSERT INTO players (id, name) SELECT 'q' || value, 'Joueur ' || value FROM json_each(?)").bind(JSON.stringify(Array.from({ length: 31 }, (_, i) => i)))]
+    stmts.push(
+      db
+        .prepare("INSERT INTO users (id, player_id, username, password_hash, email) SELECT 'v' || value, 'q' || value, 'j' || value, 'x', 'j' || value || '@gmail.com' FROM json_each(?)")
+        .bind(JSON.stringify(Array.from({ length: 31 }, (_, i) => i))),
+    )
+    await db.batch(stmts)
+    const mailer = fakeMailer()
+    for (let i = 0; i < 31; i++) await requestPasswordReset(db, `j${i}`, minutes(i * 5), ctxOf(mailer))
+    expect(mailer.sent).toHaveLength(30)
+    // Le lendemain, de nouveau possible.
+    await requestPasswordReset(db, 'j30', minutes(24 * 60 + 1), ctxOf(mailer))
+    expect(mailer.sent).toHaveLength(31)
+  })
+
   it('demande après une heure de nouveau acceptée', async () => {
     const mailer = fakeMailer()
     for (const at of [0, 1, 2]) await requestPasswordReset(db, 'ana', minutes(at), ctxOf(mailer))

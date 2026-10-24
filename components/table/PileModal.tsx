@@ -1,13 +1,45 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useDndMonitor, useDroppable, type DragMoveEvent } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { countByType, filterPile, type CardType } from '@/lib/game/card-types'
 import { placeAt, shiftCard, syncOrder } from '@/lib/game/pile-order'
 import type { Catalog, PlayerZone, Position, VisibleCard } from '@/lib/game/types'
+import { cardLabel } from './a11y'
+import Draggable from './Draggable'
 import GameCard, { type Lang } from './GameCard'
 import { touchTarget } from './touch'
 import { useT } from '@/components/i18n/I18nProvider'
+import { pileKey } from './zones'
+
+/** Cible de dépôt d'une carte de la fenêtre (regard : réordonner), suivie de son identifiant. */
+export const PILE_SLOT = 'pile-slot:'
+/** Cible de dépôt de toute la fenêtre (regard) : lâchée entre deux cartes, la carte reste où elle est. */
+export const PILE_PANEL = 'pile-panel'
+
+/** Toute la fenêtre comme cible (regard, glisser en cours) : lâchée entre deux cartes, rien ne bouge. */
+function PanelTarget({ enabled }: { enabled: boolean }) {
+  const { setNodeRef } = useDroppable({ id: PILE_PANEL, data: { panel: true }, disabled: !enabled })
+  return <div ref={setNodeRef} className="absolute inset-0 pointer-events-none" />
+}
+
+/** Position du pointeur pendant un glisser (souris ou doigt). */
+function pointerOf(e: DragMoveEvent): { x: number; y: number } | null {
+  const start = e.activatorEvent
+  const point = 'touches' in start ? (start as TouchEvent).touches[0] : start as MouseEvent
+  return point ? { x: point.clientX + e.delta.x, y: point.clientY + e.delta.y } : null
+}
+
+/** Une carte de la fenêtre ; en regard, pendant un glisser, aussi une cible pour réordonner. */
+function PileCard({ card, slot, children }: { card: VisibleCard; slot: boolean; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `${PILE_SLOT}${card.id}`, data: { slot: card.id }, disabled: !slot })
+  return (
+    <div ref={setNodeRef} className={`space-y-1.5 rounded-lg ${isOver ? 'ring-2 ring-dc-gold/60' : ''}`} data-pile-card={card.id}>
+      {children}
+    </div>
+  )
+}
 
 /** Destinations d'une carte ; `key` : son libellé (`t.table.pile.targets`). */
 const TARGETS: { key: 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'top' | 'bottom'; to: PlayerZone; position?: Position }[] = [
@@ -20,12 +52,16 @@ const TARGETS: { key: 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'top' | '
 ]
 
 /**
- * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination.
- * Une carte déplacée disparaît de la liste. Avec `onReorder` (regard), les cartes se réordonnent
- * par glisser-déposer ou avec les flèches ; la première est le dessus de la bibliothèque.
+ * Fenêtre listant les cartes visibles d'une zone, avec un bouton par destination ; chaque carte se glisse aussi
+ * directement sur une zone de la table (champ de bataille, main…) : la fenêtre s'efface pendant le glisser et revient après.
+ * Une carte déplacée disparaît de la liste dès que la vue la montre ailleurs. Avec `onReorder` (regard), les cartes se réordonnent
+ * en les glissant l'une sur l'autre ou avec les flèches ; la première est le dessus de la bibliothèque.
+ * En regard, la fenêtre ne s'efface qu'une fois le pointeur sorti de son cadre.
  */
-export default function PileModal({ title, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onReorder, onClose }: {
+export default function PileModal({ title, player, zone, cards, searchable, shuffleDefault, catalogs, lang, readOnly = false, onMove, onReorder, onShuffleChange, onClose }: {
   title: string
+  /** Joueur à qui est la pile. */
+  player: string
   zone: PlayerZone
   cards: VisibleCard[]
   searchable: boolean
@@ -37,25 +73,51 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
   onMove: (card: VisibleCard, to: PlayerZone, position?: Position) => void
   /** Ordre choisi des cartes encore affichées, à chaque changement. */
   onReorder?: (ids: string[]) => void
+  /** Case « Mélanger en fermant » changée : la table s'en sert pour fermer avec Échap. */
+  onShuffleChange?: (shuffle: boolean) => void
   onClose: (shuffle: boolean) => void
 }) {
   const t = useT()
   const pl = t.table.pile
-  const [moved, setMoved] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
   const [types, setTypes] = useState<CardType[]>([])
   const [shuffle, setShuffle] = useState(shuffleDefault ?? false)
 
   const [order, setOrder] = useState<string[]>(() => cards.map((c) => c.id))
-  const [dragged, setDragged] = useState<string | null>(null)
+  /** Carte de la fenêtre en cours de glisser ; `away` : la fenêtre est effacée (laisse voir la table). */
+  const [dragged, setDragged] = useState<{ id: string; away: boolean } | null>(null)
+  const panel = useRef<HTMLDivElement>(null)
 
-  const present = cards.filter((card) => !moved.has(card.id))
+  // Une carte ne quitte la liste que quand la vue la montre hors de la zone (un geste refusé la laisse là).
+  const present = cards
   const ordered = onReorder ? syncOrder(order, present.map((c) => c.id)) : null
   const remaining = ordered ? ordered.map((id) => present.find((c) => c.id === id)!) : present
   const reorder = (next: string[]) => {
     setOrder(next)
     onReorder?.(next)
   }
+  useDndMonitor({
+    onDragStart: (e) => {
+      const id = e.active.data.current?.card
+      // Hors regard, rien à viser dans la fenêtre : elle s'efface tout de suite.
+      if (String(e.active.id) === pileKey(String(id))) setDragged({ id: String(id), away: !ordered })
+    },
+    onDragMove: (e) => {
+      if (!dragged || dragged.away) return
+      const at = pointerOf(e)
+      const box = panel.current?.getBoundingClientRect()
+      if (at && box && (at.x < box.left || at.x > box.right || at.y < box.top || at.y > box.bottom)) setDragged({ ...dragged, away: true })
+    },
+    onDragEnd: (e) => {
+      const target = e.over?.data.current?.slot
+      if (dragged && ordered && typeof target === 'string' && target !== dragged.id) reorder(placeAt(ordered, dragged.id, target))
+      setDragged(null)
+    },
+    onDragCancel: () => setDragged(null),
+  })
+  const away = dragged?.away ?? false
+  // Regard : tant que la carte glissée reste dans la fenêtre, ses cartes sont les seules cibles.
+  const inPanel = !!ordered && !!dragged && !away
   const visible = filterPile(remaining, { text: filter, types }, catalogs)
   // Types présents dans la pile, plus ceux encore cochés dont la dernière carte vient de partir.
   const counts = countByType(remaining, catalogs)
@@ -66,8 +128,10 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
 
   return (
     // Posée sur la table (sous la barre du site) ; la liste défile dans la fenêtre, l'en-tête et les filtres restent visibles.
-    <div className="absolute inset-0 z-[55] bg-black/70 flex items-center justify-center p-3 sm:p-6" onClick={() => onClose(shuffle)}>
-      <div className="bg-dc-surface border border-dc-border rounded-2xl w-full max-w-5xl max-h-full flex flex-col" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+    <div className={`absolute inset-0 z-[55] bg-black/70 flex items-center justify-center p-3 sm:p-6 transition-opacity ${away ? 'opacity-0 pointer-events-none' : ''}`}
+      onClick={() => onClose(shuffle)} data-pile-away={away || undefined}>
+      <PanelTarget enabled={inPanel} />
+      <div ref={panel} className="bg-dc-surface border border-dc-border rounded-2xl w-full max-w-5xl max-h-full flex flex-col" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-dc-border">
           <h2 className="font-fantasy text-dc-gold">{title}</h2>
           {searchable && (
@@ -75,7 +139,7 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
           )}
           {shuffleDefault !== null && (
             <label className="flex items-center gap-1.5 text-xs text-dc-muted ml-auto">
-              <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} /> {pl.shuffleOnClose}
+              <input type="checkbox" checked={shuffle} onChange={(e) => { setShuffle(e.target.checked); onShuffleChange?.(e.target.checked) }} /> {pl.shuffleOnClose}
             </label>
           )}
           <button onClick={() => onClose(shuffle)} className="text-dc-muted hover:text-dc-text" aria-label={t.common.close}><X className="w-5 h-5" /></button>
@@ -93,26 +157,13 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
         <div className="min-h-0 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-4">
           {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">{pl.noCards}</p>}
           {visible.map((card, index) => (
-            <div
-              key={card.id}
-              className={`space-y-1.5 ${dragged === card.id ? 'opacity-40' : ''}`}
-              data-pile-card={card.id}
-              draggable={!!ordered && !readOnly}
-              onDragStart={() => setDragged(card.id)}
-              onDragEnd={() => setDragged(null)}
-              onDragOver={(e) => { if (dragged) e.preventDefault() }}
-              onDrop={(e) => {
-                e.preventDefault()
-                if (dragged && ordered) reorder(placeAt(ordered, dragged, card.id))
-                setDragged(null)
-              }}
-            >
-              <div className="relative">
+            <PileCard key={card.id} card={card} slot={inPanel}>
+              <Draggable id={card.id} dragKey={pileKey(card.id)} label={cardLabel(catalogs[card.owner], card, lang)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
                 <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
                 {ordered && index === 0 && (
                   <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold" data-pile-top>{pl.top}</span>
                 )}
-              </div>
+              </Draggable>
               {ordered && !readOnly && (
                 <div className="flex justify-between">
                   <button className={`p-0.5 rounded border border-dc-border text-dc-text hover:border-dc-gold/50 disabled:opacity-30 ${touchTarget}`} aria-label={pl.towardTop}
@@ -126,16 +177,13 @@ export default function PileModal({ title, zone, cards, searchable, shuffleDefau
                   <button
                     key={d.key}
                     className="text-[10px] px-1 py-0.5 [@media(pointer:coarse)]:min-h-8 rounded border border-dc-border text-dc-text hover:border-dc-gold/50"
-                    onClick={() => {
-                      onMove(card, d.to, d.position)
-                      setMoved((prev) => new Set(prev).add(card.id))
-                    }}
+                    onClick={() => onMove(card, d.to, d.position)}
                   >
                     {pl.targets[d.key]}
                   </button>
                 ))}
               </div>}
-            </div>
+            </PileCard>
           ))}
         </div>
       </div>

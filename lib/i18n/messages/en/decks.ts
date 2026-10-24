@@ -35,7 +35,7 @@ export const decks: Messages['decks'] = {
     newDeck: 'New deck',
     createAndImport: 'Create and import',
     create: 'Create deck',
-    help: 'Paste the deck link: cards are imported from Scryfall as soon as the deck is created. To update the list later, use "Reimport" on the deck page.',
+    help: 'Paste the deck link or its text list (Moxfield: Export → Copy): cards are imported from Scryfall as soon as the deck is created. To update the list later, use "Reimport" on the deck page.',
   },
   page: {
     loadWhat: 'this deck',
@@ -60,6 +60,11 @@ export const decks: Messages['decks'] = {
     oracleOf: (name: string) => `Oracle and rulings: ${name}`,
     close: 'Close',
     makeCommander: 'Set as commander',
+  },
+  warnings: {
+    total: (total: number, size: number) => `The deck has ${total} card${total === 1 ? '' : 's'} instead of ${size}.`,
+    duplicates: (list: string) => `More than one copy of a card other than basic lands: ${list}.`,
+    identity: (several: boolean, list: string) => `Outside the color identity of the ${several ? 'commanders' : 'commander'}: ${list}.`,
   },
   playtest: {
     noCards: 'Import the deck list first to playtest it.',

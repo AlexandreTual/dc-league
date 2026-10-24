@@ -1,16 +1,15 @@
 // Raccourcis clavier sur la carte survolée et touches choisies, dans de vrais navigateurs :
-// mode test (jouer, engager, jeton copie X, cimetière, annuler, changer une touche, mémorisée), puis en ligne à 2
+// mode test (menu d'une carte focalisée au clavier, jouer, engager, jeton copie X, cimetière, annuler, changer une touche, mémorisée), puis en ligne à 2
 // (engager la carte d'un adversaire).
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs).
 // Usage : node scripts/shortcuts-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN] = PLAYERS
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {
@@ -57,6 +56,22 @@ try {
 
   const handCard = page.locator('[data-zone="hand"] [data-card-id]').first()
   const id = await handCard.getAttribute('data-card-id')
+
+  // Clavier : la carte focalisée porte son nom ; Entrée, Maj+F10 et la touche Menu ouvrent son menu ; consigne en français.
+  const described = (await page.locator('[id^="DndDescribedBy"]').first().textContent()) ?? ''
+  check(described.includes('Entrée') && !/press|space bar|draggable/i.test(described), `consigne du glisser en français (« ${described.slice(0, 40)}… »)`)
+  const cardName = await handCard.getAttribute('aria-label')
+  check(!!cardName && cardName !== id && await handCard.getAttribute('aria-roledescription') === 'carte', `carte de la main : nom lu (« ${cardName} »)`)
+  for (const key of ['Enter', 'Shift+F10', 'ContextMenu']) {
+    await handCard.focus()
+    await page.keyboard.press(key)
+    await page.locator('[role="menu"]').waitFor({ timeout: 3000 })
+    check(true, `${key} : la carte focalisée ouvre son menu`)
+    await page.keyboard.press('Escape')
+    await page.locator('[role="menu"]').waitFor({ state: 'detached' })
+  }
+  await capture(page, 'clavier')
+
   await handCard.hover()
   await page.keyboard.press('b')
   await inZone(page, 'battlefield', id).waitFor()

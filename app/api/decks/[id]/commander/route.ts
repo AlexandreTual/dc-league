@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { localized } from '@/lib/auth/api'
 import { INTERNAL_ERROR, loadEditableDeck } from '@/lib/cards/deck-access'
-import { setCommander, setDeckCommanderImage } from '@/lib/db-cards'
+import { setCommander, setDeckCommanderImage, unsetCommander } from '@/lib/db-cards'
 
 export const runtime = 'edge'
 
+/** Corps : `{ position, commander? }`. `commander: false` remet la carte dans le deck ; absent ou `true`, elle devient commandant. */
 export const PATCH = localized(async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await loadEditableDeck(req, params)
   if (ctx instanceof NextResponse) return ctx
 
-  const body = (await req.json().catch(() => ({}))) as { position?: unknown }
-  if (!Number.isInteger(body.position)) return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })
+  const body = (await req.json().catch(() => ({}))) as { position?: unknown; commander?: unknown }
+  if (!Number.isInteger(body.position) || (body.commander !== undefined && typeof body.commander !== 'boolean')) {
+    return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })
+  }
+
+  if (body.commander === false) {
+    const { data: image, error } = await unsetCommander(ctx.db, ctx.deck.id, body.position as number)
+    if (error === 'NOT_FOUND') return NextResponse.json({ error: 'Carte introuvable dans ce deck' }, { status: 404 })
+    if (error !== null) return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
+    const saved = await setDeckCommanderImage(ctx.db, ctx.deck.id, image)
+    if (saved.error !== null) return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
 
   const { data: card, error } = await setCommander(ctx.db, ctx.deck.id, body.position as number)
   if (error === 'NOT_FOUND') return NextResponse.json({ error: 'Carte introuvable dans ce deck' }, { status: 404 })

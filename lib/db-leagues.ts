@@ -1,4 +1,5 @@
 import type { Viewer } from './leagues/access'
+import { ERREURS_LIGUE } from './db'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -334,15 +335,19 @@ export async function enrollLeaguePlayer(
   playerId: string
 ): Promise<Result<DbLeaguePlayer>> {
   try {
+    // Inscription refusée en SQL dès que les matchs existent (génération simultanée comprise).
     await db
-      .prepare('INSERT OR IGNORE INTO league_players (league_id, player_id) VALUES (?, ?)')
+      .prepare(
+        `INSERT OR IGNORE INTO league_players (league_id, player_id) SELECT ?1, ?2
+         WHERE NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?1)`,
+      )
       .bind(leagueId, playerId)
       .run()
     const row = await db
       .prepare('SELECT * FROM league_players WHERE league_id = ? AND player_id = ?')
       .bind(leagueId, playerId)
       .first<Record<string, unknown>>()
-    return ok(normalizeLeaguePlayer(row!))
+    return row ? ok(normalizeLeaguePlayer(row)) : err(ERREURS_LIGUE.matchesExist)
   } catch (e) {
     return err((e as Error).message)
   }
@@ -354,10 +359,18 @@ export async function removeLeaguePlayer(
   playerId: string
 ): Promise<Result<true>> {
   try {
-    await db
-      .prepare('DELETE FROM league_players WHERE league_id = ? AND player_id = ?')
+    // Désinscription refusée en SQL dès que les matchs existent (génération simultanée comprise).
+    const { meta } = await db
+      .prepare(
+        `DELETE FROM league_players WHERE league_id = ?1 AND player_id = ?2
+           AND NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?1)`,
+      )
       .bind(leagueId, playerId)
       .run()
+    if (!meta.changes) {
+      const generated = await db.prepare('SELECT 1 AS found FROM matches WHERE league_id = ? LIMIT 1').bind(leagueId).first()
+      if (generated) return err(ERREURS_LIGUE.matchesExist)
+    }
     return ok(true)
   } catch (e) {
     return err((e as Error).message)

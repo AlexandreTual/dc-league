@@ -1,5 +1,6 @@
 'use client'
 
+import ErrorCode from '@/components/ErrorCode'
 import './globals.css'
 import { useEffect, useState } from 'react'
 import { DEFAULT_LANG, pickLang, UI_LANG_COOKIE, type Lang } from '@/lib/i18n/lang'
@@ -12,7 +13,7 @@ function browserLang(): Lang {
 }
 
 // Remplace la mise en page racine quand celle-ci plante : elle doit fournir <html> et <body>.
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [lang, setLang] = useState<Lang>(DEFAULT_LANG)
   useEffect(() => setLang(browserLang()), [])
   const t = messages(lang).site.error
@@ -22,6 +23,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         <main role="alert" className="max-w-5xl mx-auto px-4 py-16 flex flex-col items-center gap-4 text-center">
           <h1 className="font-fantasy text-3xl font-bold text-dc-gold">{t.title}</h1>
           <p className="text-dc-muted text-sm">{t.site}</p>
+          <ErrorCode error={error} label={t.code} />
           <div className="flex items-center gap-4">
             <button
               onClick={reset}

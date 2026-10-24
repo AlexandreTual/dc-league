@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { MIGRATIONS, createTestDb, readMigration } from '@/test/d1'
 import {
   chooseDeck, claimStart, createTable, deleteTable, finishTable, getTable, joinTable, leaveTable, listTables, markPlaying,
-  playingTables, releaseStart, removeSeat, setHost, staleTables, startCheck, touchActivity, unfinishedTables,
+  finishedGamesToArchive, markGameArchived, playingTables, releaseStart, removeSeat, setHost, staleTables, startCheck, touchActivity, unfinishedTables,
 } from './db-games'
 
 let db: D1Database
@@ -91,6 +91,23 @@ describe('réservation du démarrage', () => {
     await deleteTable(old, 't')
     const seats = await old.prepare('SELECT COUNT(*) AS n FROM game_seats').first<{ n: number }>()
     expect(seats!.n).toBe(0)
+  })
+
+  it('les tables terminées ne sont jamais périmées ; leur partie est archivée une seule fois', async () => {
+    const done = (await commander()).data!.id
+    const playing = (await commander()).data!.id
+    await joinTable(db, done, 'p2')
+    await finishTable(db, done, 'p2', { duration: 3600, playTime: {} })
+    await markPlaying(db, playing)
+    await db.prepare("UPDATE game_tables SET last_activity_at = '2026-01-01 10:00:00'").run()
+    const before = new Date('2026-01-03T00:00:00Z')
+    expect((await staleTables(db, before)).data).toEqual([playing])
+    expect((await finishedGamesToArchive(db, before)).data).toEqual([done])
+    expect((await getTable(db, done)).data!.gameArchived).toBe(false)
+
+    await markGameArchived(db, done, new Date('2026-01-03T03:17:00Z'))
+    expect((await finishedGamesToArchive(db, before)).data).toEqual([])
+    expect((await getTable(db, done)).data).toMatchObject({ status: 'finished', winnerPlayerId: 'p2', durationSeconds: 3600, gameArchived: true })
   })
 })
 

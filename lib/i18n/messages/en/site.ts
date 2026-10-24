@@ -77,7 +77,7 @@ export const site: Messages['site'] = {
     draw: 'Draw',
     loss: 'Loss',
     lossScores: '1-2 or 0-2',
-    tiebreak: 'If players are tied in the standings, game difference (GW−GL) breaks the tie.',
+    tiebreak: 'Players tied on points in the standings are separated by game difference (GW−GL), then number of wins, then head-to-head (among the tied players only, when three or more are tied), then a fixed random draw.',
     sections: {
       format: {
         title: 'Format',
@@ -133,6 +133,7 @@ export const site: Messages['site'] = {
     site: "The site couldn't be displayed. Try again in a moment.",
     retry: 'Try again',
     home: 'Back to home',
+    code: 'Code to pass on:',
   },
   loadError: {
     title: (what: string) => `Couldn't load ${what}.`,

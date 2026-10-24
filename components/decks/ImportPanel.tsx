@@ -7,6 +7,7 @@ import { parseDeckList } from '@/lib/cards/parse'
 import type { ImportSummary } from '@/lib/cards/types'
 import { errorClass, inputClass, primaryButtonClass } from '@/components/formStyles'
 import { useT } from '@/components/i18n/I18nProvider'
+import FormatWarnings from './FormatWarnings'
 import { importDeckText, progressLabel, type ImportProgress } from './importDeck'
 
 /** Résumé d'un import terminé : nombre de cartes, part en français, cartes introuvables. */
@@ -19,6 +20,7 @@ export function ImportResult({ deckId, summary }: { deckId: string; summary: Imp
         <strong>{m.resultCards(summary.total)}</strong>{m.resultRest(percent)}
         {summary.commanders === 0 && m.noCommander}
       </p>
+      <FormatWarnings items={summary.warnings} />
       {summary.notFound.length > 0 && (
         <div className={errorClass + ' text-left'}>
           <p className="font-semibold mb-1">{m.notFoundTitle(summary.notFound.length)}</p>

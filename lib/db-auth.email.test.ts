@@ -2,14 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from '@/test/d1'
 import {
   AUTH_ERR,
-  countPasswordRequests,
   createInvitation,
   createUserFromInvitation,
   getUserByEmail,
   insertTestMail,
   listAccountStatuses,
   listTestMails,
-  recordPasswordRequest,
+  reservePasswordRequest,
   setUserEmail,
 } from './db-auth'
 
@@ -78,16 +77,30 @@ describe('invitations avec adresse', () => {
 })
 
 describe('demandes de mot de passe oublié', () => {
-  it('compte les demandes de la dernière heure', async () => {
-    for (let i = 0; i < 3; i++) await recordPasswordRequest(db, 'u1', minutes(i))
-    await recordPasswordRequest(db, 'u2', now)
-    expect((await countPasswordRequests(db, 'u1', minutes(5))).data).toBe(3)
-    expect((await countPasswordRequests(db, 'u1', minutes(62))).data).toBe(0)
+  const limits = { perUser: 3, perDay: 5 }
+  const reserve = (userId: string, at: Date) => reservePasswordRequest(db, userId, at, limits).then((r) => r.data)
+
+  it('au plus 3 demandes par compte dans l’heure, de nouveau après', async () => {
+    for (let i = 0; i < 3; i++) expect(await reserve('u1', minutes(i))).toBe(true)
+    expect(await reserve('u1', minutes(5))).toBe(false)
+    expect(await reserve('u2', minutes(5))).toBe(true)
+    expect(await reserve('u1', minutes(62))).toBe(true)
   })
 
-  it('efface les demandes de plus d’une heure', async () => {
-    await recordPasswordRequest(db, 'u1', now)
-    await recordPasswordRequest(db, 'u2', minutes(61))
+  it('demandes simultanées : exactement 3 réservées', async () => {
+    const results = await Promise.all(Array.from({ length: 10 }, () => reserve('u1', now)))
+    expect(results.filter(Boolean)).toHaveLength(3)
+  })
+
+  it('plafond global sur 24 heures, tous comptes confondus', async () => {
+    for (const [u, at] of [['u1', 0], ['u1', 1], ['u1', 2], ['u2', 3], ['u2', 4]] as const) expect(await reserve(u, minutes(at))).toBe(true)
+    expect(await reserve('u2', minutes(120))).toBe(false)
+    expect(await reserve('u2', minutes(24 * 60 + 1))).toBe(true)
+  })
+
+  it('efface les demandes de plus d’un jour', async () => {
+    await reserve('u1', now)
+    await reserve('u2', minutes(24 * 60 + 1))
     const row = await db.prepare('SELECT COUNT(*) AS n FROM password_requests').first<{ n: number }>()
     expect(Number(row?.n)).toBe(1)
   })

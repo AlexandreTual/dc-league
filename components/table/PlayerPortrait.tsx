@@ -178,8 +178,8 @@ export default function PlayerPortrait(props: {
           {lifePop && <PopBubble pop={lifePop} kind="life" className="right-full top-0 mr-1 text-2xl" />}
         </span>
         <div className="col-start-2 row-start-2 tablet:col-start-1 tablet:col-span-3 flex tablet:grid tablet:grid-cols-[1fr_1fr_44px] items-center gap-1 text-dc-text">
-          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label={pl.lifeMinus}><Minus className={lifeIcon} /></button>
-          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label={pl.lifePlus}><Plus className={lifeIcon} /></button>
+          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: -step(e) })} aria-label={pl.lifeMinus(p.name)}><Minus className={lifeIcon} /></button>
+          <button className={lifeButton} disabled={!canAct} onClick={(e) => send({ type: 'life', target: player, delta: step(e) })} aria-label={pl.lifePlus(p.name)}><Plus className={lifeIcon} /></button>
           <button className={`${lifeButton} ml-auto tablet:ml-0`} aria-label={pl.countersOf(p.name)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
             <MoreHorizontal className={lifeIcon} />
           </button>

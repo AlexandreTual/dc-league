@@ -5,6 +5,7 @@ import type { Arrival } from '@/lib/game/card-effects'
 import { canSelectIn } from '@/lib/game/selection'
 import type { Catalog, CardView, PlayerView, VisibleCard, ZoneRef } from '@/lib/game/types'
 import Draggable from './Draggable'
+import { cardLabel } from './a11y'
 import GameCard, { CardBack, type Lang } from './GameCard'
 import { useLasso, type Box } from './lasso'
 import { longPressClass, menuGesture, type MenuPoint } from './touch'
@@ -15,6 +16,10 @@ import { useT } from '@/components/i18n/I18nProvider'
 export const dropId = (ref: ZoneRef) => `${ref.player}:${ref.zone}`
 /** Identifiant glissé pour la carte du dessus de la bibliothèque d'un joueur (inconnue du navigateur). */
 export const topId = (player: string) => `top:${player}`
+/** Identifiant glissé d'une carte dans la vignette Cim. (la même carte se glisse aussi depuis la liste du cimetière). */
+export const tileKey = (id: string) => `tile:${id}`
+/** Identifiant glissé d'une carte dans la fenêtre d'une pile (bibliothèque, cimetière, exil). */
+export const pileKey = (id: string) => `pile:${id}`
 
 export type CardHandlers = {
   onDoubleClick: (id: string, zone: ZoneRef) => void
@@ -128,7 +133,7 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
           key={card.id}
-          {...cardProps(card.id, ref, props)}
+          {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)}
           className="absolute"
           style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
@@ -173,7 +178,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
           <CardBack key={`h${i}`} className="h-[90%]" />
         ) : (
           // La carte peut rétrécir (minWidth) pour se chevaucher quand la main est pleine.
-          <Draggable key={card.id} {...cardProps(card.id, ref, props)} className="h-[90%] hover:-translate-y-2 transition-transform" style={{ flex: '0 1 auto', minWidth: 24 }}>
+          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} className="h-[90%] hover:-translate-y-2 transition-transform" style={{ flex: '0 1 auto', minWidth: 24 }}>
             <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
           </Draggable>
         ),
@@ -209,7 +214,7 @@ export function OpponentHand(props: ZoneProps) {
           card.hidden ? (
             <CardBack key={`h${i}`} bare className={`h-full ${i > 0 ? '-ml-1.5' : ''}`} />
           ) : (
-            <Draggable key={card.id} {...cardProps(card.id, ref, props)} className={`h-full ${i > 0 ? '-ml-1.5' : ''}`}>
+            <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} className={`h-full ${i > 0 ? '-ml-1.5' : ''}`}>
               <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
             </Draggable>
           ),

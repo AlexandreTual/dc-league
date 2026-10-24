@@ -46,7 +46,8 @@ export const menus: Messages['menus'] = {
   },
   hand: {
     title: 'My hand',
-    revealHand: 'Reveal my hand',
+    revealHand: 'Reveal my hand to everyone',
+    revealHandTo: (name) => `Reveal my hand to ${name}`,
     revealAll: 'Reveal to everyone',
     revealTo: (name: string) => `Reveal to ${name}`,
     toBottom: 'Put on the bottom',

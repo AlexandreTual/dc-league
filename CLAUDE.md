@@ -35,7 +35,9 @@ npm run game:dev &                                  # serveur de jeu, port 8787
 npx wrangler pages dev --port 8788 &                # site (relancer après chaque build)
 node scripts/playtest-check.mjs http://localhost:8788 <deckId> <dossier>   # mode test (59 vérifications)
 node scripts/playtest-tablet-check.mjs http://localhost:8788 <deckId> <dossier>  # mode test sur tablette (1180×820 et 1024×768, tactile, puis portrait)
+node scripts/hand-size-check.mjs http://localhost:8788 <dossier>                 # taille de la main (réglage, piles plafonnées sur écran étroit, mémorisé, tablette)
 node scripts/online-check.mjs http://localhost:8788 <dossier>              # partie en ligne
+node scripts/rematch-check.mjs http://localhost:8788 <dossier>             # revanche (écran de victoire, bandeau de fin, proposition aux autres, decks repris, refus d'un joueur extérieur)
 node scripts/board-window-check.mjs http://localhost:8788 <dossier>        # plateau d'un adversaire en fenêtre à part
 node scripts/deck-link-check.mjs http://localhost:8788 <dossier>           # import par lien
 node scripts/mail-check.mjs http://localhost:8788 <dossier>                # mails (MAIL_TEST=1 dans .dev.vars)
@@ -46,10 +48,10 @@ node scripts/loyalty-check.mjs http://localhost:8788 <dossier>             # loy
 node scripts/card-effects-check.mjs http://localhost:8788 <dossier>        # légendaires (liseré, éclat d'arrivée), entrée du commandant, retour du cimetière et créatures volantes (mode test, fenêtre « Animations » : tout ou une à la fois, mouvement réduit, tablette, en ligne)
 node scripts/abilities-check.mjs http://localhost:8788 <dossier>           # « Donner une capacité… » (fenêtre, Protection/Parade, symboles/libellés, fin du tour, vol donné/perdu, tablette, en ligne)
 node scripts/phasing-check.mjs http://localhost:8788 <dossier>             # permanent hors phase (mode test, retour au début du tour, tablette, en ligne)
-node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur, admin ; u-e2e-1 admin)
+node scripts/home-nav-check.mjs http://localhost:8788 <dossier>            # accueil et navigation (visiteur, joueur avec « À toi de jouer » et « Reprendre », admin ; u-e2e-1 admin, serveur de jeu lancé)
 node scripts/leagues-check.mjs http://localhost:8788 <dossier>             # ligues de joueurs (ligue privée, lien d'invitation, droits, gestion, anciennes adresses)
 node scripts/ai-check.mjs http://localhost:8788 <dossier>                  # assistant IA avec un faux Gemini (deck, mode test, en ligne, admin, quota, téléphone)
-node scripts/shortcuts-check.mjs http://localhost:8788 <dossier>         # raccourcis clavier (carte survolée, sélection, X jeton copie, touches choisies et mémorisées, en ligne)
+node scripts/shortcuts-check.mjs http://localhost:8788 <dossier>         # raccourcis clavier (carte focalisée : Entrée ouvre son menu, carte survolée, sélection, X jeton copie, touches choisies et mémorisées, en ligne)
 node scripts/admin-games-check.mjs http://localhost:8788 <dossier>       # admin : parties en cours, suppression (vide les tables locales)
 node scripts/selection-check.mjs http://localhost:8788 <dossier>          # sélection de plusieurs cartes (rectangle, groupe, ordre ; souris, tablette, en ligne)
 node scripts/visio-check.mjs http://localhost:8788 <dossier>              # visio en ligne (caméras simulées, 3 joueurs dont tablette, taille, déplacement, couper, quitter)
@@ -62,7 +64,7 @@ node scripts/i18n-check.mjs http://localhost:8788 <dossier>               # site
 Assistant IA : le site doit être lancé avec, dans `.dev.vars` (non versionné), `GEMINI_API_KEY=test` et `GEMINI_BASE_URL=http://localhost:8790` ; `ai-check` démarre lui-même le faux Gemini (`scripts/fake-gemini.mjs`). Guide de la vraie clé : `docs/assistant-ia.md`.
 
 Comptes de test (`scripts/seed-online.mjs`) : joueurs `e2e-1`…`e2e-5` (Ana, Bastien, Chloé, Damien, Émilie), cookie `dc_session` = `jeton-de-test-<id>`, decks `deck-<id>` (avec Teferi, Time Raveler, loyauté 4, l'Ange de Serra qui vole, et les jetons Plante et Esprit volant), ligue publique `league-e2e` (« Saison e2e », sans organisateur, `e2e-1`…`e2e-4` inscrits).
-Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `CHROME` (ex. `CHROME=/usr/bin/google-chrome`).
+Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `CHROME` (ex. `CHROME=/usr/bin/google-chrome`), ou à défaut `CHROMIUM_PATH` ; tous lancent Chromium via `scripts/browser.mjs`.
 
 ## Architecture (repères)
 
@@ -71,6 +73,7 @@ Si Chromium n'est pas à ce chemin, les scripts prennent celui de la variable `C
 - `lib/leagues/` : ligues créées par les joueurs : droits (`access.ts` : voir, gérer), chargement avec droits pour routes et pages (`route-access.ts`, `load.ts`), lien d'invitation (`join.ts`). Pages sous `/ligues/<id>/…`.
 - `lib/visio/` et `components/table/visio/` : visio WebRTC entre joueurs (signalisation relayée par le serveur de jeu, `docs/visio.md`).
 - `lib/ai/` : assistant IA (consigne, client Gemini, quota de 20 questions par jour, interrupteur admin) ; panneau dans `components/ai/`.
+- `lib/db-errors.ts` : journal des erreurs de production (routes API, pages d'erreur, nettoyage de nuit), lu dans l'administration ; où lire les journaux : `docs/journaux.md`.
 - `lib/cards/` : import de decks (texte, liens Moxfield/Archidekt), Scryfall, cartes en français.
 - `lib/game/` : moteur de partie pur (`applyAction`, `canApply`, `viewFor` sans fuite d'information cachée), menus, rangées ; donjons et leurs salles en dur dans `dungeons.ts`.
 - `workers/game/` : Worker + Durable Object des parties en ligne (déployé par `.github/workflows/deploy-game-worker.yml`).

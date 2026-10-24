@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
-import { countMatches } from '@/lib/db'
+import { countMatches, STATUTS_LIGUE } from '@/lib/db'
 import { enrollLeaguePlayer, getLeagueByInviteToken, isLeagueMember } from '@/lib/db-leagues'
 import { joinRefusal, INVITE_INVALID } from '@/lib/leagues/join'
 
@@ -24,7 +24,7 @@ export function POST(req: NextRequest) {
     if (refusal) return badRequest(refusal)
 
     const enrolled = await enrollLeaguePlayer(db, league.id, user!.playerId)
-    if (enrolled.error !== null) return resultError(enrolled.error)
+    if (enrolled.error !== null) return resultError(enrolled.error, STATUTS_LIGUE)
     return NextResponse.json({ league_id: league.id }, { status: 201 })
   })
 }

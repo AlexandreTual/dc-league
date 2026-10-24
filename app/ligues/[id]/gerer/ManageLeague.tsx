@@ -106,7 +106,7 @@ export default function ManageLeague({
 
       <LeagueSettings league={league} api={api} />
 
-      {open && !leagueStarted && <InvitePanel leagueId={league.id} initialToken={inviteToken} api={api} />}
+      {open && !leagueStarted && <InvitePanel leagueId={league.id} leagueName={league.name} initialToken={inviteToken} api={api} />}
 
       {open && !leagueStarted && (
         <ParticipantsPanel

@@ -1,0 +1,19 @@
+'use client'
+
+import { useEffect } from 'react'
+import { reportClientError } from '@/lib/client-error'
+
+/**
+ * Bas des pages d'erreur : envoie l'erreur au journal de l'administration et affiche son code
+ * (digest de Next.js, présent quand l'erreur vient du serveur) pour qu'un joueur puisse le transmettre.
+ */
+/** label : « Code à transmettre : » dans la langue de l'interface. */
+export default function ErrorCode({ error, label }: { error: Error & { digest?: string }; label: string }) {
+  useEffect(() => reportClientError(error), [error])
+  if (!error.digest) return null
+  return (
+    <p className="text-dc-muted text-xs" data-testid="error-digest">
+      {label} <code className="font-mono text-dc-text select-all">{error.digest}</code>
+    </p>
+  )
+}

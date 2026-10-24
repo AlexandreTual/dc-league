@@ -9,11 +9,10 @@ import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto'
 import { writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA] = PLAYERS
 const ANA_USER = `e2e-${ANA.name}`
 const OLD_PASSWORD = 'ancien-mot-de-passe'
@@ -80,7 +79,7 @@ async function login(page, username, password) {
   await page.getByRole('button', { name: 'Se connecter' }).click()
 }
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 try {
   const errors = []
   const phone = { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true }
@@ -93,10 +92,17 @@ try {
   await ana.goto(`${base}/profil`)
   check(await ana.getByTestId('email-banner').isVisible(), 'profil sans adresse : bandeau « Ajoute ton adresse mail… »')
   await ana.getByLabel('Adresse mail').fill('ana@exemple')
+  check(await ana.getByRole('button', { name: 'Enregistrer' }).nth(1).isDisabled(), 'adresse modifiée : enregistrement bloqué sans le mot de passe actuel')
+  await ana.locator('#email-password').fill('faux-mot-de-passe')
+  await ana.getByRole('button', { name: 'Enregistrer' }).nth(1).click()
+  await ana.getByText('Mot de passe actuel incorrect').waitFor()
+  check(true, 'mauvais mot de passe refusé : « Mot de passe actuel incorrect »')
+  await ana.locator('#email-password').fill(OLD_PASSWORD)
   await ana.getByRole('button', { name: 'Enregistrer' }).nth(1).click()
   await ana.getByText('Adresse mail invalide').waitFor()
   check(true, 'adresse invalide refusée : « Adresse mail invalide »')
   await ana.getByLabel('Adresse mail').fill('  ana@example.test ')
+  await ana.locator('#email-password').fill(OLD_PASSWORD)
   await ana.getByRole('button', { name: 'Enregistrer' }).nth(1).click()
   await ana.getByText('Adresse enregistrée').waitFor()
   check(!(await ana.getByTestId('email-banner').isVisible()), 'adresse enregistrée, bandeau masqué')

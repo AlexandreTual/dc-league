@@ -1,7 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { CARD_SCALES, GRAVEYARD_ARTS, type TableSettings } from '@/lib/table-settings'
+import { CARD_SCALES, GRAVEYARD_ARTS, HAND_SCALES, type TableSettings } from '@/lib/table-settings'
 import { useT } from '@/components/i18n/I18nProvider'
 
 /** Couleur proposée par le sélecteur quand le fond par défaut est utilisé (proche du fond actuel). */
@@ -54,6 +54,13 @@ export default function TableSettingsPanel({ settings, onChange, onClose, onShor
           <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.cardScale}
             onChange={(e) => onChange({ ...settings, cardScale: Number(e.target.value) })} aria-label={r.cardSize}>
             {CARD_SCALES.map((s) => <option key={s} value={s}>{Math.round(s * 100)} %</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-dc-text">
+          {r.handSize}
+          <select className="ml-auto bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm" value={settings.handScale}
+            onChange={(e) => onChange({ ...settings, handScale: Number(e.target.value) })} aria-label={r.handSize}>
+            {HAND_SCALES.map((s) => <option key={s} value={s}>{Math.round(s * 100)} %</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 text-sm text-dc-text">

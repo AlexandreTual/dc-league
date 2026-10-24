@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ClipboardPaste, ExternalLink, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import ImportPanel, { ImportProgressBar, ImportResult } from '@/components/decks/ImportPanel'
-import { importDeckFromLink, importDeckText, type ImportOutcome, type ImportProgress } from '@/components/decks/importDeck'
+import { creationImport, importDeckFromLink, importDeckText, type ImportOutcome, type ImportProgress } from '@/components/decks/importDeck'
+import { parseDeckList } from '@/lib/cards/parse'
 import type { ImportSummary } from '@/lib/cards/types'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import type { DbDeck } from '@/lib/db-decks'
@@ -20,31 +21,39 @@ function fieldsOf(deck: DbDeck): DeckFields {
   return { name: deck.name, moxfield_url: deck.moxfield_url ?? '' }
 }
 
-/** État de l'import en un clic d'un deck (lien Moxfield ou Archidekt → Scryfall → enregistrement). */
+/** État de l'import en un clic d'un deck (lien Moxfield ou Archidekt, ou liste collée → Scryfall → enregistrement). */
 type ImportState =
   | { step: 'running'; progress: ImportProgress }
   | { step: 'failed'; error: string; text: string; resumeFrom?: number }
   | { step: 'done'; summary: ImportSummary }
 
-function DeckForm({ initial, submitLabel, onSubmit, onCancel }: {
+/** Formulaire d'un deck ; `withList` ajoute la zone de collage de la liste (création seulement). */
+function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }: {
   initial: DeckFields
-  submitLabel: (fields: DeckFields) => string
-  onSubmit: (fields: DeckFields) => Promise<string | null>
+  submitLabel: (fields: DeckFields, list: string) => string
+  onSubmit: (fields: DeckFields, list: string) => Promise<string | null>
   onCancel?: () => void
+  withList?: boolean
 }) {
   const m = useT().decks.myDecks
   const [fields, setFields] = useState(initial)
+  const [list, setList] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const parsed = useMemo(() => parseDeckList(list), [list])
+  const cardCount = parsed.lines.reduce((n, l) => n + l.quantity, 0)
   const set = (k: keyof DeckFields) => (e: React.ChangeEvent<HTMLInputElement>) => setFields({ ...fields, [k]: e.target.value })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const err = await onSubmit(fields)
+    const err = await onSubmit(fields, list)
     setLoading(false)
     setError(err ?? '')
-    if (!err && !onCancel) setFields(emptyFields)
+    if (!err && !onCancel) {
+      setFields(emptyFields)
+      setList('')
+    }
   }
 
   return (
@@ -57,9 +66,29 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel }: {
         <label className={labelClass}>{m.linkLabel}</label>
         <input className={inputClass} type="url" value={fields.moxfield_url} onChange={set('moxfield_url')} placeholder="https://moxfield.com/decks/…" />
       </div>
+      {withList && (
+        <div>
+          <label className={labelClass} htmlFor="new-deck-list">Ou colle la liste</label>
+          <textarea
+            id="new-deck-list"
+            className={inputClass + ' font-mono text-xs'}
+            rows={6}
+            value={list}
+            onChange={(e) => setList(e.target.value)}
+            placeholder={'Commander\n1 Atraxa, Praetors\' Voice (C16) 28\n\nDeck\n1 Sol Ring (C21) 263\n…'}
+          />
+          {list.trim() && (
+            <p className="text-dc-muted text-xs mt-1">
+              {cardCount} cartes · {parsed.lines.filter((l) => l.section === 'commander').length} commandant(s) · {parsed.errors.length} illisible(s)
+              {fields.moxfield_url.trim() ? ' · la liste collée passe avant le lien' : ''}
+            </p>
+          )}
+          {parsed.tooLong && <p className={errorClass}>La liste dépasse 250 lignes</p>}
+        </div>
+      )}
       {error && <p className={errorClass}>{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" disabled={loading || !fields.name.trim()} className={primaryButtonClass}>{submitLabel(fields)}</button>
+        <button type="submit" disabled={loading || !fields.name.trim() || parsed.tooLong} className={primaryButtonClass}>{submitLabel(fields, list)}</button>
         {onCancel && (
           <button type="button" onClick={onCancel} className="px-4 rounded-xl border border-dc-border text-dc-muted hover:text-dc-text">
             <X className="w-4 h-4" />
@@ -148,13 +177,29 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
     await finish(id, await importDeckText(id, text, from, { t, onProgress }))
   }
 
-  async function create(fields: DeckFields) {
+  /** Importe une liste collée, avec la même progression que l'import par lien. */
+  async function startTextImport(id: string, text: string) {
+    setPastingId(null)
+    const onProgress = (progress: ImportProgress) => setImport(id, { step: 'running', progress })
+    await finish(id, await importDeckText(id, text, 0, { t, onProgress }))
+  }
+
+  async function create(fields: DeckFields, list: string) {
     const { error, data } = await sendJson(`/api/players/${playerId}/decks`, 'POST', fields)
     if (error) return error
     const deck = data as DbDeck
     setDecks((prev) => [...prev, deck])
-    if (deck.moxfield_url) void startImport({ ...deck, moxfield_url: deck.moxfield_url })
+    const todo = creationImport({ list, moxfield_url: deck.moxfield_url ?? '' })
+    if (todo?.kind === 'text') void startTextImport(deck.id, todo.text)
+    else if (todo?.kind === 'link') void startImport({ ...deck, moxfield_url: todo.url })
     return null
+  }
+
+  /** Réessaie le dernier import raté : la liste déjà connue, sinon le lien du deck. */
+  function retry(deck: DbDeck) {
+    const state = imports[deck.id]
+    if (state?.step === 'failed' && state.text) return startTextImport(deck.id, state.text)
+    if (deck.moxfield_url) return startImport({ ...deck, moxfield_url: deck.moxfield_url })
   }
 
   async function update(id: string, fields: DeckFields) {
@@ -209,7 +254,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
                 </button>
               </div>
             )}
-            {editingId !== deck.id && pastingId !== deck.id && <ImportStatus deck={deck} state={imports[deck.id]} onRetry={() => deck.moxfield_url && startImport({ ...deck, moxfield_url: deck.moxfield_url })} onResume={resumeImport} onPaste={() => setPastingId(deck.id)} />}
+            {editingId !== deck.id && pastingId !== deck.id && <ImportStatus deck={deck} state={imports[deck.id]} onRetry={() => void retry(deck)} onResume={resumeImport} onPaste={() => setPastingId(deck.id)} />}
             {pastingId === deck.id && editingId !== deck.id && (
               <div className="mt-4 pt-4 border-t border-dc-border">
                 <ImportPanel
@@ -229,7 +274,7 @@ export default function MyDecks({ playerId, initialDecks, cardCounts: initialCou
 
       <div className={cardClass}>
         <h2 className="font-fantasy text-lg text-dc-text flex items-center gap-2"><Plus className="w-4 h-4" /> {m.newDeck}</h2>
-        <DeckForm initial={emptyFields} submitLabel={(f) => (f.moxfield_url.trim() ? m.createAndImport : m.create)} onSubmit={create} />
+        <DeckForm withList initial={emptyFields} submitLabel={(f, list) => (creationImport({ list, moxfield_url: f.moxfield_url }) ? m.createAndImport : m.create)} onSubmit={create} />
         <p className="text-dc-muted text-xs">{m.help}</p>
       </div>
     </div>

@@ -1,14 +1,16 @@
 'use client'
 
+import ErrorCode from '@/components/ErrorCode'
 import Link from 'next/link'
 import { useT } from '@/components/i18n/I18nProvider'
 
-export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const t = useT().site.error
   return (
     <div role="alert" className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-center">
       <h1 className="font-fantasy text-3xl font-bold text-dc-gold">{t.title}</h1>
       <p className="text-dc-muted text-sm">{t.page}</p>
+      <ErrorCode error={error} label={t.code} />
       <div className="flex items-center gap-4">
         <button
           onClick={reset}

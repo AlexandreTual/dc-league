@@ -1,4 +1,4 @@
-// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes, place des piles, animations, cimetière en liste), mémorisés sur l'appareil.
+// Réglages d'affichage de la table (quadrillage, couleur du fond, taille des cartes et de la main, place des piles, animations, cimetière en liste), mémorisés sur l'appareil.
 
 export type TableSettings = {
   /** Quadrillage discret sur les champs de bataille. */
@@ -15,6 +15,8 @@ export type TableSettings = {
   abilityStyle: AbilityStyle
   /** Hauteur, en px, du haut de l'illustration sous le nom de chaque carte du cimetière en liste (ma colonne). */
   graveyardArt: number
+  /** Hauteur de la bande en bas de mon plateau (ma main et, à côté, mes piles), en multiple de la hauteur par défaut. */
+  handScale: number
 }
 
 export type AbilityStyle = 'icons' | 'labels'
@@ -67,7 +69,9 @@ function parseCardEffects(raw: unknown): CardEffects {
 export const CARD_SCALES = [0.8, 0.9, 1, 1.15, 1.3, 1.5]
 /** Hauteurs d'illustration proposées pour le cimetière en liste : petite, moyenne (par défaut), grande, très grande. */
 export const GRAVEYARD_ARTS = [16, 36, 60, 90]
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36 }
+/** Tailles de la main proposées dans Réglages (60 % à 140 %). */
+export const HAND_SCALES = [0.6, 0.8, 1, 1.2, 1.4]
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { grid: true, background: null, cardScale: 1, pilesBesideHand: true, cardEffects: ALL_EFFECTS, abilityStyle: 'icons', graveyardArt: 36, handScale: 1 }
 const KEY = 'dc-table-settings'
 const HEX = /^#[0-9a-f]{6}$/i
 const GRID_SIZE = 24
@@ -89,7 +93,9 @@ export function parseTableSettings(raw: string | null): TableSettings {
     const abilityStyle: AbilityStyle = data.abilityStyle === 'labels' ? 'labels' : 'icons'
     // Absente (sauvegarde d'avant) ou hors liste : moyenne.
     const graveyardArt = GRAVEYARD_ARTS.includes(data.graveyardArt) ? data.graveyardArt : 36
-    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects, abilityStyle, graveyardArt }
+    // Absente (sauvegarde d'avant) ou hors liste : 100 %.
+    const handScale = HAND_SCALES.includes(data.handScale) ? data.handScale : 1
+    return { grid: data.grid, background: data.background?.toLowerCase() ?? null, cardScale, pilesBesideHand, cardEffects, abilityStyle, graveyardArt, handScale }
   } catch {
     return DEFAULT_TABLE_SETTINGS
   }
@@ -132,4 +138,9 @@ export function battlefieldStyle(settings: TableSettings): { backgroundColor?: s
 /** Largeur d'une carte sur un grand champ de bataille : 7 % de sa largeur, au moins 72 px, multipliés par le réglage. */
 export function cardSize(scale: number): { width: string; minWidth: string } {
   return { width: `${Math.round(7 * scale * 10) / 10}%`, minWidth: `${Math.round(72 * scale)}px` }
+}
+
+/** Taille de la main passée à la bande main + piles (variable CSS lue par ses classes de hauteur). */
+export function handRowStyle(scale: number): { '--hand-scale': string } {
+  return { '--hand-scale': String(scale) }
 }

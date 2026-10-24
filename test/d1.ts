@@ -28,6 +28,9 @@ export const MIGRATIONS = [
   '0016_site_settings.sql',
   '0017_game_timing.sql',
   '0018_card_keywords.sql',
+  '0019_game_archive.sql',
+  '0020_error_log.sql',
+  '0021_game_rematch.sql',
 ]
 
 /** D1 refuse une requête qui lie plus de 100 paramètres. */
@@ -80,8 +83,9 @@ class Statement {
   }
 }
 
+/** Comme D1 : `undefined` n'est pas une valeur SQL (passer `null` explicitement). */
 function toValue(v: unknown): Value {
-  if (v === undefined) return null
+  if (v === undefined) throw new TypeError("D1_TYPE_ERROR: Type 'undefined' not supported for value 'undefined'")
   if (typeof v === 'boolean') return v ? 1 : 0
   return v as Value
 }

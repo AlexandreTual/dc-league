@@ -1,3 +1,5 @@
+import { compareStandings, recordMatch } from './leaderboard'
+
 type Ok<T> = { data: T; error: null }
 type Err = { data: null; error: string }
 export type Result<T> = Ok<T> | Err
@@ -176,23 +178,8 @@ export function computeAllStats(rows: MatchStatsRow[]): {
     if (!d1.league_names.includes(row.league_name)) d1.league_names.push(row.league_name)
     if (!d2.league_names.includes(row.league_name)) d2.league_names.push(row.league_name)
 
-    // Update raw game counts
-    p1.gw += score_p1; p1.gl += score_p2; p1.played++
-    p2.gw += score_p2; p2.gl += score_p1; p2.played++
-    d1.gw += score_p1; d1.gl += score_p2; d1.played++
-    d2.gw += score_p2; d2.gl += score_p1; d2.played++
-
-    // Match results
-    if (score_p1 > score_p2) {
-      p1.wins++; p1.points += 3; p2.losses++
-      d1.wins++; d1.points += 3; d2.losses++
-    } else if (score_p2 > score_p1) {
-      p2.wins++; p2.points += 3; p1.losses++
-      d2.wins++; d2.points += 3; d1.losses++
-    } else {
-      p1.draws++; p1.points++; p2.draws++; p2.points++
-      d1.draws++; d1.points++; d2.draws++; d2.points++
-    }
+    recordMatch(p1, p2, score_p1, score_p2)
+    recordMatch(d1, d2, score_p1, score_p2)
 
     // H2H — key is alphabetically sorted pair
     const [aId, bId] = player1_id < player2_id
@@ -227,7 +214,7 @@ export function computeAllStats(rows: MatchStatsRow[]): {
       points: p.points, gw: p.gw, gl: p.gl, played: p.played,
       decks: [...p.decks.values()].sort((a, b) => b.points - a.points || b.played - a.played),
     }))
-    .sort((a, b) => b.points - a.points || (b.gw - b.gl) - (a.gw - a.gl) || b.wins - a.wins)
+    .sort(compareStandings)
 
   const h2h: H2HEntry[] = [...h2hMap.values()].map((e) => ({
     player_a_id: e.a_id, player_a_name: e.a_name,

@@ -102,6 +102,13 @@ export const errors: Messages['errors'] = {
     aiDisabled: 'AI assistant unavailable',
     aiQuotaReached: 'No more questions today, see you tomorrow!',
     aiNoAnswer: 'The AI assistant isn’t responding, try again in a moment',
+    conversationTooLong: 'Conversation too long, start a new one',
+    gameNotFinished: 'The game isn’t over',
+    enrolledChanged: 'The enrolled players changed during generation: run it again.',
+    finalHasScoreClear: 'The final or third-place match already has a score: reset it before clearing this semi-final.',
+    semisFirst: 'Both semi-finals must be played before entering this score.',
+    playoffsStarted: 'The playoffs have started: reset them before correcting a league match.',
+    gameResumed: 'This game resumed in the meantime: it wasn’t deleted',
   },
   labels: {
     name: 'The name',

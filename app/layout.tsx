@@ -10,7 +10,15 @@ export const runtime = 'edge'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = messages(await getLang())
-  return { title: t.common.siteName, description: t.common.siteDescription }
+  return {
+    title: t.common.siteName,
+    description: t.common.siteDescription,
+    // Fichiers dans public/ : next-on-pages refuse app/icon.svg (il en ferait une route non edge).
+    icons: {
+      icon: { url: '/icon.svg', type: 'image/svg+xml' },
+      apple: { url: '/apple-icon.png', sizes: '180x180' },
+    },
+  }
 }
 
 export default async function RootLayout({

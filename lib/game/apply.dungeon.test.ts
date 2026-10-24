@@ -108,6 +108,53 @@ describe('initiative : exploration des Souterrains proposée', () => {
   })
 })
 
+describe('joueur éliminé : monarque et initiative (règles 724.4 et 725.4)', () => {
+  const game3 = () => run(setupFor('commander', 3), start(1))
+  /** Joueurs dans l'ordre du tour, à partir du joueur actif. */
+  const seats = (s: GameState) => {
+    const i = s.turnOrder.indexOf(s.activePlayer)
+    return [...s.turnOrder.slice(i), ...s.turnOrder.slice(0, i)]
+  }
+
+  it('hors de son tour : le joueur actif les prend et l’exploration lui est proposée ; l’éliminé n’a plus de proposition', () => {
+    let s = game3()
+    const [a, b] = seats(s)
+    s = play(s, { type: 'setMonarch', actor: b, to: b }, { type: 'setInitiative', actor: b, to: b })
+    expect(s.ventureOffers).toEqual([b])
+    s = play(s, { type: 'eliminate', actor: b, target: b })
+    expect(s.activePlayer).toBe(a)
+    expect(s.monarch).toBe(a)
+    expect(s.initiative).toBe(a)
+    expect(s.ventureOffers).toEqual([a])
+    expect(s.log.slice(-2).map((l) => l.text)).toEqual([
+      `${s.players[a].name} devient le monarque`,
+      `${s.players[a].name} prend l’initiative`,
+    ])
+  })
+
+  it('pendant son tour : le joueur suivant les prend', () => {
+    let s = game3()
+    const [a, b] = seats(s)
+    s = play(s, { type: 'setMonarch', actor: a, to: a }, { type: 'setInitiative', actor: a, to: a })
+    s = play(s, { type: 'eliminate', actor: a, target: a })
+    expect(s.activePlayer).toBe(b)
+    expect(s.monarch).toBe(b)
+    expect(s.initiative).toBe(b)
+    expect(s.ventureOffers).toEqual([b])
+  })
+
+  it('un autre détenteur garde la couronne et l’initiative', () => {
+    let s = game3()
+    const [a, b, c] = seats(s)
+    s = play(s, { type: 'setMonarch', actor: c, to: c }, { type: 'setInitiative', actor: c, to: c })
+    s = play(s, { type: 'eliminate', actor: a, target: a })
+    expect(s.activePlayer).toBe(b)
+    expect(s.monarch).toBe(c)
+    expect(s.initiative).toBe(c)
+    expect(s.ventureOffers).toEqual([c])
+  })
+})
+
 describe('vue et validation', () => {
   it('tout est public : donjon, salle, donjons terminés et propositions', () => {
     const s = play(game(), { type: 'venture', actor: 'p1', dungeon: 'phandelver' }, { type: 'setInitiative', actor: 'p1', to: 'p2' })

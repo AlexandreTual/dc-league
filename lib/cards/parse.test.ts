@@ -11,7 +11,6 @@ describe('parseDeckList : formats de ligne', () => {
     ['30 Forest', { quantity: 30, name: 'Forest', set: null, number: null }],
     ['1 Sol Ring (C21) 263', { quantity: 1, name: 'Sol Ring', set: 'C21', number: '263' }],
     ['1 Sol Ring (C21) 263 *F*', { quantity: 1, name: 'Sol Ring', set: 'C21', number: '263' }],
-    ['1 Kenrith, the Returned King (ELD) 303 *CMDR*', { quantity: 1, name: 'Kenrith, the Returned King', set: 'ELD', number: '303' }],
     ['1 Delver of Secrets // Insectile Aberration (ISD) 51', { quantity: 1, name: 'Delver of Secrets // Insectile Aberration', set: 'ISD', number: '51' }],
     ['1 Forest (SLD) 2024-1', { quantity: 1, name: 'Forest', set: 'SLD', number: '2024-1' }],
     ['1 Island (PLST) 123a', { quantity: 1, name: 'Island', set: 'PLST', number: '123a' }],
@@ -23,12 +22,22 @@ describe('parseDeckList : formats de ligne', () => {
     ['1x Sol Ring (cmr) 472 [Ramp]', { quantity: 1, name: 'Sol Ring', set: 'cmr', number: '472' }],
     ['1x Sol Ring (cmr) 472 *F* [Ramp,Artifact]', { quantity: 1, name: 'Sol Ring', set: 'cmr', number: '472' }],
     ['1x Sol Ring [Ramp]', { quantity: 1, name: 'Sol Ring', set: null, number: null }],
+    ['1 Sol Ring (C21)', { quantity: 1, name: 'Sol Ring', set: 'C21', number: null }],
+    ['1 Sol Ring (C21) *F*', { quantity: 1, name: 'Sol Ring', set: 'C21', number: null }],
+    ['1x Sol Ring (cmr) 472 [Ramp] ^Have,#37d67a^', { quantity: 1, name: 'Sol Ring', set: 'cmr', number: '472' }],
+    ['1x Sol Ring ^Have,#37d67a^', { quantity: 1, name: 'Sol Ring', set: null, number: null }],
   ])('lit « %s »', (text, expected) => {
     expect(parseDeckList(text).lines[0]).toEqual({ ...expected, section: 'main', lineNumber: 1 })
   })
 })
 
 describe('parseDeckList : sections', () => {
+  it('*CMDR* (export TappedOut) place la carte en section commandant', () => {
+    const r = parseDeckList('1 Kenrith, the Returned King (ELD) 303 *CMDR*\n1 Sol Ring *F*')
+    expect(r.lines[0]).toEqual({ lineNumber: 1, quantity: 1, name: 'Kenrith, the Returned King', set: 'ELD', number: '303', section: 'commander' })
+    expect(r.lines[1].section).toBe('main')
+  })
+
   it.each(['Commander', 'COMMANDER:', '// Commander'])('reconnaît l’en-tête %s', (header) => {
     const r = parseDeckList(`${header}\n1 Kenrith\n\nDeck\n1 Sol Ring`)
     expect(r.lines.map((l) => [l.name, l.section])).toEqual([
@@ -81,6 +90,48 @@ describe('parseDeckList : sections', () => {
     const r = parseDeckList('1 Sol Ring\nSideboard\n1 Duress\n2 Negate\nMaybeboard\n1 X\nDeck\n1 Arcane Signet')
     expect(r.lines.map((l) => l.name)).toEqual(['Sol Ring', 'Arcane Signet'])
     expect(r.ignored).toBe(3)
+  })
+
+  it('lit un export MTG Arena complet : seulement le commandant et le deck', () => {
+    const r = parseDeckList(
+      'About\nName Mon deck\n\nCompanion\n1 Lurrus of the Dream-Den (IKO) 226\n\nCommander\n1 Kenrith, the Returned King (ELD) 303\n\nDeck\n1 Sol Ring (C21) 263',
+    )
+    expect(r.lines.map((l) => [l.name, l.section])).toEqual([
+      ['Kenrith, the Returned King', 'commander'],
+      ['Sol Ring', 'main'],
+    ])
+    expect(r.errors).toEqual([])
+    expect(r.ignored).toBe(1)
+  })
+
+  it('après « About », seule la ligne « Name … » est une métadonnée', () => {
+    const r = parseDeckList('About\nName Mon deck\n1 Sol Ring')
+    expect(r.lines.map((l) => [l.name, l.section])).toEqual([['Sol Ring', 'main']])
+    expect(r.errors).toEqual([])
+  })
+
+  it.each(['Creatures (30)', 'Lands (36)', '// Ramp', '//Pioche'])('en-tête neutre « %s » : ni carte ni erreur', (header) => {
+    const r = parseDeckList(`1 Sol Ring\n${header}\n1 Llanowar Elves`)
+    expect(r.lines.map((l) => [l.name, l.section])).toEqual([
+      ['Sol Ring', 'main'],
+      ['Llanowar Elves', 'main'],
+    ])
+    expect(r.errors).toEqual([])
+    expect(r.ignored).toBe(0)
+  })
+
+  it('un en-tête neutre ne fait pas sortir de la réserve', () => {
+    const r = parseDeckList('1 Sol Ring\nSideboard\n// Contre\n1 Duress')
+    expect(r.lines.map((l) => l.name)).toEqual(['Sol Ring'])
+    expect(r.ignored).toBe(1)
+  })
+
+  it('un en-tête neutre clôt la section commandant', () => {
+    const r = parseDeckList('Commander (1)\n1 Kenrith\n\nCreatures (30)\n1 Llanowar Elves')
+    expect(r.lines.map((l) => [l.name, l.section])).toEqual([
+      ['Kenrith', 'commander'],
+      ['Llanowar Elves', 'main'],
+    ])
   })
 
   it('lit CRLF, espaces insécables et ignore les commentaires', () => {

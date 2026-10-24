@@ -25,6 +25,15 @@ describe('GameHistory', () => {
     expect(h.actions).toHaveLength(2)
   })
 
+  it('rechargement : rejoue les actions enregistrées sans les revalider (règle durcie depuis)', () => {
+    const other = new GameHistory(setup, [start(1)]).state.turnOrder[1]
+    // Refusée par le moteur actuel, mais acceptée par une version précédente.
+    const list: GameAction[] = [start(1), { type: 'endTurn', actor: other }, { type: 'draw', actor: 'p1', count: 1 }]
+    const h = new GameHistory(setup, list)
+    expect(h.actions).toEqual(list)
+    expect(h.state).toEqual(replay(setup, list))
+  })
+
   it('état égal au rejeu, y compris après annulation autour des snapshots', () => {
     const all = actions()
     for (const n of [19, 20, 21, 41]) {
@@ -48,6 +57,44 @@ describe('GameHistory', () => {
     expect(h.undo('p1')).toBe(false)
     expect(h.actions).toHaveLength(3)
   })
+
+  it('annuler : jamais une élimination (un éliminé peut avoir vu toutes les cartes)', () => {
+    const h = new GameHistory(setupFor('commander', 3, { eliminatedSeeAll: true }), [start(1)])
+    h.push({ type: 'eliminate', actor: 'p2', target: 'p2' })
+    expect(h.canUndo('p2')).toBe(false)
+    expect(h.undo('p2')).toBe(false)
+    h.push({ type: 'eliminate', actor: 'p1', target: 'p3' })
+    expect(h.canUndo('p1')).toBe(false)
+    expect(h.undo('p1')).toBe(false)
+    expect(h.state.players.p2.eliminated).toBe(true)
+    expect(h.state.players.p3.eliminated).toBe(true)
+  })
+
+  it('un tirage au hasard ne s’annule pas (sinon on relancerait jusqu’au résultat voulu)', () => {
+    const random: GameAction[] = [
+      { type: 'mulligan', actor: 'p1', seed: 5 },
+      { type: 'shuffle', actor: 'p1', seed: 6 },
+      { type: 'moveMany', actor: 'p1', ids: [], zone: 'library', position: 'top', random: true, seed: 7 },
+      { type: 'endLook', actor: 'p1', target: 'p1', shuffle: true, seed: 8 },
+    ]
+    for (const action of random) {
+      const h = new GameHistory(setup, [start(1)])
+      if (action.type === 'moveMany') action.ids = h.state.players.p1.zones.hand.slice(0, 2)
+      if (action.type === 'endLook') expect(h.push({ type: 'look', actor: 'p1', target: 'p1', count: 3 })).toBeNull()
+      expect(h.push(action)).toBeNull()
+      expect(h.canUndo('p1')).toBe(false)
+      expect(h.undo('p1')).toBe(false)
+    }
+  })
+
+  it('sans mélange ni ordre aléatoire, la fin d’un regard et un déplacement groupé s’annulent', () => {
+    const h = new GameHistory(setup, [start(1)])
+    h.push({ type: 'look', actor: 'p1', target: 'p1', count: 3 })
+    expect(h.push({ type: 'endLook', actor: 'p1', target: 'p1', shuffle: false })).toBeNull()
+    expect(h.canUndo('p1')).toBe(true)
+    expect(h.push({ type: 'moveMany', actor: 'p1', ids: h.state.players.p1.zones.hand.slice(0, 2), zone: 'library', position: 'top' })).toBeNull()
+    expect(h.canUndo('p1')).toBe(true)
+  })
 })
 
 describe('GameHistory (cas repris du mode solo)', () => {
@@ -59,8 +106,8 @@ describe('GameHistory (cas repris du mode solo)', () => {
     expect(new GameHistory(setup, list).state).toEqual(replay(setup, list))
   })
 
-  it('annuler un mulligan redonne la même main', () => {
-    const h = new GameHistory(one, [start(4)])
+  it('annuler un mulligan redonne la même main (mode test seulement)', () => {
+    const h = new GameHistory(one, [start(4)], { undoRandom: true })
     const hand = h.state.players.p1.zones.hand
     h.push({ type: 'mulligan', actor: 'p1', seed: 99 })
     expect(h.state.players.p1.zones.hand).not.toEqual(hand)

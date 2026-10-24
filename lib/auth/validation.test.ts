@@ -4,6 +4,7 @@ import {
   validatePassword,
   loginHref,
   safeRedirectPath,
+  afterInvitationPath,
   normalizeEmail,
   validateEmail,
   requiredText,
@@ -117,6 +118,24 @@ describe('safeRedirectPath', () => {
     ['/profil/decks?x=1', '/profil/decks?x=1'],
   ])('safeRedirectPath(%s) = %s', (input, expected) => {
     expect(safeRedirectPath(input)).toBe(expected)
+  })
+})
+
+describe('afterInvitationPath', () => {
+  it.each([
+    [null, '/profil'],
+    [undefined, '/profil'],
+    ['', '/profil'],
+    ['/ligues/rejoindre/abc', '/ligues/rejoindre/abc'],
+    ['/salon', '/salon'],
+    ['//evil.com', '/profil'],
+    ['https://evil.com/ligues/rejoindre/abc', '/profil'],
+    ['/\\evil.com', '/profil'],
+    ['/\t/evil.com', '/profil'],
+    ['/connexion', '/profil'],
+    ['/invitation/autre', '/profil'],
+  ])('afterInvitationPath(%s) = %s', (input, expected) => {
+    expect(afterInvitationPath(input)).toBe(expected)
   })
 })
 

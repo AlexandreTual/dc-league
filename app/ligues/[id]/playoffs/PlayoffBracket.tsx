@@ -5,6 +5,7 @@ import { CheckCircle, Clock, ExternalLink, Trophy, Award } from 'lucide-react'
 import Image from 'next/image'
 import { deckSiteName } from '@/lib/cards/deck-link'
 import { useT } from '@/components/i18n/I18nProvider'
+import { playoffChampion, semisPlayed } from '@/lib/leagues/playoffs'
 
 type DeckInfo = {
   deck_name: string | null
@@ -177,11 +178,9 @@ export default function PlayoffBracket({ playoffs, playerMap, deckMap }: Props) 
   const final      = playoffs.find((p) => p.stage === 'final')
   const thirdPlace = playoffs.find((p) => p.stage === 'third_place')
 
-  const bothSemisDone = semi1?.is_completed && semi2?.is_completed
+  const bothSemisDone = semisPlayed(playoffs)
 
-  const winnerId = final?.is_completed
-    ? ((final.score_p1 ?? 0) > (final.score_p2 ?? 0) ? final.player1_id : final.player2_id)
-    : null
+  const winnerId = playoffChampion(playoffs)
   const winner = winnerId ? playerMap[winnerId] : null
   const winnerDeck = winnerId ? deckMap[winnerId] : null
 

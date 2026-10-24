@@ -9,9 +9,15 @@ export type ParseResult = {
   tooLong: boolean
 }
 
-const SECTION_HEADERS: Record<string, Section | 'ignore'> = {
+// « about » : en-tête d'un export MTG Arena, suivi de métadonnées (« Name Mon deck ») qui ne sont pas des cartes.
+type State = Section | 'ignore' | 'about'
+
+const SECTION_HEADERS: Record<string, State> = {
+  about: 'about',
   commander: 'commander',
   commanders: 'commander',
+  // le compagnon est hors des 100 cartes en Commander
+  companion: 'ignore',
   deck: 'main',
   main: 'main',
   mainboard: 'main',
@@ -21,22 +27,26 @@ const SECTION_HEADERS: Record<string, Section | 'ignore'> = {
   tokens: 'ignore',
 }
 
-// quantité optionnelle (« 1 », « 1x », « 1X », « 1 x »), nom, puis éventuellement "(SET) numéro",
-// puis des marques *F* ignorées
-const CARD_LINE = /^(?:(\d+)\s*(?:[xX]\s+|\s+))?(.+?)(?:\s+\(([A-Za-z0-9]+)\)\s+(\S+))?((?:\s+\*[A-Za-z]+\*)*)$/
+// quantité optionnelle (« 1 », « 1x », « 1X », « 1 x »), nom, puis éventuellement "(SET)" suivi ou non du numéro,
+// puis des marques (*F* ignorée, *CMDR* des exports TappedOut pour le commandant)
+const CARD_LINE = /^(?:(\d+)\s*(?:[xX]\s+|\s+))?(.+?)(?:\s+\(([A-Za-z0-9]+)\)(?:\s+(?!\*)(\S+))?)?((?:\s+\*[A-Za-z]+\*)*)$/
 // catégories Archidekt en fin de ligne : « [Ramp] », « [Commander{top}] », « [Ramp,Draw] »
 const CATEGORIES = /\s*\[([^\]]*)\]$/
 // réserve au format MTGO / Arena : « SB: 1 Duress »
 const SIDEBOARD_LINE = /^SB:/i
+// étiquettes Archidekt en fin de ligne : « ^Have,#37d67a^ »
+const TAGS = /(?:\s*\^[^^]*\^)+$/
+// en-têtes sans section (regroupement par type ou commentaire) : « Creatures (30) », « // Ramp »
+const NEUTRAL_HEADER = /^(?:\/\/.*|\S.* \(\d+\))$/
 
-function headerOf(line: string): Section | 'ignore' | null {
+function headerOf(line: string): State | 'neutral' | null {
   const word = line
     .replace(/^\/\/\s*/, '')
     .replace(/:$/, '')
     .replace(/\s*\(\d+\)$/, '') // « Commander (1) », « Deck (99) »
     .trim()
     .toLowerCase()
-  return SECTION_HEADERS[word] ?? null
+  return SECTION_HEADERS[word] ?? (NEUTRAL_HEADER.test(line) ? 'neutral' : null)
 }
 
 /**
@@ -57,7 +67,7 @@ function splitCategories(line: string): { line: string; commander: boolean; outO
 
 export function parseDeckList(text: string): ParseResult {
   const result: ParseResult = { lines: [], ignored: 0, errors: [], tooLong: false }
-  let section: Section | 'ignore' = 'main'
+  let section: State = 'main'
 
   text.replace(/\r\n?/g, '\n').split('\n').forEach((raw, index) => {
     const lineNumber = index + 1
@@ -65,16 +75,25 @@ export function parseDeckList(text: string): ParseResult {
     if (!line || line.startsWith('#')) return
 
     const header = headerOf(line)
+    if (header === 'neutral') {
+      // un en-tête par type clôt la section commandant, mais ne fait pas sortir d'une section ignorée
+      if (section === 'commander' || section === 'about') section = 'main'
+      return
+    }
     if (header) {
       section = header
       return
+    }
+    if (section === 'about') {
+      if (/^name\s/i.test(line)) return
+      section = 'main'
     }
     if (section === 'ignore' || SIDEBOARD_LINE.test(line)) {
       result.ignored++
       return
     }
 
-    const categories = splitCategories(line)
+    const categories = splitCategories(line.replace(TAGS, ''))
     if (categories.outOfDeck) {
       result.ignored++
       return
@@ -92,7 +111,7 @@ export function parseDeckList(text: string): ParseResult {
       name,
       set: m[3] ?? null,
       number: m[4] ?? null,
-      section: categories.commander ? 'commander' : section,
+      section: categories.commander || /\*CMDR\*/i.test(m[5] ?? '') ? 'commander' : section,
     })
   })
 

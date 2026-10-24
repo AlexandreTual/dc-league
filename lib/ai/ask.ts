@@ -3,8 +3,16 @@ import { getCardsByOracle } from '@/lib/db-cards'
 import { getAiUsage, giveBackAiQuestion, takeAiQuestion } from '@/lib/db-ai'
 import { isOracleId } from '@/lib/cards/rulings'
 import type { Ruling } from '@/lib/cards/types'
-import type { GeminiClient } from './gemini'
-import { AI_DAILY_QUOTA, AI_MAX_CARDS, AI_MAX_QUESTION_CHARS } from './limits'
+import { GeminiError, type GeminiClient } from './gemini'
+import { historyChars } from './history'
+import {
+  AI_DAILY_QUOTA,
+  AI_MAX_ANSWER_CHARS,
+  AI_MAX_CARDS,
+  AI_MAX_HISTORY,
+  AI_MAX_HISTORY_CHARS,
+  AI_MAX_QUESTION_CHARS,
+} from './limits'
 import { AI_DISABLED, AI_NO_ANSWER, AI_QUOTA_REACHED, AI_UNKNOWN_CARD } from './messages'
 import { buildContents, FRENCH, systemInstruction, type PromptOptions } from './prompt'
 import { isLang, type Lang } from '@/lib/i18n/lang'
@@ -46,10 +54,18 @@ export function parseAskBody(body: Record<string, unknown>): Parsed {
   }
   const question = messages[messages.length - 1]
   if (!question || question.role !== 'user' || !question.text.trim()) return { ok: false, error: 'Pose une question' }
-  if (messages.some((m) => m.role === 'user' && m.text.length > AI_MAX_QUESTION_CHARS)) {
+
+  // Seuls les derniers messages partent chez Gemini (en commençant par une question) : ce sont eux qu'on borne.
+  let kept = messages.slice(-AI_MAX_HISTORY)
+  while (kept[0].role !== 'user') kept = kept.slice(1)
+  if (kept.some((m) => m.role === 'user' && m.text.length > AI_MAX_QUESTION_CHARS)) {
     return { ok: false, error: `Question trop longue (${AI_MAX_QUESTION_CHARS} caractères au plus)` }
   }
-  return { ok: true, oracleIds, messages, ...(isLang(body.cardLang) ? { cardLang: body.cardLang } : {}) }
+  // Les réponses viennent du navigateur : sans borne, un joueur épuiserait le quota Gemini du site.
+  if (kept.some((m) => m.role === 'assistant' && m.text.length > AI_MAX_ANSWER_CHARS) || historyChars(kept) > AI_MAX_HISTORY_CHARS) {
+    return { ok: false, error: 'Conversation trop longue, recommence-la' }
+  }
+  return { ok: true, oracleIds, messages: kept, ...(isLang(body.cardLang) ? { cardLang: body.cardLang } : {}) }
 }
 
 /** Consigne selon la langue de l'interface ; noms français si l'interface ou les cartes sont en français. */
@@ -84,6 +100,11 @@ export async function askAi(
     return { status: 200, answer, remaining: taken.data }
   } catch (e) {
     console.error('[ia]', (e as Error).message)
+    // Question rendue seulement si l'échec ne vient pas de la requête (délai, Gemini en panne) :
+    // une requête refusée ou une limite de débit atteinte reste comptée, le quota freine alors les abus.
+    if (e instanceof GeminiError && e.kind !== 'timeout' && e.kind !== 'unavailable') {
+      return { status: 503, error: AI_NO_ANSWER, remaining: taken.data }
+    }
     await giveBackAiQuestion(deps.db, userId, day)
     return { status: 503, error: AI_NO_ANSWER, remaining: taken.data + 1 }
   }

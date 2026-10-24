@@ -109,6 +109,14 @@ export const errors = {
     aiDisabled: 'Assistant IA indisponible',
     aiQuotaReached: 'Plus de questions pour aujourd’hui, à demain !',
     aiNoAnswer: 'L’assistant IA ne répond pas, réessaie dans un moment',
+    conversationTooLong: 'Conversation trop longue, recommence-la',
+    // Ajouts venus de main
+    gameNotFinished: 'La partie n’est pas terminée',
+    enrolledChanged: 'Les inscrits ont changé pendant la génération : relance-la.',
+    finalHasScoreClear: 'La finale ou la petite finale a déjà un score : réinitialise-le avant d’effacer cette demi-finale.',
+    semisFirst: 'Les deux demi-finales doivent être jouées avant de saisir ce score.',
+    playoffsStarted: 'Les playoffs sont lancés : réinitialise-les avant de corriger un match de ligue.',
+    gameResumed: 'Cette partie a repris entre-temps : elle n’a pas été supprimée',
   },
   /** Noms des champs insérés dans `required` et `tooLong`. */
   labels: {

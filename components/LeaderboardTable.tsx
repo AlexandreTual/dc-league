@@ -148,6 +148,8 @@ export default function LeaderboardTable({ players, totalPlayers }: Props) {
 
       <p className="text-center text-dc-muted text-xs pt-2">
         {t.footer}
+        <br />
+        {t.footerTie}
       </p>
     </div>
   )

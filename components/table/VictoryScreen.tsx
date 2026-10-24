@@ -14,12 +14,14 @@ const COLORS = ['#c9a84c', '#f0d080', '#fff4d6', '#a8862f', '#e8c766']
  * Victoire (partie en ligne terminée avec un gagnant) : portrait du gagnant (illustration de son commandant),
  * « Victoire de <nom> » et confettis dorés ; un clic ou une touche ferme. Mouvement réduit : sans confettis (CSS).
  */
-export default function VictoryScreen({ view, winner, catalogs, lang, onClose }: {
+export default function VictoryScreen({ view, winner, catalogs, lang, onClose, rematch }: {
   view: PlayerView
   winner: string
   catalogs: Record<string, Catalog>
   lang: Lang
   onClose: () => void
+  /** Bouton de revanche (joueur assis d'une partie en ligne) ; absent : pas de bouton. */
+  rematch?: { label: string; busy: boolean; onGo: () => void }
 }) {
   const t = useT().table
   const name = view.players[winner]?.name ?? '?'
@@ -35,7 +37,11 @@ export default function VictoryScreen({ view, winner, catalogs, lang, onClose }:
   })), [])
 
   useEffect(() => {
-    const close = () => onClose()
+    // Entrée sur le bouton de revanche : la revanche, pas la fermeture.
+    const close = (e: KeyboardEvent) => {
+      if (e.target instanceof Element && e.target.closest('[data-testid="victory-rematch"]')) return
+      onClose()
+    }
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
   }, [onClose])
@@ -60,6 +66,12 @@ export default function VictoryScreen({ view, winner, catalogs, lang, onClose }:
           <div className="w-28 h-28 rounded-full border-4 border-dc-gold bg-dc-purple flex items-center justify-center font-fantasy text-5xl text-dc-gold">{name.slice(0, 1).toUpperCase()}</div>
         )}
         <p className="font-fantasy text-2xl text-dc-gold">{t.status.winner(name)}</p>
+        {rematch && (
+          <button className="px-4 py-2 rounded-lg text-sm border border-dc-gold/60 text-dc-gold bg-dc-gold/15 hover:bg-dc-gold/25 disabled:opacity-40"
+            disabled={rematch.busy} onClick={(e) => { e.stopPropagation(); rematch.onGo() }} data-testid="victory-rematch">
+            {rematch.label}
+          </button>
+        )}
         <p className="text-xs text-dc-muted">{t.victory.close}</p>
       </div>
     </div>

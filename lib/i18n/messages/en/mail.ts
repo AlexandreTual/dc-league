@@ -22,4 +22,10 @@ export const mail: Messages['mail'] = {
     button: 'Choose my password',
     outro: 'If you didn’t ask for anything, just ignore this email.',
   },
+  emailChanged: {
+    subject: 'Commander League — email address changed',
+    intro: 'the email address of your account was just changed or removed from your profile. To sign in',
+    button: 'Sign in',
+    outro: 'If it wasn’t you, sign in and change your password right away, then put your address back in your profile.',
+  },
 }

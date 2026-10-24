@@ -85,8 +85,15 @@ export default function PlayoffsPanel({
     const { ok, data } = await call<DbPlayoff>(`/api/playoffs/${id}`, 'DELETE')
     if (!ok) return
     const updated = data as DbPlayoff
-    setPlayoffs((prev) => prev.map((p) => (p.id === id ? updated : p)))
-    showToast(t.scoreReset)
+    // Une demi-finale effacée retire la finale et la petite finale (sans score) côté serveur.
+    const semi = updated.stage === 'semi1' || updated.stage === 'semi2'
+    setPlayoffs((prev) =>
+      prev
+        .filter((p) => !semi || (p.stage !== 'final' && p.stage !== 'third_place'))
+        .map((p) => (p.id === id ? updated : p))
+    )
+    showToast(semi ? t.scoreResetSemi : t.scoreReset)
+    router.refresh()
   }
 
   /** Matchs jouables : les deux joueurs sont connus et présents au classement. */

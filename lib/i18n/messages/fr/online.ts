@@ -33,7 +33,10 @@ export const online = {
     seeAll: 'Un joueur éliminé voit toutes les cartes.',
     myDeck: 'Mon deck',
     chooseDeck: 'Choisir un deck…',
-    importFirst: "Importe d'abord la liste d'un de tes decks (Profil → Mes decks).",
+    /** Avant et après le lien « Mes decks ». */
+    importFirst: "Importe d'abord la liste d'un de tes decks dans ",
+    importFirstAfter: '.',
+    myDecks: 'Mes decks',
     whoStarts: 'Qui commence ?',
     randomDraw: 'Tirage au sort',
     start: 'Démarrer la partie',
@@ -71,6 +74,9 @@ export const online = {
    * envoyé, traduit côté navigateur par `translateGameError` (`lib/i18n/game-errors.ts`).
    */
   gameErrors: {
+    // salle de jeu (room.ts) et départ d'une table (db-games.ts), ajouts venus de main
+    playerNotSeated: 'Ce joueur n’est pas à la table',
+    notFinished: 'La partie n’est pas terminée',
     // validate.ts
     invalidAction: 'Action invalide',
     unknownAction: 'Action inconnue',

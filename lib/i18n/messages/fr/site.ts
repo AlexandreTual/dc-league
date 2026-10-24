@@ -68,14 +68,14 @@ export const site = {
   },
   rules: {
     title: 'Règles de la Ligue',
-    intro: "La ligue se joue en phase de Round Robin (tout le monde affronte tout le monde), suivie d'un Top 4 entre les quatre meilleurs joueurs.",
+    intro: "La ligue se joue en phase de tous contre tous (chacun affronte tous les autres), suivie d'un Top 4 entre les quatre meilleurs joueurs.",
     scoring: 'Système de points',
     win: 'Victoire',
     winScores: '2-0 ou 2-1',
     draw: 'Nul',
     loss: 'Défaite',
     lossScores: '1-2 ou 0-2',
-    tiebreak: "En cas d'égalité au classement : la différence de manches (GW−GL) est utilisée comme critère de départage.",
+    tiebreak: 'À égalité de points au classement : la différence de manches (GW−GL), puis le nombre de victoires, puis la confrontation directe (entre eux seuls à trois ou plus), puis un tirage au sort fixe.',
     sections: {
       format: {
         title: 'Format',
@@ -131,6 +131,7 @@ export const site = {
     site: "Le site n'a pas pu s'afficher. Réessaie dans un instant.",
     retry: 'Réessayer',
     home: "Retour à l'accueil",
+    code: 'Code à transmettre :',
   },
   /** `components/LoadError.tsx` : le complément (« les ligues »…) vient de la page. */
   loadError: {

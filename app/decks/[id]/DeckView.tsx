@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, BotMessageSquare, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, X } from 'lucide-react'
+import { BookOpen, BotMessageSquare, Crown, ExternalLink, LayoutGrid, List, Play, RefreshCw, Sparkles, Undo2, X } from 'lucide-react'
 import type { DbDeck } from '@/lib/db-decks'
 import type { DeckCardView } from '@/lib/cards/types'
 import { displayCard, displayName, groupDeckCards } from '@/lib/cards/groups'
@@ -14,6 +14,8 @@ import ImportPanel, { ImportProgressBar } from '@/components/decks/ImportPanel'
 import { importDeckFromLink, type ImportProgress } from '@/components/decks/importDeck'
 import type { ImportSummary } from '@/lib/cards/types'
 import { deckSiteName } from '@/lib/cards/deck-link'
+import { deckWarnings, warningText } from '@/lib/cards/warnings'
+import FormatWarnings from '@/components/decks/FormatWarnings'
 import OracleModal from '@/components/OracleModal'
 import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import LanguageMenu from '@/components/i18n/LanguageMenu'
@@ -59,8 +61,8 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
     saveDeckView(next)
   }
 
-  async function makeCommander(card: DeckCardView) {
-    const { error } = await sendJson(`/api/decks/${deck.id}/commander`, 'PATCH', { position: card.position })
+  async function makeCommander(card: DeckCardView, commander = true) {
+    const { error } = await sendJson(`/api/decks/${deck.id}/commander`, 'PATCH', { position: card.position, commander })
     if (error) return setError(error)
     setSelected(null)
     router.refresh()
@@ -104,6 +106,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
 
   const total = cards.reduce((n, c) => n + c.quantity, 0)
   const groups = groupDeckCards(cards, lang, t)
+  const warnings = deckWarnings(cards).map((w) => warningText(w, (c) => displayName(c, lang), t))
   const selectedShown = selected ? displayCard(selected, lang) : null
   const hoverShown = hover ? displayCard(hover.card, lang) : null
   const hoverImage = hoverShown?.image_normal ?? null
@@ -157,6 +160,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
         </div>
       </div>
 
+      <FormatWarnings items={warnings} />
       {error && <p className="text-dc-red-light text-sm">{error}</p>}
       {importProgress && <ImportProgressBar progress={importProgress} />}
       {importFailed && !pasting && (
@@ -342,6 +346,13 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
                 <div className="text-center mt-4">
                   <button onClick={() => makeCommander(selected)} className="inline-flex items-center gap-2 text-sm px-4 py-2 bg-dc-gold/20 border border-dc-gold/40 text-dc-gold rounded-xl hover:bg-dc-gold/30">
                     <Crown className="w-4 h-4" /> {m.makeCommander}
+                  </button>
+                </div>
+              )}
+              {canEdit && selected.section === 'commander' && (
+                <div className="text-center mt-4">
+                  <button onClick={() => makeCommander(selected, false)} className="inline-flex items-center gap-2 text-sm px-4 py-2 border border-dc-border bg-dc-surface text-dc-muted rounded-xl hover:text-dc-gold">
+                    <Undo2 className="w-4 h-4" /> Remettre dans le deck
                   </button>
                 </div>
               )}

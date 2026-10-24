@@ -1,15 +1,13 @@
 // Visio en partie en ligne, dans de vrais navigateurs avec caméra et micro simulés par Chromium.
 // Prérequis : ceux de scripts/online-check.mjs (Worker, site, données de seed-online.mjs).
 // Usage : node scripts/visio-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROME ?? process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE] = PLAYERS
 
-const browser = await chromium.launch({
-  executablePath,
+const browser = await launch({
   args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
 })
 const errors = []

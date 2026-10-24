@@ -45,3 +45,8 @@ export function adminResetMail(input: MailInput, lang: Lang): MailContent {
 export function forgotMail(input: MailInput, lang: Lang): MailContent {
   return build(lang, (t) => t.forgot, input)
 }
+
+/** Prévient l'ancienne adresse d'un compte ; ne cite jamais la nouvelle. */
+export function emailChangedMail(input: MailInput, lang: Lang): MailContent {
+  return build(lang, (t) => t.emailChanged, input)
+}

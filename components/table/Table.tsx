@@ -10,15 +10,17 @@ import { diffViews } from '@/lib/game/activity'
 import { cardInfo } from '@/lib/game/apply'
 import { arrivals, printedKeywordsOf, type Arrival } from '@/lib/game/card-effects'
 import { appliesPerCard, cardShortcutCommands, DEFAULT_BINDINGS, isCardShortcut, loadBindings, menuHints, movesCard, saveBindings, selectionShortcutCommands, shortcutFor, zoneOf, type Bindings } from '@/lib/game/keyboard'
+import { opensStartDraw } from '@/lib/game/first-player'
+import { closePileActions } from '@/lib/game/pile-order'
 import { cardMenu, handMenu, libraryMenu, statMenu, type MenuCommand, type MenuContext, type MenuEntry } from '@/lib/game/menus'
 import { liveSelection, rowPlaces, selectIds, selectionMenu, shiftedPlaces, toggleId, type OrderRequest, type Selection } from '@/lib/game/selection'
 import type { ClientAction } from '@/lib/game/room'
-import type { PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
+import type { Catalog, PlayerView, PlayerZone, Position, VisibleCard, ZoneRef } from '@/lib/game/types'
 import ActivityFeed, { type ActivityLine } from './ActivityFeed'
 import CardMenu, { type MenuItem } from './CardMenu'
 import DiceModal from './DiceModal'
 import DungeonHost from './DungeonHost'
-import GameCard, { CardBack } from './GameCard'
+import GameCard, { CardBack, type Lang } from './GameCard'
 import LogPanel from './LogPanel'
 import MyBoard from './MyBoard'
 import OrderModal from './OrderModal'
@@ -27,7 +29,7 @@ import OpponentStrip from './OpponentStrip'
 import OpponentsArea from './OpponentsArea'
 import PlayerHeader from './PlayerHeader'
 import PlayerPortrait from './PlayerPortrait'
-import PileModal from './PileModal'
+import PileModal, { PILE_PANEL, PILE_SLOT } from './PileModal'
 import PreviewPane from './PreviewPane'
 import StartDraw from './StartDraw'
 import TokenModal from './TokenModal'
@@ -40,8 +42,11 @@ import AnimationsModal from './AnimationsModal'
 import DiceTray from './DiceTray'
 import HolderFlights from './HolderFlights'
 import VictoryScreen from './VictoryScreen'
+import RematchBar, { rematchLabel } from '@/components/online/RematchBar'
+import { useRematch } from '@/components/online/rematch'
 import { usePlayerFx } from './usePlayerFx'
 import ManaPool from './ManaPool'
+import { cardLabel, dragAnnouncements, dragInstructions } from './a11y'
 import VisioPanel from './visio/VisioPanel'
 import { useVisio } from './visio/useVisio'
 import OracleModal from '@/components/OracleModal'
@@ -49,11 +54,12 @@ import { aiCardRef, useAi } from '@/components/ai/AiProvider'
 import LanguageMenu from '@/components/i18n/LanguageMenu'
 import { useCardLang, useT } from '@/components/i18n/I18nProvider'
 import { DEFAULT_TABLE_SETTINGS, loadTableSettings, saveTableSettings, type TableSettings } from '@/lib/table-settings'
-import type { GameSource } from './source'
+import { canAct as acceptsGestures, type GameSource } from './source'
 import { boardWindowName } from './boardWindows'
 import { useBoardWindows } from './useBoardWindows'
 import type { MenuPoint } from './touch'
 import { libraryTop, type CardHandlers, type ZoneSelection } from './zones'
+import { createHoverStore, useHovered, type HoverStore } from './hover'
 import { cardPreview } from '@/lib/game/card-preview'
 
 /** Largeur / hauteur d'une carte (63 × 88 mm). */
@@ -83,6 +89,10 @@ function visibleCards(view: PlayerView): Map<string, VisibleCard> {
  */
 const collision: CollisionDetection = (args) => {
   const under = pointerWithin(args)
+  // Fenêtre d'une pile encore affichée pendant le glisser (regard) : seules ses cartes sont des cibles (réordonner).
+  const slots = under.filter((c) => String(c.id).startsWith(PILE_SLOT))
+  if (slots.length > 0) return slots
+  if (under.some((c) => c.id === PILE_PANEL)) return []
   return under.length > 0 ? under : rectIntersection(args)
 }
 
@@ -94,6 +104,13 @@ const LINE_MS = 4000
 const MAX_LINES = 3
 
 const sameZone = (a: ZoneRef, b: ZoneRef) => a.player === b.player && a.zone === b.zone
+
+/** Aperçu de la carte survolée : seul composant redessiné quand la souris passe d'une carte à l'autre. */
+function HoverPreview({ hover, cards, catalogs, lang }: { hover: HoverStore; cards: Map<string, VisibleCard>; catalogs: Record<string, Catalog>; lang: Lang }) {
+  const hovered = useHovered(hover)
+  const card = hovered ? cards.get(hovered) ?? null : null
+  return <PreviewPane card={card} catalog={catalogs[card?.owner ?? '']} lang={lang} />
+}
 
 /**
  * La table de jeu, pour le mode test comme pour le jeu en ligne.
@@ -130,8 +147,7 @@ export default function Table({ source, notice, boardWindow }: {
   const [diceOpen, setDiceOpen] = useState(false)
   const [diceCount, setDiceCount] = useState(1)
   // En ligne, à l'ouverture d'une partie qui commence (tour 1, ma main pas encore gardée) : qui commence.
-  const [startDraw, setStartDraw] = useState(() => source.mode === 'online' && me !== null && Object.keys(view.players).length > 1
-    && view.turn === 1 && view.players[me]?.kept === false && (view.turnOrder?.length ?? 0) > 0)
+  const [startDraw, setStartDraw] = useState(() => opensStartDraw(view, me, { online: source.mode === 'online', boardWindow: !!boardWindow }))
   const [oracle, setOracle] = useState<{ owner: string; ref: number } | null>(null)
   /** Carte dont la fenêtre « Capacités » est ouverte. */
   const [abilitiesFor, setAbilitiesFor] = useState<string | null>(null)
@@ -143,7 +159,8 @@ export default function Table({ source, notice, boardWindow }: {
   const [bindings, setBindings] = useState<Bindings>(DEFAULT_BINDINGS)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [animationsOpen, setAnimationsOpen] = useState(false)
-  const [hovered, setHovered] = useState<string | null>(null)
+  // Carte survolée hors de l'état de la table : la survoler ne redessine que l'aperçu.
+  const [hover] = useState(createHoverStore)
   const shiftDown = useRef(false)
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
   const [arriving, setArriving] = useState<Map<string, Arrival>>(new Map())
@@ -154,8 +171,12 @@ export default function Table({ source, notice, boardWindow }: {
   const highlightTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const finished = source.online?.finished ?? false
+  // Revanche : joueurs assis seulement, pas dans la fenêtre à part d'un plateau.
+  const canRematch = !!source.online && !!me && !boardWindow
+  const rematch = useRematch(source.online?.tableId ?? '', me, finished && canRematch)
   const status = source.online?.status ?? 'open'
-  const canAct = me !== null && !finished && status === 'open'
+  // Ni spectateur, ni éliminé, ni partie finie, ni reconnexion : sinon lecture seule.
+  const canAct = acceptsGestures(source)
   // Visio : table principale d'une partie en ligne, joueurs assis, serveur de jeu qui la relaie.
   const playerFx = usePlayerFx({ view, me, status, effects: settings.cardEffects, finished, winner: source.online?.winner ?? null })
   const visio = useVisio(boardWindow ? undefined : source.online?.visio, me, source.online?.players ?? [], status)
@@ -283,19 +304,16 @@ export default function Table({ source, notice, boardWindow }: {
 
   /** Regard : ordre choisi dans la fenêtre, appliqué à la fermeture (bouton, clic à côté ou Échap). */
   const pileOrder = useRef<string[] | null>(null)
+  /** Case « Mélanger en fermant » de la fenêtre (null : pas encore touchée, cochée par défaut en recherche), lue aussi par Échap. */
+  const pileShuffle = useRef<boolean | null>(null)
 
   const closePile = useCallback((shuffle: boolean) => {
-    if (pile?.zone === 'library' && pile.mode !== 'browse') {
-      // Seules comptent les cartes encore regardées (une carte mise dessous ou jouée n'y est plus).
+    if (pile?.zone === 'library') {
       const seen = view.players[pile.player].zones.library.visible.map((v) => v.card.id)
-      const order = (pileOrder.current ?? []).filter((id) => seen.includes(id))
-      const current = seen.filter((id) => order.includes(id))
-      if (pile.mode === 'look' && !shuffle && order.some((id, i) => id !== current[i])) {
-        send({ type: 'reorderTop', target: pile.player, ids: order })
-      }
-      send({ type: 'endLook', target: pile.player, shuffle })
+      for (const action of closePileActions({ target: pile.player, mode: pile.mode, seen, order: pileOrder.current, shuffle })) send(action)
     }
     pileOrder.current = null
+    pileShuffle.current = null
     setPile(null)
   }, [pile, send, view])
 
@@ -307,10 +325,10 @@ export default function Table({ source, notice, boardWindow }: {
 
   // Au doigt, la carte « survolée » reste affichée (pas de mouseleave) : le toucher suivant masque l'aperçu.
   useEffect(() => {
-    const onDown = (e: PointerEvent) => { if (e.pointerType !== 'mouse') setHovered(null) }
+    const onDown = (e: PointerEvent) => { if (e.pointerType !== 'mouse') hover.set(null) }
     window.addEventListener('pointerdown', onDown, true)
     return () => window.removeEventListener('pointerdown', onDown, true)
-  }, [])
+  }, [hover])
 
   // Gestionnaire refait à chaque rendu (carte survolée, menus, fenêtres) ; un seul écouteur le lit.
   const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
@@ -319,7 +337,7 @@ export default function Table({ source, notice, boardWindow }: {
     if (!shortcut) return
     if (shortcut === 'close') {
       setMenu(null)
-      if (pile) closePile(false)
+      if (pile) closePile(pileShuffle.current ?? pile.mode === 'search')
       setTokenOpen(false)
       setDiceOpen(false)
       setStartDraw(false)
@@ -344,6 +362,7 @@ export default function Table({ source, notice, boardWindow }: {
     // Ni pour un spectateur.
     if (!canAct) return
     if (isCardShortcut(shortcut)) {
+      const hovered = hover.get()
       // Carte sous la souris, avec les mêmes entrées que son menu clic droit (rien pour une carte cachée).
       const commandsFor = (id: string) => {
         const card = cards.get(id)
@@ -360,7 +379,7 @@ export default function Table({ source, notice, boardWindow }: {
       if (!commands) return
       e.preventDefault()
       // La carte quitte la souris : un second appui ne doit pas la déplacer encore depuis sa nouvelle zone.
-      if (movesCard(shortcut)) setHovered(null)
+      if (movesCard(shortcut)) hover.set(null)
       return run(commands)
     }
     e.preventDefault()
@@ -400,7 +419,7 @@ export default function Table({ source, notice, boardWindow }: {
       const preview = at.touch ? cardPreview(card, catalogs[card?.owner ?? ''], lang, t) : null
       if (entries.length > 0 || preview) setMenu({ x: at.clientX, y: at.clientY, entries, card: { id, zone }, touch: at.touch })
     },
-    onHover: (id) => setHovered(id),
+    onHover: hover.set,
     onPtEdit: canAct ? (id, zone, at) => {
       const card = cards.get(id)
       const entries = card ? statMenu(menuCtx, card) : []
@@ -409,9 +428,10 @@ export default function Table({ source, notice, boardWindow }: {
   }
 
   function onDragStart(e: DragStartEvent) {
-    const id = String(e.active.id)
+    // Carte glissée : l'identifiant du glisser peut différer (vignette Cim., fenêtre d'une pile).
+    const id = String(e.active.data.current?.card ?? e.active.id)
     // offsetHeight ignore la rotation d'une carte engagée, contrairement au rectangle mesuré par dnd-kit.
-    const node = document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)
+    const node = document.querySelector<HTMLElement>(`[data-drag-key="${CSS.escape(String(e.active.id))}"]`)
     const group = live && live.ids.length > 1 && live.ids.includes(id) ? live.ids : undefined
     setDragging({ id, from: e.active.data.current?.from as ZoneRef, height: node?.offsetHeight || 134, group })
   }
@@ -438,8 +458,9 @@ export default function Table({ source, notice, boardWindow }: {
     setDragging(null)
     const to = e.over?.data.current as ZoneRef | undefined
     const from = e.active.data.current?.from as ZoneRef | undefined
-    const id = String(e.active.id)
-    if (!to || !from || !me) return
+    const id = String(e.active.data.current?.card ?? e.active.id)
+    // Lâchée dans la fenêtre d'une pile (réordonnée par la fenêtre elle-même) : pas une zone.
+    if (!to?.zone || !from || !me) return
     const placement: { x?: number; y?: number; position?: Position } = {}
     if (to.zone === 'battlefield') {
       const rect = e.active.rect.current.translated
@@ -529,7 +550,19 @@ export default function Table({ source, notice, boardWindow }: {
   const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
+  // Annonces du glisser lues par les lecteurs d'écran : en français, avec le nom de la carte.
+  const accessibility = {
+    screenReaderInstructions: dragInstructions,
+    announcements: dragAnnouncements({
+      me,
+      cardName: (id: string) => { const card = cards.get(id); return card && cardLabel(catalogs[card.owner], card, lang) },
+      playerName: (id: string) => view.players[id]?.name,
+    }),
+  }
+
   return (
+    // Le glisser couvre toute la table, fenêtre des piles comprise (une carte s'en glisse vers le champ de bataille).
+    <DndContext sensors={sensors} collisionDetection={collision} accessibility={accessibility} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
     <div className="relative h-full flex flex-col">
       {boardWindow ? (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-dc-border bg-dc-surface" data-testid="board-window-bar">
@@ -598,9 +631,13 @@ export default function Table({ source, notice, boardWindow }: {
       {!me && (
         <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">{tb.status.spectator}</div>
       )}
+      {me && view.players[me]?.eliminated && !finished && (
+        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="eliminated">Tu es éliminé, tu regardes la fin de la partie</div>
+      )}
       {finished && (
-        <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30" data-testid="finished">
-          {source.online?.winner ? tb.status.winner(view.players[source.online.winner]?.name ?? '?') : tb.status.closed}
+        <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30 flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="finished">
+          <span>{source.online?.winner ? tb.status.winner(view.players[source.online.winner]?.name ?? '?') : tb.status.closed}</span>
+          {canRematch && <RematchBar offer={rematch.offer} busy={rematch.busy} error={rematch.error} onGo={rematch.go} />}
         </div>
       )}
 
@@ -637,7 +674,6 @@ export default function Table({ source, notice, boardWindow }: {
 
       <div className="relative flex-1 min-h-0 flex flex-col">
         {visio.inCall && <VisioPanel visio={visio} names={Object.fromEntries(Object.entries(view.players).map(([id, p]) => [id, p.name]))} />}
-        <DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           {boardWindow ? (
             <div className="flex-1 min-h-0 p-2">
               <OpponentBoard
@@ -702,8 +738,7 @@ export default function Table({ source, notice, boardWindow }: {
                 )}
                 {(() => {
                   // Carte du dessus : face visible si je la connais, dos sinon.
-                  const shown = dragging.id.startsWith('top:') ? libraryTop(view, dragging.from.player)
-                    : dragging.from.zone === 'library' ? null : cards.get(dragging.id)
+                  const shown = dragging.id.startsWith('top:') ? libraryTop(view, dragging.from.player) : cards.get(dragging.id)
                   return shown
                     ? <GameCard card={shown} catalog={catalogs[shown.owner]} lang={lang} className="h-full" />
                     : <CardBack className="h-full" />
@@ -711,19 +746,19 @@ export default function Table({ source, notice, boardWindow }: {
               </div>
             )}
           </DragOverlay>
-        </DndContext>
         <ActivityFeed lines={boardWindow ? [] : lines} error={source.error} view={view} catalogs={catalogs} />
         <DungeonHost view={view} canAct={canAct} animate={settings.cardEffects.dungeon} offers={!boardWindow} send={send} />
         {!boardWindow && <DiceTray rolls={playerFx.rolls} />}
         {logOpen && <LogPanel view={view} catalogs={catalogs} onClose={() => setLogOpen(false)} />}
       </div>
-      {!dragging && <PreviewPane card={hovered ? cards.get(hovered) ?? null : null} catalog={catalogs[cards.get(hovered ?? '')?.owner ?? '']} lang={lang} />}
+      {!dragging && <HoverPreview hover={hover} cards={cards} catalogs={catalogs} lang={lang} />}
 
       {menu && <CardMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items ?? toItems(liveEntries(menu), menuTarget(menu))} preview={menuImage(menu)} />}
       {pile && (
         <PileModal
           key={`${pile.player}-${pile.zone}-${pile.mode}`}
           title={pile.title}
+          player={pile.player}
           zone={pile.zone}
           cards={pileCards}
           searchable={pile.mode !== 'look'}
@@ -737,6 +772,7 @@ export default function Table({ source, notice, boardWindow }: {
             send(position ? { type: 'move', id: card.id, to, position } : { type: 'move', id: card.id, to })
           }}
           onReorder={pile.mode === 'look' ? (ids) => { pileOrder.current = ids } : undefined}
+          onShuffleChange={(shuffle) => { pileShuffle.current = shuffle }}
           onClose={closePile}
         />
       )}
@@ -792,7 +828,8 @@ export default function Table({ source, notice, boardWindow }: {
         onShortcuts={() => { setSettingsOpen(false); setShortcutsOpen(true) }}
         onAnimations={() => { setSettingsOpen(false); setAnimationsOpen(true) }} />}
       <HolderFlights flights={playerFx.flights} />
-      {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory} />}
+      {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory}
+        rematch={canRematch ? { label: rematchLabel(rematch.offer), busy: rematch.busy, onGo: rematch.go } : undefined} />}
       {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
       {animationsOpen && <AnimationsModal effects={settings.cardEffects} onChange={(cardEffects) => changeSettings({ ...settings, cardEffects })}
         onClose={() => setAnimationsOpen(false)} />}
@@ -801,5 +838,6 @@ export default function Table({ source, notice, boardWindow }: {
         {tb.rotate}
       </div>
     </div>
+    </DndContext>
   )
 }

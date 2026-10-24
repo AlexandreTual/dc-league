@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useT } from '@/components/i18n/I18nProvider'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
-export default function InvitationForm({ token, kind }: { token: string; kind: 'signup' | 'reset' }) {
+export default function InvitationForm({ token, kind, target }: { token: string; kind: 'signup' | 'reset'; target: string }) {
   const router = useRouter()
   const m = useT().account.invitation
   const [username, setUsername] = useState('')
@@ -28,7 +28,7 @@ export default function InvitationForm({ token, kind }: { token: string; kind: '
       setLoading(false)
       return setError(error)
     }
-    router.push('/profil')
+    router.push(target)
     router.refresh()
   }
 

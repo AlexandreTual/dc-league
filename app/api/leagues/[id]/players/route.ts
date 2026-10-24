@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { requiredId } from '@/lib/auth/validation'
 import { enrollLeaguePlayer } from '@/lib/db-leagues'
-import { countMatches } from '@/lib/db'
+import { countMatches, STATUTS_LIGUE } from '@/lib/db'
 import { leagueFor } from '@/lib/leagues/route-access'
 import { LEAGUE_FINISHED } from '@/lib/leagues/join'
 
@@ -26,7 +26,7 @@ export function POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     if (!playerId.ok) return badRequest(playerId.error)
 
     const { data, error } = await enrollLeaguePlayer(db, id, playerId.value)
-    if (error !== null) return resultError(error)
+    if (error !== null) return resultError(error, STATUTS_LIGUE)
     return NextResponse.json(data, { status: 201 })
   })
 }

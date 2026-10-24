@@ -363,6 +363,26 @@ export async function setCommander(db: D1Database, deckId: string, position: num
   }
 }
 
+/**
+ * Remet une carte de la section commandant dans le deck. Renvoie l'image du premier commandant restant
+ * (null s'il n'y en a plus), pour l'image du deck.
+ */
+export async function unsetCommander(db: D1Database, deckId: string, position: number): Promise<Result<string | null>> {
+  try {
+    const cards = await listDeckCards(db, deckId)
+    if (cards.error !== null) return err(cards.error)
+    if (!cards.data.some((c) => c.position === position)) return err('NOT_FOUND')
+    await db
+      .prepare("UPDATE deck_cards SET section = 'main' WHERE deck_id = ? AND position = ?")
+      .bind(deckId, position)
+      .run()
+    const next = cards.data.find((c) => c.section === 'commander' && c.position !== position && c.en)
+    return ok(next ? ((next.fr ?? next.en)?.image_normal ?? null) : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function setDeckCommanderImage(db: D1Database, deckId: string, url: string | null): Promise<Result<true>> {
   try {
     await db.prepare('UPDATE decks SET commander_image_url = ? WHERE id = ?').bind(url, deckId).run()

@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import type { GameTable } from '@/lib/db-games'
+import ArchivedGame from './ArchivedGame'
 import OnlineTable from './OnlineTable'
 import WaitingRoom from './WaitingRoom'
 
-/** Salle d'attente tant que la table est ouverte (ou en cours de démarrage), puis la partie. */
+/** Salle d'attente tant que la table est ouverte (ou en cours de démarrage), puis la partie ; son résumé une fois archivée. */
 export default function TableView({ me, initialTable, myDecks }: {
   me: string
   initialTable: GameTable
@@ -13,5 +14,6 @@ export default function TableView({ me, initialTable, myDecks }: {
 }) {
   const [table, setTable] = useState(initialTable)
   if (table.status === 'open' || table.status === 'starting') return <WaitingRoom me={me} table={table} myDecks={myDecks} onChange={setTable} />
+  if (table.status === 'finished' && table.gameArchived) return <ArchivedGame table={table} />
   return <OnlineTable tableId={table.id} />
 }

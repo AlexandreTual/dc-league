@@ -2,13 +2,13 @@
 // et aucune phrase française visible sur les pages déjà traduites.
 // Usage : node scripts/i18n-check.mjs http://localhost:8788 <dossier-captures>
 // Prérequis : seed-online.mjs appliqué (joueurs e2e-1… et leurs decks deck-e2e-…).
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { mkdirSync } from 'node:fs'
 
 const [base = 'http://localhost:8788', out = '/tmp/i18n-check'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const browser = await launch()
 let failures = 0
 function check(ok, label) {
   console.log(`${ok ? '✓' : '✗'} ${label}`)

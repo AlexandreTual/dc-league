@@ -41,12 +41,17 @@ export type Result<T> = Ok<T> | Err
 /** Erreurs métier de la ligue, affichées telles quelles. */
 export const ERREURS_LIGUE = {
   matchesExist: 'Les matchs ont déjà été générés.',
+  playersChanged: 'Les inscrits ont changé pendant la génération : relance-la.',
   playoffsExist: 'Les playoffs ont déjà été générés.',
   matchNotFound: 'Match introuvable.',
   playoffNotFound: 'Match de playoffs introuvable.',
   leagueClosed: 'La ligue est close : ses scores ne sont plus modifiables.',
   finalScored:
     'La finale ou la petite finale a déjà un score : réinitialise-le avant de changer le vainqueur de cette demi-finale.',
+  finalScoredReset:
+    'La finale ou la petite finale a déjà un score : réinitialise-le avant d’effacer cette demi-finale.',
+  semisPending: 'Les deux demi-finales doivent être jouées avant de saisir ce score.',
+  playoffsStarted: 'Les playoffs sont lancés : réinitialise-les avant de corriger un match de ligue.',
 } as const
 
 /** Statut HTTP des erreurs métier de la ligue (pour `resultError` des routes API). */
@@ -54,9 +59,13 @@ export const STATUTS_LIGUE: Readonly<Record<string, number>> = {
   [ERREURS_LIGUE.matchNotFound]: 404,
   [ERREURS_LIGUE.playoffNotFound]: 404,
   [ERREURS_LIGUE.matchesExist]: 409,
+  [ERREURS_LIGUE.playersChanged]: 409,
   [ERREURS_LIGUE.playoffsExist]: 409,
   [ERREURS_LIGUE.leagueClosed]: 409,
   [ERREURS_LIGUE.finalScored]: 409,
+  [ERREURS_LIGUE.finalScoredReset]: 409,
+  [ERREURS_LIGUE.semisPending]: 409,
+  [ERREURS_LIGUE.playoffsStarted]: 409,
 }
 
 /** Statut HTTP d'une erreur renvoyée par les fonctions de ligue (500 si elle est inattendue). */
@@ -111,18 +120,39 @@ function openLeague(table: 'matches' | 'playoffs'): string {
   return `NOT EXISTS (SELECT 1 FROM leagues l WHERE l.id = ${table}.league_id AND l.is_active = 0)`
 }
 
-/** Raison pour laquelle une écriture de score n'a modifié aucune ligne (null si ce n'est ni l'une ni l'autre). */
+/**
+ * Condition SQL : la ligue du match de round robin n'a pas encore de playoffs, tirés d'après
+ * le classement du moment (corriger un score ensuite fausserait le Top 4 sans prévenir).
+ */
+const NO_PLAYOFFS = 'NOT EXISTS (SELECT 1 FROM playoffs p WHERE p.league_id = matches.league_id)'
+
+/** Requête : finale ou petite finale de la ligue du match de playoffs ayant un score. */
+const SCORED_FINALS =
+  "SELECT 1 FROM playoffs x WHERE x.league_id = playoffs.league_id AND x.stage IN ('final', 'third_place') AND x.is_completed = 1"
+
+/** Condition SQL : les deux demi-finales de la ligue du match de playoffs sont jouées. */
+const SEMIS_PLAYED =
+  "(SELECT COUNT(*) FROM playoffs s WHERE s.league_id = playoffs.league_id AND s.stage IN ('semi1', 'semi2') AND s.is_completed = 1) = 2"
+
+/** Raison pour laquelle une écriture de score n'a modifié aucune ligne (null si ce n'est aucune de celles-ci). */
 async function scoreRefusal(db: D1Database, table: 'matches' | 'playoffs', id: string): Promise<string | null> {
   const row = await db
-    .prepare(`SELECT l.is_active FROM ${table} t LEFT JOIN leagues l ON l.id = t.league_id WHERE t.id = ?`)
+    .prepare(
+      `SELECT l.is_active, EXISTS (SELECT 1 FROM playoffs p WHERE p.league_id = t.league_id) AS has_playoffs
+       FROM ${table} t LEFT JOIN leagues l ON l.id = t.league_id WHERE t.id = ?`,
+    )
     .bind(id)
-    .first<{ is_active: number | null }>()
+    .first<{ is_active: number | null; has_playoffs: number }>()
   if (!row) return table === 'matches' ? ERREURS_LIGUE.matchNotFound : ERREURS_LIGUE.playoffNotFound
   if (row.is_active != null && Number(row.is_active) === 0) return ERREURS_LIGUE.leagueClosed
+  if (table === 'matches' && Number(row.has_playoffs)) return ERREURS_LIGUE.playoffsStarted
   return null
 }
 
-/** Écrit un score si la ligue du match est ouverte, puis relit la ligne. */
+/**
+ * Écrit un score si la ligue du match est ouverte (et, pour un match de round robin,
+ * si ses playoffs ne sont pas tirés), puis relit la ligne.
+ */
 async function writeScore(
   db: D1Database,
   table: 'matches' | 'playoffs',
@@ -131,7 +161,7 @@ async function writeScore(
   values: number[],
 ): Promise<Result<Record<string, unknown>>> {
   const { meta } = await db
-    .prepare(`UPDATE ${table} SET ${sets} WHERE id = ? AND ${openLeague(table)}`)
+    .prepare(`UPDATE ${table} SET ${sets} WHERE id = ? AND ${openLeague(table)}${table === 'matches' ? ` AND ${NO_PLAYOFFS}` : ''}`)
     .bind(...values, id)
     .run()
   const notFound = table === 'matches' ? ERREURS_LIGUE.matchNotFound : ERREURS_LIGUE.playoffNotFound
@@ -153,6 +183,24 @@ export async function listPlayers(db: D1Database): Promise<Result<DbPlayer[]>> {
   try {
     const { results } = await db
       .prepare('SELECT * FROM players ORDER BY created_at ASC')
+      .all<Record<string, unknown>>()
+    return ok(results.map(normalizePlayer))
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
+/** Joueurs inscrits à une ligue, dans l'ordre d'arrivée sur le site (celui de listPlayers). */
+export async function listEnrolledPlayers(db: D1Database, leagueId: string): Promise<Result<DbPlayer[]>> {
+  try {
+    const { results } = await db
+      .prepare(`
+        SELECT p.* FROM players p
+        JOIN league_players lp ON lp.player_id = p.id
+        WHERE lp.league_id = ?
+        ORDER BY p.created_at ASC
+      `)
+      .bind(leagueId)
       .all<Record<string, unknown>>()
     return ok(results.map(normalizePlayer))
   } catch (e) {
@@ -235,23 +283,22 @@ export const PLAYER_ERR = {
 
 export async function deletePlayer(db: D1Database, id: string): Promise<Result<true>> {
   try {
-    const row = await db
-      .prepare('SELECT COUNT(*) as n FROM league_players WHERE player_id = ?')
-      .bind(id)
-      .first<{ n: number }>()
-    if ((row?.n ?? 0) > 0) return err(PLAYER_ERR.HAS_HISTORY)
-    // Suppression conditionnée en une seule requête : le compte lié (supprimé en cascade)
-    // ne doit pas être le dernier admin.
+    // Suppression conditionnée en une seule requête : le joueur n'a participé à aucune ligue,
+    // et le compte lié (supprimé en cascade) n'est pas le dernier admin.
     const r = await db
       .prepare(
-        `DELETE FROM players WHERE id = ?1 AND NOT (
-           EXISTS (SELECT 1 FROM users WHERE player_id = ?1 AND is_admin = 1)
-           AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1
-         )`,
+        `DELETE FROM players WHERE id = ?1
+           AND NOT EXISTS (SELECT 1 FROM league_players WHERE player_id = ?1)
+           AND NOT (
+             EXISTS (SELECT 1 FROM users WHERE player_id = ?1 AND is_admin = 1)
+             AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1
+           )`,
       )
       .bind(id)
       .run()
     if (r.meta.changes === 0) {
+      const history = await db.prepare('SELECT 1 AS found FROM league_players WHERE player_id = ? LIMIT 1').bind(id).first()
+      if (history) return err(PLAYER_ERR.HAS_HISTORY)
       const lastAdmin = await db.prepare('SELECT 1 AS found FROM users WHERE player_id = ? AND is_admin = 1').bind(id).first()
       if (lastAdmin) return err(PLAYER_ERR.LAST_ADMIN)
     }
@@ -315,27 +362,41 @@ export async function countCompletedMatches(db: D1Database, leagueId: string): P
   }
 }
 
+/**
+ * Insère le round robin d'une ligue. `enrolledCount` : nombre d'inscrits lus pour le générer ;
+ * s'il a changé entre-temps (inscription ou départ simultané), rien n'est inséré.
+ */
 export async function insertMatches(
   db: D1Database,
   matches: Array<{ player1_id: string; player2_id: string; round_number: number }>,
-  leagueId: string
+  leagueId: string,
+  enrolledCount?: number,
 ): Promise<Result<DbMatch[]>> {
   try {
     if (matches.length === 0) return ok([])
     const ids = matches.map(() => uuid())
+    const sameEnrolled = enrolledCount === undefined ? '' : ' AND (SELECT COUNT(*) FROM league_players WHERE league_id = ?) = ?'
     // Garde atomique contre le double clic : le premier match n'est inséré que si la ligue n'en a
-    // aucun, les suivants seulement si le premier l'a été (le batch est une transaction).
+    // aucun (et a toujours le même nombre d'inscrits), les suivants seulement si le premier l'a été
+    // (le batch est une transaction).
     const stmts = matches.map((m, i) =>
-      db
-        .prepare(
-          `INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE ${
-            i === 0 ? 'NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?)' : 'EXISTS (SELECT 1 FROM matches WHERE id = ?)'
-          }`,
-        )
-        .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, i === 0 ? leagueId : ids[0]),
+      i === 0
+        ? db
+            .prepare(
+              `INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM matches WHERE league_id = ?)${sameEnrolled}`,
+            )
+            .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, leagueId, ...(enrolledCount === undefined ? [] : [leagueId, enrolledCount]))
+        : db
+            .prepare(
+              'INSERT INTO matches (id, player1_id, player2_id, round_number, league_id) SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM matches WHERE id = ?)',
+            )
+            .bind(ids[i], m.player1_id, m.player2_id, m.round_number, leagueId, ids[0]),
     )
     const [first] = await db.batch(stmts)
-    if (!first.meta.changes) return err(ERREURS_LIGUE.matchesExist)
+    if (!first.meta.changes) {
+      const { data: existing } = await countMatches(db, leagueId)
+      return err(existing === 0 ? ERREURS_LIGUE.playersChanged : ERREURS_LIGUE.matchesExist)
+    }
     const rows: Record<string, unknown>[] = []
     for (const part of chunks(ids)) {
       const { results } = await db
@@ -350,9 +411,13 @@ export async function insertMatches(
   }
 }
 
-export async function deleteAllMatches(db: D1Database, leagueId: string): Promise<Result<true>> {
+/** Réinitialise la ligue : supprime ses matchs et ses playoffs ensemble, ou rien. */
+export async function resetLeague(db: D1Database, leagueId: string): Promise<Result<true>> {
   try {
-    await db.prepare('DELETE FROM matches WHERE league_id = ?').bind(leagueId).run()
+    await db.batch([
+      db.prepare('DELETE FROM matches WHERE league_id = ?').bind(leagueId),
+      db.prepare('DELETE FROM playoffs WHERE league_id = ?').bind(leagueId),
+    ])
     return ok(true)
   } catch (e) {
     return err((e as Error).message)
@@ -481,6 +546,7 @@ export async function updatePlayoffScore(
     if (row.league_active != null && Number(row.league_active) === 0) return err(ERREURS_LIGUE.leagueClosed)
     const current = normalizePlayoff(row)
     const leagueId = (row.league_id as string) ?? null
+    const isFinal = current.stage === 'final' || current.stage === 'third_place'
 
     // Finale et petite finale existantes à corriger d'après le nouveau score de la demi-finale.
     const brackets: D1PreparedStatement[] = []
@@ -511,18 +577,18 @@ export async function updatePlayoffScore(
       }
     }
 
-    // Le score n'est écrit que si la ligue est ouverte et, quand la finale change de joueurs ou
-    // n'existait pas encore, si ni elle ni la petite finale n'ont reçu de score entre-temps.
-    const finalsUnscored = movesFinals
-      ? " AND NOT EXISTS (SELECT 1 FROM playoffs x WHERE x.league_id = playoffs.league_id AND x.stage IN ('final', 'third_place') AND x.is_completed = 1)"
-      : ''
+    // Le score n'est écrit que si la ligue est ouverte ; pour la finale ou la petite finale, si les deux
+    // demi-finales sont jouées ; quand la finale change de joueurs ou n'existait pas encore, si ni elle
+    // ni la petite finale n'ont reçu de score entre-temps.
+    const finalsUnscored = movesFinals ? ` AND NOT EXISTS (${SCORED_FINALS})` : ''
+    const semisPlayed = isFinal && leagueId ? ` AND ${SEMIS_PLAYED}` : ''
     const [scoreWrite] = await db.batch([
-      db.prepare(`UPDATE playoffs SET score_p1 = ?, score_p2 = ?, is_completed = 1 WHERE id = ? AND ${openLeague('playoffs')}${finalsUnscored}`)
+      db.prepare(`UPDATE playoffs SET score_p1 = ?, score_p2 = ?, is_completed = 1 WHERE id = ? AND ${openLeague('playoffs')}${finalsUnscored}${semisPlayed}`)
         .bind(score_p1, score_p2, id),
       ...brackets,
     ])
     if (!scoreWrite.meta.changes) {
-      return err((await scoreRefusal(db, 'playoffs', id)) ?? ERREURS_LIGUE.finalScored)
+      return err((await scoreRefusal(db, 'playoffs', id)) ?? (isFinal ? ERREURS_LIGUE.semisPending : ERREURS_LIGUE.finalScored))
     }
 
     // Après l'écriture du score, on relit : la finale et la petite finale sont créées si elles manquent,
@@ -576,10 +642,30 @@ export async function updatePlayoffScore(
   }
 }
 
+/**
+ * Efface le score d'un match de playoffs. Pour une demi-finale, la finale et la petite finale
+ * (tirées de son résultat) sont retirées, puis recréées à la prochaine saisie ; l'effacement est
+ * refusé si l'une d'elles a déjà un score.
+ */
 export async function resetPlayoffScore(db: D1Database, id: string): Promise<Result<DbPlayoff>> {
   try {
-    const { data, error } = await writeScore(db, 'playoffs', id, 'score_p1 = NULL, score_p2 = NULL, is_completed = 0', [])
-    return error === null ? ok(normalizePlayoff(data)) : err(error)
+    const row = await db.prepare('SELECT stage FROM playoffs WHERE id = ?').bind(id).first<{ stage: PlayoffStage }>()
+    if (!row || (row.stage !== 'semi1' && row.stage !== 'semi2')) {
+      const { data, error } = await writeScore(db, 'playoffs', id, 'score_p1 = NULL, score_p2 = NULL, is_completed = 0', [])
+      return error === null ? ok(normalizePlayoff(data)) : err(error)
+    }
+    // Les finales ne sont retirées que si la demi-finale vient bien d'être effacée dans ce batch.
+    const [semiWrite] = await db.batch([
+      db.prepare(`UPDATE playoffs SET score_p1 = NULL, score_p2 = NULL, is_completed = 0 WHERE id = ? AND ${openLeague('playoffs')} AND NOT EXISTS (${SCORED_FINALS})`)
+        .bind(id),
+      db.prepare(
+        `DELETE FROM playoffs WHERE stage IN ('final', 'third_place') AND is_completed = 0
+         AND league_id = (SELECT league_id FROM playoffs WHERE id = ? AND is_completed = 0)`,
+      ).bind(id),
+    ])
+    if (!semiWrite.meta.changes) return err((await scoreRefusal(db, 'playoffs', id)) ?? ERREURS_LIGUE.finalScoredReset)
+    const updated = await db.prepare('SELECT * FROM playoffs WHERE id = ?').bind(id).first<Record<string, unknown>>()
+    return updated ? ok(normalizePlayoff(updated)) : err(ERREURS_LIGUE.playoffNotFound)
   } catch (e) {
     return err((e as Error).message)
   }

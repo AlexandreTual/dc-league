@@ -182,7 +182,7 @@ Règles :
 
 ## Nettoyage quotidien
 
-`scheduled` du Worker : `staleTables(db, maintenant − 7 jours)` (tous statuts) → pour chacune, `DELETE` sur son `GameRoom` puis `deleteTable`.
+`scheduled` du Worker : `staleTables(db, maintenant − 7 jours)` (tables non terminées) → pour chacune, `DELETE` sur son `GameRoom` puis `deleteTable`. Les parties finies restent en D1 comme historique (issue #241) : `finishedGamesToArchive` → `DELETE` sur leur `GameRoom` seulement, puis `markGameArchived` (`game_tables.game_archived_at`, migration 0019) ; leur page montre alors un résumé (vainqueur, durée, joueurs et decks).
 
 ## Repli B (si la tâche de vérification échoue)
 

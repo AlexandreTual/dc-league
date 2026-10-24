@@ -76,7 +76,8 @@ export const leagues: Messages['leagues'] = {
     drawsN: (n: number) => `${n}D`,
     lossesN: (n: number) => `${n}L`,
     diffN: (d: string) => `+/- ${d}`,
-    footer: 'Top 4 go to the semifinals · Sorted by points, then game difference (GW−GL)',
+    footer: 'Top 4 go to the semifinals · Sorted by points, game difference (GW−GL), then wins',
+    footerTie: 'If still tied: head-to-head, then a random draw.',
   },
   calendar: {
     loadWhat: 'the schedule',

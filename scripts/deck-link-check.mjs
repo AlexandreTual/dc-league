@@ -1,12 +1,11 @@
-// Import en un clic dans un vrai navigateur : création (nom + lien) → import Scryfall direct, erreurs, repli par liste collée.
+// Import en un clic dans un vrai navigateur : création (nom + lien, ou nom + liste collée) → import Scryfall direct, erreurs, repli par liste collée.
 // Les routes d'import sont simulées (pas d'appel réseau à Moxfield, Archidekt ni Scryfall).
 // Prérequis : site lancé (`wrangler pages dev --port 8788`), données de scripts/seed-online.mjs chargées.
 // Usage : node scripts/deck-link-check.mjs <url-de-base> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA] = PLAYERS
 
 function check(condition, message) {
@@ -15,10 +14,10 @@ function check(condition, message) {
 }
 
 const text = ['Commander', '1 Kenrith, the Returned King (eld) 303', '', 'Deck', '1 Sol Ring (c21) 263', '30 Forest (eld) 266'].join('\n')
-const summary = { total: 32, commanders: 1, frenchCount: 31, notFound: [], ignored: 0, errors: [] }
+const summary = { total: 32, commanders: 1, frenchCount: 31, notFound: [], ignored: 0, errors: [], warnings: ['Le deck compte 32 cartes au lieu de 100.'] }
 const slow = (json, status = 200) => (route) => setTimeout(() => route.fulfill({ status, json }), 300)
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 try {
   const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: 390, height: 844 }, hasTouch: true })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(ANA.id), url: base }])
@@ -44,10 +43,11 @@ try {
   await row.getByTestId('import-progress').waitFor()
   check(true, 'la progression s’affiche sous le deck')
   await page.screenshot({ path: `${outDir}/deck-import-progress.png` })
-  await row.getByTestId('import-done').getByText('32 cartes').waitFor()
+  await row.getByTestId('import-done').getByText('32 cartes', { exact: true }).waitFor()
   check(calls.join(',') === 'link,resolve,commit', `lien → Scryfall → enregistrement, sans autre clic (${calls.join(', ')})`)
   check(await row.getByText('97 % en français').isVisible(), 'résumé : 97 % en français')
   check(await row.getByRole('link', { name: 'Voir le deck →' }).isVisible(), 'lien « Voir le deck »')
+  check(await row.getByTestId('deck-warnings').getByText('Le deck compte 32 cartes au lieu de 100.').isVisible(), 'résumé : avertissement du format Commander (non bloquant)')
   await page.screenshot({ path: `${outDir}/deck-import-done.png`, fullPage: true })
   console.log(`📸 ${outDir}/deck-import-done.png`)
 
@@ -88,12 +88,32 @@ try {
   check(await page.getByText(/32 cartes · 1 commandant\(s\)/).isVisible(), 'la liste collée est lue : 32 cartes, 1 commandant')
 
   await page.goto(`${base}/profil/decks`)
-  // Ménage : supprime le deck créé.
-  while (await row.count()) {
-    const before = await row.count()
-    await row.first().getByRole('button', { name: 'Supprimer Kenrith à importer' }).click()
-    await page.waitForFunction((n) => document.querySelectorAll('li').length < n, await page.locator('li').count())
-    if ((await row.count()) >= before) break
+
+  // 5. Création avec une liste collée (sans lien) : import direct de la liste, sans lecture de lien.
+  await page.route('**/import/link', (route) => { calls.push('link'); slow({ text, name: 'x' })(route) })
+  await page.getByPlaceholder('Kenrith').fill('Kenrith collé')
+  check(await page.getByRole('button', { name: 'Créer le deck' }).isVisible(), 'sans lien ni liste : « Créer le deck »')
+  await page.getByLabel('Ou colle la liste').fill(text)
+  check(await page.getByText(/32 cartes · 1 commandant\(s\) · 0 illisible/).isVisible(), 'création : la liste collée est lue (32 cartes, 1 commandant)')
+  const createPasted = page.getByRole('button', { name: 'Créer et importer' })
+  check(await createPasted.isVisible(), 'avec une liste collée, le bouton devient « Créer et importer »')
+  await page.screenshot({ path: `${outDir}/deck-create-pasted.png`, fullPage: true })
+  calls.length = 0
+  await createPasted.click()
+  const pastedRow = page.locator('li', { hasText: 'Kenrith collé' })
+  await pastedRow.getByTestId('import-done').getByText('32 cartes').waitFor()
+  check(calls.join(',') === 'resolve,commit', `liste collée → Scryfall → enregistrement, sans lien (${calls.join(', ')})`)
+  check(await page.getByLabel('Ou colle la liste').inputValue() === '', 'le formulaire est vidé après la création')
+  console.log(`📸 ${outDir}/deck-create-pasted.png`)
+
+  // Ménage : supprime les decks créés.
+  for (const [r, name] of [[row, 'Kenrith à importer'], [pastedRow, 'Kenrith collé']]) {
+    while (await r.count()) {
+      const before = await r.count()
+      await r.first().getByRole('button', { name: `Supprimer ${name}` }).click()
+      await page.waitForFunction((n) => document.querySelectorAll('li').length < n, await page.locator('li').count())
+      if ((await r.count()) >= before) break
+    }
   }
 
   check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`)

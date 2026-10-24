@@ -3,14 +3,13 @@
 // données de scripts/seed-online.mjs chargées dans la base locale.
 // Usage : node scripts/online-check.mjs <url-de-base> <dossier-captures>
 import { execFileSync } from 'node:child_process'
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 import { PLAYERS, tokenOf } from './seed-online.mjs'
 
 const [base = 'http://localhost:8788', outDir = '.'] = process.argv.slice(2)
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const [ANA, BASTIEN, CHLOE, DAMIEN] = PLAYERS
 
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 
 function check(condition, message) {
@@ -145,6 +144,7 @@ try {
   await chloe.page.waitForFunction(() => document.querySelector('[data-testid="mulligan-banner"]')?.textContent.includes('Mulligan n°1'))
   check((await chloeBanner.innerText()).includes('cartes convenues') && !/\d carte/.test(await chloeBanner.innerText()),
     'Chloé : bandeau « Mulligan n°1 », sans nombre de cartes imposé')
+  check(await chloe.page.getByRole('button', { name: 'Annuler' }).isDisabled(), 'Chloé : un mulligan ne s’annule pas (pas de nouvelle main à volonté)')
   for (const left of [6, 5]) {
     await myHand(chloe).first().click({ button: 'right' })
     await chloe.page.getByRole('menuitem', { name: 'Mettre au-dessous' }).click()
@@ -424,6 +424,10 @@ try {
   await bastien.page.getByRole('button', { name: 'Abandonner' }).click()
   await ana.page.locator(`[data-panel="${BASTIEN.id}"]`).getByText('éliminé').waitFor()
   check(true, 'Bastien abandonne')
+  await bastien.page.getByTestId('eliminated').getByText('Tu es éliminé, tu regardes la fin de la partie').waitFor()
+  const bar = bastien.page.getByTestId('top-bar')
+  const disabled = await Promise.all(['Jeton', 'Dés', 'Fin de tour'].map((name) => bar.getByRole('button', { name, exact: true }).isDisabled()))
+  check(disabled.every(Boolean), 'Bastien éliminé : bandeau affiché, Jeton, Dés et Fin de tour désactivés')
   await ana.page.getByRole('button', { name: 'Hôte' }).click()
   await ana.page.getByRole('menuitem', { name: `Éliminer ${CHLOE.name}` }).click()
   for (const who of [ana, bastien, chloe, damien]) {

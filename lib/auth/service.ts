@@ -2,7 +2,6 @@ import {
   AUTH_ERR,
   clearFailures,
   countAdmins,
-  countPasswordRequests,
   createInvitation,
   createUserFromInvitation,
   deleteExpiredSessions,
@@ -16,7 +15,7 @@ import {
   insertSession,
   forgetAttempt,
   recordAttempt,
-  recordPasswordRequest,
+  reservePasswordRequest,
   resetPasswordFromInvitation,
   setUserEmail,
   updatePasswordHash,
@@ -24,7 +23,7 @@ import {
 } from '@/lib/db-auth'
 import { getPlayer } from '@/lib/db'
 import type { Mailer, MailResult } from '@/lib/mail'
-import { adminResetMail, forgotMail, invitationMail } from '@/lib/mail/templates'
+import { adminResetMail, emailChangedMail, forgotMail, invitationMail } from '@/lib/mail/templates'
 import type { Lang } from '@/lib/i18n/lang'
 import { generateToken, hashPassword, hashToken, verifyDummyPassword, verifyPassword } from './crypto'
 import { SESSION_TTL_MS } from './resolve'
@@ -35,6 +34,9 @@ const MAX_FAILURES = 5
 const MAX_IP_ATTEMPTS = 20
 const MAX_USERNAME_KEY = 64
 const MAX_FORGOT_REQUESTS = 3
+/** « Mot de passe oublié » : demandes par IP en 15 minutes, et mails par jour pour tout le site (quota Gmail ~100). */
+const MAX_FORGOT_IP_REQUESTS = 10
+const MAX_FORGOT_MAILS_PER_DAY = 30
 export const FORGOT_TTL_MS = 3600 * 1000
 
 /** Envoi des mails : service choisi par la configuration et origine du site (liens). */
@@ -45,6 +47,7 @@ export type MailContext = { mailer: Mailer; baseUrl: string; lang?: Lang }
 const attemptKey = {
   user: (username: string) => `user:${username.slice(0, MAX_USERNAME_KEY)}`,
   ip: (ip: string) => `ip:${ip.slice(0, MAX_USERNAME_KEY)}`,
+  forgotIp: (ip: string) => `forgot-ip:${ip.slice(0, MAX_USERNAME_KEY)}`,
 }
 
 type Attempt = { blocked: true } | { blocked: false; ipKey: string | null } | { error: string }
@@ -211,14 +214,32 @@ export async function issueInvitation(
   return { ok: true, value: { url, expiresAt: r.data.expiresAt, mail } }
 }
 
+/** Compte la demande pour l'IP, avant de chercher le compte ; refusée au-delà de la limite (et alors non comptée). */
+async function allowForgotFromIp(db: D1Database, ip: string, now: Date): Promise<boolean> {
+  const key = attemptKey.forgotIp(ip)
+  const counts = await recordAttempt(db, [key], now)
+  if (counts.error !== null) throw new Error(counts.error)
+  if (counts.data[0] <= MAX_FORGOT_IP_REQUESTS) return true
+  await forgetAttempt(db, key, now)
+  return false
+}
+
 /**
  * « Mot de passe oublié » : lien d'une heure envoyé à l'adresse du compte (pseudo, puis adresse).
  * Ne lève jamais et ne révèle rien : l'appelant répond toujours la même chose.
+ * Limites : par IP (`CF-Connecting-IP`, absente en local), par compte, et nombre de mails par jour.
  */
-export async function requestPasswordReset(db: D1Database, identifier: string, now: Date, ctx: MailContext): Promise<void> {
+export async function requestPasswordReset(
+  db: D1Database,
+  identifier: string,
+  now: Date,
+  ctx: MailContext,
+  ip?: string | null,
+): Promise<void> {
   try {
     const username = identifier.trim().slice(0, MAX_USERNAME_KEY)
     if (!username) return
+    if (ip && !(await allowForgotFromIp(db, ip, now))) return
     const byName = await getUserByUsername(db, username)
     if (byName.error !== null) throw new Error(byName.error)
     let user = byName.data
@@ -230,11 +251,12 @@ export async function requestPasswordReset(db: D1Database, identifier: string, n
     }
     if (!user || !user.email) return
 
-    const count = await countPasswordRequests(db, user.id, now)
-    if (count.error !== null) throw new Error(count.error)
-    if (count.data >= MAX_FORGOT_REQUESTS) return
-    const recorded = await recordPasswordRequest(db, user.id, now)
-    if (recorded.error !== null) throw new Error(recorded.error)
+    const reserved = await reservePasswordRequest(db, user.id, now, {
+      perUser: MAX_FORGOT_REQUESTS,
+      perDay: MAX_FORGOT_MAILS_PER_DAY,
+    })
+    if (reserved.error !== null) throw new Error(reserved.error)
+    if (!reserved.data) return
 
     const player = await getPlayer(db, user.player_id)
     if (player.error !== null) throw new Error(player.error)
@@ -258,12 +280,23 @@ export async function requestPasswordReset(db: D1Database, identifier: string, n
   }
 }
 
+/**
+ * Changer ou effacer son adresse demande le mot de passe actuel : sinon une session restée ouverte
+ * suffirait à détourner « Mot de passe oublié ? ». L'ancienne adresse est prévenue (sans citer la nouvelle).
+ */
 export async function updateEmail(
   db: D1Database,
   user: CurrentUser,
-  input: string | null,
+  input: { email: string | null; currentPassword: string },
+  ctx: MailContext,
 ): Promise<ServiceResult<{ email: string | null }>> {
-  const email = normalizeEmail(input)
+  const { data: account, error } = await getUserById(db, user.id)
+  if (error !== null) return internal(error)
+  // Vérifié avant tout le reste : sans le mot de passe, on ne dit pas non plus si une adresse est prise.
+  if (!account || !(await verifyPassword(input.currentPassword, account.password_hash))) {
+    return fail(400, MSG.BAD_CURRENT_PASSWORD)
+  }
+  const email = normalizeEmail(input.email)
   if (email) {
     const emailError = validateEmail(email)
     if (emailError) return fail(400, emailError)
@@ -271,6 +304,13 @@ export async function updateEmail(
   const r = await setUserEmail(db, user.id, email)
   if (r.error === AUTH_ERR.EMAIL_TAKEN) return fail(409, MSG.EMAIL_TAKEN)
   if (r.error !== null) return internal(r.error)
+
+  const previous = account.email
+  if (previous && previous.toLowerCase() !== email?.toLowerCase()) {
+    const content = emailChangedMail({ name: user.playerName, url: `${ctx.baseUrl}/connexion` }, ctx.lang ?? 'fr')
+    const sent = await sendSafely(ctx.mailer, { to: previous, ...content })
+    if (sent !== 'sent' && sent !== 'disabled') console.error('[email] ancienne adresse non prévenue :', sent)
+  }
   return { ok: true, value: { email } }
 }
 

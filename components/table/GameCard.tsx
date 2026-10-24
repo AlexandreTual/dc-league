@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import type { Catalog, CardView, VisibleCard } from '@/lib/game/types'
 import { cardInfo, tokenBadge } from '@/lib/game/apply'
 import { Crown } from 'lucide-react'
@@ -116,8 +117,9 @@ function GraveBreak() {
  *   ondes et couronne ; une carte ramenée du cimetière sort d'une pierre tombale qui se brise ; une seule fois) ;
  * `abilityStyle` : carte en jeu, capacités données ou perdues affichées en symboles ou en libellés (même sans animations).
  * Carte en jeu (`pt`) hors phase : estompée, avec la mention « Hors phase ».
+ * Mémoïsée : une carte dont rien n'a changé (même objet de la vue, mêmes réglages) n'est pas redessinée avec la table.
  */
-export default function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = NO_EFFECTS, arriving, abilityStyle }: {
+function GameCard({ card, catalog, lang, tax = 0, className = '', pt = false, onPtEdit, effects = NO_EFFECTS, arriving, abilityStyle }: {
   card: CardView | null | undefined
   catalog: Catalog
   lang: Lang
@@ -232,3 +234,5 @@ export default function GameCard({ card, catalog, lang, tax = 0, className = '',
     </div>
   )
 }
+
+export default memo(GameCard)

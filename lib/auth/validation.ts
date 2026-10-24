@@ -33,9 +33,20 @@ export function safeRedirectPath(from: string | null | undefined): string {
 /** Pages d'où l'on ne revient pas après connexion (on y est déjà connecté ou elles n'ont plus de sens). */
 const NO_RETURN = ['/connexion', '/invitation', '/mot-de-passe-oublie']
 
+const isNoReturn = (path: string) => NO_RETURN.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`))
+
+/**
+ * Page d'arrivée après l'inscription (ou le nouveau mot de passe) par invitation :
+ * le `from` reçu s'il reste un chemin interne au site (ex. un lien de ligue), sinon le profil.
+ */
+export function afterInvitationPath(from: string | null | undefined): string {
+  if (!from || safeRedirectPath(from) !== from || isNoReturn(from)) return '/profil'
+  return from
+}
+
 /** Lien « Connexion » qui ramène sur la page en cours une fois connecté. */
 export function loginHref(pathname: string | null | undefined): string {
-  if (!pathname || NO_RETURN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return '/connexion'
+  if (!pathname || isNoReturn(pathname)) return '/connexion'
   return `/connexion?from=${encodeURIComponent(pathname)}`
 }
 

@@ -58,7 +58,7 @@ export const leagues = {
   },
   standings: {
     loadWhat: 'le classement',
-    format: 'Duel Commander · Round Robin · Top 4',
+    format: 'Duel Commander · Tous contre tous · Top 4',
     /** Suit le nombre de matchs joués, en gras : « 3 / 6 matchs joués ». */
     ofMatchesPlayed: (total: number) => `/ ${total} matchs joués`,
     notStarted: "La ligue n'a pas encore démarré.",
@@ -78,7 +78,8 @@ export const leagues = {
     drawsN: (n: number) => `${n}N`,
     lossesN: (n: number) => `${n}D`,
     diffN: (d: string) => `Diff ${d}`,
-    footer: 'Top 4 qualifiés pour les demi-finales · Tri : Points puis différence de manches (GW−GL)',
+    footer: 'Top 4 qualifiés pour les demi-finales · Tri : points, différence de manches (GW−GL), puis victoires',
+    footerTie: 'À égalité : confrontation directe, puis tirage au sort.',
   },
   calendar: {
     loadWhat: 'le calendrier',
@@ -87,7 +88,7 @@ export const leagues = {
     title: 'Calendrier',
     played: (n: number) => `${n} joués`,
     toPlay: (n: number) => `${n} à jouer`,
-    round: 'Round',
+    round: 'Ronde',
   },
   match: {
     win: 'Victoire',
@@ -174,7 +175,7 @@ export const leagues = {
     allPublic: 'Toutes les ligues publiques confondues.',
     empty: 'Les statistiques apparaîtront une fois les premiers matchs joués.',
     commander: 'Commandant',
-    global: 'Palmarès Global',
+    global: 'Palmarès global',
     globalSub: 'toutes saisons confondues',
     player: 'Joueur',
     played: 'MJ',

@@ -336,7 +336,12 @@ export function libraryMenu(ctx: MenuContext, player: string): MenuEntry[] {
 
 /** Menu de ma main (clic droit sur la zone). */
 export function handMenu(ctx: MenuContext): MenuEntry[] {
-  if (!ctx.me || ctx.readOnly) return []
+  const me = ctx.me
+  if (!me || ctx.readOnly) return []
   const t = ctx.t.menus.hand
-  return [{ kind: 'title', label: t.title }, item(t.revealHand, act({ type: 'reveal', ids: 'hand', to: 'all' }))]
+  return [
+    { kind: 'title', label: t.title },
+    item(t.revealHand, act({ type: 'reveal', ids: 'hand', to: 'all' })),
+    ...others(ctx, me).map((p) => item(t.revealHandTo(ctx.view.players[p].name), act({ type: 'reveal', ids: 'hand', to: [p] }))),
+  ]
 }

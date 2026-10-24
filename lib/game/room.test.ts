@@ -33,6 +33,29 @@ describe('actions', () => {
     expect(state(r).players.p2.mulligans).toBe(0)
   })
 
+  it('un mulligan ne s’annule pas : pas de nouvelle main à volonté', () => {
+    const r = room()
+    act(r, 'p1', { type: 'mulligan' }, ctx(77))
+    const hand = state(r).players.p1.zones.hand
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
+    expect(viewMessageFor(r, 'p1', {}, 0).view.canUndo).toBe(false)
+    expect(state(r).players.p1.zones.hand).toEqual(hand)
+    expect(state(r).players.p1.mulligans).toBe(1)
+  })
+
+  it('un mélange ou un ordre aléatoire ne s’annule pas', () => {
+    const r = room()
+    keepAll(r)
+    act(r, 'p1', { type: 'shuffle' }, ctx(11))
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false })
+    act(r, 'p1', { type: 'search', target: 'p1' })
+    act(r, 'p1', { type: 'endLook', target: 'p1', shuffle: true }, ctx(12))
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false })
+    act(r, 'p1', { type: 'moveMany', ids: state(r).players.p1.zones.hand.slice(0, 2), zone: 'library', position: 'top', random: true }, ctx(13))
+    expect(r.history.actions.at(-1)).toMatchObject({ type: 'moveMany', random: true, seed: 13 })
+    expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: false })
+  })
+
   it('graine du serveur pour shuffle et endLook', () => {
     const r = room()
     keepAll(r)
@@ -106,6 +129,15 @@ describe('actions', () => {
     expect(handleMessage(r, 'p1', { type: 'undo' }, ctx())).toMatchObject({ changed: true, error: null })
     expect(r.history.actions).toHaveLength(1)
     expect(handleMessage(r, 'p2', { type: 'concede' }, ctx())).toMatchObject({ changed: true, error: null })
+    expect(state(r).players.p2.eliminated).toBe(true)
+  })
+
+  it('abandonner ne s’annule pas : l’éliminé qui voit tout ne revient pas en jeu', () => {
+    const r = createRoom('t1', setupFor('commander', 3, { eliminatedSeeAll: true }), 'p1', seeds(), 0)
+    keepAll(r)
+    handleMessage(r, 'p2', { type: 'concede' }, ctx())
+    expect(viewMessageFor(r, 'p2', {}, 0).view.canUndo).toBe(false)
+    expect(handleMessage(r, 'p2', { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
     expect(state(r).players.p2.eliminated).toBe(true)
   })
 
@@ -286,6 +318,16 @@ describe('pouvoirs de l’hôte', () => {
     expect(state(r).activePlayer).not.toBe(active)
   })
 
+  it('le joueur dont l’hôte a passé le tour ne peut pas l’annuler', () => {
+    const r = room()
+    keepAll(r)
+    const active = state(r).activePlayer
+    host(r, 'p1', 'passTurn', active)
+    expect(r.history.canUndo(active)).toBe(false)
+    expect(handleMessage(r, active, { type: 'undo' }, ctx())).toMatchObject({ changed: false, error: 'Rien à annuler' })
+    expect(state(r).activePlayer).not.toBe(active)
+  })
+
   it('élimine un joueur', () => {
     const r = room()
     host(r, 'p1', 'eliminate', 'p2')
@@ -397,5 +439,59 @@ describe('minuteur', () => {
     const r = restoreRoom('t1', setupFor('commander', 2), 'p1', [{ type: 'start', actor: 'server', seed: 1 }], { finished: false, winner: null }, 0)
     expect(viewMessageFor(r, 'p1', {}, 0)).not.toHaveProperty('clock')
     expect(gameTiming(r)).toEqual({ duration: null, playTime: {} })
+  })
+})
+
+describe('identifiants hérités de l’objet (toString, __proto__…)', () => {
+  const KEYS = ['toString', '__proto__', 'constructor', 'hasOwnProperty']
+  const byPlayer = (k: string): ClientAction[] => [
+    { type: 'life', target: k, delta: 1 },
+    { type: 'poison', target: k, delta: 1 },
+    { type: 'playerCounter', target: k, name: 'Énergie', delta: 1 },
+    { type: 'commanderDamage', target: k, commander: 'p1-c0', delta: 1 },
+    { type: 'setMonarch', to: k },
+    { type: 'setInitiative', to: k },
+    { type: 'look', target: k, count: 1 },
+    { type: 'search', target: k },
+    { type: 'endLook', target: k, shuffle: false },
+    { type: 'reorderTop', target: k, ids: ['x'] },
+    { type: 'reveal', ids: 'hand', to: [k] },
+    { type: 'eliminate', target: k },
+    { type: 'moveTop', to: { player: k, zone: 'battlefield' } },
+  ]
+  const byCard = (k: string): ClientAction[] => [
+    { type: 'move', id: k, to: { player: 'p2', zone: 'battlefield' } },
+    { type: 'moveMany', ids: [k], zone: 'graveyard' },
+    { type: 'giveControl', id: k, to: 'p1' },
+    { type: 'tap', id: k },
+    { type: 'flip', id: k },
+    { type: 'commanderTax', id: k, delta: 1 },
+    { type: 'commanderDamage', target: 'p1', commander: k, delta: 1 },
+  ]
+
+  it.each(KEYS)('« %s » : refusé partout, la partie reste lisible', (k) => {
+    const r = room(2)
+    keepAll(r)
+    const actions = r.history.actions.length
+    for (const action of [...byPlayer(k), ...byCard(k)]) {
+      expect(act(r, 'p2', action), JSON.stringify(action)).toMatchObject({ changed: false })
+    }
+    expect(host(r, 'p1', 'eliminate', k)).toMatchObject({ changed: false, error: 'Ce joueur n’est pas à la table' })
+    expect(host(r, 'p1', 'passTurn', k)).toMatchObject({ changed: false })
+    expect(r.history.actions).toHaveLength(actions)
+    expect(Object.keys(state(r).players)).toEqual(['p1', 'p2'])
+    expect(state(r).monarch).toBeNull()
+    for (const viewer of ['p1', 'p2', null]) expect(() => viewMessageFor(r, viewer, {}, 0)).not.toThrow()
+  })
+
+  it.each(['constructor', '__proto__', 'toString'])('compteur de joueur nommé « %s » : 1 après un +1', (name) => {
+    const r = room(2)
+    keepAll(r)
+    act(r, 'p2', { type: 'playerCounter', target: 'p2', name, delta: 1 })
+    expect(Object.hasOwn(state(r).players.p2.counters, name)).toBe(true)
+    expect(state(r).players.p2.counters[name]).toBe(1)
+    expect(state(r).log.at(-1)?.text).toBe(`Bob : ${name} 1`)
+    expect(replay(setupFor('commander', 2), r.history.actions)).toEqual(state(r))
+    expect(() => viewMessageFor(r, 'p1', {}, 0)).not.toThrow()
   })
 })

@@ -1,12 +1,11 @@
 // Vérification du mode test dans un vrai navigateur (Chromium piloté par playwright-core).
 // Usage : node scripts/playtest-check.mjs <url-de-base> <deckId> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 
 const [base = 'http://localhost:8788', deckId, outDir = '.'] = process.argv.slice(2)
 if (!deckId) throw new Error('deckId manquant')
 
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const page = await browser.newPage({ locale: 'fr-FR', viewport: { width: 1440, height: 900 } })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
@@ -233,8 +232,10 @@ try {
   check((await page.locator('[data-pile-card]').first().locator('[data-pile-top]').count()) === 1, 'regard : repère « Dessus » sur la première carte')
   await page.locator(`[data-pile-card="${r1}"]`).getByRole('button', { name: 'Vers le dessous' }).click()
   check((await pileIds()).join() === [r2, r1, r3].join(), 'flèche → : la carte du dessus passe en deuxième')
-  await page.locator(`[data-pile-card="${r3}"]`).dragTo(page.locator(`[data-pile-card="${r2}"]`))
+  const r2Box = await page.locator(`[data-pile-card="${r2}"]`).boundingBox()
+  await drag(page.locator(`[data-pile-card="${r3}"] [data-card-id]`), r2Box.x + r2Box.width / 2, r2Box.y + r2Box.height / 3)
   check((await pileIds()).join() === [r3, r2, r1].join(), 'glisser-déposer : la troisième carte passe dessus')
+  check((await page.locator('[data-pile-away]').count()) === 0, 'regard : glissée dans la fenêtre, la fenêtre reste affichée')
   await capture('regard-ordre')
   await page.getByRole('button', { name: 'Fermer', exact: true }).click()
   await page.waitForTimeout(200)
@@ -261,6 +262,15 @@ try {
   check(shownNames.length > 0 && shownNames.every((n) => ['Forêt', 'Forest'].includes(n)), `recherche « FORET » sans accent : ${shownNames.length} Forêts`)
   await nameFilter.fill('')
   await capture('recherche-filtre')
+  // Recherche : une carte de la bibliothèque se glisse directement sur le champ de bataille.
+  {
+    const card = page.locator('[data-pile-card]').first()
+    const id = await card.getAttribute('data-pile-card')
+    const field = await page.locator('[data-zone="battlefield"]').boundingBox()
+    await drag(card.locator('[data-card-id]'), field.x + field.width - 120, field.y + 120)
+    check((await page.locator(`[data-zone="battlefield"] [data-card-id="${id}"]`).count()) === 1, 'recherche : carte de la bibliothèque glissée sur le champ de bataille')
+    check((await page.locator(`[data-pile-card="${id}"]`).count()) === 0 && (await page.locator('[data-pile-card]').count()) > 0, 'recherche : la fenêtre revient, sans la carte')
+  }
   await page.getByRole('dialog').getByRole('checkbox').uncheck()
   await page.getByRole('button', { name: 'Fermer', exact: true }).click()
 
@@ -307,9 +317,20 @@ try {
   check((await page.locator('[data-zone="command"]').innerText()).includes('Taxe +2'), 'retour en zone de commandement : taxe +2')
   await capture('taxe')
 
+  // Recherche fermée par Échap, case « Mélanger en fermant » laissée cochée : la bibliothèque est mélangée.
+  await library.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /Chercher une carte/ }).click()
+  await page.getByRole('dialog').waitFor()
+  check(await page.getByRole('dialog').getByRole('checkbox').isChecked(), 'recherche : « Mélanger en fermant » cochée par défaut')
+  await page.locator('[data-pile-card]').first().getByRole('button', { name: 'Main', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  check((await page.locator('[data-pile-card]').count()) === 0, 'recherche : Échap ferme la fenêtre')
+
   await page.getByRole('button', { name: /Journal/ }).click()
   const log = await page.getByTestId('log').innerText()
   check(log.includes('Crée un jeton Soldat') && log.includes('Mulligan n°1') && !log.includes('gratuit') && log.includes('remet les 3 cartes du dessus de sa bibliothèque dans l’ordre de son choix'), 'journal en français (dont le regard)')
+  check(log.includes('mélange sa bibliothèque'), 'journal : la recherche fermée par Échap mélange la bibliothèque')
   await capture('journal')
   await page.getByRole('button', { name: 'Fermer le journal' }).click()
 
@@ -509,9 +530,34 @@ try {
   // Pas seulement la plus récente : une carte plus ancienne de la liste se glisse aussi.
   await drag(list.locator('[data-card-id]').nth(1), fb.x + 150, fb.y + 120)
   check((await page.locator(`[data-zone="battlefield"] [data-card-id="${backId}"]`).count()) === 1, 'cimetière en liste : une carte se glisse vers le champ de bataille')
+  // La carte de la vignette Cim. se glisse aussi (identifiant de glisser à part), sans gêner la liste.
+  const faceId = await tileGrave.locator('[data-pile-face]').getAttribute('data-pile-face')
+  await drag(tileGrave.locator('[data-pile-face] [data-card-id]'), fb.x + 260, fb.y + 120)
+  check((await page.locator(`[data-zone="battlefield"] [data-card-id="${faceId}"]`).count()) === 1, 'vignette Cim. : la dernière carte se glisse vers le champ de bataille')
+  const againId = await list.locator('[data-card-id]').first().getAttribute('data-card-id')
+  await drag(list.locator('[data-card-id]').first(), fb.x + 370, fb.y + 120)
+  check((await page.locator(`[data-zone="battlefield"] [data-card-id="${againId}"]`).count()) === 1, 'cimetière en liste : toujours glissable après la vignette')
+  // Remises au cimetière (la liste garde assez de cartes pour défiler plus bas) ; la dernière posée est par-dessus.
+  for (const id of [againId, faceId]) await drag(page.locator(`[data-zone="battlefield"] [data-card-id="${id}"]`), listBox.x + listBox.width / 2, listBox.y + listBox.height - 20)
   await list.click({ position: { x: 20, y: 6 } })
   check((await page.getByRole('dialog').innerText()).includes('Cimetière'), 'cimetière en liste : un clic ouvre tout le cimetière')
+  // Fenêtre du cimetière : une carte se glisse directement sur le champ de bataille ; la fenêtre s'efface puis revient.
+  const fromModal = page.locator('[data-pile-card]').first()
+  const fromModalId = await fromModal.getAttribute('data-pile-card')
+  const mb = await fromModal.locator('[data-card-id]').boundingBox()
+  await page.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(mb.x + mb.width / 2 + 10, mb.y + mb.height / 2 + 10, { steps: 5 })
+  check((await page.locator('[data-pile-away]').count()) === 1, 'fenêtre du cimetière : effacée pendant le glisser')
+  await page.mouse.move(fb.x + 480, fb.y + 120, { steps: 15 })
+  await page.mouse.up()
+  await page.waitForTimeout(200)
+  check((await page.locator(`[data-zone="battlefield"] [data-card-id="${fromModalId}"]`).count()) === 1, 'fenêtre du cimetière : carte glissée sur le champ de bataille')
+  check((await page.locator('[data-pile-away]').count()) === 0 && (await page.locator(`[data-pile-card="${fromModalId}"]`).count()) === 0,
+    'fenêtre du cimetière : de retour, sans la carte glissée')
+  await capture('cimetiere-fenetre-glisser')
   await page.keyboard.press('Escape')
+  await drag(page.locator(`[data-zone="battlefield"] [data-card-id="${fromModalId}"]`), listBox.x + listBox.width / 2, listBox.y + listBox.height - 20)
 
   // Réglage « Image du cimetière » : hauteur de l'illustration ; la liste défile quand elle dépasse.
   check(Math.round((await list.locator('[data-graveyard-art]').first().boundingBox()).height) === 36, 'image du cimetière : moyenne (36 px) par défaut')

@@ -1,13 +1,12 @@
 // Vérification du mode test sur tablette en paysage (1180 × 820 puis 1024 × 768, écran tactile),
 // puis du message en portrait, dans Chromium piloté par playwright-core.
 // Usage : node scripts/playtest-tablet-check.mjs <url-de-base> <deckId> <dossier-captures>
-import { chromium } from 'playwright-core'
+import { launch } from './browser.mjs'
 
 const [base = 'http://localhost:8788', deckId, outDir = '.'] = process.argv.slice(2)
 if (!deckId) throw new Error('deckId manquant')
 
-const executablePath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-const browser = await chromium.launch({ executablePath })
+const browser = await launch()
 const errors = []
 /** Taille minimale d'une zone tactile. */
 const TOUCH = 44
