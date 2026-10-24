@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { LogIn } from 'lucide-react'
@@ -8,6 +9,8 @@ import { isLeagueInvitePath } from '@/lib/leagues/join'
 import LoginForm from './LoginForm'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Connexion' }
 
 export default async function ConnexionPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const { from } = await searchParams

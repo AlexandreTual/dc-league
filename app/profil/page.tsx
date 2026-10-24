@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -5,6 +6,8 @@ import { getUserById } from '@/lib/db-auth'
 import ProfileForms from './ProfileForms'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Mon profil' }
 
 export default async function ProfilPage() {
   const user = await getCurrentUser()

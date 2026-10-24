@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -6,6 +7,8 @@ import Lobby from '@/components/online/Lobby'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Salon' }
 
 export default async function SalonPage() {
   const user = await getCurrentUser()
