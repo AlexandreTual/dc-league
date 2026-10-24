@@ -116,6 +116,9 @@ export function parseBindings(raw: string | null): Bindings {
   return bindings
 }
 
+/** Stockage du navigateur, déclaré ici : ce fichier entre aussi (par les types du dictionnaire) dans le Worker de jeu, sans DOM. */
+declare const localStorage: { getItem(key: string): string | null; setItem(key: string, value: string): void }
+
 export function loadBindings(): Bindings {
   try {
     return parseBindings(localStorage.getItem(KEY))
