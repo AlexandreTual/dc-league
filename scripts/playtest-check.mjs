@@ -54,6 +54,8 @@ try {
   const fullscreenButton = page.getByTestId('fullscreen')
   await fullscreenButton.click()
   await page.waitForFunction(() => !!document.fullscreenElement)
+  // Le bouton suit l'événement fullscreenchange : on lui laisse le temps de se redessiner.
+  await page.waitForFunction(() => document.querySelector('[data-testid="fullscreen"]')?.getAttribute('aria-label') === 'Quitter le plein écran', null, { timeout: 5000 }).catch(() => {})
   check((await fullscreenButton.getAttribute('aria-label')) === 'Quitter le plein écran', 'plein écran du navigateur : le bouton devient « Quitter le plein écran »')
   await page.evaluate(() => document.exitFullscreen())
   await page.waitForFunction(() => !document.fullscreenElement)
