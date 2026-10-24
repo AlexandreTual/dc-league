@@ -35,7 +35,8 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }
   onCancel?: () => void
   withList?: boolean
 }) {
-  const m = useT().decks.myDecks
+  const t = useT()
+  const m = t.decks.myDecks
   const [fields, setFields] = useState(initial)
   const [list, setList] = useState('')
   const [error, setError] = useState('')
@@ -68,7 +69,7 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }
       </div>
       {withList && (
         <div>
-          <label className={labelClass} htmlFor="new-deck-list">Ou colle la liste</label>
+          <label className={labelClass} htmlFor="new-deck-list">{m.orPaste}</label>
           <textarea
             id="new-deck-list"
             className={inputClass + ' font-mono text-xs'}
@@ -79,11 +80,11 @@ function DeckForm({ initial, submitLabel, onSubmit, onCancel, withList = false }
           />
           {list.trim() && (
             <p className="text-dc-muted text-xs mt-1">
-              {cardCount} cartes · {parsed.lines.filter((l) => l.section === 'commander').length} commandant(s) · {parsed.errors.length} illisible(s)
-              {fields.moxfield_url.trim() ? ' · la liste collée passe avant le lien' : ''}
+              {m.listSummary(cardCount, parsed.lines.filter((l) => l.section === 'commander').length, parsed.errors.length)}
+              {fields.moxfield_url.trim() ? m.listOverridesLink : ''}
             </p>
           )}
-          {parsed.tooLong && <p className={errorClass}>La liste dépasse 250 lignes</p>}
+          {parsed.tooLong && <p className={errorClass}>{t.decks.import.tooLong}</p>}
         </div>
       )}
       {error && <p className={errorClass}>{error}</p>}

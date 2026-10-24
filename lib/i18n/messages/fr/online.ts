@@ -1,6 +1,25 @@
 // Jeu en ligne : salon, salle d'attente, tirage du premier joueur, connexion au serveur de jeu, erreurs du moteur.
 export const online = {
   formats: { commander: 'Commander', duel: 'Duel Commander' },
+  /** Revanche : bandeau de fin et bouton de l'écran de victoire. */
+  rematch: {
+    rematch: 'Revanche',
+    starting: 'Revanche…',
+    open: 'Ouvrir la revanche',
+    join: 'Rejoindre la revanche',
+    joinShort: 'Rejoindre',
+    offer: (host: string) => `${host} propose une revanche :`,
+    failed: 'Une erreur est survenue',
+  },
+  /** Partie finie dont le plateau n'est plus gardé (components/online/ArchivedGame.tsx). */
+  archived: {
+    title: 'Partie terminée',
+    text: 'Le plateau n’est plus disponible ; voici ce qu’en garde l’historique.',
+    winner: 'Vainqueur :',
+    noWinner: 'Pas de vainqueur',
+    duration: (d: string) => `durée ${d}`,
+    backToLobby: 'Retour au salon',
+  },
   lobby: {
     title: 'Salon',
     loadWhat: 'les tables du salon',

@@ -11,7 +11,8 @@ import ShareButton from '@/components/ShareButton'
 /** Lien d'invitation de la ligue : créer, copier, renouveler (l'ancien cesse de marcher). */
 export default function InvitePanel({ leagueId, leagueName, initialToken, api }: { leagueId: string; leagueName?: string; initialToken: string | null; api: AdminApi }) {
   const { call, showToast } = api
-  const t = useT().leagues.invite
+  const messages = useT()
+  const t = messages.leagues.invite
   const [token, setToken] = useState(initialToken)
   const [origin, setOrigin] = useState('')
   const [loading, setLoading] = useState(false)
@@ -63,7 +64,7 @@ export default function InvitePanel({ leagueId, leagueName, initialToken, api }:
             </button>
             <ShareButton
               disabled={!url}
-              getData={() => ({ title: 'Commander League', text: leagueShareText(leagueName), url })}
+              getData={() => ({ title: messages.common.siteName, text: leagueShareText(leagueName, messages), url })}
               className="inline-flex items-center bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
             />
             {confirmRenew ? (

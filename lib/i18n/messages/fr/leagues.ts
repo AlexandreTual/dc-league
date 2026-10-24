@@ -89,6 +89,12 @@ export const leagues = {
     played: (n: number) => `${n} joués`,
     toPlay: (n: number) => `${n} à jouer`,
     round: 'Ronde',
+    /** Suit la liste des adversaires, en doré. */
+    remaining: (n: number) => `Il te reste ${n} ${n > 1 ? 'matchs' : 'match'} : contre `,
+    mine: 'Mes matchs',
+    all: 'Tous',
+    /** Suit la liste des joueurs exempts de la ronde. */
+    exempt: (n: number) => `${n > 1 ? 'Exempts' : 'Exempt'} :`,
   },
   match: {
     win: 'Victoire',

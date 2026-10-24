@@ -158,7 +158,7 @@ export default function PileModal({ title, player, zone, cards, searchable, shuf
           {visible.length === 0 && <p className="text-dc-muted text-sm col-span-full">{pl.noCards}</p>}
           {visible.map((card, index) => (
             <PileCard key={card.id} card={card} slot={inPanel}>
-              <Draggable id={card.id} dragKey={pileKey(card.id)} label={cardLabel(catalogs[card.owner], card, lang)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
+              <Draggable id={card.id} dragKey={pileKey(card.id)} label={cardLabel(catalogs[card.owner], card, lang, t)} from={{ player, zone }} disabled={readOnly} touchScroll className="relative rounded-[6%]">
                 <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} />
                 {ordered && index === 0 && (
                   <span className="absolute top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-dc-gold text-black text-[10px] font-semibold" data-pile-top>{pl.top}</span>

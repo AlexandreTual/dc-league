@@ -112,7 +112,7 @@ export default function ProfileForms({ initialName, initialAvatarUrl, initialEma
         </div>
         {email.trim() !== savedEmail && (
           <div>
-            <label className={labelClass} htmlFor="email-password">Mot de passe actuel</label>
+            <label className={labelClass} htmlFor="email-password">{m.currentPassword}</label>
             <input
               id="email-password"
               type="password"

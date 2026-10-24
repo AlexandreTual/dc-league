@@ -34,13 +34,11 @@ export function seasonProgress(played: number, total: number): number {
   return total > 0 ? Math.round((played / total) * 100) : 0
 }
 
-const FORMAT_LABELS = { commander: 'Commander', duel: 'Duel Commander' } as const
-
 export type MyTable = {
   id: string
-  /** « Reprendre » une partie en cours, « Retourner à la table » ouverte, comme au salon. */
-  action: 'Reprendre' | 'Retourner à la table'
-  format: string
+  /** « Reprendre » une partie en cours (`resume`), « Retourner à la table » ouverte (`back`), comme au salon. */
+  action: 'resume' | 'back'
+  format: GameTable['format']
   /** Noms des autres joueurs assis. */
   others: string[]
   seated: number
@@ -52,15 +50,16 @@ export function myTables(tables: GameTable[], me: string): MyTable[] {
   const mine = tables.filter((t) => t.players.some((p) => p.playerId === me))
   return [...mine.filter((t) => t.status === 'playing'), ...mine.filter((t) => t.status === 'open')].map((t) => ({
     id: t.id,
-    action: t.status === 'playing' ? 'Reprendre' : 'Retourner à la table',
-    format: FORMAT_LABELS[t.format],
+    action: t.status === 'playing' ? 'resume' : 'back',
+    format: t.format,
     others: t.players.filter((p) => p.playerId !== me).map((p) => p.name),
     seated: t.players.length,
     seats: t.seats,
   }))
 }
 
-export type PendingMatch = { id: string; leagueId: string; leagueName: string; round: number; opponent: string }
+/** `opponent` absent : joueur inconnu (la page le dit dans sa langue). */
+export type PendingMatch = { id: string; leagueId: string; leagueName: string; round: number; opponent: string | null }
 
 type MatchLike = Pick<DbMatch, 'id' | 'player1_id' | 'player2_id' | 'round_number' | 'is_completed'>
 
@@ -76,7 +75,7 @@ export function myPendingMatches(
     .sort((a, b) => a.round_number - b.round_number)
     .map((m) => {
       const opponentId = m.player1_id === me ? m.player2_id : m.player1_id
-      return { id: m.id, leagueId: league.id, leagueName: league.name, round: m.round_number, opponent: names.get(opponentId) ?? 'Joueur inconnu' }
+      return { id: m.id, leagueId: league.id, leagueName: league.name, round: m.round_number, opponent: names.get(opponentId) ?? null }
     })
 }
 

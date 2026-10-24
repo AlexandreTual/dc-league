@@ -76,8 +76,8 @@ export default function WaitingRoom({ me, table, myDecks, onChange }: {
   function shareData() {
     const host = players.find((p) => p.playerId === table.hostPlayerId)
     return {
-      title: 'Commander League',
-      text: tableShareText({ format: table.format, seats: table.seats, hostName: host?.name }),
+      title: t.common.siteName,
+      text: tableShareText({ format: table.format, seats: table.seats, hostName: host?.name }, t),
       url: window.location.href,
     }
   }

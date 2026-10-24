@@ -352,7 +352,7 @@ export default function DeckView({ deck, playerName, cards, canEdit }: {
               {canEdit && selected.section === 'commander' && (
                 <div className="text-center mt-4">
                   <button onClick={() => makeCommander(selected, false)} className="inline-flex items-center gap-2 text-sm px-4 py-2 border border-dc-border bg-dc-surface text-dc-muted rounded-xl hover:text-dc-gold">
-                    <Undo2 className="w-4 h-4" /> Remettre dans le deck
+                    <Undo2 className="w-4 h-4" /> {m.backToDeck}
                   </button>
                 </div>
               )}

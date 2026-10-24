@@ -37,7 +37,7 @@ export default async function InvitationPage({
               </p>
               {isLeagueInvitePath(target) && (
                 <p className="text-dc-text text-sm bg-dc-gold/10 border border-dc-gold/30 rounded-lg px-3 py-2">
-                  Une fois ton compte créé, tu arriveras sur la page pour rejoindre la ligue.
+                  {m.leagueAfter}
                 </p>
               )}
             </>

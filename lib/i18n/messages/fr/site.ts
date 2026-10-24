@@ -32,6 +32,27 @@ export const site = {
     loginToAccess: 'Se connecter pour y accéder',
     joinTitle: 'Rejoindre la ligue',
     joinText: "Les comptes se créent sur invitation : demande ton lien à l'admin du site, puis importe ton deck et rejoins une ligue.",
+    /** Bloc « À toi de jouer » d'un joueur connecté. */
+    myPlay: {
+      title: 'À toi de jouer',
+      failed: "Tes parties et tes ligues n'ont pas pu être chargées. Réessaie dans un instant.",
+      tables: 'Mes tables',
+      seated: (seated: number, seats: number) => `${seated}/${seats} joueurs`,
+      with: (names: string) => `Avec ${names}`,
+      waiting: 'En attente de joueurs',
+      resume: 'Reprendre',
+      back: 'Retourner à la table',
+      leagues: 'Mes ligues en cours',
+      organizer: 'Organisateur',
+      noMatch: 'Aucun match joué',
+      rank: (n: number) => `${n}${n === 1 ? 'ᵉʳ' : 'ᵉ'}`,
+      /** Suit la place, en doré : « 2ᵉ sur 4 · 3 pts ». */
+      ofPoints: (of: number, points: number) => ` sur ${of} · ${points} pts`,
+      matches: 'Mes matchs à jouer',
+      against: (name: string) => `contre ${name}`,
+      unknownPlayer: 'Joueur inconnu',
+      round: (league: string, round: number) => `${league} · journée ${round}`,
+    },
   },
   /** Rubriques de l'accueil (`lib/home.ts`). */
   features: {

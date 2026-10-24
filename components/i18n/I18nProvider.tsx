@@ -33,6 +33,10 @@ export default function I18nProvider({ lang: initial, children }: { lang: Lang; 
   const [cardLang, setCardLangState] = useState<Lang>(initial)
 
   useEffect(() => setLangState(initial), [initial])
+  // `<html lang>` suit la bascule sans rechargement (lecteurs d'écran, messages de `sendJson`).
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
   useEffect(() => setCardLangState(readLang(initial)), [initial])
 
   const setLang = useCallback((next: Lang) => {

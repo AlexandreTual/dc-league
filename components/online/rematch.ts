@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GameTable } from '@/lib/db-games'
 import { sendJson } from '@/components/formStyles'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Revanche proposée après une partie finie, telle que je la vois. */
 export type RematchOffer = { id: string; hostName: string; seated: boolean }
@@ -33,6 +34,7 @@ async function fetchTable(id: string): Promise<GameTable | null> {
  */
 export function useRematch(tableId: string, me: string | null, finished: boolean) {
   const router = useRouter()
+  const failed = useT().online.rematch.failed
   const [offer, setOffer] = useState<RematchOffer | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,10 +61,10 @@ export function useRematch(tableId: string, me: string | null, finished: boolean
     const { error, data } = await sendJson(`/api/games/${tableId}/rematch`, 'POST')
     if (error || !data || typeof data !== 'object' || !('id' in data)) {
       setBusy(false)
-      return setError(error ?? 'Une erreur est survenue')
+      return setError(error ?? failed)
     }
     router.push(`/tables/${(data as GameTable).id}`)
-  }, [tableId, router])
+  }, [tableId, router, failed])
 
   /** Bouton « Revanche » : ouvre la revanche où je suis déjà assis, sinon la crée ou la rejoint. */
   const go = useCallback(() => {

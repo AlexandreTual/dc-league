@@ -87,6 +87,10 @@ export const leagues: Messages['leagues'] = {
     played: (n: number) => `${n} played`,
     toPlay: (n: number) => `${n} to play`,
     round: 'Round',
+    remaining: (n: number) => `You have ${n} ${n > 1 ? 'matches' : 'match'} left: against `,
+    mine: 'My matches',
+    all: 'All',
+    exempt: (n: number) => `${n > 1 ? 'Byes' : 'Bye'}:`,
   },
   match: {
     win: 'Win',

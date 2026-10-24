@@ -29,6 +29,7 @@ export const account = {
     welcome: (name: string) => `Bienvenue ${name}`,
     signupIntro: 'Choisis ton pseudo et ton mot de passe',
     resetIntro: 'Choisis ton nouveau mot de passe',
+    leagueAfter: 'Une fois ton compte créé, tu arriveras sur la page pour rejoindre la ligue.',
     invalidTitle: 'Lien invalide',
     invalidText: "Ce lien n'est plus valide, demande un nouveau lien à l'admin.",
     username: 'Pseudo de connexion',

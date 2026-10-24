@@ -2,6 +2,23 @@ import type { Messages } from '../fr'
 
 export const online: Messages['online'] = {
   formats: { commander: 'Commander', duel: 'Duel Commander' },
+  rematch: {
+    rematch: 'Rematch',
+    starting: 'Rematch…',
+    open: 'Open the rematch',
+    join: 'Join the rematch',
+    joinShort: 'Join',
+    offer: (host: string) => `${host} offers a rematch:`,
+    failed: 'Something went wrong',
+  },
+  archived: {
+    title: 'Game over',
+    text: 'The board is no longer available; here is what the history keeps.',
+    winner: 'Winner:',
+    noWinner: 'No winner',
+    duration: (d: string) => `duration ${d}`,
+    backToLobby: 'Back to the lobby',
+  },
   lobby: {
     title: 'Lobby',
     loadWhat: 'the lobby tables',

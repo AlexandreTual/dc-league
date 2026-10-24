@@ -30,6 +30,7 @@ export const account: Messages['account'] = {
     welcome: (name: string) => `Welcome ${name}`,
     signupIntro: 'Choose your username and password',
     resetIntro: 'Choose your new password',
+    leagueAfter: 'Once your account is created, you’ll land on the page to join the league.',
     invalidTitle: 'Invalid link',
     invalidText: 'This link is no longer valid, ask the admin for a new one.',
     username: 'Login username',

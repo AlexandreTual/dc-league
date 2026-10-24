@@ -1,4 +1,5 @@
 /** Partage d'un lien (table, ligue) : texte prêt et choix entre partage natif et copie. */
+import { fr, type Messages } from './i18n/messages'
 
 export type ShareData = { title: string; text: string; url: string }
 
@@ -10,19 +11,19 @@ export type ShareNavigator = {
 
 export type ShareResult = 'shared' | 'cancelled' | 'copied' | 'failed'
 
-const FORMAT_LABELS: Record<string, string> = { commander: 'Commander', duel: 'Duel Commander' }
-
-/** « Table Commander à 4 de Ana, rejoins-moi » ; chaque champ peut manquer. */
-export function tableShareText({ format, seats, hostName }: { format?: string; seats?: number; hostName?: string | null }): string {
-  const label = (format && FORMAT_LABELS[format]) || 'Commander'
-  const places = typeof seats === 'number' && seats > 0 ? ` à ${seats}` : ''
-  const host = hostName?.trim() ? ` de ${hostName.trim()}` : ''
-  return `Table ${label}${places}${host}, rejoins-moi`
+/** « Table Commander à 4 de Ana, rejoins-moi » ; chaque champ peut manquer. Dictionnaire `t` : langue de l'interface. */
+export function tableShareText(
+  { format, seats, hostName }: { format?: string; seats?: number; hostName?: string | null },
+  t: Messages = fr,
+): string {
+  const label = (format && t.online.formats[format as keyof Messages['online']['formats']]) || 'Commander'
+  const places = typeof seats === 'number' && seats > 0 ? seats : null
+  return t.common.share.table(label, places, hostName?.trim() || null)
 }
 
 /** « Rejoins la ligue <nom> ». */
-export function leagueShareText(name: string | null | undefined): string {
-  return name?.trim() ? `Rejoins la ligue ${name.trim()}` : 'Rejoins ma ligue Commander'
+export function leagueShareText(name: string | null | undefined, t: Messages = fr): string {
+  return t.common.share.league(name?.trim() || null)
 }
 
 /** Le navigateur propose-t-il le partage natif (téléphone, tablette) ? */

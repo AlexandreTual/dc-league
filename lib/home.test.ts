@@ -69,8 +69,8 @@ describe('myTables', () => {
       table('t3', 'playing', ['moi', 'a'], { format: 'duel', seats: 2 }),
     ]
     expect(myTables(tables, 'moi')).toEqual([
-      { id: 't3', action: 'Reprendre', format: 'Duel Commander', others: ['A'], seated: 2, seats: 2 },
-      { id: 't1', action: 'Retourner à la table', format: 'Commander', others: ['B'], seated: 2, seats: 4 },
+      { id: 't3', action: 'resume', format: 'duel', others: ['A'], seated: 2, seats: 2 },
+      { id: 't1', action: 'back', format: 'commander', others: ['B'], seated: 2, seats: 4 },
     ])
   })
 
@@ -99,8 +99,8 @@ describe('myPendingMatches', () => {
     ])
   })
 
-  it('adversaire inconnu : nom de remplacement', () => {
-    expect(myPendingMatches({ id: 'l1', name: 'Saison' }, [match('m', 'moi', 'z', 1)], 'moi', names)[0].opponent).toBe('Joueur inconnu')
+  it('adversaire inconnu : pas de nom (la page affiche « Joueur inconnu »)', () => {
+    expect(myPendingMatches({ id: 'l1', name: 'Saison' }, [match('m', 'moi', 'z', 1)], 'moi', names)[0].opponent).toBeNull()
   })
 })
 

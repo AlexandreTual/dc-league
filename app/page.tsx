@@ -9,6 +9,7 @@ import { viewerOf, type Viewer } from '@/lib/leagues/access'
 import { listTables, type GameTable } from '@/lib/db-games'
 import { features, myLeagueRank, myPendingMatches, myTables, seasonProgress, type Feature } from '@/lib/home'
 import { getMessages } from '@/lib/i18n/server'
+import type { Messages } from '@/lib/i18n/messages'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -80,32 +81,30 @@ async function loadMyPlay(db: D1Database, viewer: NonNullable<Viewer>, tables: {
   }
 }
 
-const ordinal = (n: number) => `${n}${n === 1 ? 'ᵉʳ' : 'ᵉ'}`
-
 type MyPlay = Awaited<ReturnType<typeof loadMyPlay>>
 
 /** Bloc du joueur en haut de l'accueil ; rien quand il n'a ni table, ni ligue en cours. */
-function MyPlayBlock({ play }: { play: MyPlay }) {
+function MyPlayBlock({ play, t: m, formats }: { play: MyPlay; t: Messages['site']['home']['myPlay']; formats: Messages['online']['formats'] }) {
   if (play.state === 'ok' && !play.tables.length && !play.leagues.length && !play.matches.length) return null
   return (
     <section aria-labelledby="a-toi" className="bg-dc-surface border border-dc-gold/40 rounded-2xl p-5 md:p-6 shadow-card space-y-5">
-      <h2 id="a-toi" className="font-fantasy text-xl font-bold text-dc-gold">À toi de jouer</h2>
+      <h2 id="a-toi" className="font-fantasy text-xl font-bold text-dc-gold">{m.title}</h2>
       {play.state === 'failed' ? (
-        <p className="text-dc-muted text-sm">Tes parties et tes ligues n&apos;ont pas pu être chargées. Réessaie dans un instant.</p>
+        <p className="text-dc-muted text-sm">{m.failed}</p>
       ) : (
         <>
           {play.tables.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-dc-text">Mes tables</h3>
+              <h3 className="text-sm font-semibold text-dc-text">{m.tables}</h3>
               <ul className="space-y-2" data-testid="my-tables">
                 {play.tables.map((t) => (
                   <li key={t.id} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5">
                     <div className="flex-1 min-w-0 text-sm">
-                      <p className="text-dc-text">{t.format} · {t.seated}/{t.seats} joueurs</p>
-                      <p className="text-dc-muted truncate">{t.others.length ? `Avec ${t.others.join(', ')}` : 'En attente de joueurs'}</p>
+                      <p className="text-dc-text">{formats[t.format]} · {m.seated(t.seated, t.seats)}</p>
+                      <p className="text-dc-muted truncate">{t.others.length ? m.with(t.others.join(', ')) : m.waiting}</p>
                     </div>
-                    <Link href={`/tables/${t.id}`} className={`${buttonClass(t.action === 'Reprendre')} shrink-0 !px-3 !py-1.5`}>
-                      {t.action}
+                    <Link href={`/tables/${t.id}`} className={`${buttonClass(t.action === 'resume')} shrink-0 !px-3 !py-1.5`}>
+                      {m[t.action]}
                     </Link>
                   </li>
                 ))}
@@ -115,7 +114,7 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
 
           {play.leagues.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-dc-text">Mes ligues en cours</h3>
+              <h3 className="text-sm font-semibold text-dc-text">{m.leagues}</h3>
               <ul className="space-y-2" data-testid="my-leagues">
                 {play.leagues.map((l) => (
                   <li key={l.id}>
@@ -123,8 +122,8 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
                       <Trophy className="w-4 h-4 shrink-0 text-dc-gold" aria-hidden />
                       <span className="flex-1 min-w-0 truncate text-dc-text">{l.name}</span>
                       <span className="text-sm text-dc-muted whitespace-nowrap">
-                        {!l.place ? 'Organisateur' : l.played === 0 ? 'Aucun match joué' : (
-                          <><span className="text-dc-gold font-semibold">{ordinal(l.place.rank)}</span> sur {l.place.of} · {l.place.points} pts</>
+                        {!l.place ? m.organizer : l.played === 0 ? m.noMatch : (
+                          <><span className="text-dc-gold font-semibold">{m.rank(l.place.rank)}</span>{m.ofPoints(l.place.of, l.place.points)}</>
                         )}
                       </span>
                     </Link>
@@ -136,15 +135,15 @@ function MyPlayBlock({ play }: { play: MyPlay }) {
 
           {play.matches.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-dc-text">Mes matchs à jouer</h3>
+              <h3 className="text-sm font-semibold text-dc-text">{m.matches}</h3>
               <ul className="space-y-2" data-testid="my-matches">
-                {play.matches.map((m) => (
-                  <li key={m.id}>
-                    <Link href={`/ligues/${m.leagueId}/calendrier`} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5 hover:border-dc-gold/40 transition-colors">
+                {play.matches.map((match) => (
+                  <li key={match.id}>
+                    <Link href={`/ligues/${match.leagueId}/calendrier`} className="flex items-center gap-3 rounded-xl border border-dc-border bg-dc-bg/40 px-3 py-2.5 hover:border-dc-gold/40 transition-colors">
                       <Swords className="w-4 h-4 shrink-0 text-dc-gold" aria-hidden />
                       <span className="flex-1 min-w-0 sm:flex sm:items-baseline sm:gap-3">
-                        <span className="block truncate text-dc-text">contre {m.opponent}</span>
-                        <span className="block truncate text-sm text-dc-muted">{m.leagueName} · journée {m.round}</span>
+                        <span className="block truncate text-dc-text">{m.against(match.opponent ?? m.unknownPlayer)}</span>
+                        <span className="block truncate text-sm text-dc-muted">{m.round(match.leagueName, match.round)}</span>
                       </span>
                     </Link>
                   </li>
@@ -175,7 +174,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-12">
       {/* À toi de jouer : en haut pour un joueur, la présentation passe en dessous */}
-      {play && <MyPlayBlock play={play} />}
+      {play && <MyPlayBlock play={play} t={h.myPlay} formats={t.online.formats} />}
 
       {/* Présentation */}
       <section className="text-center space-y-4 pt-4">

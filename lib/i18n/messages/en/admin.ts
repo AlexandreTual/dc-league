@@ -61,6 +61,18 @@ export const admin: Messages['admin'] = {
       days: (n: number) => `${n} d ago`,
     },
   },
+  errors: {
+    title: 'Error log',
+    help: 'Pages that crashed for a player (with the code they may have passed on to you), errors from the site routes and failures of the nightly cleanup. The 50 most recent; the log keeps the last 200.',
+    unavailable: 'Log unavailable for now.',
+    empty: 'No errors recorded.',
+    clear: 'Clear the log',
+    confirmClear: 'Clear the error log?',
+    cleared: 'Log cleared',
+    sources: { navigateur: 'Browser', serveur: 'Server', nettoyage: 'Nightly cleanup' },
+    account: (id: string) => `account ${id}`,
+    code: 'Code:',
+  },
   ai: {
     enabled: 'AI assistant turned on',
     disabled: 'AI assistant turned off',

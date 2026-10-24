@@ -550,13 +550,14 @@ export default function Table({ source, notice, boardWindow }: {
   const libraryMenuOf = (p: string) => (at: MenuPoint) => openMenu(libraryMenu(menuCtx, p), at, p)
   const pileOf = (p: string) => (zone: 'graveyard' | 'exile', title: string) => setPile({ title, player: p, zone, mode: 'browse' })
 
-  // Annonces du glisser lues par les lecteurs d'écran : en français, avec le nom de la carte.
+  // Annonces du glisser lues par les lecteurs d'écran : dans la langue de l'interface, avec le nom de la carte.
   const accessibility = {
-    screenReaderInstructions: dragInstructions,
+    screenReaderInstructions: dragInstructions(t),
     announcements: dragAnnouncements({
       me,
-      cardName: (id: string) => { const card = cards.get(id); return card && cardLabel(catalogs[card.owner], card, lang) },
+      cardName: (id: string) => { const card = cards.get(id); return card && cardLabel(catalogs[card.owner], card, lang, t) },
       playerName: (id: string) => view.players[id]?.name,
+      t,
     }),
   }
 
@@ -632,7 +633,7 @@ export default function Table({ source, notice, boardWindow }: {
         <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="spectator">{tb.status.spectator}</div>
       )}
       {me && view.players[me]?.eliminated && !finished && (
-        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="eliminated">Tu es éliminé, tu regardes la fin de la partie</div>
+        <div className="px-3 py-1.5 text-sm bg-dc-blue/20 border-b border-dc-border text-dc-text" data-testid="eliminated">{tb.eliminated}</div>
       )}
       {finished && (
         <div className="px-3 py-2 font-fantasy text-dc-gold bg-dc-gold/10 border-b border-dc-gold/30 flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="finished">
@@ -829,7 +830,7 @@ export default function Table({ source, notice, boardWindow }: {
         onAnimations={() => { setSettingsOpen(false); setAnimationsOpen(true) }} />}
       <HolderFlights flights={playerFx.flights} />
       {playerFx.victory && !boardWindow && <VictoryScreen view={view} winner={playerFx.victory} catalogs={catalogs} lang={lang} onClose={playerFx.dismissVictory}
-        rematch={canRematch ? { label: rematchLabel(rematch.offer), busy: rematch.busy, onGo: rematch.go } : undefined} />}
+        rematch={canRematch ? { label: rematchLabel(rematch.offer, t), busy: rematch.busy, onGo: rematch.go } : undefined} />}
       {shortcutsOpen && <ShortcutsModal bindings={bindings} onChange={changeBindings} onClose={() => setShortcutsOpen(false)} />}
       {animationsOpen && <AnimationsModal effects={settings.cardEffects} onChange={(cardEffects) => changeSettings({ ...settings, cardEffects })}
         onClose={() => setAnimationsOpen(false)} />}

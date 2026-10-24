@@ -32,6 +32,10 @@ export const decks: Messages['decks'] = {
     save: 'Save',
     edit: (name: string) => `Edit ${name}`,
     remove: (name: string) => `Delete ${name}`,
+    orPaste: 'Or paste the list',
+    listSummary: (cards, commanders, unreadable) =>
+      `${cards} card${cards === 1 ? '' : 's'} · ${commanders} commander${commanders === 1 ? '' : 's'} · ${unreadable} unreadable`,
+    listOverridesLink: ' · the pasted list takes priority over the link',
     newDeck: 'New deck',
     createAndImport: 'Create and import',
     create: 'Create deck',
@@ -59,9 +63,11 @@ export const decks: Messages['decks'] = {
     oracle: 'Oracle and rulings',
     oracleOf: (name: string) => `Oracle and rulings: ${name}`,
     close: 'Close',
+    backToDeck: 'Put back in the deck',
     makeCommander: 'Set as commander',
   },
   warnings: {
+    title: 'Commander format not followed',
     total: (total: number, size: number) => `The deck has ${total} card${total === 1 ? '' : 's'} instead of ${size}.`,
     duplicates: (list: string) => `More than one copy of a card other than basic lands: ${list}.`,
     identity: (several: boolean, list: string) => `Outside the color identity of the ${several ? 'commanders' : 'commander'}: ${list}.`,

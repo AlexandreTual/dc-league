@@ -1,4 +1,7 @@
 // Classes Tailwind partagées par les formulaires (reprises de l'ancienne page de connexion admin).
+import { isLang } from '@/lib/i18n/lang'
+import { messages } from '@/lib/i18n/messages'
+
 export const inputClass =
   'w-full bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm'
 export const labelClass = 'block text-dc-muted text-xs mb-1.5'
@@ -9,7 +12,13 @@ export const errorClass = 'text-dc-red-light text-sm text-center bg-dc-red/20 bo
 export const successClass =
   'text-dc-green-light text-sm text-center bg-dc-green/20 border border-dc-green/30 rounded-lg px-3 py-2'
 
-/** Envoie du JSON et renvoie le message d'erreur de l'API, ou null si tout va bien. */
+/** Dictionnaire de la langue de la page (`<html lang>`, posé par la mise en page) ; français hors navigateur. */
+function pageMessages() {
+  const lang = typeof document === 'undefined' ? null : document.documentElement.lang
+  return messages(isLang(lang) ? lang : 'fr')
+}
+
+/** Envoie du JSON et renvoie le message d'erreur de l'API (déjà traduit par la route), ou null si tout va bien. */
 export async function sendJson(url: string, method: string, body?: unknown): Promise<{ error: string | null; data: unknown }> {
   try {
     const res = await fetch(url, {
@@ -18,8 +27,8 @@ export async function sendJson(url: string, method: string, body?: unknown): Pro
       body: body === undefined ? undefined : JSON.stringify(body),
     })
     const data = (await res.json().catch(() => ({}))) as { error?: string }
-    return res.ok ? { error: null, data } : { error: data.error ?? 'Une erreur est survenue', data }
+    return res.ok ? { error: null, data } : { error: data.error ?? pageMessages().common.genericError, data }
   } catch {
-    return { error: 'Erreur réseau', data: null }
+    return { error: pageMessages().common.networkError, data: null }
   }
 }

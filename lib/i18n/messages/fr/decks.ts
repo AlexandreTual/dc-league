@@ -31,6 +31,10 @@ export const decks = {
     edit: (name: string) => `Modifier ${name}`,
     remove: (name: string) => `Supprimer ${name}`,
     newDeck: 'Nouveau deck',
+    orPaste: 'Ou colle la liste',
+    listSummary: (cards: number, commanders: number, unreadable: number) =>
+      `${cards} cartes · ${commanders} commandant(s) · ${unreadable} illisible(s)`,
+    listOverridesLink: ' · la liste collée passe avant le lien',
     createAndImport: 'Créer et importer',
     create: 'Créer le deck',
     help: 'Colle le lien du deck ou sa liste en texte (Moxfield : Export → Copier) : les cartes sont importées depuis Scryfall dès la création. Pour mettre à jour la liste ensuite : « Réimporter » sur la page du deck.',
@@ -58,9 +62,11 @@ export const decks = {
     oracleOf: (name: string) => `Oracle et règles : ${name}`,
     close: 'Fermer',
     makeCommander: 'Définir comme commandant',
+    backToDeck: 'Remettre dans le deck',
   },
   /** Écarts au format Commander, non bloquants (lib/cards/warnings.ts). */
   warnings: {
+    title: 'Format Commander non respecté',
     total: (total: number, size: number) => `Le deck compte ${total} carte${total > 1 ? 's' : ''} au lieu de ${size}.`,
     duplicates: (list: string) => `Plusieurs exemplaires d'une carte hors terrains de base : ${list}.`,
     identity: (several: boolean, list: string) => `Hors de l'identité couleur ${several ? 'des commandants' : 'du commandant'} : ${list}.`,

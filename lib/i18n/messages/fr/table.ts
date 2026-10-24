@@ -238,6 +238,24 @@ export const table = {
     plan: 'Plan',
   },
   opponents: { all: 'Tous' },
+  /** Lecteur d'écran : nom d'une carte cachée, consigne et annonces du glisser-déposer (components/table/a11y.ts). */
+  a11y: {
+    faceDown: 'Carte face cachée',
+    libraryTop: 'Carte du dessus de la bibliothèque',
+    instructions: 'Entrée, Maj+F10 ou la touche Menu ouvrent le menu de la carte, qui permet de la déplacer. À la souris ou au doigt, glisser la carte vers une zone.',
+    pilePanel: 'la fenêtre de la pile',
+    pileSlot: 'une place de la pile',
+    aZone: 'une zone',
+    aPlayer: 'un joueur',
+    picked: (card: string) => `Carte « ${card} » saisie.`,
+    over: (card: string, zone: string) => `« ${card} » au-dessus de : ${zone}.`,
+    outside: (card: string) => `« ${card} » hors d’une zone.`,
+    dropped: (card: string, zone: string) => `« ${card} » déposée : ${zone}.`,
+    released: (card: string) => `« ${card} » relâchée hors d’une zone.`,
+    cancelled: (card: string) => `Déplacement de « ${card} » annulé.`,
+  },
+  /** Bandeau du joueur éliminé qui regarde la fin de la partie. */
+  eliminated: 'Tu es éliminé, tu regardes la fin de la partie',
   zones: {
     battlefield: 'Champ de bataille',
     battlefieldOf: (name: string) => `Champ de bataille de ${name}`,

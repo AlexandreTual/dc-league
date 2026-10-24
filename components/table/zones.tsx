@@ -133,7 +133,7 @@ export function Battlefield(props: ZoneProps & { label?: string; corner?: React.
       {visible(view.players[player].zones.battlefield).map((card) => (
         <Draggable
           key={card.id}
-          {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)}
+          {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang, t)}
           className="absolute"
           style={{ ...size, left: `${card.x}%`, top: `${card.y}%`, transform: `translate(-50%, -50%) rotate(${(card.tapped ? 90 : 0) + (card.rotated ? 180 : 0)}deg)`, transition: 'transform 150ms' }}
         >
@@ -178,7 +178,7 @@ export function Hand(props: ZoneProps & { onZoneContextMenu?: (at: MenuPoint) =>
           <CardBack key={`h${i}`} className="h-[90%]" />
         ) : (
           // La carte peut rétrécir (minWidth) pour se chevaucher quand la main est pleine.
-          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} className="h-[90%] hover:-translate-y-2 transition-transform" style={{ flex: '0 1 auto', minWidth: 24 }}>
+          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang, t)} className="h-[90%] hover:-translate-y-2 transition-transform" style={{ flex: '0 1 auto', minWidth: 24 }}>
             <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
           </Draggable>
         ),
@@ -214,7 +214,7 @@ export function OpponentHand(props: ZoneProps) {
           card.hidden ? (
             <CardBack key={`h${i}`} bare className={`h-full ${i > 0 ? '-ml-1.5' : ''}`} />
           ) : (
-            <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} className={`h-full ${i > 0 ? '-ml-1.5' : ''}`}>
+            <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang, t)} className={`h-full ${i > 0 ? '-ml-1.5' : ''}`}>
               <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
             </Draggable>
           ),

@@ -63,6 +63,19 @@ export const admin = {
       days: (n: number) => `il y a ${n} j`,
     },
   },
+  /** Journal des erreurs (components/admin/ErrorsPanel.tsx). */
+  errors: {
+    title: 'Journal des erreurs',
+    help: "Pages qui ont planté chez un joueur (avec le code qu'il a pu te transmettre), erreurs des routes du site et échecs du nettoyage de nuit. Les 50 plus récentes ; le journal garde les 200 dernières.",
+    unavailable: 'Journal indisponible pour le moment.',
+    empty: 'Aucune erreur enregistrée.',
+    clear: 'Vider le journal',
+    confirmClear: 'Vider le journal des erreurs ?',
+    cleared: 'Journal vidé',
+    sources: { navigateur: 'Navigateur', serveur: 'Serveur', nettoyage: 'Nettoyage de nuit' },
+    account: (id: string) => `compte ${id}`,
+    code: 'Code :',
+  },
   ai: {
     enabled: 'Assistant IA activé',
     disabled: 'Assistant IA désactivé',

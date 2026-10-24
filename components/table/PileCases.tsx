@@ -76,7 +76,7 @@ export function PileCases(props: PileProps) {
         <span className="flex items-center gap-1">
           <span className="h-6 shrink-0">
             {canDrawTop ? (
-              <Draggable id={topId(player)} label="Carte du dessus de la bibliothèque" from={libraryRef} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
+              <Draggable id={topId(player)} label={t.table.a11y.libraryTop} from={libraryRef} className="h-full" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
                 {face}
               </Draggable>
             ) : (
@@ -127,7 +127,7 @@ export function CommandBlock(props: ZoneProps & { mini?: boolean }) {
       <div className="relative h-8 shrink-0" style={{ aspectRatio: `${63 * span} / 88` }}>
         {inZone.length === 0 && <div className="h-full aspect-[63/88] rounded-[6%] border border-dashed border-dc-border" />}
         {inZone.map((card, i) => (
-          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} className="absolute top-0 h-full" style={{ left: `${(i * COMMANDER_SHIFT * 100) / span}%` }}>
+          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang, t)} className="absolute top-0 h-full" style={{ left: `${(i * COMMANDER_SHIFT * 100) / span}%` }}>
             <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} tax={taxOf(view, card.id)} className="h-full" />
           </Draggable>
         ))}
@@ -158,7 +158,8 @@ export function GraveyardCascade(props: ZoneProps & { onOpen: () => void; classN
   const { setNodeRef, highlight } = useZone(ref)
   const all = view.players[player].zones.graveyard
   const tail = graveyardTail(all)
-  const z = useT().table.zones
+  const t = useT()
+  const z = t.table.zones
   return (
     <div ref={setNodeRef} data-zone="graveyard" data-player={player} data-count={all.length}
       className={`min-h-0 flex flex-col rounded-md border border-dc-border bg-dc-bg/60 p-1 cursor-pointer ${highlight} ${props.className ?? ''}`}
@@ -167,7 +168,7 @@ export function GraveyardCascade(props: ZoneProps & { onOpen: () => void; classN
       {tail.length === 0 && <span className="text-[11px] text-dc-muted">{z.graveyardEmpty}</span>}
       <div className="flex-1 min-h-0 flex flex-col justify-end overflow-hidden">
         {tail.map((card) => (
-          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} className="shrink-0 -mt-0.5 first:mt-0">
+          <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang, t)} className="shrink-0 -mt-0.5 first:mt-0">
             <div className="truncate rounded-t px-1.5 py-px border-2 border-b-0 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black shadow-[0_-2px_4px_rgba(0,0,0,0.5)]"
               style={{ borderColor: frameColor(catalogs[card.owner], card) }}>
               {cardInfo(catalogs[card.owner], card, lang).name}
@@ -193,7 +194,8 @@ export function GraveyardList(props: ZoneProps & { onOpen: () => void; className
   const all = view.players[player].zones.graveyard
   const cards = graveyardList(all)
   const art = props.settings?.graveyardArt ?? 36
-  const z = useT().table.zones
+  const t = useT()
+  const z = t.table.zones
   return (
     <div ref={setNodeRef} data-graveyard-list={player} data-count={all.length}
       className={`min-h-0 flex flex-col gap-1 rounded-md border border-dc-border bg-dc-bg/60 p-1 cursor-pointer ${highlight} ${props.className ?? ''}`}
@@ -205,7 +207,7 @@ export function GraveyardList(props: ZoneProps & { onOpen: () => void; className
           const info = cardInfo(catalogs[card.owner], card, lang)
           const border = frameColor(catalogs[card.owner], card)
           return (
-            <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang)} touchScroll className="shrink-0 rounded">
+            <Draggable key={card.id} {...cardProps(card.id, ref, props)} label={cardLabel(catalogs[card.owner], card, lang, t)} touchScroll className="shrink-0 rounded">
               <div className={`truncate px-1.5 py-px border-2 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black ${info.image ? 'rounded-t border-b-0' : 'rounded'}`}
                 style={{ borderColor: border }} data-testid="graveyard-list-name">
                 {info.name}
@@ -235,14 +237,15 @@ export function GraveyardLast(props: ZoneProps & { onOpen: () => void }) {
   const { setNodeRef, highlight } = useZone(ref)
   const all = view.players[player].zones.graveyard
   const last = graveyardTail(all, 1)[0]
-  const z = useT().table.zones
+  const t = useT()
+  const z = t.table.zones
   return (
     <div ref={setNodeRef} data-zone="graveyard" data-player={player} data-count={all.length}
       className={`min-w-0 flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] text-dc-muted cursor-pointer hover:bg-dc-bg/60 ${highlight}`}
       onClick={props.onOpen} title={z.seeGraveyard}>
       <span className="shrink-0">{z.graveyardLast}</span>
       {last ? (
-        <Draggable {...cardProps(last.id, ref, props)} label={cardLabel(catalogs[last.owner], last, lang)} className="min-w-0">
+        <Draggable {...cardProps(last.id, ref, props)} label={cardLabel(catalogs[last.owner], last, lang, t)} className="min-w-0">
           <div className="truncate rounded px-1.5 border-2 bg-[#f3efe2] text-[11px] leading-[14px] font-semibold text-black"
             style={{ borderColor: frameColor(catalogs[last.owner], last) }}>
             {cardInfo(catalogs[last.owner], last, lang).name}
@@ -288,7 +291,8 @@ export function PileTiles(props: ZoneProps & {
   className?: string
 }) {
   const { view, player, catalogs, lang, me, onLibraryMenu } = props
-  const z = useT().table.zones
+  const t = useT()
+  const z = t.table.zones
   const zones = view.players[player].zones
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -332,7 +336,7 @@ export function PileTiles(props: ZoneProps & {
     return (
       // data-pile-face : la carte montrée par la vignette (vérifications du navigateur).
       <div className="h-full" data-pile-face={card.id}>
-        <Draggable {...cardProps(card.id, { player, zone }, props)} label={cardLabel(catalogs[card.owner], card, lang)} dragKey={zone === 'graveyard' && props.graveyardListed ? tileKey(card.id) : undefined} className="h-full">
+        <Draggable {...cardProps(card.id, { player, zone }, props)} label={cardLabel(catalogs[card.owner], card, lang, t)} dragKey={zone === 'graveyard' && props.graveyardListed ? tileKey(card.id) : undefined} className="h-full">
           <GameCard card={card} catalog={catalogs[card.owner]} lang={lang} className="h-full" />
         </Draggable>
       </div>
@@ -350,7 +354,7 @@ export function PileTiles(props: ZoneProps & {
         <Tile label={z.libraryShort} count={zones.library.count}>
           {/* Taille figée (contain:size) : face visible, l'image ne doit pas élargir la vignette ni rétrécir la main (tablette). */}
           {zones.library.count === 0 ? emptyTile : canDrawTop ? (
-            <Draggable id={topId(player)} label="Carte du dessus de la bibliothèque" from={libraryRef} className="h-full [contain:size]" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
+            <Draggable id={topId(player)} label={t.table.a11y.libraryTop} from={libraryRef} className="h-full [contain:size]" onDoubleClick={() => props.handlers.onDoubleClick(topId(player), libraryRef)} onHover={hoverTop}>
               {face}
             </Draggable>
           ) : (

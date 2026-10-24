@@ -106,14 +106,14 @@ export default async function CalendarPage({
           <div className="space-y-3 pt-1">
             {opponents.length > 0 && (
               <p className="text-sm text-dc-text" data-testid="my-remaining">
-                Il te reste {opponents.length} {opponents.length > 1 ? 'matchs' : 'match'} : contre{' '}
+                {c.remaining(opponents.length)}
                 <span className="text-dc-gold">{opponents.join(', ')}</span>
               </p>
             )}
             <div className="inline-flex rounded-full border border-dc-border p-0.5 text-sm" data-testid="my-matches-toggle">
               {[
-                { label: 'Mes matchs', href: `/ligues/${id}/calendrier?vue=mes`, active: calendar.mineOnly },
-                { label: 'Tous', href: `/ligues/${id}/calendrier`, active: !calendar.mineOnly },
+                { label: c.mine, href: `/ligues/${id}/calendrier?vue=mes`, active: calendar.mineOnly },
+                { label: c.all, href: `/ligues/${id}/calendrier`, active: !calendar.mineOnly },
               ].map((t) => (
                 <Link
                   key={t.label}
@@ -171,7 +171,7 @@ export default async function CalendarPage({
 
                 {exempt.length > 0 && (
                   <p className="mt-2 text-sm text-dc-muted" data-testid="round-bye">
-                    {exempt.length > 1 ? 'Exempts' : 'Exempt'} : <span className="text-dc-text">{exempt.join(', ')}</span>
+                    {c.exempt(exempt.length)} <span className="text-dc-text">{exempt.join(', ')}</span>
                   </p>
                 )}
               </div>
