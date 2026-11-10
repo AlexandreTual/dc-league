@@ -37,6 +37,13 @@ describe('handleApi', () => {
     expect(await res.json()).toEqual({ error: 'Origine refusée' })
   })
 
+  it('pose nosniff sur toutes les réponses, refus compris', async () => {
+    const refused = await handleApi(req('POST', '{}', { Origin: 'https://evil.com' }), 'admin', echo, deps(user({ isAdmin: true })))
+    const accepted = await handleApi(req('GET'), 'public', echo, deps())
+    expect(refused.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    expect(accepted.headers.get('X-Content-Type-Options')).toBe('nosniff')
+  })
+
   it('ne contrôle pas l’origine des lectures', async () => {
     const res = await handleApi(req('GET', undefined, { Origin: 'https://evil.com' }), 'public', echo, deps())
     expect(res.status).toBe(200)
