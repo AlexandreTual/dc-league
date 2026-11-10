@@ -12,6 +12,8 @@ Page **Administration** du site → section **Journal des erreurs**, tout en bas
 
 Le journal garde les 200 dernières erreurs (les plus anciennes s'effacent seules) ; la page en montre 50. Le bouton **Vider le journal** efface tout, une fois les problèmes réglés.
 
+Les erreurs envoyées par les navigateurs sont limitées à 20 par adresse IP et par quart d'heure : au-delà, elles ne sont plus enregistrées (un robot ne peut ni remplir le journal ni épuiser les écritures de la base).
+
 ### Quand un ami signale une erreur
 
 L'écran d'erreur affiche, quand l'erreur vient du serveur, une ligne **« Code à transmettre : 1234567890 »**. Demande-lui ce code (une capture d'écran suffit) et cherche-le dans le journal : la ligne qui porte le même code est la sienne. Sans code (erreur dans le navigateur), cherche par l'heure et par la page.
