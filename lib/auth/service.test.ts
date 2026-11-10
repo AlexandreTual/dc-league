@@ -425,6 +425,29 @@ describe('changePassword', () => {
     })
   })
 
+  it('bloque après 5 essais ratés, même avec le bon mot de passe, puis laisse repasser 15 minutes plus tard', async () => {
+    const userId = await createAccount('p1', 'Alex')
+    const user = (await resolveSession(db, (await openSession(db, userId, now)).token, now))!
+    const attempt = (currentPassword: string, at = now) => changePassword(db, user, { currentPassword, newPassword: 'nouveau-mdp' }, 'x', at)
+    for (let i = 0; i < 5; i++) expect(await attempt('faux-faux')).toMatchObject({ status: 400 })
+    const blocked = { ok: false, status: 429, error: 'Trop de tentatives, réessaie dans 15 minutes' }
+    expect(await attempt('faux-faux')).toEqual(blocked)
+    expect(await attempt(PASSWORD)).toEqual(blocked)
+    // Le changement d'adresse partage le compteur ; la page de connexion a le sien.
+    expect(await updateEmail(db, user, { email: 'a@b.fr', currentPassword: PASSWORD }, ctx, now)).toEqual(blocked)
+    expect((await loginWithPassword(db, { username: 'Alex', password: PASSWORD }, now)).ok).toBe(true)
+    expect(await attempt(PASSWORD, minutes(16))).toEqual({ ok: true, value: true })
+  })
+
+  it('un essai réussi remet le compteur à zéro', async () => {
+    const userId = await createAccount('p1', 'Alex')
+    const user = (await resolveSession(db, (await openSession(db, userId, now)).token, now))!
+    for (let round = 0; round < 3; round++) {
+      for (let i = 0; i < 4; i++) await updateEmail(db, user, { email: 'a@b.fr', currentPassword: 'faux-faux' }, ctx, now)
+      expect((await updateEmail(db, user, { email: 'a@b.fr', currentPassword: PASSWORD }, ctx, now)).ok).toBe(true)
+    }
+  })
+
   it('refuse un nouveau mot de passe trop court', async () => {
     const userId = await createAccount('p1', 'Alex')
     const user = (await resolveSession(db, (await openSession(db, userId, now)).token, now))!
