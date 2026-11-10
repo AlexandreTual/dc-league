@@ -101,7 +101,7 @@ try {
   calls.length = 0
   await createPasted.click()
   const pastedRow = page.locator('li', { hasText: 'Kenrith collé' })
-  await pastedRow.getByTestId('import-done').getByText('32 cartes').waitFor()
+  await pastedRow.getByTestId('import-done').getByText('32 cartes', { exact: true }).waitFor()
   check(calls.join(',') === 'resolve,commit', `liste collée → Scryfall → enregistrement, sans lien (${calls.join(', ')})`)
   check(await page.getByLabel('Ou colle la liste').inputValue() === '', 'le formulaire est vidé après la création')
   console.log(`📸 ${outDir}/deck-create-pasted.png`)
