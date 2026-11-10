@@ -1,29 +1,29 @@
 import { NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
-import { assertSameOrigin, requireUser } from '@/lib/auth/session'
+import { dbFailure, type ApiContext } from '@/lib/auth/api-core'
 import { canEditDeck } from '@/lib/auth/permissions'
 import { getDeck, type DbDeck } from '@/lib/db-decks'
 import type { CurrentUser } from '@/lib/auth/types'
 
-export const INTERNAL_ERROR = 'Erreur interne, réessaie plus tard'
+export type DeckContext = ApiContext & { deck: DbDeck; user: CurrentUser }
 
-/** Contrôle commun des routes qui modifient un deck : origine, connexion, existence, propriété. */
-export async function loadEditableDeck(
-  req: Request,
+/**
+ * Suite d'une route `apiRoute(req, 'user', …)` qui modifie un deck : existence et propriété contrôlées
+ * (origine, connexion, corps JSON et journal des erreurs viennent d'apiRoute), puis `run` avec le deck.
+ */
+export function editableDeck(
   params: Promise<{ id: string }>,
-): Promise<{ db: D1Database; deck: DbDeck; user: CurrentUser } | NextResponse> {
-  const refused = assertSameOrigin(req)
-  if (refused) return refused
-  const user = await requireUser()
-  if (user instanceof NextResponse) return user
-
-  const { env } = getRequestContext<CloudflareEnv>()
-  const { id } = await params
-  const { data: deck, error } = await getDeck(env.DB, id)
-  if (error !== null) return NextResponse.json({ error: INTERNAL_ERROR }, { status: 500 })
-  if (!deck) return NextResponse.json({ error: 'Deck introuvable' }, { status: 404 })
-  if (!canEditDeck(user, deck)) {
-    return NextResponse.json({ error: 'Tu ne peux gérer que tes propres decks' }, { status: 403 })
+  run: (ctx: DeckContext) => Promise<NextResponse>,
+): (ctx: ApiContext) => Promise<NextResponse> {
+  return async (ctx) => {
+    const user = ctx.user
+    if (!user) return NextResponse.json({ error: 'Connexion requise' }, { status: 401 })
+    const { id } = await params
+    const { data: deck, error } = await getDeck(ctx.db, id)
+    if (error !== null) return dbFailure(error)
+    if (!deck) return NextResponse.json({ error: 'Deck introuvable' }, { status: 404 })
+    if (!canEditDeck(user, deck)) {
+      return NextResponse.json({ error: 'Tu ne peux gérer que tes propres decks' }, { status: 403 })
+    }
+    return run({ ...ctx, user, deck })
   }
-  return { db: env.DB, deck, user }
 }
