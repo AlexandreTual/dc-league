@@ -281,6 +281,27 @@ export const PLAYER_ERR = {
   LAST_ADMIN: "Ce joueur est le dernier admin : nomme un autre admin avant de le supprimer.",
 } as const
 
+/**
+ * Raison pour laquelle le joueur ne peut pas être supprimé (historique de ligue, dernier admin), ou null.
+ * Lue avant de toucher à ses tables de jeu ; `deletePlayer` refait le contrôle dans sa requête.
+ */
+export async function playerDeleteRefusal(db: D1Database, id: string): Promise<Result<string | null>> {
+  try {
+    const history = await db.prepare('SELECT 1 AS found FROM league_players WHERE player_id = ? LIMIT 1').bind(id).first()
+    if (history) return ok(PLAYER_ERR.HAS_HISTORY)
+    const lastAdmin = await db
+      .prepare(
+        `SELECT 1 AS found FROM users WHERE player_id = ? AND is_admin = 1
+           AND (SELECT COUNT(*) FROM users WHERE is_admin = 1) <= 1`,
+      )
+      .bind(id)
+      .first()
+    return ok(lastAdmin ? PLAYER_ERR.LAST_ADMIN : null)
+  } catch (e) {
+    return err((e as Error).message)
+  }
+}
+
 export async function deletePlayer(db: D1Database, id: string): Promise<Result<true>> {
   try {
     // Suppression conditionnée en une seule requête : le joueur n'a participé à aucune ligue,

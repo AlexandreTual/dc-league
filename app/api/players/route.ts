@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRoute, badRequest, resultError } from '@/lib/auth/api'
 import { MAX_LENGTH, requiredId, requiredText } from '@/lib/auth/validation'
-import { listPlayers, insertPlayer, deletePlayer, PLAYER_ERR } from '@/lib/db'
+import { listPlayers, insertPlayer, PLAYER_ERR } from '@/lib/db'
+import { destroyGame } from '@/lib/games/binding'
+import { GAME_SERVER_ERROR } from '@/lib/games/remove'
+import { removePlayer } from '@/lib/games/remove-player'
 
 export const runtime = 'edge'
 
@@ -26,12 +29,13 @@ export function POST(req: NextRequest) {
 }
 
 export function DELETE(req: NextRequest) {
-  return apiRoute(req, 'admin', async ({ db, body }) => {
+  return apiRoute(req, 'admin', async ({ db, env, body }) => {
     const id = requiredId(body.id, "L'identifiant du joueur")
     if (!id.ok) return badRequest(id.error)
 
-    const { error } = await deletePlayer(db, id.value)
-    if (error !== null) return resultError(error, { [PLAYER_ERR.LAST_ADMIN]: 409, [PLAYER_ERR.HAS_HISTORY]: 409 })
+    // Les parties des tables dont il est l'hôte sont supprimées du serveur de jeu avant lui.
+    const { error } = await removePlayer(db, destroyGame(env), id.value)
+    if (error !== null) return resultError(error, { [PLAYER_ERR.LAST_ADMIN]: 409, [PLAYER_ERR.HAS_HISTORY]: 409, [GAME_SERVER_ERROR]: 502 })
     return NextResponse.json({ ok: true })
   })
 }
