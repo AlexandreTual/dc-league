@@ -1,3 +1,4 @@
+import { err, ok, type Result } from './result'
 import { chunks, placeholders } from './db-chunks'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -34,9 +35,8 @@ export type DbPlayoff = {
   created_at: string
 }
 
-type Ok<T> = { data: T; error: null }
-type Err = { data: null; error: string }
-export type Result<T> = Ok<T> | Err
+
+export type { Result }
 
 /** Erreurs métier de la ligue, affichées telles quelles. */
 export const ERREURS_LIGUE = {
@@ -170,12 +170,6 @@ async function writeScore(
   return row ? ok(row) : err(notFound)
 }
 
-function ok<T>(data: T): Ok<T> {
-  return { data, error: null }
-}
-function err(msg: string): Err {
-  return { data: null, error: msg }
-}
 
 // ── Players ───────────────────────────────────────────────────────────────────
 

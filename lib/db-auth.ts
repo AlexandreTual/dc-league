@@ -1,3 +1,4 @@
+import { err, ok } from './result'
 import type { Result } from './db'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -41,10 +42,6 @@ export const INVITATION_TTL_MS = 7 * 24 * 3600 * 1000
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type Ok<T> = { data: T; error: null }
-type Err = { data: null; error: string }
-function ok<T>(data: T): Ok<T> { return { data, error: null } }
-function err(msg: string): Err { return { data: null, error: msg } }
 
 function normalizeUser(row: Record<string, unknown>): DbUser {
   return {

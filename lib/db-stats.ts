@@ -1,10 +1,8 @@
+import { err, ok, type Result } from './result'
+
+export type { Result }
 import { compareStandings, recordMatch } from './leaderboard'
 
-type Ok<T> = { data: T; error: null }
-type Err = { data: null; error: string }
-export type Result<T> = Ok<T> | Err
-function ok<T>(data: T): Ok<T> { return { data, error: null } }
-function err(msg: string): Err { return { data: null, error: msg } }
 
 export type MatchStatsRow = {
   id: string
