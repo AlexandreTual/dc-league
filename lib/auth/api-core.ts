@@ -81,6 +81,8 @@ export async function handleApi(
 ): Promise<NextResponse> {
   const seen: { user: CurrentUser | null } = { user: null }
   const res = await answer(req, access, run, deps, seen)
+  // Le middleware (en-têtes de sécurité des pages) ne couvre pas /api.
+  res.headers.set('X-Content-Type-Options', 'nosniff')
   const detail = failures.get(res)
   if (detail !== undefined) {
     try {

@@ -13,10 +13,13 @@ const STATUS: Record<string, number> = {
 
 /** Réponse JSON d'un résultat : erreurs métier en 400 (403 / 404 / 500 selon le message). */
 export function resultResponse<T>(result: Result<T>): NextResponse {
-  if (result.error !== null) {
-    return NextResponse.json({ error: result.error }, { status: STATUS[result.error] ?? 400 })
-  }
-  return NextResponse.json(result.data)
+  const res =
+    result.error !== null
+      ? NextResponse.json({ error: result.error }, { status: STATUS[result.error] ?? 400 })
+      : NextResponse.json(result.data)
+  // Le middleware (en-têtes de sécurité des pages) ne couvre pas /api.
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  return res
 }
 
 export type GameRequestContext = { db: D1Database; env: CloudflareEnv; user: CurrentUser; body: Record<string, unknown> }

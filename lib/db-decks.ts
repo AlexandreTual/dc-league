@@ -1,3 +1,4 @@
+import { err, ok, type Result } from './result'
 
 export type DbDeck = {
   id: string
@@ -8,11 +9,6 @@ export type DbDeck = {
   created_at: string
 }
 
-type Ok<T> = { data: T; error: null }
-type Err = { data: null; error: string }
-type Result<T> = Ok<T> | Err
-function ok<T>(data: T): Ok<T> { return { data, error: null } }
-function err(msg: string): Err { return { data: null, error: msg } }
 function uuid() { return crypto.randomUUID() }
 
 function normalizeDeck(row: Record<string, unknown>): DbDeck {

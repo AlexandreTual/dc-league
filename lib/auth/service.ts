@@ -46,6 +46,8 @@ const attemptKey = {
   user: (username: string) => `user:${username.slice(0, MAX_USERNAME_KEY)}`,
   ip: (ip: string) => `ip:${ip.slice(0, MAX_USERNAME_KEY)}`,
   forgotIp: (ip: string) => `forgot-ip:${ip.slice(0, MAX_USERNAME_KEY)}`,
+  /** Mot de passe actuel demandé dans le profil : par compte, distinct du compteur de la page de connexion. */
+  profile: (userId: string) => `profile:${userId}`,
 }
 
 type Attempt = { blocked: true } | { blocked: false; ipKey: string | null } | { error: string }
@@ -69,6 +71,22 @@ async function registerAttempt(db: D1Database, key: string, ip: string | null | 
 async function forgetSuccess(db: D1Database, key: string, ipKey: string | null, now: Date): Promise<void> {
   await clearFailures(db, key)
   if (ipKey) await forgetAttempt(db, ipKey, now)
+}
+
+/**
+ * Mot de passe actuel demandé à un joueur déjà connecté (changer de mot de passe ou d'adresse) : mêmes limites
+ * que la connexion, par compte, pour qu'une session restée ouverte ne serve pas à le deviner.
+ */
+async function checkCurrentPassword<T>(
+  db: D1Database, userId: string, password: string, hash: string | null | undefined, now: Date,
+): Promise<ServiceResult<T> | null> {
+  const key = attemptKey.profile(userId)
+  const attempt = await registerAttempt(db, key, null, now)
+  if ('error' in attempt) return internal(attempt.error)
+  if (attempt.blocked) return fail(429, MSG.TOO_MANY)
+  if (!hash || !(await verifyPassword(password, hash))) return fail(400, MSG.BAD_CURRENT_PASSWORD)
+  await clearFailures(db, key)
+  return null
 }
 
 const MSG = {
@@ -287,13 +305,14 @@ export async function updateEmail(
   user: CurrentUser,
   input: { email: string | null; currentPassword: string },
   ctx: MailContext,
+  now: Date = new Date(),
 ): Promise<ServiceResult<{ email: string | null }>> {
   const { data: account, error } = await getUserById(db, user.id)
   if (error !== null) return internal(error)
   // Vérifié avant tout le reste : sans le mot de passe, on ne dit pas non plus si une adresse est prise.
-  if (!account || !(await verifyPassword(input.currentPassword, account.password_hash))) {
-    return fail(400, MSG.BAD_CURRENT_PASSWORD)
-  }
+  const refused = await checkCurrentPassword<{ email: string | null }>(db, user.id, input.currentPassword, account?.password_hash, now)
+  if (refused) return refused
+  if (!account) return fail(400, MSG.BAD_CURRENT_PASSWORD)
   const email = normalizeEmail(input.email)
   if (email) {
     const emailError = validateEmail(email)
@@ -352,12 +371,12 @@ export async function changePassword(
   user: CurrentUser,
   input: { currentPassword: string; newPassword: string },
   currentSessionIdHash: string,
+  now: Date = new Date(),
 ): Promise<ServiceResult<true>> {
   const { data: account, error } = await getUserById(db, user.id)
   if (error !== null) return internal(error)
-  if (!account || !(await verifyPassword(input.currentPassword, account.password_hash))) {
-    return fail(400, MSG.BAD_CURRENT_PASSWORD)
-  }
+  const refused = await checkCurrentPassword<true>(db, user.id, input.currentPassword, account?.password_hash, now)
+  if (refused) return refused
   const passwordError = validatePassword(input.newPassword)
   if (passwordError) return fail(400, passwordError)
 
