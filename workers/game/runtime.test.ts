@@ -13,12 +13,20 @@ class MemoryStorage implements KvStorage {
   data = new Map<string, unknown>()
   journal: string[]
   failNextPut = false
+  /**
+   * Si posé, la prochaine écriture est faite puis sa confirmation attend cette promesse : comme un Durable Object,
+   * qui applique les opérations dans l'ordre où elles sont lancées, un destroy glissé pendant l'attente passe après.
+   */
+  holdNextPut: Promise<void> | null = null
   constructor(journal: string[]) { this.journal = journal }
   async get<T>(key: string): Promise<T | undefined> { return structuredClone(this.data.get(key)) as T | undefined }
   async put(key: string, value: unknown) {
     if (this.failNextPut) { this.failNextPut = false; throw new Error('stockage indisponible') }
     this.journal.push(`put ${key}`)
     this.data.set(key, structuredClone(value))
+    const hold = this.holdNextPut
+    this.holdNextPut = null
+    if (hold) await hold
   }
   async delete(key: string) { this.journal.push(`delete ${key}`); return this.data.delete(key) }
   async list<T>({ prefix }: { prefix: string }) {
@@ -333,6 +341,57 @@ describe('destroy et nettoyage', () => {
     await rt.destroy()
     expect(storage.data.size).toBe(0)
     expect(s1.closed).toBe(true)
+  })
+
+  /** Promesse à libérer à la main. */
+  const gate = () => { let release!: () => void; const promise = new Promise<void>((r) => { release = r }); return { promise, release } }
+
+  it('destroy pendant l’écriture d’une action : pas d’exception, aucune clé recréée, rien d’envoyé', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    const before = s1.received.length
+    const g = gate()
+    storage.holdNextPut = g.promise
+    const pending = send(rt, s1, { type: 'action', action: { type: 'draw', count: 2 } })
+    await rt.destroy()
+    g.release()
+    await expect(pending).resolves.toBeUndefined()
+    expect([...storage.data.keys()]).toEqual([])
+    expect(s1.received.length).toBe(before)
+    expect(s1.closed).toBe(true)
+  })
+
+  it('destroy pendant l’enregistrement de la fin en D1 : pas d’exception, métadonnées non réécrites', async () => {
+    const g = gate()
+    const realBatch = db.batch.bind(db)
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    const s1 = await open(rt, 'p1')
+    await open(rt, 'p2')
+    db.batch = (async (statements: D1PreparedStatement[]) => { await g.promise; return realBatch(statements) }) as typeof db.batch
+    const pending = send(rt, s1, { type: 'concede' })
+    await new Promise((r) => setTimeout(r, 0))
+    await rt.destroy()
+    g.release()
+    await expect(pending).resolves.toBeUndefined()
+    expect(storage.data.has('meta')).toBe(false)
+  })
+
+  it('destroy pendant une connexion : pas d’exception ni de vue envoyée', async () => {
+    const rt = runtime()
+    await rt.init({ tableId, setup, hostId: 'p1' })
+    await rt.load()
+    const g = gate()
+    storage.holdNextPut = g.promise
+    const socket = new FakeSocket(journal, 'p2')
+    sockets.push({ socket, info: { playerId: 'p2' } })
+    const pending = rt.connect(socket, { playerId: 'p2' })
+    await rt.destroy()
+    g.release()
+    await expect(pending).resolves.toBeUndefined()
+    expect(socket.received).toEqual([])
+    expect(storage.data.has('presence')).toBe(false)
   })
 
   it('cleanupStale supprime les tables inactives et leur partie', async () => {

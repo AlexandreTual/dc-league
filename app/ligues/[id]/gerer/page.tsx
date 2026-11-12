@@ -1,3 +1,6 @@
+import type { Metadata } from 'next'
+import { leagueMetadata } from '@/lib/page-titles'
+import { getCurrentUser } from '@/lib/auth/session'
 import { notFound } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayers, listMatches, listPlayoffs, countMatches, countCompletedMatches, getPlayerIdsWithHistory } from '@/lib/db'
@@ -10,6 +13,13 @@ import LoadError from '@/components/LoadError'
 import ManageLeague from './ManageLeague'
 
 export const runtime = 'edge'
+
+const pageDb = () => getRequestContext<CloudflareEnv>().env.DB
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  return leagueMetadata(pageDb(), id, await getCurrentUser(), 'Gérer')
+}
 export const revalidate = 0
 
 /** Gestion de la ligue : organisateur et admins seulement (404 pour les autres, comme une ligue invisible). */

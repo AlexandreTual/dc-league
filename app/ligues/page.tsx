@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { BarChart2, Plus, Trophy } from 'lucide-react'
@@ -9,6 +10,8 @@ import LeagueCard from '@/components/leagues/LeagueCard'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Ligues' }
 export const revalidate = 0
 
 function Section({ title, leagues, empty }: { title: string; leagues: DbLeague[]; empty?: string }) {

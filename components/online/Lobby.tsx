@@ -3,16 +3,21 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GameTable } from '@/lib/db-games'
+import { idleLabel, splitByActivity } from '@/lib/games/idle'
 import { cardClass, errorClass, inputClass, labelClass, primaryButtonClass, sendJson } from '@/components/formStyles'
 
 const REFRESH_MS = 5000
 const FORMAT_LABELS = { commander: 'Commander', duel: 'Duel Commander' } as const
 const smallButton = 'px-3 py-1.5 rounded-lg text-sm border border-dc-gold/40 text-dc-gold bg-dc-gold/10 hover:bg-dc-gold/20'
 
-/** Salon : tables ouvertes (à rejoindre) et en cours (à regarder), création d'une table. */
-export default function Lobby({ me, initialTables }: { me: string; initialTables: GameTable[] }) {
+/**
+ * Salon : tables ouvertes (à rejoindre) et en cours (à regarder), création d'une table. Les parties sans activité
+ * depuis plus de 24 h sont rangées à part, repliées. `now` : heure du serveur au rendu, puis celle du navigateur.
+ */
+export default function Lobby({ me, initialTables, now: serverNow }: { me: string; initialTables: GameTable[]; now: number }) {
   const router = useRouter()
   const [tables, setTables] = useState(initialTables)
+  const [now, setNow] = useState(serverNow)
   const [format, setFormat] = useState<'commander' | 'duel'>('commander')
   const [seats, setSeats] = useState(4)
   const [seeAll, setSeeAll] = useState(false)
@@ -23,6 +28,7 @@ export default function Lobby({ me, initialTables }: { me: string; initialTables
     const timer = setInterval(async () => {
       const res = await fetch('/api/games').catch(() => null)
       if (res?.ok) setTables((await res.json()) as GameTable[])
+      setNow(Date.now())
     }, REFRESH_MS)
     return () => clearInterval(timer)
   }, [])
@@ -43,7 +49,19 @@ export default function Lobby({ me, initialTables }: { me: string; initialTables
   }
 
   const open = tables.filter((t) => t.status === 'open')
-  const playing = tables.filter((t) => t.status === 'playing')
+  const { active: playing, idle } = splitByActivity(tables.filter((t) => t.status === 'playing'), new Date(now))
+  const playingRow = (t: (typeof playing)[number]) => {
+    const seated = t.players.some((p) => p.playerId === me)
+    return (
+      <li key={t.id} className="py-2 flex items-center gap-3" data-table-id={t.id}>
+        <div className="flex-1 text-sm">
+          <p className="text-dc-text">{FORMAT_LABELS[t.format]} · {t.players.map((p) => p.name).join(', ')}</p>
+          <p className="text-dc-muted">Dernière action {idleLabel(t.idleMs)}</p>
+        </div>
+        <button className={smallButton} onClick={() => router.push(`/tables/${t.id}`)}>{seated ? 'Reprendre' : 'Regarder'}</button>
+      </li>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -77,18 +95,16 @@ export default function Lobby({ me, initialTables }: { me: string; initialTables
 
       <section className={cardClass}>
         <h2 className="font-fantasy text-dc-gold">Parties en cours</h2>
-        {playing.length === 0 && <p className="text-dc-muted text-sm">Aucune partie en cours.</p>}
-        <ul className="divide-y divide-dc-border">
-          {playing.map((t) => {
-            const seated = t.players.some((p) => p.playerId === me)
-            return (
-              <li key={t.id} className="py-2 flex items-center gap-3">
-                <p className="flex-1 text-sm text-dc-text">{FORMAT_LABELS[t.format]} · {t.players.map((p) => p.name).join(', ')}</p>
-                <button className={smallButton} onClick={() => router.push(`/tables/${t.id}`)}>{seated ? 'Reprendre' : 'Regarder'}</button>
-              </li>
-            )
-          })}
-        </ul>
+        {playing.length === 0 && idle.length === 0 && <p className="text-dc-muted text-sm">Aucune partie en cours.</p>}
+        <ul className="divide-y divide-dc-border" data-testid="playing-tables">{playing.map(playingRow)}</ul>
+        {idle.length > 0 && (
+          <details className="text-sm" data-testid="idle-tables">
+            <summary className="cursor-pointer text-dc-muted hover:text-dc-gold">
+              Parties inactives depuis plus de 24 h ({idle.length})
+            </summary>
+            <ul className="divide-y divide-dc-border">{idle.map(playingRow)}</ul>
+          </details>
+        )}
       </section>
 
       <form className={cardClass} onSubmit={create}>

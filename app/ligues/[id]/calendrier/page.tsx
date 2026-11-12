@@ -1,3 +1,6 @@
+import type { Metadata } from 'next'
+import { leagueMetadata } from '@/lib/page-titles'
+import { getCurrentUser } from '@/lib/auth/session'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { listPlayers, listMatches, listEnrolledPlayers } from '@/lib/db'
 import { DbMatch, DbPlayer } from '@/lib/db'
@@ -11,6 +14,13 @@ import { Calendar, CheckCircle, Clock } from 'lucide-react'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+const pageDb = () => getRequestContext<CloudflareEnv>().env.DB
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  return leagueMetadata(pageDb(), id, await getCurrentUser(), 'Calendrier')
+}
 export const revalidate = 0
 
 export default async function CalendarPage({

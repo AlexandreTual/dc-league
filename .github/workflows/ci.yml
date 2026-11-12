@@ -1,8 +1,11 @@
-# Vérifications de chaque pull request : tests, types (site et Worker de jeu), lint et build Cloudflare Pages.
+# Vérifications de chaque pull request et de main après chaque fusion : tests (avec seuil de couverture sur lib/),
+# types (site et Worker de jeu), lint et build Cloudflare Pages.
 name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -23,8 +26,8 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
-      - name: Tests
-        run: npm test
+      - name: Tests et couverture
+        run: npm run test:coverage
 
       - name: Types du site
         run: npx tsc --noEmit

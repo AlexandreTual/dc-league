@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -7,6 +8,8 @@ import MyDecks from './MyDecks'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Mes decks' }
 
 export default async function MesDecksPage() {
   const user = await getCurrentUser()

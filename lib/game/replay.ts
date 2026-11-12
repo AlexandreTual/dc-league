@@ -14,6 +14,7 @@ export function replay(setup: GameSetup, actions: readonly GameAction[]): GameSt
 export function isRandomDraw(action: GameAction): boolean {
   if (action.type === 'mulligan' || action.type === 'shuffle') return true
   if (action.type === 'endLook') return action.shuffle
+  if (action.type === 'moveAll') return !!action.shuffle
   return action.type === 'moveMany' && !!action.random
 }
 

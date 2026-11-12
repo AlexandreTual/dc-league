@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { KeyRound } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
 import ForgotForm from './ForgotForm'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Mot de passe oublié' }
 
 export default async function MotDePasseOubliePage() {
   if (await getCurrentUser()) redirect('/profil')

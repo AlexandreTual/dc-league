@@ -163,6 +163,10 @@ export type GameState = {
 
 export type Position = 'top' | 'bottom' | number
 
+/** Filtre de « Tout déplacer » : un type de carte, ou tout sauf les terrains. */
+export type MoveAllFilter = 'creature' | 'land' | 'nonland' | 'enchantment' | 'artifact' | 'planeswalker'
+export const MOVE_ALL_FILTERS: MoveAllFilter[] = ['creature', 'land', 'nonland', 'enchantment', 'artifact', 'planeswalker']
+
 /**
  * Graine du hasard. Nombre : ancienne graine 32 bits (parties commencées avant le passage à 128 bits,
  * rejouées à l'identique) ; texte : 128 bits tirés par `crypto.getRandomValues` (voir random.ts).
@@ -192,6 +196,14 @@ export type GameAction = Stamp & (
    * (posée par le serveur).
    */
   | { type: 'moveMany'; actor: string; ids: string[]; zone: PlayerZone; position?: 'top' | 'bottom'; places?: { x: number; y: number }[]; random?: boolean; seed?: Seed }
+  /**
+   * Toutes les cartes d'une de mes zones (ou celles d'un type) vers une autre : hors du champ de bataille, chacune chez
+   * son propriétaire. `position` : dessus ou dessous de la bibliothèque, ordre de la zone gardé ; `shuffle` : bibliothèque
+   * mélangée ensuite avec `seed` (posée par le serveur). Une ligne de journal, une annulation.
+   */
+  | { type: 'moveAll'; actor: string; from: ZoneRef; to: ZoneRef; position?: 'top' | 'bottom'; filter?: MoveAllFilter; shuffle?: boolean; seed?: Seed }
+  /** Les `count` cartes du dessus de ma bibliothèque au cimetière (toutes s'il en reste moins). */
+  | { type: 'mill'; actor: string; count: number }
   | { type: 'giveControl'; actor: string; id: string; to: string }
   | { type: 'tap'; actor: string; id: string }
   | { type: 'untapAll'; actor: string }
@@ -237,7 +249,8 @@ export type GameAction = Stamp & (
   | { type: 'mana'; actor: string; color: ManaColor; delta: number }
   | { type: 'clearMana'; actor: string }
   | { type: 'toggleKeepMana'; actor: string }
-  | { type: 'look'; actor: string; target: string; count: number }
+  /** `bottom` : les cartes du dessous plutôt que du dessus (absent des actions plus anciennes). */
+  | { type: 'look'; actor: string; target: string; count: number; bottom?: true }
   | { type: 'search'; actor: string; target: string }
   | { type: 'reorderTop'; actor: string; target: string; ids: string[] }
   /** `keep` : les cartes posées dessus ou dessous pendant le regard échappent au mélange (absent des actions plus anciennes). */

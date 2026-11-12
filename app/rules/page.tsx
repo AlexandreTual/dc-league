@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { BookOpen, Shield, Clock, Users, ExternalLink, CheckCircle } from 'lucide-react'
 
 const rules = [
@@ -42,6 +43,8 @@ const rules = [
     ],
   },
 ]
+
+export const metadata: Metadata = { title: 'Règles' }
 
 export default function RulesPage() {
   return (

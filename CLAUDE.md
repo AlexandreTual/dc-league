@@ -22,6 +22,7 @@ Le propriétaire travaille surtout depuis son téléphone : **réponses, commits
 
 ```bash
 npm test                      # Vitest (D1 simulé par test/d1.ts, migrations appliquées dans l'ordre)
+npm run test:coverage         # idem avec la couverture des .ts ; échoue sous 90 % des lignes de lib/ (lancé par la CI)
 npx tsc --noEmit
 npx @cloudflare/next-on-pages # build Cloudflare Pages
 ```

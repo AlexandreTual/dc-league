@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { getCurrentUser } from '@/lib/auth/session'
@@ -6,6 +7,8 @@ import Lobby from '@/components/online/Lobby'
 import LoadError from '@/components/LoadError'
 
 export const runtime = 'edge'
+
+export const metadata: Metadata = { title: 'Salon' }
 
 export default async function SalonPage() {
   const user = await getCurrentUser()
@@ -17,7 +20,7 @@ export default async function SalonPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Salon</h1>
-      <Lobby me={user.playerId} initialTables={tables ?? []} />
+      <Lobby me={user.playerId} initialTables={tables ?? []} now={Date.now()} />
     </div>
   )
 }

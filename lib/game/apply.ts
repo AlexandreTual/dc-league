@@ -6,6 +6,8 @@ import { printedKeywordsOf } from './card-effects'
 import { DUNGEONS, firstRoom, roomOf, ventureStep } from './dungeons'
 import { MAX_PT_MOD, NO_PT, ptLog, ptText } from './pt'
 import { shuffle } from './random'
+import { rowPlaces } from './selection'
+import { FILTER_WORDS, moveAllIds } from './move-all'
 import { canApply, controllerOf, zoneOf } from './rules'
 import {
   COMMANDER_TAX_STEP,
@@ -440,6 +442,41 @@ function moveMany(state: GameState, action: Extract<GameAction, { type: 'moveMan
   return log({ ...s, log: state.log }, action.actor, text)
 }
 
+/**
+ * « Tout déplacer » : comme un déplacement groupé des cartes retenues, dans l'ordre de leur zone (la première finit
+ * au-dessus de la bibliothèque), en rangée sur le champ de bataille ; puis mélange des bibliothèques qui en ont reçu.
+ */
+function moveAll(state: GameState, action: Extract<GameAction, { type: 'moveAll' }>): GameState {
+  const ids = moveAllIds(state, action)
+  const zone = action.to.zone
+  const library = zone === 'library'
+  const side = action.position ?? 'top'
+  let s = moveMany(state, {
+    type: 'moveMany', actor: action.actor, ids, zone,
+    ...(library ? { position: side } : {}),
+    ...(zone === 'battlefield' ? { places: rowPlaces(ids.length, { x: 50, y: 50 }) } : {}),
+  })
+  if (library && action.shuffle) {
+    const owners = [...new Set(ids.map((id) => state.cards[id].owner))]
+    for (const owner of owners) s = shuffleLibrary(s, owner, owners.length === 1 ? action.seed ?? 0 : `${action.seed ?? 0}:${owner}`)
+  }
+  const n = ids.length
+  const what = action.filter ? `${n} ${FILTER_WORDS[action.filter][n > 1 ? 1 : 0]}` : plural(n, 'carte')
+  const details = [...(library ? [action.shuffle ? 'puis mélange' : side === 'top' ? 'dessus' : 'dessous'] : [])]
+  const names = HIDDEN_ZONES.includes(zone) ? [] : ids.filter((id) => !state.cards[id].faceDown).map((id) => cardName(state, id))
+  const text = `${what} : ${zoneLabel(state, action.actor, action.from)} → ${zoneLabel(state, action.actor, action.to)}`
+    + `${details.length > 0 ? ` (${details.join(', ')})` : ''}${names.length > 0 ? ` : ${names.join(', ')}` : ''}`
+  return log({ ...s, log: state.log }, action.actor, text)
+}
+
+/** Meule : les cartes du dessus une à une au cimetière ; la dernière meulée finit au-dessus. */
+function mill(state: GameState, action: Extract<GameAction, { type: 'mill' }>): GameState {
+  const ids = state.players[action.actor].zones.library.slice(0, action.count)
+  let s = state
+  for (const id of ids) s = move(s, { type: 'move', actor: action.actor, id, to: { player: action.actor, zone: 'graveyard' } })
+  return log({ ...s, log: state.log }, action.actor, `meule ${plural(ids.length, 'carte')} : ${ids.map((id) => cardName(state, id)).join(', ')}`)
+}
+
 // ── Point d'entrée ────────────────────────────────────────────────────────────
 
 /** Applique une action permise ; une action refusée renvoie l'état tel quel (même référence). */
@@ -510,6 +547,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
     case 'moveMany':
       return moveMany(state, action)
+
+    case 'moveAll':
+      return moveAll(state, action)
+
+    case 'mill':
+      return mill(state, action)
 
     case 'giveControl': {
       const from = zoneOf(state, action.id)!
@@ -721,7 +764,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'look':
     case 'search': {
       const library = state.players[action.target].zones.library
-      const seen = action.type === 'look' ? library.slice(0, action.count) : library
+      const bottom = action.type === 'look' && !!action.bottom
+      const seen = action.type === 'search' ? library : bottom ? library.slice(-action.count) : library.slice(0, action.count)
       const cards = { ...state.cards }
       for (const id of seen) cards[id] = { ...cards[id], knownBy: [...new Set([...cards[id].knownBy, action.actor])] }
       const looking = state.lookingAt[action.actor] ?? []
@@ -732,7 +776,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       }
       const of = action.target === action.actor ? 'sa bibliothèque' : `la bibliothèque de ${state.players[action.target].name}`
       if (action.type === 'search') return log(s, action.actor, `fouille ${of}`)
-      const what = seen.length === 1 ? 'la carte du dessus' : `les ${seen.length} cartes du dessus`
+      const side = bottom ? 'dessous' : 'dessus'
+      const what = seen.length === 1 ? `la carte du ${side}` : `les ${seen.length} cartes du ${side}`
       const names = seen.map((id) => cardName(state, id)).join(', ')
       return log(log(s, action.actor, `regarde ${what} de ${of}`), action.actor, `Tu as vu : ${names}`, [action.actor])
     }
