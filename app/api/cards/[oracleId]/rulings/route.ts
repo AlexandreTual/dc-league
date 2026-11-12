@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { localized } from '@/lib/auth/api'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { createScryfallClient } from '@/lib/cards/scryfall'
 import { isOracleId, loadRulings, RULINGS_UNAVAILABLE } from '@/lib/cards/rulings'
@@ -6,7 +7,7 @@ import { isOracleId, loadRulings, RULINGS_UNAVAILABLE } from '@/lib/cards/ruling
 export const runtime = 'edge'
 
 /** Règles d'une carte déjà importée sur le site (rien d'autre n'est renvoyé). */
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ oracleId: string }> }) {
+export const GET = localized(async function GET(_req: NextRequest, { params }: { params: Promise<{ oracleId: string }> }) {
   const { oracleId } = await params
   if (!isOracleId(oracleId)) return NextResponse.json({ error: 'Carte introuvable' }, { status: 404 })
 
@@ -21,4 +22,4 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ora
     console.error('[rulings]', e)
     return NextResponse.json({ error: RULINGS_UNAVAILABLE }, { status: 503 })
   }
-}
+})

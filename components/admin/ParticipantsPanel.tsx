@@ -7,6 +7,7 @@ import type { DbDeck } from '@/lib/db-decks'
 import type { DbLeague, DbLeaguePlayerWithName } from '@/lib/db-leagues'
 import { sendJson } from '@/components/formStyles'
 import type { AdminApi } from './useAdminApi'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Inscriptions de la ligue : joueurs existants (avec leur deck).
@@ -28,6 +29,7 @@ export default function ParticipantsPanel({
   playerIdsWithHistory: string[]
 }) {
   const { showToast, call } = api
+  const t = useT().admin.participants
 
   const [creatingDeckForPlayerId, setCreatingDeckForPlayerId] = useState<string | null>(null)
   const [newDeckName, setNewDeckName] = useState('')
@@ -51,13 +53,13 @@ export default function ParticipantsPanel({
       const { ok } = await call(`/api/leagues/${league.id}/players/${player.id}`, 'DELETE')
       if (!ok) return
       setLeaguePlayers((prev) => prev.filter((lp) => lp.player_id !== player.id))
-      showToast(`${player.name} désinscrit`)
+      showToast(t.unenrolled(player.name))
     } else {
       const { ok, data } = await call<DbLeaguePlayerWithName>(`/api/leagues/${league.id}/players`, 'POST', { player_id: player.id })
       if (!ok) return
       const lp = data as DbLeaguePlayerWithName
       setLeaguePlayers((prev) => [...prev, { ...lp, name: player.name, avatar_url: (player as unknown as { avatar_url?: string | null }).avatar_url ?? null, deck_name: null, deck_moxfield_url: null, deck_commander_image_url: null, deck_has_cards: false }])
-      showToast(`${player.name} inscrit`)
+      showToast(t.enrolled(player.name))
     }
   }
 
@@ -95,7 +97,7 @@ export default function ParticipantsPanel({
       setNewDeckImage('')
       setNewDeckMoxfield('')
       setCreatingDeckForPlayerId(null)
-      showToast(assigned ? `Deck "${deck.name}" créé !` : `Deck "${deck.name}" créé mais non assigné : choisis-le dans la liste`)
+      showToast(assigned ? t.deckCreated(deck.name) : t.deckNotAssigned(deck.name))
     } finally {
       setDeckLoading(false)
     }
@@ -117,7 +119,7 @@ export default function ParticipantsPanel({
       setPlayers((prev) => [...prev, data])
       const enrolled = await sendJson(`/api/leagues/${league.id}/players`, 'POST', { player_id: data.id })
       if (enrolled.error) {
-        setAddPlayerError(`${data.name} est ajouté, mais n'a pas pu être inscrit : ${enrolled.error}`)
+        setAddPlayerError(t.addedNotEnrolled(data.name, enrolled.error))
         setNewPlayerName('')
         return
       }
@@ -143,13 +145,13 @@ export default function ParticipantsPanel({
           moxfield_url: newPlayerDeckMoxfield.trim() || null,
         })
         if (deckRes.error) {
-          setAddPlayerError(`${data.name} est ajouté, mais le deck n'a pas pu être créé : ${deckRes.error}`)
+          setAddPlayerError(t.addedDeckFailed(data.name, deckRes.error))
         } else {
           const deck = deckRes.data as DbDeck
           setPlayerDecks((prev) => ({ ...prev, [data.id]: [deck] }))
           const assign = await sendJson(`/api/leagues/${league.id}/players/${data.id}`, 'PATCH', { deck_id: deck.id })
           if (assign.error) {
-            setAddPlayerError(`${data.name} est ajouté, mais le deck n'a pas pu être assigné : ${assign.error}`)
+            setAddPlayerError(t.addedDeckNotAssigned(data.name, assign.error))
           } else {
             newLp = { ...newLp, deck_id: deck.id, deck_name: deck.name, deck_moxfield_url: deck.moxfield_url, deck_commander_image_url: deck.commander_image_url }
           }
@@ -162,7 +164,7 @@ export default function ParticipantsPanel({
       setNewPlayerDeckImage('')
       setNewPlayerDeckMoxfield('')
       setShowNewPlayerDeck(false)
-      showToast(`${data.name} ajouté et inscrit !`)
+      showToast(t.added(data.name))
     } finally {
       setAddPlayerLoading(false)
     }
@@ -172,20 +174,20 @@ export default function ParticipantsPanel({
     const { ok } = await call('/api/players', 'DELETE', { id })
     if (!ok) return
     setPlayers((prev) => prev.filter((p) => p.id !== id))
-    showToast(`${name} supprimé`)
+    showToast(t.deleted(name))
   }
 
   return (
     <div className="bg-dc-surface border border-dc-border rounded-2xl p-5 space-y-5">
       <h2 className="font-fantasy font-bold text-dc-text flex items-center gap-2">
         <Users className="w-5 h-5 text-dc-gold" />
-        Participants ({enrolledCount})
+        {t.title(enrolledCount)}
       </h2>
 
       {/* Zone A: existing players */}
       {players.length > 0 && (
         <div className="space-y-2">
-          <p className="text-dc-muted text-xs uppercase tracking-wide">Joueurs existants</p>
+          <p className="text-dc-muted text-xs uppercase tracking-wide">{t.existing}</p>
           {players.map((player) => {
             const isEnrolled = enrolledIds.has(player.id)
             const decksForPlayer = playerDecks[player.id] ?? []
@@ -201,7 +203,7 @@ export default function ParticipantsPanel({
                     type="checkbox"
                     checked={isEnrolled}
                     onChange={() => handleToggleEnroll(player, isEnrolled)}
-                    aria-label={`Inscrire ${player.name} à la ligue`}
+                    aria-label={t.enrollLabel(player.name)}
                     className="w-4 h-4 accent-dc-gold cursor-pointer"
                   />
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -216,7 +218,7 @@ export default function ParticipantsPanel({
                     <div className="order-last basis-full pl-7 sm:order-none sm:basis-auto sm:pl-0 flex items-center gap-2 sm:shrink-0">
                       <select
                         value={assignedDeckId}
-                        aria-label={`Deck de ${player.name}`}
+                        aria-label={t.deckLabel(player.name)}
                         onChange={(e) => {
                           if (e.target.value === '__new__') {
                             setCreatingDeckForPlayerId(player.id)
@@ -229,24 +231,24 @@ export default function ParticipantsPanel({
                         }}
                         className="bg-dc-bg border border-dc-border rounded-lg px-2 py-1.5 text-dc-text text-xs focus:outline-none focus:border-dc-gold/50 transition-colors w-full sm:w-auto sm:max-w-[160px]"
                       >
-                        <option value="">Sans deck</option>
+                        <option value="">{t.noDeck}</option>
                         {decksForPlayer.map((d) => (
                           <option key={d.id} value={d.id}>{d.name}</option>
                         ))}
-                        {isAdmin && <option value="__new__">+ Nouveau deck</option>}
+                        {isAdmin && <option value="__new__">{t.newDeckOption}</option>}
                       </select>
                     </div>
                   )}
                   {isAdmin && <button
                     onClick={() => handleDeletePlayer(player.id, player.name)}
-                    aria-label={`Supprimer ${player.name}`}
+                    aria-label={t.deleteLabel(player.name)}
                     disabled={historySet.has(player.id)}
                     title={
                       isEnrolled
-                        ? 'Désinscris le joueur avant de le supprimer'
+                        ? t.unenrollFirst
                         : historySet.has(player.id)
-                          ? 'Ce joueur a participé à une league et ne peut pas être supprimé'
-                          : 'Supprimer'
+                          ? t.hasHistory
+                          : t.delete
                     }
                     className="text-dc-muted hover:text-dc-red-light transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                   >
@@ -259,21 +261,21 @@ export default function ParticipantsPanel({
                     onSubmit={(e) => handleCreateDeck(e, player.id)}
                     className="ml-8 bg-dc-bg/70 border border-dc-gold/20 rounded-xl px-4 py-3 space-y-2"
                   >
-                    <p className="text-dc-gold text-xs font-semibold">Nouveau deck pour {player.name}</p>
+                    <p className="text-dc-gold text-xs font-semibold">{t.newDeckFor(player.name)}</p>
                     <div className="grid gap-2 sm:grid-cols-3">
                       <div>
-                        <label className="block text-dc-muted text-xs mb-1">Nom du deck *</label>
+                        <label className="block text-dc-muted text-xs mb-1">{t.deckNameRequired}</label>
                         <input
                           type="text"
                           value={newDeckName}
                           onChange={(e) => setNewDeckName(e.target.value)}
-                          placeholder="ex: Ur-Dragon"
+                          placeholder={t.deckNamePlaceholder}
                           autoFocus
                           className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-dc-muted text-xs mb-1">Image commandant</label>
+                        <label className="block text-dc-muted text-xs mb-1">{t.commanderImage}</label>
                         <input
                           type="url"
                           value={newDeckImage}
@@ -283,7 +285,7 @@ export default function ParticipantsPanel({
                         />
                       </div>
                       <div>
-                        <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
+                        <label className="block text-dc-muted text-xs mb-1">{t.moxfieldLink}</label>
                         <input
                           type="url"
                           value={newDeckMoxfield}
@@ -300,7 +302,7 @@ export default function ParticipantsPanel({
                         className="flex items-center gap-1.5 bg-dc-gold/20 hover:bg-dc-gold/30 border border-dc-gold/40 text-dc-gold px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        {deckLoading ? 'Création…' : 'Créer et assigner'}
+                        {deckLoading ? t.creating : t.createAndAssign}
                       </button>
                       <button
                         type="button"
@@ -308,7 +310,7 @@ export default function ParticipantsPanel({
                         className="flex items-center gap-1.5 text-dc-muted hover:text-dc-text px-3 py-1.5 rounded-lg text-xs transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
-                        Annuler
+                        {t.cancel}
                       </button>
                     </div>
                   </form>
@@ -323,14 +325,14 @@ export default function ParticipantsPanel({
       <div className="border-t border-dc-border/50" />
 
       <div className="space-y-3">
-        <p className="text-dc-muted text-xs uppercase tracking-wide">Nouveau joueur (sans compte)</p>
+        <p className="text-dc-muted text-xs uppercase tracking-wide">{t.newPlayer}</p>
         <form onSubmit={handleAddNewPlayer} className="space-y-3">
           <div className="flex gap-3">
             <input
               type="text"
               value={newPlayerName}
               onChange={(e) => setNewPlayerName(e.target.value)}
-              placeholder="ex: Alexandre"
+              placeholder={t.playerPlaceholder}
               className="flex-1 min-w-0 bg-dc-bg border border-dc-border rounded-xl px-4 py-2.5 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 transition-colors text-sm"
             />
             <button
@@ -339,7 +341,7 @@ export default function ParticipantsPanel({
               className="shrink-0 flex items-center gap-2 bg-dc-gold/15 hover:bg-dc-gold/25 border border-dc-gold/30 text-dc-gold px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <UserPlus className="w-4 h-4" />
-              {addPlayerLoading ? 'Ajout…' : 'Ajouter'}
+              {addPlayerLoading ? t.adding : t.add}
             </button>
           </div>
 
@@ -350,26 +352,26 @@ export default function ParticipantsPanel({
               className="flex items-center gap-1.5 text-dc-muted hover:text-dc-gold text-xs transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              Ajouter un deck (optionnel)
+              {t.addDeck}
             </button>
           )}
 
           {showNewPlayerDeck && (
             <div className="bg-dc-bg/70 border border-dc-gold/20 rounded-xl px-4 py-3 space-y-2">
-              <p className="text-dc-gold text-xs font-semibold">Deck du nouveau joueur (optionnel)</p>
+              <p className="text-dc-gold text-xs font-semibold">{t.newPlayerDeck}</p>
               <div className="grid gap-2 sm:grid-cols-3">
                 <div>
-                  <label className="block text-dc-muted text-xs mb-1">Nom du deck</label>
+                  <label className="block text-dc-muted text-xs mb-1">{t.deckName}</label>
                   <input
                     type="text"
                     value={newPlayerDeckName}
                     onChange={(e) => setNewPlayerDeckName(e.target.value)}
-                    placeholder="ex: Ur-Dragon"
+                    placeholder={t.deckNamePlaceholder}
                     className="w-full bg-dc-bg border border-dc-border rounded-lg px-3 py-2 text-dc-text placeholder-dc-muted/50 focus:outline-none focus:border-dc-gold/50 text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-dc-muted text-xs mb-1">Image commandant</label>
+                  <label className="block text-dc-muted text-xs mb-1">{t.commanderImage}</label>
                   <input
                     type="url"
                     value={newPlayerDeckImage}
@@ -379,7 +381,7 @@ export default function ParticipantsPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-dc-muted text-xs mb-1">Lien Moxfield</label>
+                  <label className="block text-dc-muted text-xs mb-1">{t.moxfieldLink}</label>
                   <input
                     type="url"
                     value={newPlayerDeckMoxfield}
@@ -395,7 +397,7 @@ export default function ParticipantsPanel({
                 className="flex items-center gap-1.5 text-dc-muted hover:text-dc-text text-xs transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
-                Annuler le deck
+                {t.cancelDeck}
               </button>
             </div>
           )}

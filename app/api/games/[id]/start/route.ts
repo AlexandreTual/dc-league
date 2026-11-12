@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { localized } from '@/lib/auth/api'
 import { createScryfallClient } from '@/lib/cards/scryfall'
 import { destroyGame, gameStub } from '@/lib/games/binding'
 import { gameWrite, resultResponse } from '@/lib/games/http'
@@ -7,7 +8,7 @@ import { startTable, type GameInit } from '@/lib/games/start'
 export const runtime = 'edge'
 
 /** L'hôte démarre la partie (premier joueur choisi en option) : création dans le Durable Object, puis table en cours. */
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const POST = localized(async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return gameWrite(req, async ({ db, env, user, body }) => {
     const init: GameInit = async (tableId, body) => {
@@ -22,4 +23,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const scryfall = createScryfallClient({ fetch, sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) })
     return resultResponse(await startTable(db, init, destroyGame(env), id, user.playerId, firstPlayer, scryfall))
   })
-}
+})

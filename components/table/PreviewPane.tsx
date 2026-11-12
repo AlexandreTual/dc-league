@@ -5,6 +5,7 @@ import { cardPreview } from '@/lib/game/card-preview'
 import type { Catalog, CardView } from '@/lib/game/types'
 import type { Lang } from './GameCard'
 import { CARD_RATIO, PREVIEW_WIDTH, previewBox } from './touch'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Grande image de la carte survolée, jamais pour une carte cachée (`cardPreview`, règle commune avec le menu au doigt).
@@ -12,7 +13,8 @@ import { CARD_RATIO, PREVIEW_WIDTH, previewBox } from './touch'
  * l'image est dans le menu ouvert par l'appui long.
  */
 export default function PreviewPane({ card, catalog, lang }: { card: CardView | null; catalog: Catalog; lang: Lang }) {
-  const data = cardPreview(card, catalog, lang)
+  const t = useT()
+  const data = cardPreview(card, catalog, lang, t)
   if (!data) return null
   const small = typeof window === 'undefined' ? null : previewBox({ width: window.innerWidth, height: window.innerHeight })
   const image = (

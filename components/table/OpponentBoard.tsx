@@ -3,6 +3,7 @@
 import type { MenuPoint } from './touch'
 import PlayerColumn from './PlayerColumn'
 import { Battlefield, OpponentHand, type ZoneProps } from './zones'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Plateau réel d'un adversaire (Duel, ou vue agrandie à 3 à 5 joueurs) : sa colonne à gauche, comme la mienne,
@@ -19,13 +20,14 @@ export default function OpponentBoard(props: ZoneProps & {
 }) {
   const { portrait, onLibraryMenu, onPile, me, mana, ...zoneProps } = props
   const name = zoneProps.view.players[zoneProps.player].name
+  const z = useT().table.zones
   return (
     <div className="h-full min-h-0 flex flex-col sm:flex-row gap-2" data-board={zoneProps.player}>
       <PlayerColumn {...zoneProps} me={me} portrait={portrait} onLibraryMenu={onLibraryMenu}
-        onPile={(zone, title) => onPile(zone, `${title} de ${name}`)} />
+        onPile={(zone) => onPile(zone, zone === 'graveyard' ? z.graveyardOf(name) : z.exileOf(name))} />
       <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-1.5">
         <OpponentHand {...zoneProps} />
-        <Battlefield {...zoneProps} label={`Champ de bataille de ${name}`} corner={mana} />
+        <Battlefield {...zoneProps} label={z.battlefieldOf(name)} corner={mana} />
       </div>
     </div>
   )

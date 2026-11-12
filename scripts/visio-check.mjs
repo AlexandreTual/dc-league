@@ -18,7 +18,7 @@ function check(condition, message) {
 }
 
 async function openAs(player, viewport = { width: 1280, height: 900 }) {
-  const context = await browser.newContext({ viewport, hasTouch: viewport.width < 1200 })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport, hasTouch: viewport.width < 1200 })
   await context.grantPermissions(['camera', 'microphone'], { origin: base })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()

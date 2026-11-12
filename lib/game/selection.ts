@@ -68,24 +68,26 @@ export function selectionMenu(ctx: MenuContext, selection: Selection): MenuEntry
   if (ctx.readOnly || !canSelectIn(ctx.me, selection.zone)) return []
   const { ids } = selection
   const cards = zoneCards(ctx.view, selection.zone).filter((c) => ids.includes(c.id))
-  const entries: MenuEntry[] = [{ kind: 'title', label: `${ids.length} cartes sélectionnées` }]
+  const t = ctx.t.menus
+  const title = t.selection.title(ids.length)
+  const entries: MenuEntry[] = [{ kind: 'title', label: title }]
   if (selection.zone.zone === 'battlefield') {
     const untapped = cards.filter((c) => !c.tapped)
     const tapped = cards.filter((c) => c.tapped)
-    if (untapped.length > 0) entries.push(item('Engager', ...untapped.map((c) => act({ type: 'tap', id: c.id }))))
-    if (tapped.length > 0) entries.push(item('Dégager', ...tapped.map((c) => act({ type: 'tap', id: c.id }))))
-    entries.push(item('Effet sur la sélection…', { kind: 'effect', ids, title: `${ids.length} cartes sélectionnées` }))
-    entries.push({ kind: 'separator' }, item('Main', act({ type: 'moveMany', ids, zone: 'hand' })))
+    if (untapped.length > 0) entries.push(item(t.battlefield.tap, ...untapped.map((c) => act({ type: 'tap', id: c.id }))))
+    if (tapped.length > 0) entries.push(item(t.battlefield.untap, ...tapped.map((c) => act({ type: 'tap', id: c.id }))))
+    entries.push(item(t.selection.effect, { kind: 'effect', ids, title }))
+    entries.push({ kind: 'separator' }, item(t.zones.hand, act({ type: 'moveMany', ids, zone: 'hand' })))
   } else {
-    entries.push(item('Champ de bataille', act({ type: 'moveMany', ids, zone: 'battlefield', places: rowPlaces(ids.length, { x: 50, y: 50 }) })))
+    entries.push(item(t.zones.battlefield, act({ type: 'moveMany', ids, zone: 'battlefield', places: rowPlaces(ids.length, { x: 50, y: 50 }) })))
   }
   entries.push(
-    item('Cimetière…', order({ ids, zone: 'graveyard' })),
-    item('Exil', act({ type: 'moveMany', ids, zone: 'exile' })),
-    item('Dessus de la bibliothèque…', order({ ids, zone: 'library', position: 'top' })),
-    item('Dessous de la bibliothèque…', order({ ids, zone: 'library', position: 'bottom' })),
+    item(t.selection.graveyard, order({ ids, zone: 'graveyard' })),
+    item(t.zones.exile, act({ type: 'moveMany', ids, zone: 'exile' })),
+    item(t.selection.libraryTop, order({ ids, zone: 'library', position: 'top' })),
+    item(t.selection.libraryBottom, order({ ids, zone: 'library', position: 'bottom' })),
     { kind: 'separator' },
-    item('Tout désélectionner', { kind: 'clearSelection' }),
+    item(t.selection.clear, { kind: 'clearSelection' }),
   )
   return entries
 }

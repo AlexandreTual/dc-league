@@ -3,6 +3,7 @@
 import type { MenuPoint } from './touch'
 import { CommandBlock, GraveyardLast, PileCases } from './PileCases'
 import type { ZoneProps } from './zones'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /**
  * Colonne compacte d'un adversaire, à gauche de son bandeau (vue « Tous », 3 à 5 joueurs) : ligne portrait,
@@ -20,7 +21,8 @@ export default function PlayerHeader(props: ZoneProps & {
 }) {
   const { portrait, handZone, onPile, onLibraryMenu, ...zoneProps } = props
   const name = zoneProps.view.players[zoneProps.player].name
-  const titles = { graveyard: `Cimetière de ${name}`, exile: `Exil de ${name}` }
+  const z = useT().table.zones
+  const titles = { graveyard: z.graveyardOf(name), exile: z.exileOf(name) }
   return (
     <div className="w-[184px] shrink-0 min-h-0 flex flex-col gap-1" data-header={zoneProps.player}>
       {portrait}

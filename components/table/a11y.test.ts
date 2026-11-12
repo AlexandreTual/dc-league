@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Catalog } from '@/lib/game/types'
 import { cardLabel, dragAnnouncements, dragInstructions, isMenuKey } from './a11y'
+import { en } from '@/lib/i18n/messages'
 
 const catalog = {
   entries: [{ ref: 1, en: { name: 'Sol Ring', image_normal: null, type_line: 'Artifact' }, fr: { name: 'Anneau solaire', image_normal: null, type_line: 'Artefact' } }],
@@ -57,7 +58,15 @@ describe('dragAnnouncements', () => {
   })
 
   it('les consignes sont en français', () => {
-    expect(dragInstructions.draggable).toMatch(/Entrée/)
-    expect(dragInstructions.draggable).not.toMatch(/press|space bar/i)
+    expect(dragInstructions().draggable).toMatch(/Entrée/)
+    expect(dragInstructions().draggable).not.toMatch(/press|space bar/i)
+  })
+
+  it('en anglais avec le dictionnaire anglais', () => {
+    const b = dragAnnouncements({ me: 'p1', cardName: (id) => names[id], playerName: (id) => players[id], t: en })
+    expect(b.onDragEnd({ active: active('c1'), over: over({ player: 'p2', zone: 'graveyard' }) })).toBe('"Anneau solaire" dropped: Bastien\'s graveyard.')
+    expect(b.onDragOver({ active: active('c1'), over: null })).toBe('"Anneau solaire" outside any zone.')
+    expect(dragInstructions(en).draggable).toMatch(/^Enter/)
+    expect(cardLabel(catalog, { ...card, faceDown: true }, 'fr', en)).toBe('Face-down card')
   })
 })

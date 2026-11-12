@@ -6,8 +6,7 @@ import { Swords } from 'lucide-react'
 import type { GameTable, TableStatus } from '@/lib/db-games'
 import { IDLE_AFTER_MS, idleFor, idleLabel } from '@/lib/games/idle'
 import type { AdminApi } from './useAdminApi'
-
-const STATUS: Record<TableStatus, string> = { open: 'En attente', starting: 'Démarrage', playing: 'En cours', finished: 'Terminée' }
+import { useT } from '@/components/i18n/I18nProvider'
 
 type Props = { initial: GameTable[]; call: AdminApi['call']; onToast: (msg: string) => void }
 
@@ -15,6 +14,9 @@ type Props = { initial: GameTable[]; call: AdminApi['call']; onToast: (msg: stri
 export default function GamesPanel({ initial, call, onToast }: Props) {
   const [tables, setTables] = useState(initial)
   const [busy, setBusy] = useState(false)
+  const messages = useT()
+  const tg = messages.admin.games
+  const STATUS: Record<TableStatus, string> = tg.status
   const now = new Date()
   const idle = tables.filter((t) => idleFor(t.lastActivityAt, now) > IDLE_AFTER_MS)
 
@@ -37,8 +39,8 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
 
   async function removeOne(t: GameTable) {
     const names = t.players.map((p) => p.name).join(', ')
-    if (!confirm(`Supprimer la partie de ${names} ? Les joueurs connectés seront déconnectés.`)) return
-    if ((await remove([t.id])) === 1) onToast('Partie supprimée')
+    if (!confirm(tg.confirmOne(names))) return
+    if ((await remove([t.id])) === 1) onToast(tg.removedOne)
   }
 
   /** Relit la liste avant de demander la confirmation : une partie reprise entre-temps n'est plus proposée. */
@@ -50,22 +52,21 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
     setTables(data)
     const fresh = data.filter((t) => idleFor(t.lastActivityAt, new Date()) > IDLE_AFTER_MS)
     if (fresh.length === 0) {
-      onToast('Aucune partie inactive depuis plus de 24 h')
+      onToast(tg.noIdle)
       return
     }
-    if (!confirm(`Supprimer ${fresh.length === 1 ? 'la partie inactive' : `les ${fresh.length} parties inactives`} depuis plus de 24 h ?`)) return
+    if (!confirm(tg.confirmIdle(fresh.length))) return
     const removed = await remove(fresh.map((t) => t.id), true)
-    if (removed > 0) onToast(`${removed} partie${removed > 1 ? 's' : ''} supprimée${removed > 1 ? 's' : ''}`)
+    if (removed > 0) onToast(tg.removed(removed))
   }
 
   return (
     <section className="space-y-3" aria-labelledby="parties-en-cours" data-testid="games-admin">
       <h2 id="parties-en-cours" className="font-fantasy font-bold text-dc-text flex items-center gap-2">
-        <Swords className="w-5 h-5 text-dc-gold" /> Parties en cours ({tables.length})
+        <Swords className="w-5 h-5 text-dc-gold" /> {tg.title(tables.length)}
       </h2>
       <p className="text-dc-muted text-sm">
-        Tables en ligne pas encore terminées. Supprimer une partie la retire du salon et déconnecte ses joueurs, sans vainqueur.
-        Les tables inactives depuis 7 jours sont supprimées chaque nuit.
+        {tg.help}
       </p>
       {idle.length > 0 && (
         <button
@@ -73,11 +74,11 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
           disabled={busy}
           className="px-4 py-2 rounded-xl border border-dc-red/40 text-dc-red-light hover:bg-dc-red/10 disabled:opacity-50 text-sm"
         >
-          {idle.length === 1 ? 'Supprimer la partie inactive' : `Supprimer les ${idle.length} parties inactives`} depuis plus de 24 h
+          {tg.removeIdle(idle.length)}
         </button>
       )}
       {tables.length === 0 ? (
-        <p className="text-dc-muted text-sm">Aucune partie en cours.</p>
+        <p className="text-dc-muted text-sm">{tg.none}</p>
       ) : (
         <ul className="space-y-2">
           {tables.map((t) => {
@@ -90,7 +91,7 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
                   </Link>
                   <p className="text-dc-muted text-xs">
                     {STATUS[t.status]} · {t.format === 'duel' ? 'Duel' : 'Commander'} ·{' '}
-                    <span className={since > IDLE_AFTER_MS ? 'text-dc-red-light' : undefined} suppressHydrationWarning>activité {idleLabel(since)}</span>
+                    <span className={since > IDLE_AFTER_MS ? 'text-dc-red-light' : undefined} suppressHydrationWarning>{tg.activity(idleLabel(since, messages))}</span>
                   </p>
                 </div>
                 <button
@@ -98,7 +99,7 @@ export default function GamesPanel({ initial, call, onToast }: Props) {
                   disabled={busy}
                   className="px-3 py-1.5 rounded-xl border border-dc-red/40 text-dc-red-light hover:bg-dc-red/10 disabled:opacity-50"
                 >
-                  Supprimer
+                  {tg.remove}
                 </button>
               </li>
             )

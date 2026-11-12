@@ -1,3 +1,4 @@
+import { fr } from '@/lib/i18n/messages'
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction } from './apply'
@@ -88,7 +89,7 @@ describe('passer hors phase', () => {
   it('menu : « Passer hors phase » puis « Revenir en phase »', () => {
     const labels = (s: GameState, me: string) => {
       const view = viewFor(s, me)
-      const entries = cardMenu({ view, me, catalogs: s.catalogs, lang: 'fr', readOnly: false } as never, shown(s, me, a), BF)
+      const entries = cardMenu({ view, me, catalogs: s.catalogs, lang: 'fr', t: fr, readOnly: false } as never, shown(s, me, a), BF)
       return entries.flatMap((e) => ('label' in e ? [e.label] : []))
     }
     expect(labels(game(), 'p1')).toContain('Passer hors phase')

@@ -41,17 +41,17 @@ export type CardEffects = {
 }
 export type CardEffect = keyof CardEffects
 
-/** Animations proposées dans la fenêtre « Animations », par groupe, dans l'ordre d'affichage. */
-export const CARD_EFFECTS: { id: CardEffect; label: string; hint: string; group: 'cards' | 'players' }[] = [
-  { id: 'legendary', label: 'Légendaires', hint: 'Liseré doré, et éclat qui traverse la carte à son arrivée en jeu.', group: 'cards' },
-  { id: 'commander', label: 'Entrée du commandant', hint: 'Il se pose avec un halo, des ondes dorées et une couronne.', group: 'cards' },
-  { id: 'graveyard', label: 'Retour du cimetière', hint: 'Une pierre tombale se brise et la carte ramenée remonte de sous la tombe.', group: 'cards' },
-  { id: 'flying', label: 'Vol', hint: 'Les créatures volantes flottent au-dessus de leur ombre tant qu’elles ne sont pas engagées.', group: 'cards' },
-  { id: 'life', label: 'Vie, poison et blessures', hint: 'Le compteur réagit et l’écart (« -3 », « +2 ») s’envole au-dessus du portrait.', group: 'players' },
-  { id: 'crowns', label: 'Monarque et initiative', hint: 'La couronne et le drapeau volent d’un portrait à l’autre.', group: 'players' },
-  { id: 'dungeon', label: 'Donjon', hint: 'Le jeton avance de salle en salle et la salle atteinte s’allume.', group: 'players' },
-  { id: 'elimination', label: 'Élimination et victoire', hint: 'Portrait fissuré du joueur éliminé, confettis pour le gagnant.', group: 'players' },
-  { id: 'dice', label: 'Dés', hint: 'Le dé roule avant d’afficher le résultat.', group: 'players' },
+/** Animations proposées dans la fenêtre « Animations », par groupe, dans l'ordre d'affichage (textes : `table.animations`). */
+export const CARD_EFFECTS: { id: CardEffect; group: 'cards' | 'players' }[] = [
+  { id: 'legendary', group: 'cards' },
+  { id: 'commander', group: 'cards' },
+  { id: 'graveyard', group: 'cards' },
+  { id: 'flying', group: 'cards' },
+  { id: 'life', group: 'players' },
+  { id: 'crowns', group: 'players' },
+  { id: 'dungeon', group: 'players' },
+  { id: 'elimination', group: 'players' },
+  { id: 'dice', group: 'players' },
 ]
 const EFFECT_IDS = CARD_EFFECTS.map((e) => e.id)
 export const ALL_EFFECTS: CardEffects = Object.fromEntries(EFFECT_IDS.map((id) => [id, true])) as CardEffects
@@ -100,6 +100,9 @@ export function parseTableSettings(raw: string | null): TableSettings {
     return DEFAULT_TABLE_SETTINGS
   }
 }
+
+/** Stockage du navigateur, déclaré ici : ce fichier entre aussi (par les types du dictionnaire) dans le Worker de jeu, sans DOM. */
+declare const localStorage: { getItem(key: string): string | null; setItem(key: string, value: string): void }
 
 export function loadTableSettings(): TableSettings {
   try {

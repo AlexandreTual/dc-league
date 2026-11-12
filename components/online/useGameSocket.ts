@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toLocalClock, type LocalClock } from '@/lib/game/clock'
 import { mergeCards, type CardDataMap, type ClientMessage, type RtcServerMessage, type ServerMessage, type ViewMessage } from '@/lib/game/room'
 import { ERROR_VISIBLE_MS } from '@/components/table/source'
+import { translateGameError } from '@/lib/i18n/game-errors'
+import { useT } from '@/components/i18n/I18nProvider'
 import { SOCKET_MSG, nextStep } from './reconnect'
 
 /** `closed` : reconnexions abandonnées (voir `closedReason`) ; `retry()` relance. */
@@ -18,8 +20,13 @@ async function tableGone(tableId: string): Promise<boolean> {
   }
 }
 
-/** Connexion en direct à une partie : dernière vue reçue, données de cartes cumulées, envoi de messages. */
+/**
+ * Connexion en direct à une partie : dernière vue reçue, données de cartes cumulées, envoi de messages.
+ * `error` : traduite dans la langue de l'interface (le serveur de jeu écrit en français) ; `closedReason` : message
+ * français de `SOCKET_MSG`, à traduire à l'affichage (`translateGameError`).
+ */
 export function useGameSocket(tableId: string) {
+  const t = useT()
   const [status, setStatus] = useState<SocketStatus>('connecting')
   const [closedReason, setClosedReason] = useState<string | null>(null)
   const [generation, setGeneration] = useState(0)
@@ -119,5 +126,7 @@ export function useGameSocket(tableId: string) {
     return () => { rtcListeners.current.delete(listener) }
   }, [])
 
-  return { status, closedReason, last, clock, cards, error, send, retry, sendRtc, onRtc }
+  // Traduite au rendu (et non à la réception) : un changement de langue s'applique sans reconnexion.
+  const shownError = error === null ? null : translateGameError(error, t)
+  return { status, closedReason, last, clock, cards, error: shownError, send, retry, sendRtc, onRtc }
 }

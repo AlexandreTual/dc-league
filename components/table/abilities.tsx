@@ -8,12 +8,13 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
-  abilityRule, abilityText, COLORS, isNumbered, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, PROTECTION_ALL, takesParam,
+  abilityName, abilityRule, COLORS, isNumbered, isValidParam, KEYWORD_GROUPS, KEYWORDS, keywordLabel, PROTECTION_ALL, takesParam,
   type AbilityChoice, type Color, type GainedAbility, type Keyword,
 } from '@/lib/game/abilities'
 import { MAX_PT_MOD } from '@/lib/game/pt'
 import type { PtMod, VisibleCard } from '@/lib/game/types'
 import type { AbilityStyle } from '@/lib/table-settings'
+import { useT } from '@/components/i18n/I18nProvider'
 
 const ICONS: Record<Keyword, LucideIcon> = {
   Flying: Feather, Deathtouch: Skull, Lifelink: HeartPulse, Trample: Footprints, Vigilance: Eye, Haste: Zap,
@@ -27,7 +28,6 @@ const ICONS: Record<Keyword, LucideIcon> = {
 
 /** Pastilles des couleurs de Protection (couleurs du mana). */
 const COLOR_DOTS: Record<Color, string> = { W: '#f8f3d8', U: '#3b82f6', B: '#4b4453', R: '#e05252', G: '#4ade80' }
-const COLOR_NAMES: Record<Color, string> = { W: 'blanc', U: 'bleu', B: 'noir', R: 'rouge', G: 'vert' }
 /** Raccourcis du coût d'une Parade. */
 const WARD_COSTS = ['{1}', '{2}', '{3}', '{4}']
 const DEFAULT_WARD = '{2}'
@@ -36,9 +36,6 @@ const NUMBERS = ['1', '2', '3', '4']
 const defaultNumber = (k: Keyword) => (k === 'Annihilator' || k === 'Afflict' ? '2' : '1')
 
 type Badge = { keyword: Keyword; param?: string; state: 'gained' | 'eot' | 'lost' }
-
-/** « A », « A et B », « A, B et C ». */
-const join = (items: string[]) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} et ${items.at(-1)}`)
 
 /** Couleurs d'une Protection (« all » : aucune, c'est « contre tout »). */
 const colorsOf = (param: string | undefined): Color[] => (param && param !== PROTECTION_ALL ? (param.split(',') as Color[]) : [])
@@ -64,6 +61,8 @@ function ParamMark({ keyword, param }: { keyword: Keyword; param: string }) {
  * sur le bord gauche, ou libellés au milieu, selon le réglage. Champs absents (serveur de jeu plus ancien) : rien.
  */
 export function AbilityBadges({ card, style }: { card: VisibleCard; style: AbilityStyle }) {
+  const t = useT()
+  const a = t.table.abilities
   const badges: Badge[] = [
     ...(card.gained ?? []).filter((g) => g.keyword !== 'Flying')
       .map((g): Badge => ({ keyword: g.keyword, param: g.param, state: g.untilEndOfTurn ? 'eot' : 'gained' })),
@@ -75,14 +74,14 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
     <div className={`absolute pointer-events-none z-[1] flex flex-col gap-0.5 ${icons ? '-left-1.5 top-[18%] items-start' : 'inset-x-0 top-[30%] items-center'}`} data-abilities={style}>
       {badges.map(({ keyword, param, state }) => {
         const Icon = ICONS[keyword]
-        const text = abilityText({ keyword, param })
-        const status = state === 'lost' ? `${text} (perdue)` : state === 'eot' ? `${text} (jusqu’à la fin du tour)` : text
+        const text = abilityName({ keyword, param }, t)
+        const status = state === 'lost' ? a.lostStatus(text) : state === 'eot' ? a.eotStatus(text) : text
         // Au survol : la capacité, puis son texte des règles.
-        const title = `${status}\n${abilityRule(keyword, param)}`
+        const title = `${status}\n${abilityRule(keyword, t, param)}`
         const color = state === 'lost' ? 'border-dc-red-light text-dc-red-light' : 'border-dc-gold text-dc-gold-light'
         const border = state === 'eot' ? 'border-dashed' : 'border-solid'
         // Protection : ses couleurs en pastilles (toujours visibles, même si le libellé est coupé) ; Parade, Annihilateur… : coût ou nombre écrit.
-        const label = param && keyword !== 'Protection' ? `${keywordLabel(keyword)} ${param}` : keywordLabel(keyword)
+        const label = param && keyword !== 'Protection' ? `${keywordLabel(keyword, t)} ${param}` : keywordLabel(keyword, t)
         return icons ? (
           <span key={`${state}-${keyword}`} title={title} data-ability={keyword} data-ability-state={state} data-ability-param={param}
             className={`relative h-5 min-w-5 px-[3px] rounded-full bg-[#0d0d14] border flex items-center justify-center gap-0.5 ${color} ${border}`}>
@@ -107,6 +106,7 @@ export function AbilityBadges({ card, style }: { card: VisibleCard; style: Abili
 
 /** Choix des couleurs d'une Protection : pastilles W U B R G, ou « Tout ». */
 function ProtectionChoice({ value, onChange }: { value: string; onChange: (param: string) => void }) {
+  const a = useT().table.abilities
   const colors = colorsOf(value)
   const toggle = (c: Color) => {
     const next = colors.includes(c) ? colors.filter((x) => x !== c) : [...colors, c]
@@ -114,17 +114,17 @@ function ProtectionChoice({ value, onChange }: { value: string; onChange: (param
   }
   const chip = 'h-7 min-w-7 px-2 rounded-full border text-xs flex items-center justify-center gap-1 tablet:h-9 tablet:min-w-9'
   return (
-    <div className="flex flex-wrap gap-1.5 pl-7 pb-1" role="group" aria-label="Protection contre">
+    <div className="flex flex-wrap gap-1.5 pl-7 pb-1" role="group" aria-label={a.protectionGroup}>
       {COLORS.map((c) => (
-        <button key={c} type="button" aria-pressed={colors.includes(c)} onClick={() => toggle(c)} title={COLOR_NAMES[c]}
+        <button key={c} type="button" aria-pressed={colors.includes(c)} onClick={() => toggle(c)} title={a.colorAdjectives[c]}
           className={`${chip} ${colors.includes(c) ? 'border-dc-gold bg-dc-gold/20 text-dc-text' : 'border-dc-border text-dc-muted'}`}>
           <span className="w-3 h-3 rounded-full border border-black/40" style={{ background: COLOR_DOTS[c] }} />
-          {COLOR_NAMES[c]}
+          {a.colorAdjectives[c]}
         </button>
       ))}
       <button type="button" aria-pressed={value === PROTECTION_ALL} onClick={() => onChange(value === PROTECTION_ALL ? '' : PROTECTION_ALL)}
         className={`${chip} ${value === PROTECTION_ALL ? 'border-dc-gold bg-dc-gold/20 text-dc-text' : 'border-dc-border text-dc-muted'}`}>
-        Tout
+        {a.all}
       </button>
     </div>
   )
@@ -132,9 +132,10 @@ function ProtectionChoice({ value, onChange }: { value: string; onChange: (param
 
 /** Coût d'une Parade : champ libre et raccourcis {1} à {4}. */
 function WardChoice({ value, onChange }: { value: string; onChange: (param: string) => void }) {
+  const a = useT().table.abilities
   return (
     <div className="flex flex-wrap items-center gap-1.5 pl-7 pb-1">
-      <input value={value} onChange={(e) => onChange(e.target.value)} maxLength={40} aria-label="Coût de la Parade"
+      <input value={value} onChange={(e) => onChange(e.target.value)} maxLength={40} aria-label={a.wardCost}
         className="w-40 bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm text-dc-text" placeholder="{2}" />
       {WARD_COSTS.map((cost) => (
         <button key={cost} type="button" onClick={() => onChange(cost)}
@@ -148,9 +149,10 @@ function WardChoice({ value, onChange }: { value: string; onChange: (param: stri
 
 /** Nombre d'une capacité chiffrée : champ et raccourcis 1 à 4. */
 function NumberChoice({ keyword, value, onChange }: { keyword: Keyword; value: string; onChange: (param: string) => void }) {
+  const t = useT()
   return (
     <div className="flex flex-wrap items-center gap-1.5 pl-7 pb-1">
-      <input value={value} onChange={(e) => onChange(e.target.value.trim())} maxLength={2} inputMode="numeric" aria-label={`Valeur de ${keywordLabel(keyword)}`}
+      <input value={value} onChange={(e) => onChange(e.target.value.trim())} maxLength={2} inputMode="numeric" aria-label={t.table.abilities.valueOf(keywordLabel(keyword, t))}
         className="w-14 bg-dc-bg border border-dc-border rounded px-2 py-1 text-sm text-dc-text" placeholder="1" />
       {NUMBERS.map((n) => (
         <button key={n} type="button" onClick={() => onChange(n)}
@@ -199,6 +201,8 @@ export function AbilitiesModal({ name, printed, gained, lost, effect = false, on
   onValidate: (gained: AbilityChoice[], lost: Keyword[], untilEndOfTurn: boolean, pt: PtMod) => void
   onClose: () => void
 }) {
+  const t = useT()
+  const a = t.table.abilities
   const [power, setPower] = useState('0')
   const [toughness, setToughness] = useState('0')
   const isPrinted = (k: Keyword) => printed.includes(k)
@@ -218,7 +222,7 @@ export function AbilitiesModal({ name, printed, gained, lost, effect = false, on
     else next.add(k)
     return next
   })
-  const note = (k: Keyword) => (isPrinted(k) ? ' (imprimée)' : gained.find((g) => g.keyword === k)?.untilEndOfTurn ? ' (ce tour)' : '')
+  const note = (k: Keyword) => (isPrinted(k) ? a.printedNote : gained.find((g) => g.keyword === k)?.untilEndOfTurn ? a.thisTurn : '')
   /** Capacité cochée qui demande sa précision (pas pour une imprimée : elle est déjà sur la carte). */
   const needsParam = (k: Keyword) => takesParam(k) && checked.has(k) && !isPrinted(k)
   const paramOf = (k: Keyword) => (k === 'Ward' ? (params.Ward ?? '').trim() : params[k] ?? '')
@@ -227,9 +231,9 @@ export function AbilitiesModal({ name, printed, gained, lost, effect = false, on
   const pt = { power: ptValue(power), toughness: ptValue(toughness) }
   // Un effet sans écart ni capacité ne ferait rien.
   const empty = effect && pt.power === 0 && pt.toughness === 0 && checked.size === 0
-  const heading = effect ? `Effet : ${name}` : `Capacités : ${name}`
-  const missingText = join(lacking.map((k) => (
-    k === 'Protection' ? 'les couleurs de la Protection' : k === 'Ward' ? 'le coût de la Parade' : `la valeur de ${keywordLabel(k)} (1 à 99)`
+  const heading = effect ? a.effectHeading(name) : a.heading(name)
+  const missingText = a.list(lacking.map((k) => (
+    k === 'Protection' ? a.missingProtection : k === 'Ward' ? a.missingWard : a.missingValue(keywordLabel(k, t))
   )))
 
   return (
@@ -253,18 +257,18 @@ export function AbilitiesModal({ name, printed, gained, lost, effect = false, on
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-dc-border">
           <h2 className="font-fantasy text-dc-gold text-sm truncate">{heading}</h2>
-          <button type="button" onClick={onClose} className="ml-auto text-dc-muted hover:text-dc-text" aria-label="Fermer"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} className="ml-auto text-dc-muted hover:text-dc-text" aria-label={t.common.close}><X className="w-5 h-5" /></button>
         </div>
         <div className="p-3 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-x-3">
           {effect && (
             <div className="sm:col-span-2 pb-2 mb-1 border-b border-dc-border flex flex-col gap-1.5" data-testid="effect-pt">
-              <h3 className="px-1 text-xs uppercase tracking-wide text-dc-muted">Force et endurance</h3>
-              <PtField label="Force" value={power} onChange={setPower} />
-              <PtField label="Endurance" value={toughness} onChange={setToughness} />
+              <h3 className="px-1 text-xs uppercase tracking-wide text-dc-muted">{a.ptHeading}</h3>
+              <PtField label={a.power} value={power} onChange={setPower} />
+              <PtField label={a.toughness} value={toughness} onChange={setToughness} />
             </div>
           )}
-          {KEYWORD_GROUPS.flatMap(({ title, keywords }) => [
-            <h3 key={title} className="sm:col-span-2 px-1 pt-2 pb-0.5 text-xs uppercase tracking-wide text-dc-muted first:pt-0">{title}</h3>,
+          {KEYWORD_GROUPS.flatMap(({ key, keywords }) => [
+            <h3 key={key} className="sm:col-span-2 px-1 pt-2 pb-0.5 text-xs uppercase tracking-wide text-dc-muted first:pt-0">{a.groups[key]}</h3>,
             ...keywords.map((k) => {
               const Icon = ICONS[k]
               return (
@@ -273,17 +277,17 @@ export function AbilitiesModal({ name, printed, gained, lost, effect = false, on
                     <label className="flex-1 min-w-0 flex items-center gap-2 px-1 py-1.5 text-sm text-dc-text cursor-pointer tablet:py-2.5">
                       <input type="checkbox" checked={checked.has(k)} onChange={() => toggle(k)} />
                       <Icon className="w-4 h-4 text-dc-gold-light shrink-0" aria-hidden="true" />
-                      <span>{keywordLabel(k)}{note(k) && <span className="text-dc-muted text-xs">{note(k)}</span>}</span>
+                      <span>{keywordLabel(k, t)}{note(k) && <span className="text-dc-muted text-xs">{note(k)}</span>}</span>
                     </label>
                     <button type="button" onClick={() => setRuleOpen((r) => (r === k ? null : k))} aria-expanded={ruleOpen === k}
-                      aria-label={`Règle : ${keywordLabel(k)}`} title="Texte des règles"
+                      aria-label={a.ruleAria(keywordLabel(k, t))} title={a.ruleTitle}
                       className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full tablet:w-9 tablet:h-9 ${ruleOpen === k ? 'text-dc-gold' : 'text-dc-muted hover:text-dc-text'}`}>
                       <Info className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                   {ruleOpen === k && (
                     <p className="ml-7 mb-1.5 px-2 py-1.5 rounded bg-dc-bg border border-dc-border text-xs leading-snug text-dc-text" data-testid="ability-rule">
-                      {abilityRule(k, needsParam(k) ? paramOf(k) : undefined)}
+                      {abilityRule(k, t, needsParam(k) ? paramOf(k) : undefined)}
                     </p>
                   )}
                   {needsParam(k) && k === 'Protection' && <ProtectionChoice value={params.Protection ?? ''} onChange={setParam(k)} />}
@@ -295,18 +299,18 @@ export function AbilitiesModal({ name, printed, gained, lost, effect = false, on
           ])}
         </div>
         <fieldset className="mx-3 mb-3 px-3 pb-2 border border-dc-border rounded-lg flex flex-wrap gap-x-4 gap-y-1 text-sm text-dc-text">
-          <legend className="px-1 text-xs text-dc-muted">{effect ? 'Durée de l’effet' : 'Durée des capacités ajoutées'}</legend>
+          <legend className="px-1 text-xs text-dc-muted">{effect ? a.effectDuration : a.addedDuration}</legend>
           <label className="flex items-center gap-1.5 cursor-pointer tablet:py-1.5">
-            <input type="radio" name="duree" checked={!untilEndOfTurn} onChange={() => setUntilEndOfTurn(false)} /> Tout le temps
+            <input type="radio" name="duree" checked={!untilEndOfTurn} onChange={() => setUntilEndOfTurn(false)} /> {a.always}
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer tablet:py-1.5">
-            <input type="radio" name="duree" checked={untilEndOfTurn} onChange={() => setUntilEndOfTurn(true)} /> Jusqu’à la fin du tour
+            <input type="radio" name="duree" checked={untilEndOfTurn} onChange={() => setUntilEndOfTurn(true)} /> {a.untilEndOfTurn}
           </label>
         </fieldset>
         <div className="flex items-center justify-end gap-2 px-4 pb-4">
-          {missing && <span className="mr-auto text-xs text-dc-red-light" role="status">Choisis {missingText}.</span>}
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-dc-border text-sm text-dc-text">Annuler</button>
-          <button type="submit" disabled={missing || empty} className="px-3 py-1.5 rounded-lg bg-dc-gold text-black text-sm font-semibold disabled:opacity-40">Valider</button>
+          {missing && <span className="mr-auto text-xs text-dc-red-light" role="status">{a.missing(missingText)}</span>}
+          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-dc-border text-sm text-dc-text">{t.common.cancel}</button>
+          <button type="submit" disabled={missing || empty} className="px-3 py-1.5 rounded-lg bg-dc-gold text-black text-sm font-semibold disabled:opacity-40">{a.validate}</button>
         </div>
       </form>
     </div>

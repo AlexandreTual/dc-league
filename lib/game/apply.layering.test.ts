@@ -1,3 +1,4 @@
+import { fr } from '@/lib/i18n/messages'
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction } from './apply'
@@ -41,7 +42,7 @@ describe('superposition des cartes en jeu', () => {
     const s = game()
     const view = viewFor(s, 'p1')
     const visible = view.players.p1.zones.battlefield.find((v): v is VisibleCard => !v.hidden && v.id === b)!
-    const entries = cardMenu({ view, me: 'p1', catalogs: s.catalogs, lang: 'fr', readOnly: false } as never, visible, BF)
+    const entries = cardMenu({ view, me: 'p1', catalogs: s.catalogs, lang: 'fr', t: fr, readOnly: false } as never, visible, BF)
     const labels = entries.flatMap((e) => ('label' in e ? [e.label] : []))
     expect(labels).toEqual(expect.arrayContaining(['Mettre devant', 'Mettre derrière', 'Pivoter à 180°']))
   })

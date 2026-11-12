@@ -1,3 +1,4 @@
+import { en, fr } from '@/lib/i18n/messages'
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { applyAction } from './apply'
@@ -12,7 +13,7 @@ const hand = { player: 'p1', zone: 'hand' as const }
 function state() {
   return place(run(setupFor('commander', 2), start(1)), field.map((id) => ({ id, player: 'p1', zone: 'battlefield' as const })))
 }
-const ctx = (s = state(), me = 'p1'): MenuContext => ({ me, view: viewFor(s, me), catalogs: s.catalogs, lang: 'fr', readOnly: false })
+const ctx = (s = state(), me = 'p1'): MenuContext => ({ me, view: viewFor(s, me), catalogs: s.catalogs, lang: 'fr', t: fr, readOnly: false })
 const labels = (entries: MenuEntry[]) => entries.flatMap((e) => (e.kind === 'item' ? [e.label] : []))
 const commands = (entries: MenuEntry[], label: string) => entries.flatMap((e) => (e.kind === 'item' && e.label === label ? e.commands : []))
 
@@ -77,5 +78,24 @@ describe('sélection', () => {
   it('aucun menu pour un spectateur, une partie finie ou une zone d’un autre', () => {
     expect(selectionMenu({ ...ctx(), readOnly: true }, { zone: bf, ids: field })).toEqual([])
     expect(selectionMenu(ctx(state(), 'p2'), { zone: bf, ids: field })).toEqual([])
+  })
+})
+
+describe('menu du groupe en anglais', () => {
+  const ctxEn = (s = state()): MenuContext => ({ ...ctx(s), t: en })
+
+  it('en jeu : Tap, Untap, ranger, désélectionner', () => {
+    const s = applyAction(state(), { type: 'tap', actor: 'p1', id: field[1] })
+    const entries = selectionMenu(ctxEn(s), { zone: bf, ids: field })
+    expect(entries[0]).toEqual({ kind: 'title', label: '3 cards selected' })
+    expect(labels(entries)).toEqual(['Tap', 'Untap', 'Effect on the selection…', 'Hand', 'Graveyard…', 'Exile', 'Top of library…', 'Bottom of library…', 'Deselect all'])
+    expect(commands(entries, 'Effect on the selection…')).toEqual([{ kind: 'effect', ids: field, title: '3 cards selected' }])
+    expect(commands(entries, 'Top of library…')).toEqual([{ kind: 'order', ids: field, zone: 'library', position: 'top' }])
+  })
+
+  it('en main : Battlefield', () => {
+    const s = run(setupFor('commander', 2), start(1))
+    const ids = s.players.p1.zones.hand.slice(0, 2)
+    expect(labels(selectionMenu(ctxEn(s), { zone: hand, ids }))[0]).toBe('Battlefield')
   })
 })

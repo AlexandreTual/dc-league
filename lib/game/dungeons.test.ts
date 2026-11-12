@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DUNGEON_IDS, DUNGEONS, VENTURE_DUNGEONS, dungeonDone, firstRoom, isDungeonId, roomOf, ventureStep } from './dungeons'
+import { DUNGEON_IDS, DUNGEONS, VENTURE_DUNGEONS, dungeonDone, dungeonText, firstRoom, isDungeonId, roomOf, roomText, ventureStep } from './dungeons'
 
 describe('données des donjons', () => {
   it('quatre donjons, dont trois au choix (jamais Les Souterrains)', () => {
@@ -82,5 +82,18 @@ describe('ventureStep', () => {
 
   it('salle inconnue (donnée abîmée) : traitée comme sans donjon', () => {
     expect(ventureStep({ id: 'phandelver', room: 'nope' }, 'dungeon')).toEqual({ kind: 'choose' })
+  })
+})
+
+describe('noms et textes dans la langue des cartes', () => {
+  it('français imprimé ou anglais officiel (Oracle), sans lettre accentuée en anglais', () => {
+    expect(dungeonText('phandelver', 'fr')).toEqual({ name: 'Mine oubliée de Phancreux', the: 'la Mine oubliée de Phancreux', short: 'Phancreux' })
+    expect(dungeonText('madMage', 'en')).toEqual({ name: 'Dungeon of the Mad Mage', the: 'Dungeon of the Mad Mage', short: 'Mad Mage' })
+    expect(roomText(roomOf('undercity', 'trap')!, 'en')).toEqual({ name: 'Trap!', text: 'Target player loses 5 life.' })
+    expect(roomText(roomOf('undercity', 'trap')!, 'fr')).toEqual({ name: 'Piège !', text: 'Un joueur ciblé perd 5 points de vie.' })
+    for (const id of DUNGEON_IDS) {
+      expect(dungeonText(id, 'en').short).not.toMatch(/[À-ÿ]/)
+      for (const r of DUNGEONS[id].rooms) expect(`${r.nameEn} ${r.textEn}`).not.toMatch(/[À-ÿ]/)
+    }
   })
 })

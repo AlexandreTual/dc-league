@@ -1,4 +1,7 @@
-import { Match, Player } from '@/lib/leaderboard'
+'use client'
+
+import type { Match, Player } from '@/lib/leaderboard'
+import { useT } from '@/components/i18n/I18nProvider'
 import { CheckCircle, Clock } from 'lucide-react'
 import PlayerName from './PlayerName'
 
@@ -11,6 +14,7 @@ interface Props {
 }
 
 export default function MatchCard({ match, onEdit, isAdmin, mine }: Props) {
+  const t = useT().leagues.match
   const completed = match.is_completed
   const s1 = match.score_p1 ?? 0
   const s2 = match.score_p2 ?? 0
@@ -47,7 +51,7 @@ export default function MatchCard({ match, onEdit, isAdmin, mine }: Props) {
             className={`font-fantasy font-semibold text-sm md:text-base ${p1Won ? 'text-dc-gold' : 'text-dc-text'}`}
           />
           {p1Won && (
-            <div className="text-dc-green-light text-xs mt-0.5">Victoire</div>
+            <div className="text-dc-green-light text-xs mt-0.5">{t.win}</div>
           )}
         </div>
 
@@ -61,7 +65,7 @@ export default function MatchCard({ match, onEdit, isAdmin, mine }: Props) {
             </>
           ) : (
             <span className="text-dc-muted text-xs px-3 py-1 border border-dc-border/40 rounded">
-              {isAdmin ? 'Saisir score' : 'À jouer'}
+              {isAdmin ? t.enterScore : t.toPlay}
             </span>
           )}
         </div>
@@ -74,18 +78,18 @@ export default function MatchCard({ match, onEdit, isAdmin, mine }: Props) {
             className={`font-fantasy font-semibold text-sm md:text-base ${p2Won ? 'text-dc-gold' : 'text-dc-text'}`}
           />
           {p2Won && (
-            <div className="text-dc-green-light text-xs mt-0.5">Victoire</div>
+            <div className="text-dc-green-light text-xs mt-0.5">{t.win}</div>
           )}
         </div>
       </div>
 
       {isDraw && (
-        <div className="text-center text-dc-muted text-xs mt-2">Match nul</div>
+        <div className="text-center text-dc-muted text-xs mt-2">{t.draw}</div>
       )}
 
       {/* Admin edit hint */}
       {isAdmin && !completed && (
-        <div className="text-center text-dc-gold/40 text-xs mt-2">Cliquer pour saisir le score</div>
+        <div className="text-center text-dc-gold/40 text-xs mt-2">{t.clickToEnter}</div>
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import { loadVisibleLeague } from '@/lib/leagues/load'
 import { loadFailed } from '@/lib/load'
 import LoadError from '@/components/LoadError'
 import ManageLeague from './ManageLeague'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -15,8 +16,8 @@ export const revalidate = 0
 /** Gestion de la ligue : organisateur et admins seulement (404 pour les autres, comme une ligue invisible). */
 export default async function ManageLeaguePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const access = await loadVisibleLeague(id)
-  if (!access) return <LoadError what="la gestion de la ligue" />
+  const [access, t] = await Promise.all([loadVisibleLeague(id), getMessages()])
+  if (!access) return <LoadError what={t.leagues.manage.loadWhat} />
   if (!access.canManage) notFound()
 
   const db = getRequestContext<CloudflareEnv>().env.DB
@@ -31,7 +32,7 @@ export default async function ManageLeaguePage({ params }: { params: Promise<{ i
     getPlayerIdsWithHistory(db),
     getInviteToken(db, id),
   ])
-  if (loadFailed(...results)) return <LoadError what="la gestion de la ligue" />
+  if (loadFailed(...results)) return <LoadError what={t.leagues.manage.loadWhat} />
   const [players, matches, playoffs, total, completed, leaguePlayers, decks, history, token] = results
 
   return (

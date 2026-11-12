@@ -7,6 +7,7 @@ import { viewerOf } from '@/lib/leagues/access'
 import { groupLeagues } from '@/lib/leagues/list'
 import LeagueCard from '@/components/leagues/LeagueCard'
 import LoadError from '@/components/LoadError'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -28,42 +29,43 @@ function Section({ title, leagues, empty }: { title: string; leagues: DbLeague[]
 /** Toutes les ligues visibles : les miennes, les autres en cours, les terminées. */
 export default async function LeaguesPage() {
   const db = getRequestContext<CloudflareEnv>().env.DB
-  const user = await getCurrentUser()
+  const [user, t] = await Promise.all([getCurrentUser(), getMessages()])
+  const l = t.leagues.list
   const isPlayer = !!user && !user.isBootstrap
   const [leagues, mine] = await Promise.all([
     listLeaguesFor(db, viewerOf(user)),
     isPlayer ? listMyLeagueIds(db, user.playerId) : Promise.resolve({ data: [] as string[], error: null }),
   ])
-  if (leagues.error !== null || mine.error !== null) return <LoadError what="les ligues" />
+  if (leagues.error !== null || mine.error !== null) return <LoadError what={l.loadWhat} />
   const groups = groupLeagues(leagues.data, new Set(mine.data))
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-fantasy text-3xl font-bold text-dc-gold inline-flex items-center gap-2">
-          <Trophy className="w-6 h-6" /> Ligues
+          <Trophy className="w-6 h-6" /> {l.title}
         </h1>
         <div className="flex flex-wrap gap-2">
           <Link href="/ligues/statistiques" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dc-gold/40 text-dc-gold text-sm hover:bg-dc-gold/10">
-            <BarChart2 className="w-4 h-4" /> Statistiques
+            <BarChart2 className="w-4 h-4" /> {l.stats}
           </Link>
           {isPlayer && (
             <Link href="/ligues/nouvelle" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-dc-gold text-dc-bg text-sm font-semibold hover:bg-dc-gold-light">
-              <Plus className="w-4 h-4" /> Créer une ligue
+              <Plus className="w-4 h-4" /> {l.create}
             </Link>
           )}
         </div>
       </div>
 
       {isPlayer && (
-        <Section title="Mes ligues" leagues={groups.mine} empty="Tu n'es inscrit dans aucune ligue en cours. Crée la tienne, ou demande un lien d'invitation à un organisateur." />
+        <Section title={l.mine} leagues={groups.mine} empty={l.mineEmpty} />
       )}
       <Section
-        title={isPlayer ? 'Autres ligues en cours' : 'Ligues en cours'}
+        title={isPlayer ? l.others : l.ongoing}
         leagues={groups.others}
-        empty={isPlayer ? undefined : 'Aucune ligue publique en cours pour le moment.'}
+        empty={isPlayer ? undefined : l.ongoingEmpty}
       />
-      <Section title="Ligues terminées" leagues={groups.finished} />
+      <Section title={l.finished} leagues={groups.finished} />
     </div>
   )
 }

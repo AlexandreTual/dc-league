@@ -7,12 +7,14 @@ import { playerVisual } from './visual'
 import { displayName } from './groups'
 import { deckWarnings, warningText } from './warnings'
 import type { ImportSummary } from './types'
+import type { Lang } from '@/lib/i18n/lang'
+import { messages } from '@/lib/i18n/messages'
 
 /**
  * Réécrit le contenu d'un deck à partir du texte, en n'utilisant que le cache serveur pour les cartes,
  * puis recalcule ses jetons auprès de Scryfall.
  */
-export async function commitDeckList(db: D1Database, deckId: string, text: string, scryfall: ScryfallClient): Promise<Result<ImportSummary>> {
+export async function commitDeckList(db: D1Database, deckId: string, text: string, scryfall: ScryfallClient, lang: Lang = 'fr'): Promise<Result<ImportSummary>> {
   const parsed = parseDeckList(text)
   if (parsed.lines.length === 0) return { data: null, error: 'EMPTY' }
   if (parsed.tooLong) return { data: null, error: 'TOO_LONG' }
@@ -53,7 +55,8 @@ export async function commitDeckList(db: D1Database, deckId: string, text: strin
   const cards = await getCards(db, rows.flatMap((r) => [r.en_card_id, r.fr_card_id]).filter((id): id is string => !!id))
   if (cards.error !== null) return { data: null, error: cards.error }
   const views = rows.map((r) => ({ ...r, en: cards.data[r.en_card_id ?? ''] ?? null, fr: cards.data[r.fr_card_id ?? ''] ?? null }))
-  summary.warnings = deckWarnings(views).map((w) => warningText(w, (c) => displayName(c, 'fr')))
+  // Avertissements dans la langue de l'interface ; les noms des cartes suivent la même langue.
+  summary.warnings = deckWarnings(views).map((w) => warningText(w, (c) => displayName(c, lang), messages(lang)))
 
   // Sans commandant trouvé dans la nouvelle liste, l'image de l'ancien commandant est effacée.
   let image: string | null = null

@@ -9,6 +9,7 @@ import Link from 'next/link'
 import MatchCard from '@/components/MatchCard'
 import { Calendar, CheckCircle, Clock } from 'lucide-react'
 import LoadError from '@/components/LoadError'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 export const revalidate = 0
@@ -25,8 +26,9 @@ export default async function CalendarPage({
   const { env } = getRequestContext<CloudflareEnv>()
   const db = env.DB
 
-  const access = await loadVisibleLeague(id)
-  if (!access) return <LoadError what="le calendrier" />
+  const [access, t] = await Promise.all([loadVisibleLeague(id), getMessages()])
+  const c = t.leagues.calendar
+  if (!access) return <LoadError what={c.loadWhat} />
 
   const [
     { data: players, error: playersError },
@@ -34,16 +36,14 @@ export default async function CalendarPage({
     { data: enrolled, error: enrolledError },
   ] = await Promise.all([listPlayers(db), listMatches(db, id, true), listEnrolledPlayers(db, id)])
 
-  if (playersError || matchesError || enrolledError) return <LoadError what="le calendrier" />
+  if (playersError || matchesError || enrolledError) return <LoadError what={c.loadWhat} />
 
   if (!matches || matches.length === 0) {
     return (
       <div className="text-center py-20 space-y-4">
         <Calendar className="w-12 h-12 text-dc-muted mx-auto opacity-40" />
-        <p className="text-dc-muted">La ligue n&apos;a pas encore été générée.</p>
-        <p className="text-dc-muted text-sm">
-          L&apos;organisateur doit d&apos;abord inscrire les joueurs et générer les matchs.
-        </p>
+        <p className="text-dc-muted">{c.notGenerated}</p>
+        <p className="text-dc-muted text-sm">{c.organizerFirst}</p>
       </div>
     )
   }
@@ -81,17 +81,17 @@ export default async function CalendarPage({
           <Calendar className="w-6 h-6 text-dc-gold" />
           <div className="gold-divider w-16" />
         </div>
-        <h2 className="font-fantasy text-2xl font-bold text-dc-gold">Calendrier</h2>
+        <h2 className="font-fantasy text-2xl font-bold text-dc-gold">{c.title}</h2>
 
         <div className="flex items-center justify-center gap-4 text-sm">
           <span className="flex items-center gap-1.5 text-dc-green-light">
             <CheckCircle className="w-4 h-4" />
-            {completedCount} joués
+            {c.played(completedCount)}
           </span>
           <span className="text-dc-border">·</span>
           <span className="flex items-center gap-1.5 text-dc-muted">
             <Clock className="w-4 h-4" />
-            {totalCount - completedCount} à jouer
+            {c.toPlay(totalCount - completedCount)}
           </span>
         </div>
 
@@ -106,14 +106,14 @@ export default async function CalendarPage({
           <div className="space-y-3 pt-1">
             {opponents.length > 0 && (
               <p className="text-sm text-dc-text" data-testid="my-remaining">
-                Il te reste {opponents.length} {opponents.length > 1 ? 'matchs' : 'match'} : contre{' '}
+                {c.remaining(opponents.length)}
                 <span className="text-dc-gold">{opponents.join(', ')}</span>
               </p>
             )}
             <div className="inline-flex rounded-full border border-dc-border p-0.5 text-sm" data-testid="my-matches-toggle">
               {[
-                { label: 'Mes matchs', href: `/ligues/${id}/calendrier?vue=mes`, active: calendar.mineOnly },
-                { label: 'Tous', href: `/ligues/${id}/calendrier`, active: !calendar.mineOnly },
+                { label: c.mine, href: `/ligues/${id}/calendrier?vue=mes`, active: calendar.mineOnly },
+                { label: c.all, href: `/ligues/${id}/calendrier`, active: !calendar.mineOnly },
               ].map((t) => (
                 <Link
                   key={t.label}
@@ -148,7 +148,7 @@ export default async function CalendarPage({
                         : 'bg-dc-surface border-dc-border text-dc-muted'
                     }`}
                   >
-                    Ronde {round}
+                    {c.round} {round}
                   </div>
                   <div className="flex-1 h-px bg-dc-border/50" />
                 </div>
@@ -171,7 +171,7 @@ export default async function CalendarPage({
 
                 {exempt.length > 0 && (
                   <p className="mt-2 text-sm text-dc-muted" data-testid="round-bye">
-                    {exempt.length > 1 ? 'Exempts' : 'Exempt'} : <span className="text-dc-text">{exempt.join(', ')}</span>
+                    {c.exempt(exempt.length)} <span className="text-dc-text">{exempt.join(', ')}</span>
                   </p>
                 )}
               </div>

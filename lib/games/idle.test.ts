@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { IDLE_AFTER_MS, idleFor, idleLabel } from './idle'
+import { en, fr } from '@/lib/i18n/messages'
 
 const now = new Date('2026-10-14T12:00:00Z')
 
@@ -10,10 +11,17 @@ describe('inactivité d’une table', () => {
   })
 
   it('libellé lisible', () => {
-    expect(idleLabel(30_000)).toBe('à l’instant')
-    expect(idleLabel(5 * 60_000)).toBe('il y a 5 min')
-    expect(idleLabel(3 * 3600_000 + 59 * 60_000)).toBe('il y a 3 h')
-    expect(idleLabel(2 * 86_400_000 + 3600_000)).toBe('il y a 2 j')
+    expect(idleLabel(30_000, fr)).toBe('à l’instant')
+    expect(idleLabel(5 * 60_000, fr)).toBe('il y a 5 min')
+    expect(idleLabel(3 * 3600_000 + 59 * 60_000, fr)).toBe('il y a 3 h')
+    expect(idleLabel(2 * 86_400_000 + 3600_000, fr)).toBe('il y a 2 j')
+  })
+
+  it('libellé en anglais', () => {
+    expect(idleLabel(30_000, en)).toBe('just now')
+    expect(idleLabel(5 * 60_000, en)).toBe('5 min ago')
+    expect(idleLabel(3 * 3600_000, en)).toBe('3 h ago')
+    expect(idleLabel(2 * 86_400_000, en)).toBe('2 d ago')
   })
 
   it('abandonnée au-delà de 24 h', () => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ROLL_MS, type RollFx } from './usePlayerFx'
+import { useT } from '@/components/i18n/I18nProvider'
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
@@ -56,6 +57,7 @@ function Cube({ result, still }: { result: number; still: boolean }) {
 
 /** Pièce : elle tourne sur elle-même et retombe sur « Pile » ou « Face ». */
 function Coin({ result, still }: { result: number; still: boolean }) {
+  const t = useT().table.dice
   const ref = useRef<HTMLDivElement>(null)
   const end = result === 1 ? 'rotateY(0deg)' : 'rotateY(180deg)'
   useLayoutEffect(() => {
@@ -68,8 +70,8 @@ function Coin({ result, still }: { result: number; still: boolean }) {
   return (
     <div className="w-14 h-14 [perspective:300px]">
       <div ref={ref} className="relative w-full h-full [transform-style:preserve-3d]" style={{ transform: end }}>
-        <div className={face}>Pile</div>
-        <div className={face} style={{ transform: 'rotateY(180deg)' }}>Face</div>
+        <div className={face}>{t.heads}</div>
+        <div className={face} style={{ transform: 'rotateY(180deg)' }}>{t.tails}</div>
       </div>
     </div>
   )

@@ -6,6 +6,7 @@ import { cardInfo } from '@/lib/game/apply'
 import { portraitCard } from '@/lib/game/player-summary'
 import type { Catalog, PlayerView } from '@/lib/game/types'
 import type { Lang } from './GameCard'
+import { useT } from '@/components/i18n/I18nProvider'
 
 const COLORS = ['#c9a84c', '#f0d080', '#fff4d6', '#a8862f', '#e8c766']
 
@@ -22,6 +23,7 @@ export default function VictoryScreen({ view, winner, catalogs, lang, onClose, r
   /** Bouton de revanche (joueur assis d'une partie en ligne) ; absent : pas de bouton. */
   rematch?: { label: string; busy: boolean; onGo: () => void }
 }) {
+  const t = useT().table
   const name = view.players[winner]?.name ?? '?'
   const portrait = portraitCard(view, winner)
   const image = portrait ? cardInfo(catalogs[portrait.owner], portrait, lang) : null
@@ -46,7 +48,7 @@ export default function VictoryScreen({ view, winner, catalogs, lang, onClose, r
 
   return (
     <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/60 overflow-hidden fx-fade-in" onClick={onClose}
-      role="dialog" aria-label={`Victoire de ${name}`} data-testid="victory">
+      role="dialog" aria-label={t.status.winner(name)} data-testid="victory">
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
         {confetti.map((c, i) => (
           <span key={i} className="fx-confetti absolute top-0 rounded-sm" style={{
@@ -63,14 +65,14 @@ export default function VictoryScreen({ view, winner, catalogs, lang, onClose, r
         ) : (
           <div className="w-28 h-28 rounded-full border-4 border-dc-gold bg-dc-purple flex items-center justify-center font-fantasy text-5xl text-dc-gold">{name.slice(0, 1).toUpperCase()}</div>
         )}
-        <p className="font-fantasy text-2xl text-dc-gold">Victoire de {name}</p>
+        <p className="font-fantasy text-2xl text-dc-gold">{t.status.winner(name)}</p>
         {rematch && (
           <button className="px-4 py-2 rounded-lg text-sm border border-dc-gold/60 text-dc-gold bg-dc-gold/15 hover:bg-dc-gold/25 disabled:opacity-40"
             disabled={rematch.busy} onClick={(e) => { e.stopPropagation(); rematch.onGo() }} data-testid="victory-rematch">
             {rematch.label}
           </button>
         )}
-        <p className="text-xs text-dc-muted">Toucher pour fermer</p>
+        <p className="text-xs text-dc-muted">{t.victory.close}</p>
       </div>
     </div>
   )

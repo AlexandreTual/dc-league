@@ -18,7 +18,7 @@ function check(condition, message) {
 }
 
 async function openAs(player) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: 1280, height: 900 } })
   await context.addCookies([{ name: 'dc_session', value: tokenOf(player.id), url: base }])
   const page = await context.newPage()
   page.on('pageerror', (e) => errors.push(`${player.name} : ${e.message}`))

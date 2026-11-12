@@ -8,6 +8,8 @@ import type { CurrentUser } from '@/lib/auth/types'
 import { loginHref } from '@/lib/auth/validation'
 import { isActive, mainLinks } from '@/lib/nav'
 import UserMenu from './UserMenu'
+import LanguageMenu from './i18n/LanguageMenu'
+import { useT } from './i18n/I18nProvider'
 
 const icons: Record<string, typeof Sword> = {
   '/ligues': Trophy,
@@ -25,8 +27,9 @@ const linkClass = (active: boolean) =>
 
 export default function Navbar({ user }: { user: CurrentUser | null }) {
   const pathname = usePathname()
+  const t = useT()
   const [menuOpen, setMenuOpen] = useState(false)
-  const links = mainLinks(user)
+  const links = mainLinks(user, t)
 
   // Le menu du téléphone se referme quand on change de page.
   useEffect(() => setMenuOpen(false), [pathname])
@@ -48,7 +51,7 @@ export default function Navbar({ user }: { user: CurrentUser | null }) {
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center justify-between h-16 gap-2">
           {/* Logo : retour à l'accueil */}
-          <Link href="/" className="flex items-center gap-2 min-w-0" aria-label="Commander League, accueil">
+          <Link href="/" className="flex items-center gap-2 min-w-0" aria-label={t.nav.home}>
             <div className="w-8 h-8 shrink-0 rounded-full bg-dc-gold/20 border border-dc-gold/40 flex items-center justify-center">
               <Sword className="w-4 h-4 text-dc-gold" />
             </div>
@@ -64,23 +67,24 @@ export default function Navbar({ user }: { user: CurrentUser | null }) {
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
               className="md:hidden p-2 rounded-lg text-dc-muted hover:text-dc-text hover:bg-dc-border/50"
-              aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+              aria-label={menuOpen ? t.nav.closeMenu : t.nav.openMenu}
               aria-expanded={menuOpen}
               aria-controls="menu-principal"
             >
               {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+            <LanguageMenu buttonClass="flex items-center gap-1 px-2 py-2 rounded-lg text-xs text-dc-muted hover:text-dc-text hover:bg-dc-border/50" />
             <div className="ml-1 pl-1 md:ml-2 md:pl-2 border-l border-dc-border">
               {user ? (
                 <UserMenu user={user} />
               ) : (
                 <Link
                   href={loginHref(pathname)}
-                  aria-label="Connexion"
+                  aria-label={t.nav.login}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-dc-muted hover:text-dc-text hover:bg-dc-border/50 transition-all duration-200"
                 >
                   <LogIn className="w-4 h-4 shrink-0" />
-                  <span className="hidden md:block">Connexion</span>
+                  <span className="hidden md:block">{t.nav.login}</span>
                 </Link>
               )}
             </div>

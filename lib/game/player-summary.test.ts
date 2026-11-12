@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { card, place, run, setupFor, start } from '@/test/game-fixtures'
 import { viewFor } from './view'
+import { en, fr } from '@/lib/i18n/messages'
 import { commanderPlace, frameOf, graveyardList, graveyardTail, lifeLevel, portraitCard } from './player-summary'
 
 const game = () => run(setupFor('commander', 2), start(1))
@@ -46,20 +47,21 @@ describe('portraitCard et commanderPlace', () => {
   it('le commandant en zone de commandement, vu par l’adversaire', () => {
     const view = viewFor(game(), 'p2')
     expect(portraitCard(view, 'p1')?.id).toBe(card('p1', 1))
-    expect(commanderPlace(view, card('p1', 1))).toBe('zone de commandement')
+    expect(commanderPlace(view, card('p1', 1), fr)).toBe('zone de commandement')
   })
 
   it('suit le commandant sur le champ de bataille et au cimetière', () => {
     const onField = place(game(), [{ id: card('p1', 1), player: 'p1', zone: 'battlefield' }])
-    expect(commanderPlace(viewFor(onField, 'p2'), card('p1', 1))).toBe('en jeu')
+    expect(commanderPlace(viewFor(onField, 'p2'), card('p1', 1), fr)).toBe('en jeu')
+    expect(commanderPlace(viewFor(onField, 'p2'), card('p1', 1), en)).toBe('on the battlefield')
     const dead = place(game(), [{ id: card('p1', 1), player: 'p1', zone: 'graveyard' }])
-    expect(commanderPlace(viewFor(dead, 'p2'), card('p1', 1))).toBe('au cimetière')
+    expect(commanderPlace(viewFor(dead, 'p2'), card('p1', 1), fr)).toBe('au cimetière')
   })
 
   it('commandant invisible (mélangé dans la bibliothèque) : pas de portrait', () => {
     const view = viewFor(place(game(), [{ id: card('p1', 1), player: 'p1', zone: 'library' }]), 'p2')
     expect(portraitCard(view, 'p1')).toBeNull()
-    expect(commanderPlace(view, card('p1', 1))).toBeNull()
+    expect(commanderPlace(view, card('p1', 1), fr)).toBeNull()
   })
 })
 

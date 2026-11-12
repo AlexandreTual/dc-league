@@ -8,14 +8,15 @@ import { listDeckCards } from '@/lib/db-cards'
 import DeckView from './DeckView'
 import AiProvider from '@/components/ai/AiProvider'
 import LoadError from '@/components/LoadError'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 
 export default async function DeckPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { env } = getRequestContext<CloudflareEnv>()
-  const { data: deck, error } = await getDeck(env.DB, id)
-  if (error) return <LoadError what="ce deck" />
+  const [{ data: deck, error }, t] = await Promise.all([getDeck(env.DB, id), getMessages()])
+  if (error) return <LoadError what={t.decks.page.loadWhat} />
   if (!deck) notFound()
 
   const [{ data: player, error: playerError }, { data: cards, error: cardsError }, user] = await Promise.all([
@@ -23,7 +24,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
     listDeckCards(env.DB, deck.id),
     getCurrentUser(),
   ])
-  if (playerError || cardsError) return <LoadError what="ce deck" />
+  if (playerError || cardsError) return <LoadError what={t.decks.page.loadWhat} />
 
   return (
     <AiProvider signedIn={!!user}>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { sendJson } from '@/components/formStyles'
 import { createToaster } from '@/components/toast'
+import { useT } from '@/components/i18n/I18nProvider'
 
 /** Résultat d'un appel : `ok` false quand l'erreur a déjà été affichée en message. */
 export type ApiResult<T> = { ok: boolean; data?: T }
@@ -22,6 +23,7 @@ export type AdminApi = {
  */
 export function useAdminApi(): AdminApi {
   const [toast, setToast] = useState('')
+  const t = useT()
 
   const toasterRef = useRef<ReturnType<typeof createToaster> | null>(null)
   if (!toasterRef.current) toasterRef.current = createToaster(setToast)
@@ -32,12 +34,12 @@ export function useAdminApi(): AdminApi {
     async <T,>(url: string, method: string, body?: unknown): Promise<ApiResult<T>> => {
       const { error, data } = await sendJson(url, method, body)
       if (error) {
-        showToast(`Erreur : ${error}`)
+        showToast(t.admin.error(error))
         return { ok: false }
       }
       return { ok: true, data: data as T }
     },
-    [showToast]
+    [showToast, t]
   )
 
   return { toast, showToast, call }

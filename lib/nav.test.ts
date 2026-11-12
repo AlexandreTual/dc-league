@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { accountLinks, isActive, leagueTabs, mainLinks } from './nav'
+import { en, fr } from './i18n/messages'
 
 const player = { isAdmin: false, isBootstrap: false }
 const admin = { isAdmin: true, isBootstrap: false }
@@ -8,40 +9,40 @@ const hrefs = (links: { href: string }[]) => links.map((l) => l.href)
 
 describe('mainLinks', () => {
   it('visiteur : la ligue et les règles seulement', () => {
-    expect(hrefs(mainLinks(null))).toEqual(['/ligues', '/rules'])
+    expect(hrefs(mainLinks(null, fr))).toEqual(['/ligues', '/rules'])
   })
 
   it('joueur connecté : la ligue, le salon, ses decks et les règles', () => {
-    expect(hrefs(mainLinks(player))).toEqual(['/ligues', '/salon', '/profil/decks', '/rules'])
+    expect(hrefs(mainLinks(player, fr))).toEqual(['/ligues', '/salon', '/profil/decks', '/rules'])
   })
 
   it("l'administration n'est jamais dans la barre", () => {
-    expect(hrefs(mainLinks(admin))).not.toContain('/admin')
-    expect(hrefs(mainLinks(bootstrap))).not.toContain('/admin')
+    expect(hrefs(mainLinks(admin, fr))).not.toContain('/admin')
+    expect(hrefs(mainLinks(bootstrap, fr))).not.toContain('/admin')
   })
 
   it('compte de démarrage (sans joueur) : ni salon ni decks', () => {
-    expect(hrefs(mainLinks(bootstrap))).toEqual(['/ligues', '/rules'])
+    expect(hrefs(mainLinks(bootstrap, fr))).toEqual(['/ligues', '/rules'])
   })
 })
 
 describe('accountLinks', () => {
   it('joueur : son profil', () => {
-    expect(hrefs(accountLinks(player))).toEqual(['/profil'])
+    expect(hrefs(accountLinks(player, fr))).toEqual(['/profil'])
   })
 
   it("admin : son profil puis l'administration", () => {
-    expect(hrefs(accountLinks(admin))).toEqual(['/profil', '/admin'])
+    expect(hrefs(accountLinks(admin, fr))).toEqual(['/profil', '/admin'])
   })
 
   it("compte de démarrage : l'administration seulement", () => {
-    expect(hrefs(accountLinks(bootstrap))).toEqual(['/admin'])
+    expect(hrefs(accountLinks(bootstrap, fr))).toEqual(['/admin'])
   })
 })
 
 describe('leagueTabs', () => {
   const tabs = (o: { hasPlayoffs?: boolean; canManage?: boolean }) =>
-    hrefs(leagueTabs({ leagueId: 'l1', hasPlayoffs: false, canManage: false, ...o }))
+    hrefs(leagueTabs({ leagueId: 'l1', hasPlayoffs: false, canManage: false, ...o }, fr))
 
   it('sans playoffs : classement et calendrier de la ligue', () => {
     expect(tabs({})).toEqual(['/ligues/l1/classement', '/ligues/l1/calendrier'])
@@ -81,5 +82,14 @@ describe('isActive', () => {
   it('un onglet de la ligue ne s’allume que sur sa page', () => {
     expect(isActive('/ligues/l1/classement', '/ligues/l1/calendrier', 'tab')).toBe(false)
     expect(isActive('/ligues/l1/calendrier', '/ligues/l1/calendrier', 'tab')).toBe(true)
+  })
+})
+
+describe('libellés traduits', () => {
+  it('barre, compte et onglets en anglais', () => {
+    const labels = (links: { label: string }[]) => links.map((l) => l.label)
+    expect(labels(mainLinks(player, en))).toEqual(['League', 'Play', 'My decks', 'Rules'])
+    expect(labels(accountLinks(admin, en))).toEqual(['My profile', 'Admin'])
+    expect(labels(leagueTabs({ leagueId: 'l1', hasPlayoffs: true, canManage: true }, en))).toEqual(['Standings', 'Schedule', 'Playoffs', 'Manage'])
   })
 })

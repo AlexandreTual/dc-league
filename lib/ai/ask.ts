@@ -14,7 +14,8 @@ import {
   AI_MAX_QUESTION_CHARS,
 } from './limits'
 import { AI_DISABLED, AI_NO_ANSWER, AI_QUOTA_REACHED, AI_UNKNOWN_CARD } from './messages'
-import { buildContents, SYSTEM_INSTRUCTION } from './prompt'
+import { buildContents, FRENCH, systemInstruction, type PromptOptions } from './prompt'
+import { isLang, type Lang } from '@/lib/i18n/lang'
 import { parisDay } from './quota'
 import type { AiCard, ChatMessage } from './types'
 
@@ -30,9 +31,12 @@ export type AskResult =
   | { status: 200; answer: string; remaining: number }
   | { status: 400 | 404 | 429 | 503; error: string; remaining?: number }
 
-type Parsed = { ok: true; oracleIds: string[]; messages: ChatMessage[] } | { ok: false; error: string }
+type Parsed = { ok: true; oracleIds: string[]; messages: ChatMessage[]; cardLang?: Lang } | { ok: false; error: string }
 
-/** Corps de POST /api/ai/ask : { oracleIds, messages }, le dernier message étant la nouvelle question. */
+/**
+ * Corps de POST /api/ai/ask : { oracleIds, messages, cardLang? }, le dernier message étant la nouvelle question ;
+ * cardLang (langue des cartes du joueur, facultative, ignorée si inconnue) décide des noms français dans la consigne.
+ */
 export function parseAskBody(body: Record<string, unknown>): Parsed {
   const ids = body.oracleIds
   if (!Array.isArray(ids) || ids.length === 0) return { ok: false, error: 'Choisis au moins une carte' }
@@ -61,10 +65,21 @@ export function parseAskBody(body: Record<string, unknown>): Parsed {
   if (kept.some((m) => m.role === 'assistant' && m.text.length > AI_MAX_ANSWER_CHARS) || historyChars(kept) > AI_MAX_HISTORY_CHARS) {
     return { ok: false, error: 'Conversation trop longue, recommence-la' }
   }
-  return { ok: true, oracleIds, messages: kept }
+  return { ok: true, oracleIds, messages: kept, ...(isLang(body.cardLang) ? { cardLang: body.cardLang } : {}) }
 }
 
-export async function askAi(deps: AskDeps, userId: string, oracleIds: string[], messages: ChatMessage[]): Promise<AskResult> {
+/** Consigne selon la langue de l'interface ; noms français si l'interface ou les cartes sont en français. */
+export function promptOptions(lang: Lang, cardLang?: Lang): PromptOptions {
+  return { lang, frenchNames: lang === 'fr' || cardLang === 'fr' }
+}
+
+export async function askAi(
+  deps: AskDeps,
+  userId: string,
+  oracleIds: string[],
+  messages: ChatMessage[],
+  options: PromptOptions = FRENCH,
+): Promise<AskResult> {
   if (!deps.gemini) return { status: 503, error: AI_DISABLED }
 
   const found = await getCardsByOracle(deps.db, oracleIds)
@@ -81,7 +96,7 @@ export async function askAi(deps: AskDeps, userId: string, oracleIds: string[], 
     oracleIds.map(async (id) => ({ ...found.data[id], rulings: await deps.rulings(id).catch(() => []) })),
   )
   try {
-    const answer = await deps.gemini.ask(SYSTEM_INSTRUCTION, buildContents(cards, messages))
+    const answer = await deps.gemini.ask(systemInstruction(options.lang, options.frenchNames), buildContents(cards, messages, options))
     return { status: 200, answer, remaining: taken.data }
   } catch (e) {
     console.error('[ia]', (e as Error).message)

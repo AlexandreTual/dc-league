@@ -1,4 +1,5 @@
 // Politique de reconnexion au serveur de jeu, sans navigateur (testable).
+import { fr } from '@/lib/i18n/messages'
 
 /** Délais de reconnexion successifs (ms) ; le dernier se répète. Remis à zéro après une connexion réussie. */
 export const RETRY_DELAYS = [1000, 2000, 4000, 8000, 15000]
@@ -6,11 +7,8 @@ export const RETRY_DELAYS = [1000, 2000, 4000, 8000, 15000]
 /** Durée sans connexion au-delà de laquelle on cesse de réessayer. */
 export const GIVE_UP_AFTER_MS = 60_000
 
-export const SOCKET_MSG = {
-  gone: "Cette partie n'existe plus",
-  unreachable: 'Connexion au serveur de jeu impossible',
-  offline: 'Connexion perdue, action non envoyée',
-}
+/** Messages en français (référence) ; traduits à l'affichage par `translateGameError`. */
+export const SOCKET_MSG = fr.online.socket
 
 /** Raisons de fermeture envoyées par le serveur de jeu quand la partie n'existe pas ou plus. */
 const DEFINITIVE_REASONS = ['Table supprimée', 'Partie introuvable']

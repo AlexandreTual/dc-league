@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Castle, X } from 'lucide-react'
 import { mapPoint } from '@/lib/game/dungeon-fx'
-import { DUNGEON_IDS, DUNGEONS, VENTURE_DUNGEONS, dungeonDone, roomOf, rowsOf, ventureStep, type DungeonId } from '@/lib/game/dungeons'
+import { DUNGEON_IDS, DUNGEONS, VENTURE_DUNGEONS, dungeonDone, dungeonText, roomOf, roomText, rowsOf, ventureStep, type DungeonId } from '@/lib/game/dungeons'
+import { useCardLang, useT } from '@/components/i18n/I18nProvider'
 import type { ClientAction } from '@/lib/game/room'
 import type { PlayerView } from '@/lib/game/types'
 import type { DungeonRequest } from './dungeon'
@@ -43,7 +44,7 @@ function MapToken({ view, player, index, animate }: { view: PlayerView; player: 
 }
 
 /**
- * Plan des donjons : onglets des quatre donjons, salles en étages reliées, jetons des joueurs, texte de la salle choisie.
+ * Plan des donjons (noms et textes dans la langue des cartes ; en français, le nom anglais entre parenthèses) : onglets des quatre donjons, salles en étages reliées, jetons des joueurs, texte de la salle choisie.
  * Quand c'est à moi d'explorer (`request.mode`), le choix à faire : donjon où entrer, ou salle suivante.
  */
 export default function DungeonMap({ view, request, canAct, animate, send, onClose }: {
@@ -54,6 +55,8 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
   send: (action: ClientAction) => void
   onClose: () => void
 }) {
+  const d = useT().table.dungeons
+  const [lang] = useCardLang()
   const me = view.players[view.me] ? view.me : null
   const [mode, setMode] = useState(request.mode)
   const step = me && canAct && mode ? ventureStep(view.players[me].dungeon, mode) : null
@@ -69,6 +72,8 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
   const own = (player: string | undefined) => (player && here(player) ? view.players[player].dungeon!.room : null)
   const selected = roomOf(tab, picked ?? (next.length > 0 ? null : own(request.player) ?? own(me ?? undefined)) ?? '') ?? (next[0] ? roomOf(tab, next[0])! : dungeon.rooms[0])
   const rows = rowsOf(tab)
+  const name = dungeonText(tab, lang).name
+  const selectedText = roomText(selected, lang)
   const point = (id: string) => mapPoint({ id: tab, room: id })
   const undercity = mode === 'undercity' ? { undercity: true } : {}
   const done = (fn: () => void) => () => { fn(); onClose() }
@@ -76,11 +81,11 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
       <div className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-xl border border-dc-border bg-dc-surface p-4 space-y-3 shadow-card"
-        role="dialog" aria-label="Donjons" onClick={(e) => e.stopPropagation()} data-testid="dungeon-map">
+        role="dialog" aria-label={d.title} onClick={(e) => e.stopPropagation()} data-testid="dungeon-map">
         <div className="flex items-center gap-2">
           <Castle className="w-4 h-4 text-dc-gold" />
-          <h2 className="font-fantasy text-dc-gold">Donjons</h2>
-          <button onClick={onClose} className="ml-auto w-8 h-8 tablet:w-11 tablet:h-11 flex items-center justify-center text-dc-muted hover:text-dc-text" aria-label="Fermer les donjons">
+          <h2 className="font-fantasy text-dc-gold">{d.title}</h2>
+          <button onClick={onClose} className="ml-auto w-8 h-8 tablet:w-11 tablet:h-11 flex items-center justify-center text-dc-muted hover:text-dc-text" aria-label={d.close}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -90,12 +95,12 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
             return (
               <button key={id} role="tab" aria-selected={tab === id} onClick={() => { setTab(id); setPicked(null) }} data-dungeon-tab={id}
                 className={`px-2.5 h-8 tablet:h-11 rounded-lg border text-xs ${tab === id ? 'border-dc-gold bg-dc-gold/15 text-dc-gold' : 'border-dc-border text-dc-text hover:border-dc-gold/50'}`}>
-                {DUNGEONS[id].short}{count > 0 && <span className="ml-1 text-dc-muted">({count})</span>}
+                {dungeonText(id, lang).short}{count > 0 && <span className="ml-1 text-dc-muted">({count})</span>}
               </button>
             )
           })}
         </div>
-        <p className="text-sm text-dc-text"><span className="font-fantasy text-dc-gold">{dungeon.name}</span> <span className="text-dc-muted text-xs">({dungeon.nameEn})</span></p>
+        <p className="text-sm text-dc-text"><span className="font-fantasy text-dc-gold">{name}</span>{lang === 'fr' && <> <span className="text-dc-muted text-xs">({dungeon.nameEn})</span></>}</p>
 
         <div className="relative mx-1" style={{ height: rows * ROW }} data-testid="dungeon-plan">
           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
@@ -107,6 +112,7 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
           </svg>
           {dungeon.rooms.map((r) => {
             const { x, y } = point(r.id)
+            const label = roomText(r, lang)
             const reachable = next.includes(r.id)
             const occupied = players.some((p) => view.players[p].dungeon!.room === r.id)
             return (
@@ -115,8 +121,8 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
                   ${reachable ? 'border-dc-gold ring-2 ring-dc-gold/60' : occupied ? 'border-dc-gold/70' : 'border-dc-border'}
                   ${selected.id === r.id ? 'bg-dc-surface shadow-[inset_0_0_0_1px_rgba(201,168,76,0.6)]' : 'bg-dc-bg'}`}
                 style={{ left: `${x}%`, top: `${y}%`, width: `${ROOM_WIDTH}%` }}>
-                <span className="block text-[11px] font-semibold text-dc-text leading-tight truncate">{r.name}</span>
-                <span className="block text-[10px] text-dc-muted leading-tight line-clamp-2">{r.text}</span>
+                <span className="block text-[11px] font-semibold text-dc-text leading-tight truncate">{label.name}</span>
+                <span className="block text-[10px] text-dc-muted leading-tight line-clamp-2">{label.text}</span>
               </button>
             )
           })}
@@ -124,31 +130,31 @@ export default function DungeonMap({ view, request, canAct, animate, send, onClo
         </div>
 
         <div className="rounded-lg border border-dc-border bg-dc-bg/60 p-3 space-y-1" data-testid="dungeon-room">
-          <p className="text-sm font-semibold text-dc-text">{selected.name} <span className="text-xs font-normal text-dc-muted">({selected.nameEn})</span></p>
-          <p className="text-sm text-dc-text" data-testid="dungeon-room-text">{selected.text}</p>
-          {selected.next.length === 0 && <p className="text-xs text-dc-gold">Dernière salle : le donjon est terminé.</p>}
+          <p className="text-sm font-semibold text-dc-text">{selectedText.name}{lang === 'fr' && <> <span className="text-xs font-normal text-dc-muted">({selected.nameEn})</span></>}</p>
+          <p className="text-sm text-dc-text" data-testid="dungeon-room-text">{selectedText.text}</p>
+          {selected.next.length === 0 && <p className="text-xs text-dc-gold">{d.lastRoom}</p>}
           {players.filter((p) => view.players[p].dungeon!.room === selected.id).map((p) => (
             <p key={p} className="text-xs text-dc-muted">
               <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: colorOf(view, p) }} />
-              {view.players[p].name}{dungeonDone(view.players[p].dungeon!) ? ' — donjon terminé' : ' est ici'}
+              {view.players[p].name}{dungeonDone(view.players[p].dungeon!) ? d.playerDone : d.playerHere}
             </p>
           ))}
         </div>
 
         {me && canAct && (
           <div className="flex flex-wrap items-center gap-2" data-testid="dungeon-actions">
-            {!step && <button className={`${action} border-dc-gold/50 text-dc-gold`} onClick={() => setMode('dungeon')} data-testid="dungeon-venture">Explorer le donjon</button>}
+            {!step && <button className={`${action} border-dc-gold/50 text-dc-gold`} onClick={() => setMode('dungeon')} data-testid="dungeon-venture">{d.venture}</button>}
             {step?.kind === 'choose' && (VENTURE_DUNGEONS.includes(tab)
-              ? <button className={`${action} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={done(() => send({ type: 'venture', dungeon: tab }))} data-testid="dungeon-enter">Entrer dans ce donjon</button>
-              : <p className="text-xs text-dc-muted">On n’entre dans Les Souterrains qu’avec l’initiative : choisis un autre donjon.</p>)}
+              ? <button className={`${action} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={done(() => send({ type: 'venture', dungeon: tab }))} data-testid="dungeon-enter">{d.enterThis}</button>
+              : <p className="text-xs text-dc-muted">{d.undercityOnly}</p>)}
             {step?.kind === 'enter' && (
-              <button className={`${action} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={done(() => send({ type: 'venture', undercity: true }))} data-testid="dungeon-enter">Entrer dans Les Souterrains</button>
+              <button className={`${action} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={done(() => send({ type: 'venture', undercity: true }))} data-testid="dungeon-enter">{d.enterUndercity}</button>
             )}
             {step?.kind === 'advance' && (
-              step.dungeon !== tab ? <p className="text-xs text-dc-muted">Ton donjon en cours : {DUNGEONS[step.dungeon].name}.</p>
+              step.dungeon !== tab ? <p className="text-xs text-dc-muted">{d.current(dungeonText(step.dungeon, lang).name)}</p>
                 : next.includes(selected.id)
-                  ? <button className={`${action} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={done(() => send({ type: 'venture', room: selected.id, ...undercity }))} data-testid="dungeon-advance">Avancer ici : {selected.name}</button>
-                  : <p className="text-xs text-dc-muted">Choisis la salle suivante (en surbrillance).</p>
+                  ? <button className={`${action} border-dc-gold bg-dc-gold/20 text-dc-gold`} onClick={done(() => send({ type: 'venture', room: selected.id, ...undercity }))} data-testid="dungeon-advance">{d.advance(selectedText.name)}</button>
+                  : <p className="text-xs text-dc-muted">{d.chooseRoom}</p>
             )}
           </div>
         )}

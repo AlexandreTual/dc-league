@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { markerRows, newMarkerError, PRESET_MARKERS } from './player-markers'
+import { en, fr } from '@/lib/i18n/messages'
+import { markerLabel, markerRows, newMarkerError, PRESET_MARKERS } from './player-markers'
 
 const player = (over: Partial<{ poison: number; counters: Record<string, number>; commanderDamage: Record<string, number> }> = {}) =>
   ({ poison: 0, counters: {}, commanderDamage: {}, ...over })
@@ -46,23 +47,39 @@ describe('markerRows', () => {
 
 describe('newMarkerError', () => {
   it('nom valide : aucune erreur', () => {
-    expect(newMarkerError(player(), '  Éclat ')).toBeNull()
+    expect(newMarkerError(player(), '  Éclat ', fr)).toBeNull()
   })
 
   it('nom vide : rien à créer, sans message', () => {
-    expect(newMarkerError(player(), '   ')).toBe('')
+    expect(newMarkerError(player(), '   ', fr)).toBe('')
   })
 
   it('doublon d’un prédéfini ou d’un libre, sans tenir compte de la casse ni des accents', () => {
-    expect(newMarkerError(player(), 'energie')).toBe('Le marqueur « Énergie » existe déjà.')
-    expect(newMarkerError(player({ counters: { Éclat: 0 } }), 'ÉCLAT')).toBe('Le marqueur « Éclat » existe déjà.')
+    expect(newMarkerError(player(), 'energie', fr)).toBe('Le marqueur « Énergie » existe déjà.')
+    expect(newMarkerError(player({ counters: { Éclat: 0 } }), 'ÉCLAT', fr)).toBe('Le marqueur « Éclat » existe déjà.')
   })
 
   it('poison et blessures de commandant ne se créent pas comme marqueurs libres', () => {
-    expect(newMarkerError(player(), 'Poison')).toBe('Le marqueur « Poison » existe déjà.')
+    expect(newMarkerError(player(), 'Poison', fr)).toBe('Le marqueur « Poison » existe déjà.')
   })
 
   it('nom trop long (40 caractères au plus)', () => {
-    expect(newMarkerError(player(), 'x'.repeat(41))).toBe('Nom trop long (40 caractères au plus).')
+    expect(newMarkerError(player(), 'x'.repeat(41), fr)).toBe('Nom trop long (40 caractères au plus).')
+  })
+})
+
+describe('en anglais', () => {
+  it('prédéfinis traduits à l’affichage, marqueurs libres tels quels', () => {
+    expect(PRESET_MARKERS.map((n) => markerLabel(n, en))).toEqual(['Energy', 'Experience', 'Rad', 'Tickets'])
+    expect(PRESET_MARKERS.map((n) => markerLabel(n, fr))).toEqual([...PRESET_MARKERS])
+    expect(markerLabel('Éclat', en)).toBe('Éclat')
+  })
+
+  it('messages en anglais ; un prédéfini se reconnaît aussi sous son nom anglais', () => {
+    expect(newMarkerError(player(), 'energy', en)).toBe('The Energy counter already exists.')
+    expect(newMarkerError(player(), 'Énergie', en)).toBe('The Energy counter already exists.')
+    expect(newMarkerError(player(), 'poison', en)).toBe('The Poison counter already exists.')
+    expect(newMarkerError(player(), 'x'.repeat(41), en)).toBe('Name too long (40 characters max).')
+    expect(newMarkerError(player(), 'Shard', en)).toBeNull()
   })
 })

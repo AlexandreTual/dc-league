@@ -5,6 +5,7 @@ import { listPlayerDecks } from '@/lib/db-decks'
 import { countDeckCards } from '@/lib/db-cards'
 import MyDecks from './MyDecks'
 import LoadError from '@/components/LoadError'
+import { getMessages } from '@/lib/i18n/server'
 
 export const runtime = 'edge'
 
@@ -14,13 +15,14 @@ export default async function MesDecksPage() {
   if (user.isBootstrap) redirect('/admin')
 
   const { env } = getRequestContext<CloudflareEnv>()
+  const t = await getMessages()
   const { data: decks, error: decksError } = await listPlayerDecks(env.DB, user.playerId)
   const { data: cardCounts, error: countsError } = await countDeckCards(env.DB, (decks ?? []).map((d) => d.id))
-  if (decksError || countsError) return <LoadError what="tes decks" />
+  if (decksError || countsError) return <LoadError what={t.decks.myDecks.loadWhat} />
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="font-fantasy text-2xl font-bold text-dc-gold">Mes decks</h1>
+      <h1 className="font-fantasy text-2xl font-bold text-dc-gold">{t.decks.myDecks.title}</h1>
       <MyDecks playerId={user.playerId} initialDecks={decks ?? []} cardCounts={cardCounts ?? {}} />
     </div>
   )

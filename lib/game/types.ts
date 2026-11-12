@@ -1,4 +1,5 @@
 import type { CardFace, CardRow } from '@/lib/cards/types'
+import type { Messages } from '@/lib/i18n/messages/fr'
 import type { AbilityChoice, GainedAbility, Keyword } from './abilities'
 import type { DungeonId, DungeonPosition } from './dungeons'
 
@@ -121,8 +122,41 @@ export type CardInstance = {
   knownBy: string[]
 }
 
-/** `roll` : lancer de dés, affiché aussi à son auteur (absent avec un serveur de jeu plus ancien). */
-export type LogEntry = { turn: number; actor: string | null; text: string; visibleTo: string[] | 'all'; roll?: true }
+/** Carte nommée dans une ligne du journal : son nom est lu dans le catalogue de `owner`, dans la langue des cartes du lecteur. */
+export type LogCard = { owner: string; ref: number | null; token?: string }
+
+/**
+ * Valeur d'une ligne structurée du journal. Une carte (`card`, `cards` ; `null` : carte face cachée) n'y figure que
+ * si la phrase française la nomme déjà, avec la même visibilité ; `zone` : zone de l'auteur, ou du joueur `of`.
+ */
+export type LogParam =
+  | string
+  | number
+  | number[]
+  | { card: LogCard }
+  | { cards: (LogCard | null)[] }
+  | { player: string }
+  | { players: string[] }
+  | { zone: PlayerZone; of?: string }
+  | { abilities: { keyword: Keyword; param?: string }[] }
+  | { changed: { keyword: Keyword; param: string }[] }
+  | { keywords: Keyword[] }
+  /** Donjon et salle, nommés dans la langue des cartes du lecteur. */
+  | { dungeon: DungeonId }
+  | { room: { dungeon: DungeonId; room: string } }
+
+/** Clé d'une phrase du journal (dictionnaire `log.lines`). */
+export type LogKey = keyof Messages['log']['lines']
+
+/** Ligne à traduire côté navigateur (lib/game/log-format.ts). */
+export type LogMessage = { key: LogKey; params?: Record<string, LogParam> }
+
+/**
+ * `roll` : lancer de dés, affiché aussi à son auteur (absent avec un serveur de jeu plus ancien).
+ * `text` : la phrase en français, toujours écrite (lue par les navigateurs plus anciens) ; `msg` : la même ligne
+ * structurée, absente des lignes écrites par un serveur de jeu plus ancien.
+ */
+export type LogEntry = { turn: number; actor: string | null; text: string; visibleTo: string[] | 'all'; roll?: true; msg?: LogMessage }
 
 export type GameState = {
   format: Format

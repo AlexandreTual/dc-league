@@ -1,8 +1,9 @@
 // Repères d'activité de la table : ce qui a changé entre deux vues successives d'un joueur.
 import { ptText, totalMod } from './pt'
-import type { PlayerView, VisibleCard } from './types'
+import type { LogMessage, PlayerView, VisibleCard } from './types'
 
-export type Activity = { changed: string[]; lines: { actor: string; text: string; roll?: true }[] }
+/** `msg` : ligne à traduire (lib/game/log-format.ts), absente avec un serveur de jeu plus ancien. */
+export type Activity = { changed: string[]; lines: { actor: string; text: string; roll?: true; msg?: LogMessage }[] }
 
 /** Empreinte de chaque carte visible : zone, position et état. */
 function fingerprints(view: PlayerView): Map<string, string> {
@@ -34,6 +35,6 @@ export function diffViews(prev: PlayerView | null, next: PlayerView, me: string 
   const added = count > 0 ? next.log.slice(-Math.min(count, next.log.length)) : []
   const lines = added
     .filter((l) => me === null || l.actor !== me || l.roll)
-    .map((l) => (l.roll ? { actor: l.actor ?? '', text: l.text, roll: true as const } : { actor: l.actor ?? '', text: l.text }))
+    .map((l) => ({ actor: l.actor ?? '', text: l.text, ...(l.roll ? { roll: true as const } : {}), ...(l.msg ? { msg: l.msg } : {}) }))
   return { changed, lines }
 }
