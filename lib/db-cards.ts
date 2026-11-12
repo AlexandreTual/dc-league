@@ -1,12 +1,9 @@
+import { err, ok } from './result'
 import type { Result } from './db'
 import { playerVisual } from './cards/visual'
 import type { CardLookup, CardRow, DeckCardView, DeckTokenRow, Ruling, Section, StoredCardLookup } from './cards/types'
 import type { DeckToken } from './game/types'
 
-type Ok<T> = { data: T; error: null }
-type Err = { data: null; error: string }
-function ok<T>(data: T): Ok<T> { return { data, error: null } }
-function err(msg: string): Err { return { data: null, error: msg } }
 
 // D1 limite le nombre de paramètres liés par requête.
 const IN_CHUNK = 50

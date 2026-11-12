@@ -219,7 +219,10 @@ export function canApply(state: GameState, action: GameAction): string | null {
 
     case 'setMonarch':
     case 'setInitiative':
-      return action.to === null || isPlayer(state, action.to) ? null : MSG.unknownPlayer
+      if (action.to === null) return null
+      if (!isPlayer(state, action.to)) return MSG.unknownPlayer
+      // Règles 724.4 et 725.4 : un joueur qui a quitté la partie ne peut être ni monarque ni avoir l'initiative.
+      return state.players[action.to].eliminated ? MSG.alreadyEliminated : null
 
     case 'venture': {
       const step = ventureStep(actor.dungeon, action.undercity ? 'undercity' : 'dungeon')

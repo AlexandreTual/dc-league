@@ -1,3 +1,4 @@
+import { err, ok, type Result } from './result'
 import type { Viewer } from './leagues/access'
 import { ERREURS_LIGUE } from './db'
 
@@ -36,11 +37,6 @@ export type DbLeaguePlayerWithName = DbLeaguePlayer & {
   deck_has_cards: boolean
 }
 
-type Ok<T> = { data: T; error: null }
-type Err = { data: null; error: string }
-type Result<T> = Ok<T> | Err
-function ok<T>(data: T): Ok<T> { return { data, error: null } }
-function err(msg: string): Err { return { data: null, error: msg } }
 function uuid() { return crypto.randomUUID() }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────

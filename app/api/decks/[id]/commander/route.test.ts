@@ -8,14 +8,8 @@ import type { CurrentUser } from '@/lib/auth/types'
 const ctx = vi.hoisted(() => ({ db: null as unknown as D1Database, user: null as CurrentUser | null }))
 
 vi.mock('@cloudflare/next-on-pages', () => ({ getRequestContext: () => ({ env: { DB: ctx.db } }) }))
-vi.mock('@/lib/auth/session', async () => {
-  const { NextResponse } = await import('next/server')
-  const { assertSameOrigin } = await import('@/lib/auth/origin')
-  return {
-    assertSameOrigin,
-    requireUser: async () => ctx.user ?? NextResponse.json({ error: 'Connexion requise' }, { status: 401 }),
-  }
-})
+// Seule la lecture de la session est simulée : origine, droits et corps JSON passent par le vrai apiRoute.
+vi.mock('@/lib/auth/session', () => ({ getCurrentUser: async () => ctx.user }))
 
 const { PATCH } = await import('./route')
 
@@ -82,5 +76,10 @@ describe('PATCH /api/decks/[id]/commander', () => {
     ctx.user = user('p2')
     expect((await patch({ position: 1, commander: false })).status).toBe(403)
     expect(await sectionOf(1)).toBe('commander')
+  })
+
+  it('un corps JSON null donne une 400 en français, pas une 500', async () => {
+    const res = await patch(null)
+    expect([res.status, await res.json()]).toEqual([400, { error: 'Requête invalide' }])
   })
 })

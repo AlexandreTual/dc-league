@@ -7,14 +7,8 @@ import { TOKENS_NOT_READY } from '@/lib/cards/tokens'
 const ctx = vi.hoisted(() => ({ db: null as unknown as D1Database, user: null as CurrentUser | null }))
 
 vi.mock('@cloudflare/next-on-pages', () => ({ getRequestContext: () => ({ env: { DB: ctx.db } }) }))
-vi.mock('@/lib/auth/session', async () => {
-  const { NextResponse } = await import('next/server')
-  const { assertSameOrigin } = await import('@/lib/auth/origin')
-  return {
-    assertSameOrigin,
-    requireUser: async () => ctx.user ?? NextResponse.json({ error: 'Connexion requise' }, { status: 401 }),
-  }
-})
+// Seule la lecture de la session est simulée : origine, droits et corps JSON passent par le vrai apiRoute.
+vi.mock('@/lib/auth/session', () => ({ getCurrentUser: async () => ctx.user }))
 
 const { POST } = await import('./route')
 

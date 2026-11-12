@@ -10,7 +10,7 @@ import { PLAYER_ZONES, type GameAction, type PlayerZone } from './types'
 const ctx = (seed = 77, now = 0) => ({ now, seed: () => seed })
 /** Graines successives g0, g1… : l'ordre du tour puis une par joueur. */
 const seeds = () => { let n = 0; return () => `g${n++}` }
-const room = (n = 3, now = 0) => createRoom('t1', setupFor('commander', n), 'p1', seeds(), now)
+const room = (n = 3, now = 0, eliminatedSeeAll = false) => createRoom('t1', setupFor('commander', n, { eliminatedSeeAll }), 'p1', seeds(), now)
 const act = (r: RoomState, from: string | null, action: ClientAction, c = ctx()) => handleMessage(r, from, { type: 'action', action }, c)
 const keepAll = (r: RoomState) => r.seats.forEach((s) => act(r, s.playerId, { type: 'keep' }))
 const state = (r: RoomState) => r.history.state
@@ -186,21 +186,34 @@ describe('viewMessageFor', () => {
 })
 
 describe('anti-fuite', () => {
-  it('200 messages aléatoires : aucune donnée de carte invisible envoyée', () => {
-    const rng = createRng(42)
+  for (const eliminatedSeeAll of [false, true]) it(`300 messages aléatoires${eliminatedSeeAll ? ', éliminés qui voient tout' : ''} : aucune donnée de carte invisible envoyée`, () => {
+    const rng = createRng(eliminatedSeeAll ? 43 : 42)
     const pick = <T,>(list: readonly T[]): T => list[Math.floor(rng() * list.length)]
-    const r = room(4)
+    const r = room(4, 0, eliminatedSeeAll)
     const ids = r.seats.map((s) => s.playerId)
+    // Une partie sur deux, deux joueurs gardent leur main après un mulligan (non annulable).
+    if (eliminatedSeeAll) for (const p of ['p2', 'p3']) act(r, p, { type: 'mulligan' }, ctx(5))
     keepAll(r)
     const viewers: (string | null)[] = [...ids, null]
     const sent = new Map<string | null, CardDataMap>(viewers.map((v) => [v, {}]))
 
-    const randomMessage = (): ClientMessage => {
+    const randomMessage = (actor: string): ClientMessage => {
       const s = state(r)
-      const actor = pick(ids)
       const allCards = Object.keys(s.cards)
-      switch (pick(['draw', 'move', 'move', 'move', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'search', 'undo', 'shuffle'])) {
+      switch (pick(['draw', 'move', 'move', 'move', 'moveMany', 'giveControl', 'look', 'endLook', 'reveal', 'faceDown', 'endTurn', 'search', 'undo', 'shuffle', 'concede'])) {
         case 'draw': return { type: 'action', action: { type: 'draw', count: 1 } }
+        case 'moveMany': {
+          const from = pick(['hand', 'battlefield', 'graveyard'] as const)
+          const list = s.players[actor].zones[from].slice(0, 3)
+          const zone: PlayerZone = pick(PLAYER_ZONES)
+          return { type: 'action', action: { type: 'moveMany', ids: list, zone, random: zone !== 'battlefield' && rng() < 0.5 } }
+        }
+        case 'giveControl': {
+          const bf = s.players[actor].zones.battlefield
+          return { type: 'action', action: { type: 'giveControl', id: bf.length ? pick(bf) : pick(allCards), to: pick(ids) } }
+        }
+        // Un seul abandon par partie : il ne s'annule jamais et l'éliminé ne joue plus (il regarde, avec l'option).
+        case 'concede': return Object.values(s.players).some((p) => p.eliminated) ? { type: 'undo' } : { type: 'concede' }
         case 'move': {
           const id = pick(allCards)
           const zone: PlayerZone = pick(PLAYER_ZONES)
@@ -221,9 +234,10 @@ describe('anti-fuite', () => {
     }
 
     let changed = 0
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 300; i++) {
       const from = pick(ids)
-      const msg = randomMessage()
+      // Le plus souvent, l'auteur joue avec ses propres cartes ; parfois avec celles d'un autre (refus attendu).
+      const msg = randomMessage(rng() < 0.7 ? from : pick(ids))
       if (!handleMessage(r, from, msg, { now: i, seed: () => Math.floor(rng() * 1e9) }).changed) continue
       changed++
       const s = state(r)
@@ -240,7 +254,7 @@ describe('anti-fuite', () => {
         }
       }
     }
-    expect(changed).toBeGreaterThan(80)
+    expect(changed).toBeGreaterThan(100)
   })
 })
 

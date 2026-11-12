@@ -377,6 +377,14 @@ export async function deleteTable(db: D1Database, id: string): Promise<Result<nu
   })
 }
 
+/** Tables dont le joueur est l'hôte, quel que soit leur état : elles disparaissent avec lui (suppression en cascade). */
+export async function hostedTables(db: D1Database, playerId: string): Promise<Result<string[]>> {
+  return guard(async () => {
+    const { results } = await db.prepare('SELECT id FROM game_tables WHERE host_player_id = ?').bind(playerId).all<{ id: string }>()
+    return ok(results.map((r) => r.id))
+  })
+}
+
 /** Tables dont la partie est en cours. */
 export async function playingTables(db: D1Database): Promise<Result<string[]>> {
   return guard(async () => {

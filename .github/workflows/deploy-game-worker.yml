@@ -16,6 +16,7 @@ on:
       - 'lib/db-chunks.ts'
       - 'lib/db-errors.ts'
       - 'lib/db.ts'
+      - 'lib/result.ts'
       - 'lib/cards/types.ts'
       - 'lib/i18n/**'
       - 'lib/table-settings.ts'

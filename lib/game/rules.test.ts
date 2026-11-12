@@ -142,6 +142,14 @@ describe('compteurs de joueur', () => {
     ok(base(), { type: 'setInitiative', actor: 'p2', to: null })
   })
 
+  it('monarque, initiative : jamais à un joueur éliminé', () => {
+    const s = base()
+    const gone = { ...s, players: { ...s.players, p4: { ...s.players.p4, eliminated: true } } }
+    ko(gone, { type: 'setMonarch', actor: 'p2', to: 'p4' }, 'Ce joueur est déjà éliminé')
+    ko(gone, { type: 'setInitiative', actor: 'p2', to: 'p4' }, 'Ce joueur est déjà éliminé')
+    ok(gone, { type: 'setMonarch', actor: 'p2', to: 'p3' })
+  })
+
   it('commanderDamage : commandant d’un autre joueur, et jamais en duel', () => {
     ok(base(), { type: 'commanderDamage', actor: 'p2', target: 'p1', commander: kenrith('p2'), delta: 5 })
     ko(base(), { type: 'commanderDamage', actor: 'p1', target: 'p1', commander: kenrith('p1'), delta: 5 })
